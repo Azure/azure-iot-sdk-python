@@ -16,13 +16,8 @@ import task_cleanup
 import const
 import utils
 from iptables import all_disconnect_types
-from utils import get_random_message, fault_injection_types, get_fault_injection_message
-from azure.iot.device.exceptions import (
-    ConnectionFailedError,
-    ConnectionDroppedError,
-    OperationCancelled,
-    NoConnectionError,
-)
+from utils import get_random_message
+from retry_async import retry_exponential_backoff_with_jitter
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -37,6 +32,8 @@ def toxic():
 
 reset_reported_props = {const.TEST_CONTENT: None}
 
+call_with_retry = retry_exponential_backoff_with_jitter
+
 
 def get_random_property_value():
     return utils.get_random_string(100, True)
@@ -49,87 +46,35 @@ def wrap_as_reported_property(value, key=None):
         return {const.TEST_CONTENT: value}
 
 
-async def call_with_connection_retry(client, func, *args, **kwargs):
-    """
-    wrapper function to call a function with retry.
-    """
-    attempt = 1
-    call_id = str(uuid.uuid4())
-
-    logger.info(
-        "retry: call {} started, call = {}({}, {}). Connecting".format(
-            call_id, str(func), str(args), str(kwargs)
-        )
-    )
-
-    # "Poor-man's" retry policy. Retry 5 times with linear backoff
-    while True:
-        try:
-            # If we're not connected, we need to connect.
-            if not client.connected:
-                logger.info("retry: call {} reconnecting".format(call_id))
-                await client.connect()
-
-            logger.info("retry: call {} invoking".format(call_id))
-            result = await func(*args, **kwargs)
-            logger.info("retry: call {} successful".format(call_id))
-            return result
-
-        except (
-            ConnectionFailedError,
-            ConnectionDroppedError,
-            OperationCancelled,
-            NoConnectionError,
-        ) as e:
-            if attempt == 5:
-                logger.info(
-                    "retry; Call {} retry limit exceeded. Raising {}".format(
-                        call_id, str(e) or type(e)
-                    )
-                )
-                raise
-            sleep_time = 5 * attempt
-
-            logger.info(
-                "retry; Call {} attempt {} raised {}. Sleeping for {} and trying again".format(
-                    call_id, attempt, str(e) or type(e), sleep_time
-                )
-            )
-
-            await asyncio.sleep(sleep_time)
-            attempt += 1
-        except Exception as e:
-            logger.info(
-                "retry: Call {} raised non-retriable error {}".format(call_id, str(e) or type(e))
-            )
-            raise e
-
-
 @pytest.mark.timeout(600)
 @pytest.mark.stress
 @pytest.mark.describe("Client Stress")
+@pytest.mark.parametrize(*parametrize.auto_connect_disabled)
+@pytest.mark.parametrize(*parametrize.connection_retry_disabled)
 class TestTwinStress(object):
     @pytest.mark.parametrize(
         "iteration_count", [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")]
     )
     @pytest.mark.it("Can send continuous reported property updates, one-at-a-time")
     async def test_stress_serial_reported_property_updates(
-        self, client, service_helper, toxic, iteration_count
+        self, client, service_helper, toxic, iteration_count, leak_tracker
     ):
         """
         Send reported property updates, one at a time, and verify that each one
         has been received at the service. Do not overlap these calls.
         """
-        await call_with_connection_retry(
-            client, client.patch_twin_reported_properties, reset_reported_props
-        )
+        leak_tracker.set_initial_object_list()
+
+        leak_tracker.set_initial_object_list()
+
+        await call_with_retry(client, client.patch_twin_reported_properties, reset_reported_props)
 
         for i in range(iteration_count):
             logger.info("Iteration {} of {}".format(i, iteration_count))
 
             # Update the reported property.
             patch = wrap_as_reported_property(get_random_property_value())
-            await call_with_connection_retry(client, client.patch_twin_reported_properties, patch)
+            await call_with_retry(client, client.patch_twin_reported_properties, patch)
 
             # Wait for that reported property to arrive at the service.
             received = False
@@ -144,6 +89,8 @@ class TestTwinStress(object):
                         )
                     )
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize(
         "iteration_count, batch_size",
         [
@@ -153,16 +100,18 @@ class TestTwinStress(object):
     )
     @pytest.mark.it("Can send continuous overlapped reported property updates")
     async def test_stress_parallel_reported_property_updates(
-        self, client, service_helper, toxic, iteration_count, batch_size
+        self, client, service_helper, toxic, iteration_count, batch_size, leak_tracker
     ):
         """
         Update reported properties with many overlapped calls. Work in batches
         with `batch_size` overlapped calls in a batch. Verify that the updates arrive
         at the service.
         """
-        await call_with_connection_retry(
-            client, client.patch_twin_reported_properties, reset_reported_props
-        )
+        leak_tracker.set_initial_object_list()
+
+        leak_tracker.set_initial_object_list()
+
+        await call_with_retry(client, client.patch_twin_reported_properties, reset_reported_props)
 
         for _ in range(0, iteration_count, batch_size):
             props = {
@@ -171,7 +120,7 @@ class TestTwinStress(object):
 
             # Do overlapped calls to update `batch_size` properties.
             tasks = [
-                call_with_connection_retry(
+                call_with_retry(
                     client,
                     client.patch_twin_reported_properties,
                     wrap_as_reported_property(props[key], key),
@@ -205,17 +154,21 @@ class TestTwinStress(object):
                                 )
                             )
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize(
         "iteration_count", [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")]
     )
     @pytest.mark.it("Can receive continuous desired property updates that were sent one-at-a-time")
     async def test_stress_serial_desired_property_updates(
-        self, client, service_helper, toxic, iteration_count, event_loop
+        self, client, service_helper, toxic, iteration_count, event_loop, leak_tracker
     ):
         """
         Update desired properties, one at a time, and verify that the desired property arrives
         at the client before the next update.
         """
+        leak_tracker.set_initial_object_list()
+
         patches = asyncio.Queue()
 
         async def handle_on_patch_received(patch):
@@ -238,6 +191,8 @@ class TestTwinStress(object):
             received_patch = await asyncio.wait_for(patches.get(), 60)
             assert received_patch[const.TEST_CONTENT] == property_value
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize(
         "iteration_count, batch_size",
         [
@@ -248,13 +203,15 @@ class TestTwinStress(object):
     @pytest.mark.it(
         "Can receive continuous desired property updates that may have been sent in parallel"
     )
-    async def test_stress_parallel_desired_property_udpates(
-        self, client, service_helper, toxic, iteration_count, batch_size, event_loop
+    async def test_stress_parallel_desired_property_updates(
+        self, client, service_helper, toxic, iteration_count, batch_size, event_loop, leak_tracker
     ):
         """
-        Update desired properties in batches. Each batch udpates `batch_size` properties,
+        Update desired properties in batches. Each batch updates `batch_size` properties,
         with each property being updated in it's own `PATCH`.
         """
+        leak_tracker.set_initial_object_list()
+
         patches = asyncio.Queue()
 
         async def handle_on_patch_received(patch):
@@ -303,18 +260,22 @@ class TestTwinStress(object):
                                 )
                             )
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize(
         "iteration_count", [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")]
     )
     @pytest.mark.it("Can continuously call get_twin and get valid property values")
     async def test_stress_serial_get_twin_calls(
-        self, client, service_helper, toxic, iteration_count
+        self, client, service_helper, toxic, iteration_count, leak_tracker
     ):
         """
         Call `get_twin` once-at-a-time to verify that updated properites show up. This test
         calls `get_twin()` `iteration_count` times. Once a reported property shows up in the
         twin, that property is updated to be verified in future `get_twin` calls.
         """
+        leak_tracker.set_initial_object_list()
+
         last_property_value = None
         current_property_value = None
 
@@ -325,7 +286,7 @@ class TestTwinStress(object):
             if not current_property_value:
                 current_property_value = get_random_property_value()
                 logger.info("patching to {}".format(current_property_value))
-                await call_with_connection_retry(
+                await call_with_retry(
                     client,
                     client.patch_twin_reported_properties,
                     wrap_as_reported_property(current_property_value),
@@ -334,7 +295,7 @@ class TestTwinStress(object):
             # Call get_twin to verify that this property arrived.
             # reported properties aren't immediately reflected in `get_twin` calls,
             # so we have to account for retrieving old property values.
-            twin = await call_with_connection_retry(client, client.get_twin)
+            twin = await call_with_retry(client, client.get_twin)
             logger.info("Got {}".format(twin[const.REPORTED][const.TEST_CONTENT]))
             if twin[const.REPORTED][const.TEST_CONTENT] == current_property_value:
                 logger.info("it's a match.")
@@ -347,6 +308,10 @@ class TestTwinStress(object):
 
         assert last_property_value, "No patches with updated properties were received"
 
+        leak_tracker.check_for_leaks()
+
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize(
         "iteration_count, batch_size",
         [
@@ -357,17 +322,19 @@ class TestTwinStress(object):
     )
     @pytest.mark.it("Can continuously make overlapped get_twin calls and get valid property values")
     async def test_stress_parallel_get_twin_calls(
-        self, client, service_helper, toxic, iteration_count, batch_size
+        self, client, service_helper, toxic, iteration_count, batch_size, leak_tracker
     ):
         """
         Call `get_twin` many times, overlapped, to verify that updated properites show up. This test
         calls `get_twin()` `iteration_count` times. Once a reported property shows up in the
         twin, that property is updated to be verified in future `get_twin` calls.
         """
+        leak_tracker.set_initial_object_list()
+
         last_property_value = None
         current_property_value = get_random_property_value()
 
-        await call_with_connection_retry(
+        await call_with_retry(
             client,
             client.patch_twin_reported_properties,
             wrap_as_reported_property(current_property_value),
@@ -375,7 +342,7 @@ class TestTwinStress(object):
         ready_to_test = False
 
         while not ready_to_test:
-            twin = await call_with_connection_retry(client, client.get_twin)
+            twin = await call_with_retry(client, client.get_twin)
             if twin[const.REPORTED].get(const.TEST_CONTENT, "") == current_property_value:
                 logger.info("Initial value set")
                 ready_to_test = True
@@ -390,7 +357,7 @@ class TestTwinStress(object):
             if not current_property_value:
                 current_property_value = get_random_property_value()
                 logger.info("patching to {}".format(current_property_value))
-                await call_with_connection_retry(
+                await call_with_retry(
                     client,
                     client.patch_twin_reported_properties,
                     wrap_as_reported_property(current_property_value),
@@ -398,7 +365,7 @@ class TestTwinStress(object):
 
             # Call `get_twin` many times overlapped and verify that we get either
             # the old property value (if we know it), or the new property value.
-            tasks = [call_with_connection_retry(client, client.get_twin) for _ in range(batch_size)]
+            tasks = [call_with_retry(client, client.get_twin) for _ in range(batch_size)]
             results = await asyncio.gather(*tasks, return_exceptions=True)
             got_a_match = False
 
@@ -420,3 +387,5 @@ class TestTwinStress(object):
             if got_a_match:
                 last_property_value = current_property_value
                 current_property_value = None
+
+        leak_tracker.check_for_leaks()

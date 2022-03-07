@@ -8,12 +8,55 @@ import e2e_settings
 import logging
 import time
 import datetime
+import json
+import retry_async
 from utils import create_client_object
 from service_helper import ServiceHelper
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_pyfunc_call(pyfuncitem):
+    """
+    pytest hook that gets called for running an individual test. We use this to store
+    retry statistics for this test in the `pyfuncitem` for the test.
+    """
+
+    # Reset tests before running the test
+    retry_async.reset_retry_stats()
+
+    try:
+        # Run the test. We can do this because hookwrapper=True
+        yield
+    finally:
+        # If we actualy collected any stats, store them.
+        if retry_async.retry_stats:
+            pyfuncitem.retry_stats = retry_async.retry_stats
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus):
+    """
+    pytest hook that gets called at the end of a test session. We use this to
+    log stress results to stdout.
+    """
+
+    # Loop through all of our tests and print contents of `retry_stats` if it exists.
+    printed_header = False
+    for item in session.items:
+        retry_stats = getattr(item, "retry_stats", None)
+        if retry_stats:
+            if not printed_header:
+                print(
+                    "================================ retry summary ================================="
+                )
+                printed_header = True
+            print("Retry stats for {}".format(item.name))
+            print(json.dumps(retry_stats, indent=2))
+            print("-----------------------------------")
 
 
 @pytest.fixture(scope="module")
