@@ -26,10 +26,38 @@ connection_retry_disabled_and_enabled = [
     ],
 ]
 
-auto_connect_off_and_on = [
+connection_retry_enabled = [
+    "connection_retry",
+    [
+        pytest.param(True, id="connection_retry enabled"),
+    ],
+]
+
+connection_retry_disabled = [
+    "connection_retry",
+    [
+        pytest.param(False, id="connection_retry disabled"),
+    ],
+]
+
+auto_connect_disabled_and_enabled = [
     "auto_connect",
     [
         pytest.param(True, id="auto_connect enabled"),
+        pytest.param(False, id="auto_connect disabled"),
+    ],
+]
+
+auto_connect_enabled = [
+    "auto_connect",
+    [
+        pytest.param(True, id="auto_connect enabled"),
+    ],
+]
+
+auto_connect_disabled = [
+    "auto_connect",
+    [
         pytest.param(False, id="auto_connect disabled"),
     ],
 ]
