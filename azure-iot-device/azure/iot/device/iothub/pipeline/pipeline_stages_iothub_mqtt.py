@@ -97,7 +97,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
                 topic=topic,
-                payload=op.message.data,
+                payload=op.message.data_str,
             )
             self.send_op_down(worker_op)
 

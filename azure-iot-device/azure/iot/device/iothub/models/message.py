@@ -36,7 +36,7 @@ class Message(object):
         :param str content_type: Content type property used to routes with the message body.
         :param str output_name: Name of the output that the is being sent to.
         """
-        self.data = str(data)
+        self.data = data
         self.custom_properties = {}
         self.message_id = message_id
         self.expiry_time_utc = None
@@ -48,6 +48,8 @@ class Message(object):
         self.input_name = None
         self.ack = None
         self._iothub_interface_id = None
+        # Note that this has to be done after content encoding is set
+        self.data_str = self._convert_to_string(data)
 
     @property
     def iothub_interface_id(self):
@@ -62,7 +64,7 @@ class Message(object):
         self._iothub_interface_id = constant.SECURITY_MESSAGE_INTERFACE_ID
 
     def __str__(self):
-        return self.data
+        return self.data_str
 
     def get_size(self):
         total = 0
@@ -76,3 +78,10 @@ class Message(object):
                 sys.getsizeof(v) for v in self.custom_properties.values() if v is not None
             )
         return total
+
+    def _convert_to_string(self, data):
+        if isinstance(data, (bytes, bytearray)):
+            encoding_type = self.content_encoding or "utf-8"
+            return data.decode(encoding_type)
+        else:
+            return str(data)
