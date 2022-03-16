@@ -79,7 +79,11 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         register_async = async_adapter.emulate_async(self._pipeline.register)
         register_complete = async_adapter.AwaitableCallback(return_arg_name="result")
-        await register_async(payload=self._provisioning_payload, callback=register_complete)
+        await register_async(
+            payload=self._provisioning_payload,
+            callback=register_complete,
+            client_csr=self.client_csr,
+        )
         result = await handle_result(register_complete)
 
         log_on_register_complete(result)

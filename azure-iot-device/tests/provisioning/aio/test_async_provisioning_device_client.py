@@ -70,7 +70,7 @@ class TestClientRegister(object):
         self, mocker, provisioning_pipeline, registration_result
     ):
         # Override callback to pass successful result
-        def register_complete_success_callback(payload, callback):
+        def register_complete_success_callback(payload, callback, client_csr):
             callback(result=registration_result)
 
         mocker.patch.object(
@@ -94,7 +94,7 @@ class TestClientRegister(object):
     async def test_register_calls_pipeline_register(
         self, provisioning_pipeline, mocker, registration_result
     ):
-        def register_complete_success_callback(payload, callback):
+        def register_complete_success_callback(payload, callback, client_csr):
             callback(result=registration_result)
 
         mocker.patch.object(
@@ -111,7 +111,7 @@ class TestClientRegister(object):
         # success result
         registration_result._status = "assigned"
 
-        def register_complete_success_callback(payload, callback):
+        def register_complete_success_callback(payload, callback, client_csr):
             callback(result=registration_result)
 
         mocker.patch.object(
@@ -130,7 +130,7 @@ class TestClientRegister(object):
         # fail result
         registration_result._status = "not assigned"
 
-        def register_complete_fail_callback(payload, callback):
+        def register_complete_fail_callback(payload, callback, client_csr):
             callback(result=registration_result)
 
         mocker.patch.object(
@@ -172,7 +172,7 @@ class TestClientRegister(object):
         assert provisioning_pipeline.shutdown.call_count == 1
         # Callbacks sent to pipeline as expected
         assert provisioning_pipeline.register.call_args == mocker.call(
-            payload=mocker.ANY, callback=cb_mock_register
+            payload=mocker.ANY, callback=cb_mock_register, client_csr=None
         )
         assert provisioning_pipeline.shutdown.call_args == mocker.call(callback=cb_mock_shutdown)
         # Callback completions were waited upon as expected
@@ -209,7 +209,7 @@ class TestClientRegister(object):
         assert provisioning_pipeline.shutdown.call_count == 0
         # Callbacks sent to pipeline as expected
         assert provisioning_pipeline.register.call_args == mocker.call(
-            payload=mocker.ANY, callback=cb_mock_register
+            payload=mocker.ANY, callback=cb_mock_register, client_csr=None
         )
         # Callback completions were waited upon as expected
         assert cb_mock_register.completion.call_count == 1
@@ -221,7 +221,7 @@ class TestClientRegister(object):
     ):
         result = registration_result
 
-        def register_complete_success_callback(payload, callback):
+        def register_complete_success_callback(payload, callback, client_csr):
             callback(result=result)
 
         mocker.patch.object(
@@ -230,6 +230,8 @@ class TestClientRegister(object):
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
         result_returned = await client.register()
+        print("print(result_returned)")
+        print(result_returned)
         assert result_returned == result
 
     @pytest.mark.it(
@@ -271,7 +273,7 @@ class TestClientRegister(object):
     ):
         error = pipeline_error()
 
-        def register_complete_failure_callback(payload, callback):
+        def register_complete_failure_callback(payload, callback, client_csr):
             callback(result=None, error=error)
 
         mocker.patch.object(
@@ -304,7 +306,7 @@ class TestClientRegister(object):
 
         error = pipeline_error()
 
-        def register_complete_success_callback(payload, callback):
+        def register_complete_success_callback(payload, callback, client_csr):
             callback(result=registration_result)
 
         def shutdown_failure_callback(callback):
@@ -364,3 +366,36 @@ class TestClientProvisioningPayload(object):
         client = ProvisioningDeviceClient(provisioning_pipeline)
         client.provisioning_payload = payload_input
         assert client.provisioning_payload == payload_input
+
+
+@pytest.mark.describe("ProvisioningDeviceClient (Async) - .set_client_csr()")
+class TestClientCsr(object):
+    @pytest.mark.it("Sets the csr on the client csr attribute")
+    @pytest.mark.parametrize(
+        "csr_input",
+        [
+            pytest.param("Client Certificate Request", id="String input"),
+            pytest.param(None, id="None input"),
+        ],
+    )
+    def test_set_csr(self, mocker, csr_input):
+        provisioning_pipeline = mocker.MagicMock()
+
+        client = ProvisioningDeviceClient(provisioning_pipeline)
+        client.client_csr = csr_input
+        assert client._client_csr == csr_input
+
+    @pytest.mark.it("Gets the csr from the client csr property")
+    @pytest.mark.parametrize(
+        "csr_input",
+        [
+            pytest.param("Client Certificate Request", id="String input"),
+            pytest.param(None, id="None input"),
+        ],
+    )
+    def test_get_csr(self, mocker, csr_input):
+        provisioning_pipeline = mocker.MagicMock()
+
+        client = ProvisioningDeviceClient(provisioning_pipeline)
+        client.client_csr = csr_input
+        assert client.client_csr == csr_input

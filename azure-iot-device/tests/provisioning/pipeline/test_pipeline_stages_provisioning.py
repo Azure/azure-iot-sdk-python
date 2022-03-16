@@ -49,6 +49,8 @@ fake_symmetric_key = "Zm9vYmFy"
 fake_x509_cert_file = "fantastic_beasts"
 fake_x509_cert_key_file = "where_to_find_them"
 fake_pass_phrase = "alohomora"
+fake_csr = "fake_client_csr"
+fake_issued_x509_cert = "fake_x509_cert"
 
 
 class FakeRegistrationResult(object):
@@ -62,11 +64,12 @@ class FakeRegistrationResult(object):
 
 
 class FakeRegistrationState(object):
-    def __init__(self, payload):
+    def __init__(self, payload, cert):
         self.deviceId = fake_device_id
         self.assignedHub = fake_assigned_hub
         self.payload = payload
         self.substatus = fake_sub_status
+        self.issued_client_certificate = cert
 
     def __str__(self):
         return "\n".join(
@@ -77,8 +80,8 @@ class FakeRegistrationState(object):
         return json.dumps(self.payload, default=lambda o: o.__dict__, sort_keys=True)
 
 
-def create_registration_result(fake_payload, status):
-    state = FakeRegistrationState(payload=fake_payload)
+def create_registration_result(payload, status, issued_x509_cert):
+    state = FakeRegistrationState(payload=payload, cert=issued_x509_cert)
     return FakeRegistrationResult(fake_operation_id, status, state)
 
 
@@ -135,10 +138,17 @@ class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, Registratio
     def request_payload(self, request):
         return request.param
 
+    @pytest.fixture(params=[None, fake_csr], ids=["empty csr", "some csr"])
+    def request_client_csr(self, request):
+        return request.param
+
     @pytest.fixture
-    def op(self, stage, mocker, request_payload):
+    def op(self, stage, mocker, request_payload, request_client_csr):
         op = pipeline_ops_provisioning.RegisterOperation(
-            request_payload, fake_registration_id, callback=mocker.MagicMock()
+            request_payload,
+            fake_registration_id,
+            callback=mocker.MagicMock(),
+            client_csr=request_client_csr,
         )
         yield op
 
@@ -151,9 +161,11 @@ class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, Registratio
             op.provisioning_timeout_timer.cancel()
 
     @pytest.fixture
-    def request_body(self, request_payload):
-        return '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
-            reg_id=fake_registration_id, json_payload=json.dumps(request_payload)
+    def request_body(self, request_payload, request_client_csr):
+        return '{{"clientCertificateCsr": {json_csr}, "payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
+            reg_id=fake_registration_id,
+            json_payload=json.dumps(request_payload),
+            json_csr=json.dumps(request_client_csr),
         )
 
     @pytest.mark.it(
@@ -193,10 +205,17 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
     def request_payload(self, request):
         return request.param
 
+    @pytest.fixture(params=[None, fake_csr], ids=["empty csr", "some csr"])
+    def request_client_csr(self, request):
+        return request.param
+
     @pytest.fixture
-    def send_registration_op(self, mocker, request_payload):
+    def send_registration_op(self, mocker, request_payload, request_client_csr):
         op = pipeline_ops_provisioning.RegisterOperation(
-            request_payload, fake_registration_id, callback=mocker.MagicMock()
+            request_payload,
+            fake_registration_id,
+            callback=mocker.MagicMock(),
+            client_csr=request_client_csr,
         )
         yield op
 
@@ -228,9 +247,11 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         return op
 
     @pytest.fixture
-    def request_body(self, request_payload):
-        return '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
-            reg_id=fake_registration_id, json_payload=json.dumps(request_payload)
+    def request_body(self, request_payload, request_client_csr):
+        return '{{"clientCertificateCsr": {json_csr}, "payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
+            reg_id=fake_registration_id,
+            json_payload=json.dumps(request_payload),
+            json_csr=json.dumps(request_client_csr),
         )
 
     @pytest.mark.it(
@@ -312,7 +333,9 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
     def test_request_and_response_op_completed_success_with_status_assigned(
         self, stage, request_payload, send_registration_op, request_and_response_op
     ):
-        registration_result = create_registration_result(request_payload, "assigned")
+        registration_result = create_registration_result(
+            request_payload, "assigned", fake_issued_x509_cert
+        )
 
         assert not send_registration_op.completed
         assert not request_and_response_op.completed
@@ -337,7 +360,7 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
     def test_request_and_response_op_completed_success_with_status_failed(
         self, stage, request_payload, send_registration_op, request_and_response_op
     ):
-        registration_result = create_registration_result(request_payload, "failed")
+        registration_result = create_registration_result(request_payload, "failed", None)
 
         assert not send_registration_op.completed
         assert not request_and_response_op.completed
@@ -363,7 +386,7 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
     def test_request_and_response_op_completed_success_with_unknown_status(
         self, stage, request_payload, send_registration_op, request_and_response_op
     ):
-        registration_result = create_registration_result(request_payload, "quidditching")
+        registration_result = create_registration_result(request_payload, "quidditching", None)
 
         assert not send_registration_op.completed
         assert not request_and_response_op.completed
@@ -392,7 +415,7 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         )
 
         mocker.spy(send_registration_op, "spawn_worker_op")
-        registration_result = create_registration_result(request_payload, "assigning")
+        registration_result = create_registration_result(request_payload, "assigning", None)
 
         assert not send_registration_op.completed
         assert not request_and_response_op.completed
@@ -446,7 +469,9 @@ class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
     @pytest.fixture
     def op(self, stage, mocker, request_payload):
         op = pipeline_ops_provisioning.RegisterOperation(
-            request_payload, fake_registration_id, callback=mocker.MagicMock()
+            request_payload,
+            fake_registration_id,
+            callback=mocker.MagicMock(),
         )
         yield op
 
@@ -460,7 +485,7 @@ class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
 
     @pytest.fixture
     def request_body(self, request_payload):
-        return '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
+        return '{{"clientCertificateCsr": null, "payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
             reg_id=fake_registration_id, json_payload=json.dumps(request_payload)
         )
 
@@ -481,7 +506,7 @@ class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
 
         next_op.status_code = 430
         next_op.retry_after = "1"
-        registration_result = create_registration_result(request_payload, "flying")
+        registration_result = create_registration_result(request_payload, "flying", None)
         next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 
@@ -781,7 +806,7 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
     def test_request_and_response_op_completed_success_with_status_assigned(
         self, stage, send_query_op, request_and_response_op
     ):
-        registration_result = create_registration_result(" ", "assigned")
+        registration_result = create_registration_result(" ", "assigned", fake_issued_x509_cert)
 
         assert not send_query_op.completed
         assert not request_and_response_op.completed
@@ -806,7 +831,7 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
     def test_request_and_response_op_completed_success_with_status_failed(
         self, stage, send_query_op, request_and_response_op
     ):
-        registration_result = create_registration_result(" ", "failed")
+        registration_result = create_registration_result(" ", "failed", None)
 
         assert not send_query_op.completed
         assert not request_and_response_op.completed
@@ -832,7 +857,7 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
     def test_request_and_response_op_completed_success_with_unknown_status(
         self, stage, send_query_op, request_and_response_op
     ):
-        registration_result = create_registration_result(" ", "quidditching")
+        registration_result = create_registration_result(" ", "quidditching", None)
 
         assert not send_query_op.completed
         assert not request_and_response_op.completed
@@ -889,7 +914,7 @@ class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
 
         next_op.status_code = 430
         next_op.retry_after = "1"
-        registration_result = create_registration_result(" ", "flying")
+        registration_result = create_registration_result(" ", "flying", None)
         next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 
@@ -923,7 +948,7 @@ class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
 
         next_op.status_code = 228
         next_op.retry_after = "1"
-        registration_result = create_registration_result(" ", "assigning")
+        registration_result = create_registration_result(" ", "assigning", None)
         next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 

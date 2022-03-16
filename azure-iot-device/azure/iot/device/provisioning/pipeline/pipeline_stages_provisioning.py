@@ -61,6 +61,7 @@ class CommonProvisioningStage(PipelineStage):
                 last_update_date_time=decoded_state.get("lastUpdatedDateTimeUtc", None),
                 etag=decoded_state.get("etag", None),
                 payload=decoded_state.get("payload", None),
+                client_cert=decoded_state.get("issuedClientCertificate", None),
             )
 
         registration_result = RegistrationResult(
@@ -432,13 +433,21 @@ class RegistrationStage(CommonProvisioningStage):
             registration_payload = DeviceRegistrationPayload(
                 registration_id=initial_register_op.registration_id,
                 custom_payload=initial_register_op.request_payload,
+                client_csr=initial_register_op.client_csr,
             )
+            json_request = registration_payload.get_json_string()
+            logger.debug(
+                "{}({}): Sending json payload {} to provisioning".format(
+                    self.name, op.name, json_request
+                )
+            )
+
             self.send_op_down(
                 pipeline_ops_base.RequestAndResponseOperation(
                     request_type=constant.REGISTER,
                     method="PUT",
                     resource_location="/",
-                    request_body=registration_payload.get_json_string(),
+                    request_body=json_request,
                     callback=on_registration_response,
                 )
             )
@@ -452,11 +461,12 @@ class DeviceRegistrationPayload(object):
     The class representing the payload that needs to be sent to the service.
     """
 
-    def __init__(self, registration_id, custom_payload=None):
+    def __init__(self, registration_id, custom_payload=None, client_csr=None):
         # This is not a convention to name variables in python but the
         # DPS service spec needs the name to be exact for it to work
         self.registrationId = registration_id
         self.payload = custom_payload
+        self.clientCertificateCsr = client_csr
 
     def get_json_string(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)

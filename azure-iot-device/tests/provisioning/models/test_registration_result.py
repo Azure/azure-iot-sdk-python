@@ -25,6 +25,7 @@ fake_created_dttm = datetime.datetime(2020, 5, 17)
 fake_last_update_dttm = datetime.datetime(2020, 10, 17)
 fake_etag = "HighQualityFlyingBroom"
 fake_payload = "petrificus totalus"
+fake_issued_certificate = "IssuedCertificateToConnectToHub"
 
 
 @pytest.mark.describe("RegistrationResult")
@@ -44,6 +45,10 @@ class TestRegistrationResult(object):
         assert registration_result.registration_state.created_date_time == fake_created_dttm
         assert registration_result.registration_state.last_update_date_time == fake_last_update_dttm
         assert registration_result.registration_state.etag == fake_etag
+        assert (
+            registration_result.registration_state.issued_client_certificate
+            == fake_issued_certificate
+        )
 
     @pytest.mark.it("Has a to string representation composed of registration state and status")
     def test_registration_result_to_string(self):
@@ -84,6 +89,10 @@ class TestRegistrationResult(object):
             pytest.param(
                 "registration_state.last_update_date_time = datetime.datetime(3000, 10, 17)",
                 id="Last Update Date Time",
+            ),
+            pytest.param(
+                'registration_state.issued_client_certificate = "some_issued_cert"',
+                id="Issued Client Certificate",
             ),
         ],
     )
@@ -126,6 +135,7 @@ def create_registration_state(payload=None):
         fake_last_update_dttm,
         fake_etag,
         payload,
+        fake_issued_certificate,
     )
 
 

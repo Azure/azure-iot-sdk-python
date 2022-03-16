@@ -51,6 +51,14 @@ class SharedProvisioningClientInstantiationTests(object):
 
         assert client._provisioning_payload is None
 
+    @pytest.mark.it(
+        "Instantiates with the initial value of the '_client_csr' attribute set to None"
+    )
+    def test_csr(self, client_class, provisioning_pipeline):
+        client = client_class(provisioning_pipeline)
+
+        assert client._client_csr is None
+
 
 class SharedProvisioningClientCreateMethodUserOptionTests(object):
     @pytest.mark.it(

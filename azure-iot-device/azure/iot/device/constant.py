@@ -10,7 +10,7 @@ VERSION = "2.10.0"
 IOTHUB_IDENTIFIER = "azure-iot-device-iothub-py"
 PROVISIONING_IDENTIFIER = "azure-iot-device-provisioning-py"
 IOTHUB_API_VERSION = "2019-10-01"
-PROVISIONING_API_VERSION = "2019-03-31"
+PROVISIONING_API_VERSION = "2021-11-01-preview"  # "2019-03-31"
 SECURITY_MESSAGE_INTERFACE_ID = "urn:azureiot:Security:SecurityAgent:1"
 TELEMETRY_MESSAGE_SIZE_LIMIT = 262144
 # The max keep alive is determined by the load balancer currently.
