@@ -17,6 +17,7 @@ SHARED_ACCESS_SIGNATURE = "SharedAccessSignature"
 DEVICE_ID = "DeviceId"
 MODULE_ID = "ModuleId"
 GATEWAY_HOST_NAME = "GatewayHostName"
+X509 = "x509"
 
 _valid_keys = [
     HOST_NAME,
@@ -26,6 +27,7 @@ _valid_keys = [
     DEVICE_ID,
     MODULE_ID,
     GATEWAY_HOST_NAME,
+    X509,
 ]
 
 
@@ -56,9 +58,13 @@ def _validate_keys(d):
     shared_access_key_name = d.get(SHARED_ACCESS_KEY_NAME)
     shared_access_key = d.get(SHARED_ACCESS_KEY)
     device_id = d.get(DEVICE_ID)
+    x509 = d.get(X509)
+
+    if shared_access_key and x509:
+        raise ValueError("Invalid Connection String - Mixed authentication scheme")
 
     # This logic could be expanded to return the category of ConnectionString
-    if host_name and device_id and shared_access_key:
+    if host_name and device_id and (shared_access_key or x509):
         pass
     elif host_name and shared_access_key and shared_access_key_name:
         pass

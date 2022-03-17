@@ -30,12 +30,20 @@ class TestConnectionString(object):
                 id="Device connection string w/ gatewayhostname",
             ),
             pytest.param(
+                "HostName=my.host.name;DeviceId=my-device;x509=True",
+                id="Device connection string w/ X509",
+            ),
+            pytest.param(
                 "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=Zm9vYmFy",
                 id="Module connection string",
             ),
             pytest.param(
                 "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=Zm9vYmFy;GatewayHostName=mygateway",
                 id="Module connection string w/ gatewayhostname",
+            ),
+            pytest.param(
+                "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;x509=True",
+                id="Module connection string w/ X509",
             ),
         ],
     )
@@ -57,6 +65,10 @@ class TestConnectionString(object):
             pytest.param(
                 "HostName=my.host.name;HostName=my.host.name;SharedAccessKey=mykeyname;SharedAccessKey=Zm9vYmFy",
                 id="Duplicate key",
+            ),
+            pytest.param(
+                "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=mykeyname;x509=True",
+                id="Mixed authentication scheme",
             ),
         ],
     )
