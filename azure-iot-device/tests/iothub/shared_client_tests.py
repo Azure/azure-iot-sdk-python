@@ -231,6 +231,28 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert config.server_verification_cert == server_verification_cert
 
     @pytest.mark.it(
+        "Sets the 'gateway_hostname' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_gateway_hostname_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        gateway_hostname = "my.gateway"
+        client_create_method(*create_method_args, gateway_hostname=gateway_hostname)
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_mqtt_pipeline_init.call_count == 1
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+        assert config == mock_http_pipeline_init.call_args[0][0]
+
+        assert config.gateway_hostname == gateway_hostname
+
+    @pytest.mark.it(
         "Sets the 'proxy_options' user option parameter on the PipelineConfig, if provided"
     )
     def test_proxy_options(
@@ -349,6 +371,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         with pytest.raises(TypeError):
             client_create_method(*create_method_args, invalid_option="some_value")
 
+    # NOTE: If any further tests need to override this test, it's time to restructure.
     @pytest.mark.it("Sets default user options if none are provided")
     def test_default_options(
         self,
@@ -374,6 +397,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert config.cipher == ""
         assert config.proxy_options is None
         assert config.server_verification_cert is None
+        assert config.gateway_hostname is None
         assert config.keep_alive == DEFAULT_KEEPALIVE
         assert config.auto_connect is True
         assert config.connection_retry is True
@@ -395,6 +419,56 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
     def create_method_args(self, connection_string):
         """Provides the specific create method args for use in universal tests"""
         return [connection_string]
+
+    @pytest.mark.it(
+        "Raises a TypeError if the 'gateway_hostname' user option parameter is provided"
+    )
+    def test_gateway_hostname_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        """THIS TEST OVERRIDES AN INHERITED TEST"""
+        # Override to test that gateway_hostname CANNOT be provided in Edge scenarios
+
+        with pytest.raises(TypeError):
+            client_create_method(*create_method_args, gateway_hostname="my.gateway.device")
+
+    @pytest.mark.it("Sets default user options if none are provided")
+    def test_default_options(
+        self,
+        mocker,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        """THIS TEST OVERRIDES AN INHERITED TEST"""
+        # Override to remove an assertion about gateway_hostname
+
+        client_create_method(*create_method_args)
+
+        # Both pipelines use the same IoTHubPipelineConfig
+        assert mock_mqtt_pipeline_init.call_count == 1
+        assert mock_http_pipeline_init.call_count == 1
+        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+
+        # Pipeline Config has default options set that were not user-specified
+        assert config.product_info == ""
+        assert config.websockets is False
+        assert config.cipher == ""
+        assert config.proxy_options is None
+        assert config.server_verification_cert is None
+        assert config.keep_alive == DEFAULT_KEEPALIVE
+        assert config.auto_connect is True
+        assert config.connection_retry is True
+        assert config.connection_retry_interval == 10
 
     @pytest.mark.it(
         "Creates a SasToken that uses a SymmetricKeySigningMechanism, from the values in the provided connection string"
@@ -531,6 +605,10 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
                 id="Contains extraneous data",
             ),
             pytest.param("HostName=value.domain.net;DeviceId=my_device", id="Incomplete"),
+            pytest.param(
+                "HostName=value.domain.net;DeviceId=my_device;x509=True",
+                id="X509 Connection String",
+            ),
         ],
     )
     def test_raises_value_error_on_bad_connection_string(self, client_class, bad_cs):
@@ -1440,6 +1518,23 @@ class SharedIoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests(
             client_create_method(
                 *create_method_args, server_verification_cert="fake_server_verification_cert"
             )
+
+    @pytest.mark.it(
+        "Raises a TypeError if the 'gateway_hostname' user option parameter is provided"
+    )
+    def test_gateway_hostname_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        """THIS TEST OVERRIDES AN INHERITED TEST"""
+        # Override to test that gateway_hostname CANNOT be provided in Edge scenarios
+
+        with pytest.raises(TypeError):
+            client_create_method(*create_method_args, gateway_hostname="my.gateway.device")
 
     @pytest.mark.it("Sets default user options if none are provided")
     def test_default_options(

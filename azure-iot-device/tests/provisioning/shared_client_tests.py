@@ -70,6 +70,22 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
         assert config.server_verification_cert == server_verification_cert
 
     @pytest.mark.it(
+        "Sets the 'gateway_hostname' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_gateway_hostname_option(
+        self, client_create_method, create_method_args, mock_pipeline_init
+    ):
+        gateway_hostname = "my.gateway.hostname"
+        client_create_method(*create_method_args, gateway_hostname=gateway_hostname)
+
+        # Get configuration object
+        assert mock_pipeline_init.call_count == 1
+        config = mock_pipeline_init.call_args[0][0]
+        assert isinstance(config, ProvisioningPipelineConfig)
+
+        assert config.gateway_hostname == gateway_hostname
+
+    @pytest.mark.it(
         "Sets the 'websockets' user option parameter on the PipelineConfig, if provided"
     )
     def test_websockets_option(
@@ -146,6 +162,7 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
 
         # ProvisioningPipelineConfig has default options set that were not user-specified
         assert config.server_verification_cert is None
+        assert config.gateway_hostname is None
         assert config.websockets is False
         assert config.cipher == ""
         assert config.proxy_options is None
