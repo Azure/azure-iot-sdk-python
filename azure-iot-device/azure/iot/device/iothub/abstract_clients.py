@@ -278,6 +278,10 @@ class AbstractIoTHubClient(abc.ABC):
 
         # Create SasToken
         connection_string = cs.ConnectionString(connection_string)
+        if connection_string.get(cs.X509) is not None:
+            raise ValueError(
+                "Use the .create_from_x509_certificate() method instead when using X509 certificates"
+            )
         uri = _form_sas_uri(
             hostname=connection_string[cs.HOST_NAME],
             device_id=connection_string[cs.DEVICE_ID],

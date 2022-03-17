@@ -605,6 +605,10 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
                 id="Contains extraneous data",
             ),
             pytest.param("HostName=value.domain.net;DeviceId=my_device", id="Incomplete"),
+            pytest.param(
+                "HostName=value.domain.net;DeviceId=my_device;x509=True",
+                id="X509 Connection String",
+            ),
         ],
     )
     def test_raises_value_error_on_bad_connection_string(self, client_class, bad_cs):
