@@ -29,6 +29,7 @@ def _validate_kwargs(exclude=[], **kwargs):
     Raises TypeError if an invalid option has been provided"""
     valid_kwargs = [
         "server_verification_cert",
+        "gateway_hostname",
         "websockets",
         "cipher",
         "product_info",
@@ -49,6 +50,7 @@ def _get_config_kwargs(**kwargs):
     """Get the subset of kwargs which pertain the config object"""
     valid_config_kwargs = [
         "server_verification_cert",
+        "gateway_hostname",
         "websockets",
         "cipher",
         "product_info",
@@ -271,10 +273,15 @@ class AbstractIoTHubClient(abc.ABC):
         # TODO: Make this device/module specific and reject non-matching connection strings.
 
         # Ensure no invalid kwargs were passed by the user
-        _validate_kwargs(**kwargs)
+        excluded_kwargs = ["gateway_hostname"]
+        _validate_kwargs(exclude=excluded_kwargs, **kwargs)
 
         # Create SasToken
         connection_string = cs.ConnectionString(connection_string)
+        if connection_string.get(cs.X509) is not None:
+            raise ValueError(
+                "Use the .create_from_x509_certificate() method instead when using X509 certificates"
+            )
         uri = _form_sas_uri(
             hostname=connection_string[cs.HOST_NAME],
             device_id=connection_string[cs.DEVICE_ID],
@@ -318,6 +325,8 @@ class AbstractIoTHubClient(abc.ABC):
         :param str server_verification_cert: Configuration Option. The trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
@@ -525,6 +534,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param str server_verification_cert: Configuration Option. The trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
@@ -578,6 +589,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param str server_verification_cert: Configuration Option. The trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
@@ -698,7 +711,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             authentication.
         """
         # Ensure no invalid kwargs were passed by the user
-        excluded_kwargs = ["server_verification_cert"]
+        excluded_kwargs = ["server_verification_cert", "gateway_hostname"]
         _validate_kwargs(exclude=excluded_kwargs, **kwargs)
 
         # First try the regular Edge container variables
@@ -814,6 +827,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param str server_verification_cert: Configuration Option. The trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
