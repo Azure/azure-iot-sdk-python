@@ -20,14 +20,14 @@ function Invoke-Python {
 
 function Build {
 
-    Write-Output "Python version is '$(python.exe --version)'"
+    Write-Output "Python version is '$(python --version)'"
 
     $sourceFiles = $env:sources  # sdk repo top folder
     $dist = $env:dist  # release artifacts top folder
 
     # hashtable key is package folder name in repository root
 
-    $packages = @{ } # TODO add new packages to this hashtable
+    $packages = @{ } # NOTE: add any new packages to this hashtable
 
     $packages["azure-iot-device"] = [PSCustomObject]@{
         File = "azure\iot\device\constant.py"
