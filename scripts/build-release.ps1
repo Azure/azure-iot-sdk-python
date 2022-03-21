@@ -27,7 +27,7 @@ function Build {
 
     # hashtable key is package folder name in repository root
 
-    $packages = @{ } # TODO add new packages to this hashtable
+    $packages = @{ } # NOTE: add any new packages to this hashtable
 
     $packages["azure-iot-device"] = [PSCustomObject]@{
         File = "azure\iot\device\constant.py"
