@@ -20,7 +20,7 @@ function Invoke-Python {
 
 function Build {
 
-    Write-Output "Python version is '$(python3.exe --version)'"
+    Write-Output "Python version is '$(python --version)'"
 
     $sourceFiles = $env:sources  # sdk repo top folder
     $dist = $env:dist  # release artifacts top folder
