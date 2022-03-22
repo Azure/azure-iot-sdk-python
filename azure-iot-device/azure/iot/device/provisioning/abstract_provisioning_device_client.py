@@ -84,6 +84,7 @@ class AbstractProvisioningDeviceClient(abc.ABC):
         """
         self._pipeline = pipeline
         self._provisioning_payload = None
+        self._client_csr = None
 
         self._pipeline.on_background_exception = handle_exceptions.handle_background_exception
 
@@ -243,6 +244,19 @@ class AbstractProvisioningDeviceClient(abc.ABC):
         :type provisioning_payload: This can be an object or dictionary or a string or an integer.
         """
         self._provisioning_payload = provisioning_payload
+
+    @property
+    def client_csr(self):
+        return self._client_csr
+
+    @client_csr.setter
+    def client_csr(self, csr):
+        """
+        Set the certificate signing request for device client certificate.
+        The certificate will be used later for authentication after provisioning.
+        :param csr: The certificate signing request
+        """
+        self._client_csr = csr
 
 
 def log_on_register_complete(result=None):

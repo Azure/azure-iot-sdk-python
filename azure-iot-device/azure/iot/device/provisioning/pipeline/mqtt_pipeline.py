@@ -241,11 +241,12 @@ class MQTTPipeline(object):
             )
         )
 
-    def register(self, payload=None, callback=None):
+    def register(self, payload=None, callback=None, client_csr=None):
         """
         Register to the device provisioning service.
         :param payload: Payload that can be sent with the registration request.
         :param callback: callback which is called when the registration is done.
+        :param client_csr: The certificate signing request sent to device provisioning service.
 
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.PipelineNotRunning` if the
             pipeline has already been shut down
@@ -275,6 +276,9 @@ class MQTTPipeline(object):
 
         self._pipeline.run_op(
             pipeline_ops_provisioning.RegisterOperation(
-                request_payload=payload, registration_id=self._registration_id, callback=on_complete
+                request_payload=payload,
+                registration_id=self._registration_id,
+                callback=on_complete,
+                client_csr=client_csr,
             )
         )
