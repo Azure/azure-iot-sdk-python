@@ -20,7 +20,7 @@ fake_sub_status = "OK"
 fake_operation_id = "fake_operation_id"
 fake_device_id = "MyDevice"
 fake_assigned_hub = "MyIoTHub"
-
+fake_issued_client_cert = "fake_client_x509_cert"
 
 """Pipeline fixtures"""
 
@@ -51,7 +51,7 @@ class FakeProvisioningPipeline:
     def enable_responses(self, callback):
         callback()
 
-    def register(self, payload, callback):
+    def register(self, payload, callback, client_csr):
         callback(result={})
 
 
@@ -60,7 +60,9 @@ class FakeProvisioningPipeline:
 
 @pytest.fixture
 def registration_result():
-    registration_state = RegistrationState(fake_device_id, fake_assigned_hub, fake_sub_status)
+    registration_state = RegistrationState(
+        fake_device_id, fake_assigned_hub, fake_sub_status, client_cert=fake_issued_client_cert
+    )
     return RegistrationResult(fake_operation_id, fake_status, registration_state)
 
 
