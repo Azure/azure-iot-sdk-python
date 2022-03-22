@@ -59,6 +59,18 @@ class RegisterOperationInstantiationTests(RegisterOperationTestConfig):
         op = cls_type(**init_kwargs)
         assert op.provisioning_timeout_timer is None
 
+    @pytest.mark.it("Initializes 'client_csr' attribute to with provided csr")
+    @pytest.mark.parametrize(
+        "csr_input",
+        [
+            pytest.param("Client Certificate Request", id="Some input"),
+            pytest.param(None, id="None input"),
+        ],
+    )
+    def test_client_csr(self, cls_type, init_kwargs, csr_input):
+        op = cls_type(**init_kwargs, client_csr=csr_input)
+        assert op.client_csr is csr_input
+
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,

@@ -25,6 +25,7 @@ fake_created_dttm = datetime.datetime(2020, 5, 17)
 fake_last_update_dttm = datetime.datetime(2020, 10, 17)
 fake_etag = "SomeEtag"
 fake_payload = "this is a fake payload"
+fake_issued_certificate = "IssuedCertificateToConnectToHub"
 
 
 @pytest.mark.describe("RegistrationResult")
@@ -84,6 +85,10 @@ class TestRegistrationResult(object):
             pytest.param(
                 "registration_state.last_update_date_time = datetime.datetime(3000, 10, 17)",
                 id="Last Update Date Time",
+            ),
+            pytest.param(
+                'registration_state.issued_client_certificate = "some_issued_cert"',
+                id="Issued Client Certificate",
             ),
         ],
     )

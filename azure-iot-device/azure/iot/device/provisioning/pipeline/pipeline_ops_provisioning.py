@@ -14,7 +14,9 @@ class RegisterOperation(PipelineOperation):
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """
 
-    def __init__(self, request_payload, registration_id, callback, registration_result=None):
+    def __init__(
+        self, request_payload, registration_id, callback, registration_result=None, client_csr=None
+    ):
         """
         Initializer for RegisterOperation objects.
 
@@ -23,6 +25,8 @@ class RegisterOperation(PipelineOperation):
         :param Function callback: The function that gets called when this operation is complete or has failed.
          The callback function must accept A PipelineOperation object which indicates the specific operation which
          has completed or failed.
+        :param client_csr: Certificate signing request sent to device provisioning service in order to issue a
+        client certificate which will be used for authentication to iot hub post provisioning.
         """
         super().__init__(callback=callback)
         self.request_payload = request_payload
@@ -31,6 +35,7 @@ class RegisterOperation(PipelineOperation):
         self.retry_after_timer = None
         self.polling_timer = None
         self.provisioning_timeout_timer = None
+        self.client_csr = client_csr
 
 
 class PollStatusOperation(PipelineOperation):

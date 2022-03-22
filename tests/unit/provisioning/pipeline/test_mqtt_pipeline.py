@@ -8,6 +8,8 @@ import pytest
 import logging
 from azure.iot.device.common.models import X509
 from azure.iot.device.provisioning.pipeline.mqtt_pipeline import MQTTPipeline
+from tests.common.pipeline import helpers
+import json
 from azure.iot.device.provisioning.pipeline import constant as dps_constants
 from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning,
@@ -384,6 +386,21 @@ class TestSendRegister(object):
         pipeline.register(callback=cb)
         op = pipeline._pipeline.run_op.call_args[0][0]
         assert op.request_payload is None
+
+    @pytest.mark.it("passes the client_csr parameter as client_csr on the RegistrationRequest")
+    def test_sets_csr_payload(self, pipeline, mocker):
+        cb = mocker.MagicMock()
+        fake_client_csr = "fake_client_csr"
+        pipeline.register(client_csr=fake_client_csr, callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert op.client_csr is fake_client_csr
+
+    @pytest.mark.it("sets client_csr on the RegistrationRequest to None if no csr is provided")
+    def test_sets_empty_csr(self, pipeline, mocker):
+        cb = mocker.MagicMock()
+        pipeline.register(callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert op.client_csr is None
 
     @pytest.mark.it(
         "Triggers the callback upon successful completion of the RegisterOperation, passing the registration result in the result parameter"

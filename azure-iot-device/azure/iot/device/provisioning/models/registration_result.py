@@ -29,6 +29,7 @@ class RegistrationState(object):
         last_update_date_time=None,
         etag=None,
         payload=None,
+        client_cert=None,
     ):
         """
         :param device_id: Desired device id for the provisioned device
@@ -38,7 +39,8 @@ class RegistrationState(object):
         :param created_date_time: Registration create date time (in UTC).
         :param last_update_date_time: Last updated date time (in UTC).
         :param etag: The entity tag associated with the resource.
-        :param payload: The payload with which hub is responding
+        :param payload: The payload with which hub is responding.
+        :param client_cert: Client certificate issued to the device in PEM format.
         """
         self._device_id = device_id
         self._assigned_hub = assigned_hub
@@ -47,6 +49,7 @@ class RegistrationState(object):
         self._last_update_date_time = last_update_date_time
         self._etag = etag
         self._response_payload = payload
+        self._issued_client_certificate = client_cert
 
     @property
     def device_id(self) -> str:
@@ -75,6 +78,10 @@ class RegistrationState(object):
     @property
     def response_payload(self) -> JSONSerializable:
         return json.dumps(self._response_payload, default=lambda o: o.__dict__, sort_keys=True)
+
+    @property
+    def issued_client_certificate(self):
+        return self._issued_client_certificate
 
     def __str__(self):
         return "\n".join(
