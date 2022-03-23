@@ -1,5 +1,8 @@
 name: ReleaseBuild_$(BuildID)_$(Date:yyyyMMdd)$(Rev:.r)
 
+pool:
+  vmImage: "windows-latest"
+
 steps:
 
 - task: DownloadBuildArtifacts@0
