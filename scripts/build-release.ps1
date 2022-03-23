@@ -6,7 +6,7 @@ function Install-Dependencies {
 }
 
 function Update-Version($part, $file) {
-    bumpversion $part --config-file .\.bumpverion.cfg --allow-dirty $file
+    bumpversion $part --allow-dirty $file
 
     if($LASTEXITCODE -ne 0) {
         throw "Bumpversion failed to increment part '$part' for '$file' with code ($LASTEXITCODE)"
