@@ -6,12 +6,6 @@ function Install-Dependencies {
 }
 
 function Update-Version($part, $file) {
-    $cwd = (Get-Item .).FullName
-    $file_exists = Test-Path .bumpversion.cfg
-    Write-Output "CWD: '$cwd'"
-    Write-Output "Has bumpversion: '$file_exists'"
-
-    #bumpversion $part --config-file .\.bumpversion.cfg --allow-dirty $file
     bumpversion $part --allow-dirty $file
 
     if($LASTEXITCODE -ne 0) {
