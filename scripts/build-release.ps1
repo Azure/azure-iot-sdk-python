@@ -8,6 +8,9 @@ function Install-Dependencies {
 function Update-Version($part, $file) {
     $cwd = (Get-Item .).FullName
     Write-Output "CWD: '$cwd'"
+    $wd_files = Get-ChildItem .
+    Write-Output ""
+    Write-Output "'$wd_files'"
     bumpversion $part --config-file .\.bumpverion.cfg --allow-dirty $file
 
     if($LASTEXITCODE -ne 0) {
