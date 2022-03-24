@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from azure.iot.device.common.http_transport import HTTPTransport
+from azure.iot.device.common.http_transport import HTTPTransport, HTTP_TIMEOUT
 from azure.iot.device.common.models import X509, ProxyOptions
 from azure.iot.device.common import transport_exceptions as errors
 import pytest
@@ -318,7 +318,11 @@ class TestRequest(object):
         session_method = getattr(session, request_method.lower())
         assert session_method.call_count == 1
         assert session_method.call_args == mocker.call(
-            expected_url, data=body, headers=headers, proxies=transport._proxies
+            expected_url,
+            data=body,
+            headers=headers,
+            proxies=transport._proxies,
+            timeout=HTTP_TIMEOUT,
         )
 
     @pytest.mark.it(

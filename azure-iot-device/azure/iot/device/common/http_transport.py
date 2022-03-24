@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
+from email.policy import HTTP
 import logging
 import ssl
 import requests
@@ -11,6 +12,10 @@ from . import transport_exceptions as exceptions
 from .pipeline import pipeline_thread
 
 logger = logging.getLogger(__name__)
+
+
+# NOTE: There should probably be a more global timeout configuration, but for now this will do.
+HTTP_TIMEOUT = 10
 
 
 class HTTPTransport(object):
@@ -127,15 +132,25 @@ class HTTPTransport(object):
             # Note that various configuration options are not set here due to them being set
             # via the HTTPAdapter that was mounted at session level.
             if method == "GET":
-                response = session.get(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.get(
+                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                )
             elif method == "POST":
-                response = session.post(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.post(
+                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                )
             elif method == "PUT":
-                response = session.put(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.put(
+                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                )
             elif method == "PATCH":
-                response = session.patch(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.patch(
+                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                )
             elif method == "DELETE":
-                response = session.delete(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.delete(
+                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                )
             else:
                 raise ValueError("Invalid method type: {}".format(method))
         except ValueError as e:
