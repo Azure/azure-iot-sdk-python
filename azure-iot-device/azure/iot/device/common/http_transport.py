@@ -156,6 +156,13 @@ class HTTPTransport(object):
         except ValueError as e:
             # Allow ValueError to propagate
             callback(error=e)
+        except requests.exceptions.Timeout as e:
+            # Allow Timeout to propagate
+            # NOTE: This breaks the convention in transports where we don't expose anything
+            # but builtin exceptions and the exceptions defined in transport_exceptions.py.
+            # However, we don't exactly have infrastructure to support timeout at Transport level.
+            # For now, just expose it, and if/when we more broadly support timeout, this can change
+            callback(error=e)
         except Exception as e:
             # Raise error via the callback
             new_err = exceptions.ProtocolClientError("Unexpected HTTPS failure during connect")
