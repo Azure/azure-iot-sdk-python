@@ -6,7 +6,7 @@ function Install-Dependencies {
 }
 
 function Update-Version($part, $file) {
-    bumpversion.exe $part --config-file .\.bumpverion.cfg --allow-dirty $file
+    bumpversion $part --allow-dirty $file
 
     if($LASTEXITCODE -ne 0) {
         throw "Bumpversion failed to increment part '$part' for '$file' with code ($LASTEXITCODE)"
@@ -20,14 +20,14 @@ function Invoke-Python {
 
 function Build {
 
-    Write-Output "Python version is '$(python.exe --version)'"
+    Write-Output "Python version is '$(python --version)'"
 
     $sourceFiles = $env:sources  # sdk repo top folder
     $dist = $env:dist  # release artifacts top folder
 
     # hashtable key is package folder name in repository root
 
-    $packages = @{ } # TODO add new packages to this hashtable
+    $packages = @{ } # NOTE: add any new packages to this hashtable
 
     $packages["azure-iot-device"] = [PSCustomObject]@{
         File = "azure\iot\device\constant.py"
