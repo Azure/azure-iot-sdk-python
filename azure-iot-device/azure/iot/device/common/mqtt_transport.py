@@ -44,6 +44,7 @@ paho_rc_to_error = {
     mqtt.MQTT_ERR_UNKNOWN: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_ERRNO: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_QUEUE_SIZE: exceptions.ProtocolClientError,
+    mqtt.MQTT_ERR_KEEPALIVE: exceptions.ConnectionDroppedError,
 }
 
 
@@ -69,7 +70,7 @@ def _create_error_from_rc_code(rc):
         message = mqtt.error_string(rc)
         return paho_rc_to_error[rc](message)
     else:
-        return exceptions.ProtocolClientError("Unknown CONNACK rc=={}".format(rc))
+        return exceptions.ProtocolClientError("Unknown rc=={}".format(rc))
 
 
 class MQTTTransport(object):
