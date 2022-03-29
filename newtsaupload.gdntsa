@@ -10,7 +10,7 @@
     "instanceUrl": "https://azure-iot-sdks.visualstudio.com",
     "projectName": "PythonDeviceSdk",
     "areaPath": "One\\IoT\\Platform and Devices\\IoT Devices\\SDKs\\Scripting\\Python",
-    "iterationPath": "One\\IoT-Developers-Devices-Scripting\\Backlog",
+    "iterationPath": "One\\Custom\\IoT\\Backlog",
     "tools": [
         "BinSkim",
         "CredScan",
