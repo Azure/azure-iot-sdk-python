@@ -64,6 +64,12 @@ class MQTTTransportStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _start_connection_watchdog(self, connection_op):
+        """
+        Start a watchdog on the conection operation. This protects against cases where transport.connect()
+        succeeds but the CONNACK never arrives. This is like a timeout, but it is handled at this level
+        because specific cleanup needs to take place on timeout (see below), and this cleanup doesn't
+        belong anywhere else since it is very specific to this stage.
+        """
         logger.debug("{}({}): Starting watchdog".format(self.name, connection_op.name))
 
         self_weakref = weakref.ref(self)
@@ -77,7 +83,17 @@ class MQTTTransportStage(PipelineStage):
                 logger.info(
                     "{}({}): Connection watchdog expired.  Cancelling op".format(this.name, op.name)
                 )
-                this.transport.disconnect()
+                try:
+                    this.transport.disconnect()
+                except Exception:
+                    # If we don't catch this, the pending connection op might not ever be cancelled.
+                    # Most likely, the transport isn't actually connected, but other failures are theoreticaly
+                    # possible. Either way, if disconnect fails, we should assume that we're disconencted.
+                    logger.info(
+                        "transport.disconnect raised error while disconnecting in watchdog.  Safe to ignore."
+                    )
+                    logger.info(traceback.format_exc())
+
                 if this.pipeline_root.connected:
                     logger.info(
                         "{}({}): Pipeline is still connected on watchdog expiration.  Sending DisconnectedEvent".format(
