@@ -44,6 +44,7 @@ paho_rc_to_error = {
     mqtt.MQTT_ERR_UNKNOWN: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_ERRNO: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_QUEUE_SIZE: exceptions.ProtocolClientError,
+    mqtt.MQTT_ERR_KEEPALIVE: exceptions.ConnectionDroppedError,
 }
 
 
@@ -69,7 +70,7 @@ def _create_error_from_rc_code(rc):
         message = mqtt.error_string(rc)
         return paho_rc_to_error[rc](message)
     else:
-        return exceptions.ProtocolClientError("Unknown CONNACK rc=={}".format(rc))
+        return exceptions.ProtocolClientError("Unknown rc=={}".format(rc))
 
 
 class MQTTTransport(object):
@@ -373,7 +374,10 @@ class MQTTTransport(object):
         :raises: ConnectionFailedError if connection could not be established.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: UnauthorizedError if there is an error authenticating.
+        :raises: NoConnectionError in certain failure scenarios where a connection could not be established
         :raises: ProtocolClientError if there is some other client error.
+        :raises: TlsExchangeAuthError if there a filure with TLS certificate exchange
+        :raises: ProtocolProxyError if there is a proxy-specific error
         """
         logger.debug("connecting to mqtt broker")
 
@@ -427,6 +431,10 @@ class MQTTTransport(object):
         Disconnect from the MQTT broker.
 
         :raises: ProtocolClientError if there is some client error.
+        :raises: ConnectionDroppedError in unexpected cases.
+        :raises: UnauthorizedError in unexpected cases.
+        :raises: ConnectionFailedError in unexpected cases.
+        :raises: NoConnectionError if the client isn't actually conected.
         """
         logger.info("disconnecting MQTT client")
         try:
@@ -467,6 +475,7 @@ class MQTTTransport(object):
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
+        :raises: NoConnectionError if the client isn't actually conected.
         """
         logger.info("subscribing to {} with qos {}".format(topic, qos))
         try:
@@ -491,6 +500,7 @@ class MQTTTransport(object):
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
+        :raises: NoConnectionError if the client isn't actually conected.
         """
         logger.info("unsubscribing from {}".format(topic))
         try:
@@ -524,6 +534,7 @@ class MQTTTransport(object):
         :raises: TypeError if payload is not a valid type
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
+        :raises: NoConnectionError if the client isn't actually conected.
         """
         logger.info("publishing on {}".format(topic))
         try:
