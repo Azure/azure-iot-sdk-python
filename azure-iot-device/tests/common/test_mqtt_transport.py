@@ -119,6 +119,11 @@ operation_return_codes = [
         "rc": mqtt.MQTT_ERR_QUEUE_SIZE,
         "error": errors.ProtocolClientError,
     },
+    {
+        "name": "MQTT_ERR_KEEPALIVE",
+        "rc": mqtt.MQTT_ERR_KEEPALIVE,
+        "error": errors.ConnectionDroppedError,
+    },
 ]
 
 
