@@ -208,7 +208,7 @@ class MQTTTransportStage(PipelineStage):
                 # disconnect in the on_disconnected handler
                 self.transport.disconnect(clear_inflight=op.hard)
             except Exception as e:
-                logger.info("transport.disconnect raised error while disconnecting")
+                logger.info("transport.disconnect raised unexpected error while disconnecting")
                 logger.info(traceback.format_exc())
                 self._pending_connection_op = None
                 op.complete(error=e)

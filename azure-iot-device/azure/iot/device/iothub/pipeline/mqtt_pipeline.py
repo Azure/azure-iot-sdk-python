@@ -104,6 +104,12 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.ReconnectStage())
             #
+            # The Transport doesn't deal well with operations being issued to change the connection
+            # state to a state it already is in (e.g. ConnectOperation while already connected).
+            # The AutoCompleteStage will complete these operations automatically before they get to
+            # the Transport.
+            .append_stage(pipeline_stages_base.AutoCompleteStage())
+            #
             # RetryStage needs to be near the end because it's retrying low-level MQTT operations.
             #
             .append_stage(pipeline_stages_base.RetryStage())

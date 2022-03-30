@@ -839,6 +839,30 @@ class OpTimeoutStage(PipelineStage):
             op.timeout_timer = None
 
 
+class AutoCompleteStage(PipelineStage):
+    """Auto-Complete connection-based operations based upon
+    current connection state (if applicable)
+    """
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+        if isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
+            logger.info(
+                "{}({}): Transport is already connected. Completing.".format(self.name, op.name)
+            )
+            op.complete()
+        elif (
+            isinstance(op, pipeline_ops_base.DisconnectOperation)
+            and not self.pipeline_root.connected
+        ):
+            logger.info(
+                "{}({}): Transport is already disconnected. Completing.".format(self.name, op.name)
+            )
+            op.complete()
+        else:
+            self.send_op_down(op)
+
+
 class RetryStage(PipelineStage):
     """
     The purpose of the retry stage is to watch specific operations for specific
