@@ -841,7 +841,11 @@ class OpTimeoutStage(PipelineStage):
 
 class AutoCompleteStage(PipelineStage):
     """Auto-Complete connection-based operations based upon
-    current connection state (if applicable)
+    current connection state (if applicable).
+
+    This stage is necessary because we don't want a Connect to happen when already connected,
+    and likewise for a Disconnect. Best case that would raise an error, worst case, it would
+    hang until timeout in the Transport. Safer to get ahead of it before we get there.
     """
 
     @pipeline_thread.runs_on_pipeline_thread
