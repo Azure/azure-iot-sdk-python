@@ -1018,7 +1018,7 @@ class ReconnectStage(PipelineStage):
             # We need a way to wait ops without letting them pass through and affect the connection
             # state in order to address edge cases e.g. a user-initiated connect and a automatic
             # reconnect connect happen at approximately the same time.
-            if self.state in self.intermediate_states and type(op) in self.connection_ops:
+            if self.state in self.intermediate_states:  # and type(op) in self.connection_ops:
                 logger.debug(
                     "{}({}): State is {} - waiting for in-progress operation to finish".format(
                         self.name, op.name, self.state
