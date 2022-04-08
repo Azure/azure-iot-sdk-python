@@ -235,11 +235,9 @@ class MQTTTransportStage(PipelineStage):
                     self.name, op.name
                 )
             )
-            self_weakref = weakref.ref(self)
             reauth_op = op  # rename for clarity
 
             def on_disconnect_complete(op, error):
-                this = self_weakref()
                 if error:
                     # Failing a disconnect should still get us disconnected, so can proceed anyway
                     logger.debug(
@@ -249,7 +247,7 @@ class MQTTTransportStage(PipelineStage):
 
                 # NOTE: this relies on the fact that before the disconnect is completed it is
                 # unset as the pending connection op. Otherwise there would be issues here.
-                this.run_op(connect_op)
+                self.run_op(connect_op)
 
             disconnect_op = pipeline_ops_base.DisconnectOperation(callback=on_disconnect_complete)
             disconnect_op.hard = False

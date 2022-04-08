@@ -7,6 +7,7 @@
 import paho.mqtt.client as mqtt
 import logging
 import ssl
+import sys
 import threading
 import traceback
 import weakref
@@ -44,7 +45,6 @@ paho_rc_to_error = {
     mqtt.MQTT_ERR_UNKNOWN: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_ERRNO: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_QUEUE_SIZE: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_KEEPALIVE: exceptions.ConnectionDroppedError,
 }
 
 
@@ -70,7 +70,7 @@ def _create_error_from_rc_code(rc):
         message = mqtt.error_string(rc)
         return paho_rc_to_error[rc](message)
     else:
-        return exceptions.ProtocolClientError("Unknown rc=={}".format(rc))
+        return exceptions.ProtocolClientError("Unknown CONNACK rc=={}".format(rc))
 
 
 class MQTTTransport(object):
@@ -155,7 +155,7 @@ class MQTTTransport(object):
         if self._proxy_options:
             logger.info("Setting custom proxy options on mqtt client")
             mqtt_client.proxy_set(
-                proxy_type=self._proxy_options.proxy_type_socks,
+                proxy_type=self._proxy_options.proxy_type,
                 proxy_addr=self._proxy_options.proxy_address,
                 proxy_port=self._proxy_options.proxy_port,
                 proxy_username=self._proxy_options.proxy_username,
@@ -168,7 +168,6 @@ class MQTTTransport(object):
         ssl_context = self._create_ssl_context()
         mqtt_client.tls_set_context(context=ssl_context)
 
-        # Set event handlers.  Use weak references back into this object to prevent leaks
         self_weakref = weakref.ref(self)
 
         def on_connect(client, userdata, flags, rc):
@@ -374,10 +373,7 @@ class MQTTTransport(object):
         :raises: ConnectionFailedError if connection could not be established.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: UnauthorizedError if there is an error authenticating.
-        :raises: NoConnectionError in certain failure scenarios where a connection could not be established
         :raises: ProtocolClientError if there is some other client error.
-        :raises: TlsExchangeAuthError if there a filure with TLS certificate exchange
-        :raises: ProtocolProxyError if there is a proxy-specific error
         """
         logger.debug("connecting to mqtt broker")
 
@@ -404,22 +400,32 @@ class MQTTTransport(object):
                 and e.strerror is not None
                 and "CERTIFICATE_VERIFY_FAILED" in e.strerror
             ):
-                raise exceptions.TlsExchangeAuthError() from e
+                raise exceptions.TlsExchangeAuthError(cause=e)
             elif isinstance(e, socks.ProxyError):
                 if isinstance(e, socks.SOCKS5AuthError):
                     # TODO This is the only I felt like specializing
-                    raise exceptions.UnauthorizedError() from e
+                    raise exceptions.UnauthorizedError(cause=e)
                 else:
-                    raise exceptions.ProtocolProxyError() from e
+                    raise exceptions.ProtocolProxyError(cause=e)
             else:
                 # If the socket can't open (e.g. using iptables REJECT), we get a
                 # socket.error.  Convert this into ConnectionFailedError so we can retry
-                raise exceptions.ConnectionFailedError() from e
+                raise exceptions.ConnectionFailedError(cause=e)
+
+        except socks.ProxyError as pe:
+            self._force_transport_disconnect_and_cleanup()
+
+            if isinstance(pe, socks.SOCKS5AuthError):
+                raise exceptions.UnauthorizedError(cause=pe)
+            else:
+                raise exceptions.ProtocolProxyError(cause=pe)
 
         except Exception as e:
             self._force_transport_disconnect_and_cleanup()
 
-            raise exceptions.ProtocolClientError("Unexpected Paho failure during connect") from e
+            raise exceptions.ProtocolClientError(
+                message="Unexpected Paho failure during connect", cause=e
+            )
 
         logger.debug("_mqtt_client.connect returned rc={}".format(rc))
         if rc:
@@ -431,16 +437,14 @@ class MQTTTransport(object):
         Disconnect from the MQTT broker.
 
         :raises: ProtocolClientError if there is some client error.
-        :raises: ConnectionDroppedError in unexpected cases.
-        :raises: UnauthorizedError in unexpected cases.
-        :raises: ConnectionFailedError in unexpected cases.
-        :raises: NoConnectionError if the client isn't actually conected.
         """
         logger.info("disconnecting MQTT client")
         try:
             rc = self._mqtt_client.disconnect()
         except Exception as e:
-            raise exceptions.ProtocolClientError("Unexpected Paho failure during disconnect") from e
+            raise exceptions.ProtocolClientError(
+                message="Unexpected Paho failure during disconnect", cause=e
+            )
         finally:
             self._mqtt_client.loop_stop()
 
@@ -475,7 +479,6 @@ class MQTTTransport(object):
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
-        :raises: NoConnectionError if the client isn't actually conected.
         """
         logger.info("subscribing to {} with qos {}".format(topic, qos))
         try:
@@ -483,7 +486,9 @@ class MQTTTransport(object):
         except ValueError:
             raise
         except Exception as e:
-            raise exceptions.ProtocolClientError("Unexpected Paho failure during subscribe") from e
+            raise exceptions.ProtocolClientError(
+                message="Unexpected Paho failure during subscribe", cause=e
+            )
         logger.debug("_mqtt_client.subscribe returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
@@ -500,7 +505,6 @@ class MQTTTransport(object):
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
-        :raises: NoConnectionError if the client isn't actually conected.
         """
         logger.info("unsubscribing from {}".format(topic))
         try:
@@ -509,8 +513,8 @@ class MQTTTransport(object):
             raise
         except Exception as e:
             raise exceptions.ProtocolClientError(
-                "Unexpected Paho failure during unsubscribe"
-            ) from e
+                message="Unexpected Paho failure during unsubscribe", cause=e
+            )
         logger.debug("_mqtt_client.unsubscribe returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
@@ -534,7 +538,6 @@ class MQTTTransport(object):
         :raises: TypeError if payload is not a valid type
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
-        :raises: NoConnectionError if the client isn't actually conected.
         """
         logger.info("publishing on {}".format(topic))
         try:
@@ -544,7 +547,9 @@ class MQTTTransport(object):
         except TypeError:
             raise
         except Exception as e:
-            raise exceptions.ProtocolClientError("Unexpected Paho failure during publish") from e
+            raise exceptions.ProtocolClientError(
+                message="Unexpected Paho failure during publish", cause=e
+            )
         logger.debug("_mqtt_client.publish returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
@@ -557,7 +562,7 @@ class OperationManager(object):
 
     def __init__(self):
         # Maps mid->callback for operations where a request has been sent
-        # but the response has not yet been received
+        # but the reponse has not yet been received
         self._pending_operation_callbacks = {}
 
         # Maps mid->mid for responses received that are NOT established in the _pending_operation_callbacks dict.

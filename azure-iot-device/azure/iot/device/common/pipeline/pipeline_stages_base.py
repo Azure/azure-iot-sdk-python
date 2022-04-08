@@ -6,23 +6,30 @@
 
 import logging
 import abc
+import six
+import sys
 import time
 import traceback
 import uuid
-import weakref
 import threading
-import queue
+from six.moves import queue
 from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
 from . import pipeline_thread
 from . import pipeline_exceptions
-from azure.iot.device.common import transport_exceptions, alarm
+from azure.iot.device.common import handle_exceptions, transport_exceptions, alarm
 from azure.iot.device.common.auth import sastoken as st
 
 logger = logging.getLogger(__name__)
 
+# Python 2 doesn't define this constant, so manually do it
+if sys.version_info < (3,):
+    if not hasattr(threading, "TIMEOUT_MAX"):
+        threading.TIMEOUT_MAX = 4294967.0
 
-class PipelineStage(abc.ABC):
+
+@six.add_metaclass(abc.ABCMeta)
+class PipelineStage(object):
     """
     Base class representing a stage in the processing pipeline.  Each stage is responsible for receiving
     PipelineOperation objects from the top, possibly processing them, and possibly passing them down.  It
@@ -255,7 +262,7 @@ class PipelineRootStage(PipelineStage):
     """
 
     def __init__(self, pipeline_configuration):
-        super().__init__()
+        super(PipelineRootStage, self).__init__()
         self.on_pipeline_event_handler = None
         self.on_connected_handler = None
         self.on_disconnected_handler = None
@@ -269,7 +276,7 @@ class PipelineRootStage(PipelineStage):
         op.callback_stack[0] = pipeline_thread.invoke_on_callback_thread_nowait(
             op.callback_stack[0]
         )
-        pipeline_thread.invoke_on_pipeline_thread(super().run_op)(op)
+        pipeline_thread.invoke_on_pipeline_thread(super(PipelineRootStage, self).run_op)(op)
 
     def append_stage(self, new_stage):
         """
@@ -358,7 +365,7 @@ class SasTokenStage(PipelineStage):
     DEFAULT_TOKEN_UPDATE_MARGIN = 120
 
     def __init__(self):
-        super().__init__()
+        super(SasTokenStage, self).__init__()
         # Indicates when token needs to be updated
         self._token_update_alarm = None
         # Indicates when to retry a failed reauthorization attempt
@@ -450,8 +457,6 @@ class SasTokenStage(PipelineStage):
                 )
             )
 
-        self_weakref = weakref.ref(self)
-
         # For renewable SasTokens, create an alarm that will automatically renew the token,
         # and then start another alarm.
         if isinstance(self.pipeline_root.pipeline_configuration.sastoken, st.RenewableSasToken):
@@ -463,29 +468,21 @@ class SasTokenStage(PipelineStage):
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def renew_token():
-                this = self_weakref()
                 # Cancel any token reauth retry timer in progress (from a previous renewal)
-                this._cancel_reauth_retry_timer()
-                logger.info("{}: Renewing SAS Token...".format(self.name))
+                self._cancel_reauth_retry_timer()
+                logger.info("Renewing SAS Token...")
                 # Renew the token
-                sastoken = this.pipeline_root.pipeline_configuration.sastoken
-                try:
-                    sastoken.refresh()
-                except st.SasTokenError as e:
-                    logger.error("{}: SAS Token renewal failed".format(self.name))
-                    this.report_background_exception(e)
-                    # TODO: then what? How do we respond to this? Retry?
-                    # What if it never works and the token expires?
-                else:
-                    # If the pipeline is already connected, send order to reauthorize the connection
-                    # now that token has been renewed. If the pipeline is not currently connected,
-                    # there is no need to do this, as the next connection will be using the new
-                    # credentials.
-                    if this.pipeline_root.connected:
-                        this._reauthorize()
+                sastoken = self.pipeline_root.pipeline_configuration.sastoken
+                sastoken.refresh()
+                # If the pipeline is already connected, send order to reauthorize the connection
+                # now that token has been renewed. If the pipeline is not currently connected,
+                # there is no need to do this, as the next connection will be using the new
+                # credentials.
+                if self.pipeline_root.connected:
+                    self._reauthorize()
 
-                    # Once again, start a renewal alarm
-                    this._start_token_update_alarm()
+                # Once again, start a renewal alarm
+                self._start_token_update_alarm()
 
             self._token_update_alarm = alarm.Alarm(update_time, renew_token)
 
@@ -497,10 +494,9 @@ class SasTokenStage(PipelineStage):
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def request_new_token():
-                this = self_weakref()
                 logger.info("Requesting new SAS Token....")
                 # Send request
-                this.send_event_up(pipeline_events_base.NewSasTokenRequiredEvent())
+                self.send_event_up(pipeline_events_base.NewSasTokenRequiredEvent())
 
             self._token_update_alarm = alarm.Alarm(update_time, request_new_token)
 
@@ -509,14 +505,11 @@ class SasTokenStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _reauthorize(self):
-        self_weakref = weakref.ref(self)
-
         @pipeline_thread.runs_on_pipeline_thread
         def on_reauthorize_complete(op, error):
-            this = self_weakref()
             if error:
                 logger.info(
-                    "{}: Connection reauthorization failed.  Error={}".format(this.name, error)
+                    "{}: Connection reauthorization failed.  Error={}".format(self.name, error)
                 )
                 self.report_background_exception(error)
                 # If connection has not been somehow re-established, we need to keep trying
@@ -530,29 +523,28 @@ class SasTokenStage(PipelineStage):
                 # wouldn't know to reconnect, because the expected state of a failed reauth is
                 # to be disconnected.
                 if (
-                    not this.pipeline_root.connected
-                    and this.pipeline_root.pipeline_configuration.connection_retry
+                    not self.pipeline_root.connected
+                    and self.pipeline_root.pipeline_configuration.connection_retry
                 ):
-                    logger.info("{}: Retrying connection reauthorization".format(this.name))
+                    logger.info("{}: Retrying connection reauthorization".format(self.name))
                     # No need to cancel the timer, because if this is running, it has already ended
 
-                    @pipeline_thread.invoke_on_pipeline_thread_nowait
                     def retry_reauthorize():
                         # We need to check this when the timer expires as well as before creating
                         # the timer in case connection has been re-established while timer was
                         # running
-                        if not this.pipeline_root.connected:
-                            this._reauthorize()
+                        if not self.pipeline_root.connected:
+                            self._reauthorize()
 
-                    this._reauth_retry_timer = threading.Timer(
-                        this.pipeline_root.pipeline_configuration.connection_retry_interval,
+                    self._reauth_retry_timer = threading.Timer(
+                        self.pipeline_root.pipeline_configuration.connection_retry_interval,
                         retry_reauthorize,
                     )
-                    this._reauth_retry_timer.daemon = True
-                    this._reauth_retry_timer.start()
+                    self._reauth_retry_timer.daemon = True
+                    self._reauth_retry_timer.start()
 
             else:
-                logger.info("{}: Connection reauthorization successful".format(this.name))
+                logger.info("{}: Connection reauthorization successful".format(self.name))
 
         logger.info("{}: Starting reauthorization process for new SAS token".format(self.name))
         self.send_op_down(
@@ -617,6 +609,121 @@ class AutoConnectStage(PipelineStage):
         self.send_op_down(pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete))
 
 
+class ConnectionLockStage(PipelineStage):
+    """
+    This stage is responsible for serializing connect, disconnect, and reauthorize ops on
+    the pipeline, such that only a single one of these ops can go past this stage at a
+    time.  This way, we don't have to worry about cases like "what happens if we try to
+    disconnect if we're in the middle of reauthorizing."  This stage will wait for the
+    reauthorize to complete before letting the disconnect past.
+    """
+
+    def __init__(self):
+        super(ConnectionLockStage, self).__init__()
+        self.queue = queue.Queue()
+        self.blocked = False
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+
+        # If this stage is currently blocked (because we're waiting for a connection, etc,
+        # to complete), we queue up all operations until after the connect completes.
+        if self.blocked:
+            logger.debug(
+                "{}({}): pipeline is blocked waiting for a prior connect/disconnect/reauthorize to complete.  queueing.".format(
+                    self.name, op.name
+                )
+            )
+            self.queue.put_nowait(op)
+
+        elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
+            logger.info(
+                "{}({}): Transport is already connected.  Completing.".format(self.name, op.name)
+            )
+            op.complete()
+
+        elif (
+            isinstance(op, pipeline_ops_base.DisconnectOperation)
+            and not self.pipeline_root.connected
+        ):
+            logger.info(
+                "{}({}): Transport is already disconnected.  Completing.".format(self.name, op.name)
+            )
+            op.complete()
+
+        elif (
+            isinstance(op, pipeline_ops_base.DisconnectOperation)
+            or isinstance(op, pipeline_ops_base.ConnectOperation)
+            or isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation)
+        ):
+            self._block(op)
+
+            @pipeline_thread.runs_on_pipeline_thread
+            def on_operation_complete(op, error):
+                if error:
+                    logger.debug(
+                        "{}({}): op failed.  Unblocking queue with error: {}".format(
+                            self.name, op.name, error
+                        )
+                    )
+                else:
+                    logger.debug(
+                        "{}({}): op succeeded.  Unblocking queue".format(self.name, op.name)
+                    )
+
+                self._unblock(op, error)
+
+            op.add_callback(on_operation_complete)
+            self.send_op_down(op)
+
+        else:
+            self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _block(self, op):
+        """
+        block this stage while we're waiting for the connect/disconnect/reauthorize operation to complete.
+        """
+        logger.debug("{}({}): blocking".format(self.name, op.name))
+        self.blocked = True
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _unblock(self, op, error):
+        """
+        Unblock this stage after the connect/disconnect/reauthorize operation is complete.  This also means
+        releasing all the operations that were queued up.
+        """
+        logger.debug("{}({}): unblocking and releasing queued ops.".format(self.name, op.name))
+        self.blocked = False
+        logger.debug(
+            "{}({}): processing {} items in queue for error={}".format(
+                self.name, op.name, self.queue.qsize(), error
+            )
+        )
+        # Loop through our queue and release all the blocked operations
+        # Put a new Queue in self.queue because releasing ops might put them back in the
+        # queue, especially if there's a ConnectOperation in the list of ops to release
+        old_queue = self.queue
+        self.queue = queue.Queue()
+        while not old_queue.empty():
+            op_to_release = old_queue.get_nowait()
+            if error:
+                # if we're unblocking the queue because something (like a connect operation) failed,
+                # then we fail all of the blocked operations with the same error.
+                logger.debug(
+                    "{}({}): failing {} op because of error".format(
+                        self.name, op.name, op_to_release.name
+                    )
+                )
+                op_to_release.complete(error=error)
+            else:
+                logger.debug(
+                    "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
+                )
+                # call run_op directly here so operations go through this stage again (especially connect/disconnect ops)
+                self.run_op(op_to_release)
+
+
 class CoordinateRequestAndResponseStage(PipelineStage):
     """
     Pipeline stage which is responsible for coordinating RequestAndResponseOperation operations.  For each
@@ -625,7 +732,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
     """
 
     def __init__(self):
-        super().__init__()
+        super(CoordinateRequestAndResponseStage, self).__init__()
         self.pending_responses = {}
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -792,7 +899,7 @@ class OpTimeoutStage(PipelineStage):
     """
 
     def __init__(self):
-        super().__init__()
+        super(OpTimeoutStage, self).__init__()
         # use a fixed list and fixed intervals for now.  Later, this info will come in
         # as an init param or a retry poicy
         self.timeout_intervals = {
@@ -806,12 +913,10 @@ class OpTimeoutStage(PipelineStage):
         if type(op) in self.timeout_intervals:
             # Create a timer to watch for operation timeout on this op and attach it
             # to the op.
-            self_weakref = weakref.ref(self)
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_timeout():
-                this = self_weakref()
-                logger.info("{}({}): returning timeout error".format(this.name, op.name))
+                logger.info("{}({}): returning timeout error".format(self.name, op.name))
                 op.complete(
                     error=pipeline_exceptions.OperationTimeout(
                         "operation timed out before protocol client could respond"
@@ -839,34 +944,6 @@ class OpTimeoutStage(PipelineStage):
             op.timeout_timer = None
 
 
-class AutoCompleteStage(PipelineStage):
-    """Auto-Complete connection-based operations based upon
-    current connection state (if applicable).
-
-    This stage is necessary because we don't want a Connect to happen when already connected,
-    and likewise for a Disconnect. Best case that would raise an error, worst case, it would
-    hang until timeout in the Transport. Safer to get ahead of it before we get there.
-    """
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
-        if isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
-            logger.info(
-                "{}({}): Transport is already connected. Completing.".format(self.name, op.name)
-            )
-            op.complete()
-        elif (
-            isinstance(op, pipeline_ops_base.DisconnectOperation)
-            and not self.pipeline_root.connected
-        ):
-            logger.info(
-                "{}({}): Transport is already disconnected. Completing.".format(self.name, op.name)
-            )
-            op.complete()
-        else:
-            self.send_op_down(op)
-
-
 class RetryStage(PipelineStage):
     """
     The purpose of the retry stage is to watch specific operations for specific
@@ -878,7 +955,7 @@ class RetryStage(PipelineStage):
     """
 
     def __init__(self):
-        super().__init__()
+        super(RetryStage, self).__init__()
         # Retry intervals are hardcoded for now. Later, they come in as an
         # init param, probably via retry policy.
         self.retry_intervals = {
@@ -927,18 +1004,16 @@ class RetryStage(PipelineStage):
         which can be used to send the op down again.
         """
         if self._should_retry(op, error):
-            self_weakref = weakref.ref(self)
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def do_retry():
-                this = self_weakref()
-                logger.debug("{}({}): retrying".format(this.name, op.name))
+                logger.debug("{}({}): retrying".format(self.name, op.name))
                 op.retry_timer.cancel()
                 op.retry_timer = None
-                this.ops_waiting_to_retry.remove(op)
+                self.ops_waiting_to_retry.remove(op)
                 # Don't just send it down directly.  Instead, go through run_op so we get
                 # retry functionality this time too
-                this.run_op(op)
+                self.run_op(op)
 
             interval = self.retry_intervals[type(op)]
             logger.info(
@@ -993,7 +1068,7 @@ class ReconnectStage(PipelineStage):
     ]
 
     def __init__(self):
-        super().__init__()
+        super(ReconnectStage, self).__init__()
         self.reconnect_timer = None
         self.state = ReconnectState.DISCONNECTED
         self.waiting_ops = queue.Queue()
@@ -1018,7 +1093,7 @@ class ReconnectStage(PipelineStage):
             # We need a way to wait ops without letting them pass through and affect the connection
             # state in order to address edge cases e.g. a user-initiated connect and a automatic
             # reconnect connect happen at approximately the same time.
-            if self.state in self.intermediate_states:  # and type(op) in self.connection_ops:
+            if self.state in self.intermediate_states and type(op) in self.connection_ops:
                 logger.debug(
                     "{}({}): State is {} - waiting for in-progress operation to finish".format(
                         self.name, op.name, self.state
@@ -1235,7 +1310,6 @@ class ReconnectStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _add_connection_op_callback(self, op):
         """Adds callback to a connection op passing through to do necessary stage upkeep"""
-        self_weakref = weakref.ref(self)
 
         # NOTE: we are currently protected from connect failing due to being already connected
         # by the ConnectionLockStage. If the ConnectionLockStage changes functionality,
@@ -1243,7 +1317,6 @@ class ReconnectStage(PipelineStage):
 
         @pipeline_thread.runs_on_pipeline_thread
         def on_complete(op, error):
-            this = self_weakref()
             # If error, set us back to a DISCONNECTED state. It doesn't matter what kind of
             # connection op this was, any failure should result in a disconnected state.
 
@@ -1255,76 +1328,65 @@ class ReconnectStage(PipelineStage):
             if error:
                 logger.debug(
                     "{}({}): failed, state change {} -> DISCONNECTED".format(
-                        this.name, op.name, this.state
+                        self.name, op.name, self.state
                     )
                 )
-                this.state = ReconnectState.DISCONNECTED
+                self.state = ReconnectState.DISCONNECTED
 
             # Allow the next waiting op to proceed (if any)
-            this._run_all_waiting_ops()
+            self._run_next_waiting_op()
 
         op.add_callback(on_complete)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_all_waiting_ops(self):
-
+    def _run_next_waiting_op(self):
         if not self.waiting_ops.empty():
-            queuecopy = self.waiting_ops
-            self.waiting_ops = queue.Queue()
-
-            while not queuecopy.empty():
-                next_op = queuecopy.get_nowait()
-                if not next_op.completed:
-                    logger.debug(
-                        "{}: Resolving next waiting op: {}".format(self.name, next_op.name)
-                    )
-                    self.run_op(next_op)
+            next_op = self.waiting_ops.get_nowait()
+            logger.debug("{}: Resolving next waiting op: {}".format(self.name, next_op.name))
+            self.run_op(next_op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _reconnect(self):
-        self_weakref = weakref.ref(self)
-
         @pipeline_thread.runs_on_pipeline_thread
         def on_reconnect_complete(op, error):
-            this = self_weakref()
-            if this:
+            if self:
                 logger.debug(
                     "{}({}): on_connect_complete error={} state={} connected={} ".format(
-                        this.name,
+                        self.name,
                         op.name,
                         error,
-                        this.state,
-                        this.pipeline_root.connected,
+                        self.state,
+                        self.pipeline_root.connected,
                     )
                 )
 
                 if error:
                     # Set state back to DISCONNECTED so as not to block anything else
                     logger.debug(
-                        "{}: State change {} -> DISCONNECTED".format(this.name, this.state)
+                        "{}: State change {} -> DISCONNECTED".format(self.name, self.state)
                     )
-                    this.state = ReconnectState.DISCONNECTED
+                    self.state = ReconnectState.DISCONNECTED
 
                     # report background exception to indicate this failure ocurred
-                    this.report_background_exception(error)
+                    self.report_background_exception(error)
 
                     # Determine if should try reconnect again
-                    if this._should_reconnect(error):
+                    if self._should_reconnect(error):
                         # transient errors can cause a reconnect attempt
                         logger.debug(
-                            "{}: Reconnect failed. Starting reconnection timer".format(this.name)
+                            "{}: Reconnect failed. Starting reconnection timer".format(self.name)
                         )
-                        this._start_reconnect_timer(
-                            this.pipeline_root.pipeline_configuration.connection_retry_interval
+                        self._start_reconnect_timer(
+                            self.pipeline_root.pipeline_configuration.connection_retry_interval
                         )
                     else:
                         # all others are permanent errors
                         logger.debug(
-                            "{}: Cannot reconnect. Ending reconnection process".format(this.name)
+                            "{}: Cannot reconnect. Ending reconnection process".format(self.name)
                         )
 
                 # Now see if there's anything that may have blocked waiting for us to finish
-                this._run_all_waiting_ops()
+                self._run_next_waiting_op()
 
         # NOTE: I had considered leveraging the run_op infrastructure instead of sending this
         # directly down. Ultimately however, I think it's best to keep reconnects completely
@@ -1349,11 +1411,8 @@ class ReconnectStage(PipelineStage):
         """
         self._clear_reconnect_timer()
 
-        self_weakref = weakref.ref(self)
-
         @pipeline_thread.invoke_on_pipeline_thread_nowait
         def on_reconnect_timer_expired():
-            this = self_weakref()
             logger.debug(
                 "{}: Reconnect timer expired. State is {} Connected is {}.".format(
                     self.name, self.state, self.pipeline_root.connected
@@ -1362,37 +1421,37 @@ class ReconnectStage(PipelineStage):
             # Clear the reconnect timer here first and foremost so it doesn't accidentally
             # get left around somehow. Don't use the _clear_reconnect_timer method, as the timer
             # has expired, and thus cannot be cancelled.
-            this.reconnect_timer = None
+            self.reconnect_timer = None
 
-            if this.state is ReconnectState.DISCONNECTED:
+            if self.state is ReconnectState.DISCONNECTED:
                 # We are still disconnected, so reconnect
 
                 # NOTE: Because any reconnect timer would have been cancelled upon a manual
                 # disconnect, there is no way this block could be executing if we were happy
                 # with our DISCONNECTED state.
-                logger.debug("{}: Starting reconnection".format(this.name))
+                logger.debug("{}: Starting reconnection".format(self.name))
                 logger.debug(
                     "{}: State changes {} -> CONNECTING. Sending new connect op down in reconnect attempt".format(
                         self.name, self.state
                     )
                 )
                 self.state = ReconnectState.CONNECTING
-                this._reconnect()
-            elif this.state in self.intermediate_states:
+                self._reconnect()
+            elif self.state in self.intermediate_states:
                 # If another connection op is in progress, just wait and try again later to avoid
                 # any extra confusion (i.e. punt the reconnection)
                 logger.debug(
                     "{}: Other connection operation in-progress, setting a new reconnection timer".format(
-                        this.name
+                        self.name
                     )
                 )
-                this._start_reconnect_timer(
-                    this.pipeline_root.pipeline_configuration.connection_retry_interval
+                self._start_reconnect_timer(
+                    self.pipeline_root.pipeline_configuration.connection_retry_interval
                 )
             else:
                 logger.debug(
                     "{}: Unexpected state reached ({}) after reconnection timer expired".format(
-                        this.name, this.state
+                        self.name, self.state
                     )
                 )
 

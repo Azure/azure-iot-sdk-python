@@ -4,23 +4,13 @@ jobs:
 - job: 'Test'
 
   strategy:
-    maxParallel: 4
     matrix:
-      py39_windows_mqtt:
-        pv: '3.9'
-        transport: 'mqtt'
-        imageName: 'windows-latest'
-      py39_windows_mqttws:
-        pv: '3.9'
-        transport: 'mqttws'
-        imageName: 'windows-latest'
-
-      py36_linux_mqtt:
-        pv: '3.6'
+      py27_linux_mqtt:
+        pv: '2.7'
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
-      py37_linux_mqttws:
-        pv: '3.7'
+      py27_linux_mqttws:
+        pv: '2.7'
         transport: 'mqttws'
         imageName: 'Ubuntu 20.04'
       py38_linux_mqtt:
@@ -30,10 +20,6 @@ jobs:
       py39_linux_mqttws:
         pv: '3.9'
         transport: 'mqttws'
-        imageName: 'Ubuntu 20.04'
-      py310_linux_mqtt:
-        pv: '3.10'
-        transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
 
   pool:
@@ -57,10 +43,8 @@ jobs:
         IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: e2e-nightly-stress-consumer-group
-        PYTHONUNBUFFERED: True
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
-
       condition: always()
 
