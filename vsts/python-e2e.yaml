@@ -1,52 +1,18 @@
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 
 jobs:
-- job: 'Test_Windows'
-  pool:
-    vmImage: 'windows-latest'
-
-  strategy:
-    matrix:
-      py37_mqtt:              { pv: '3.7', transport: 'mqtt', consumer_group: 'e2e-consumer-group-1' }
-      py310_mqttws:           { pv: '3.10', transport: 'mqttws', consumer_group: 'e2e-consumer-group-2' }
-
-  steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: $(pv)
-        architecture: 'x64'
-
-    - script: 'python env_setup.py --no_dev'
-      displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
-
-    - script: |
-        cd $(Build.SourcesDirectory)/device_e2e
-        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
-      displayName: 'E2E Device Client MQTT Connection String'
-      env:
-        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumer_group)
-        PYTHONUNBUFFERED: True
-
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results'
-      condition: always()
-
 - job: 'Test_Linux'
-  pool:
-    vmImage: 'Ubuntu 20.04'
+  pool: bertk-delete-me
 
   strategy:
     matrix:
       py310_mqtt:              { pv: '3.10', transport: 'mqtt', consumer_group: 'e2e-consumer-group-3' }
-      py36_mqtt_ws:           { pv: '3.6', transport: 'mqttws', consumer_group: 'e2e-consumer-group-4' }
 
   steps:
     - task: UsePythonVersion@0
       inputs:
         versionSpec: $(pv)
-        architecture: 'x64'
+        architecture: 'amd64'
 
     - script: 'python env_setup.py --no_dev'
       displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
@@ -58,8 +24,7 @@ jobs:
       env:
         IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumer_group)
-        PYTHONUNBUFFERED: True
+        IOTHUB_E2E_EVENTHUB_CONSUMER_GRPOUP: $(consumer_group)
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
