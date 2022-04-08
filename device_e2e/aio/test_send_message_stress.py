@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
+
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 import asyncio
@@ -14,13 +15,37 @@ import threading
 import os
 import task_cleanup
 from iptables import all_disconnect_types
-from utils import get_random_message
-from retry_async import retry_exponential_backoff_with_jitter
+from utils import get_random_message, fault_injection_types, get_fault_injection_message
+from azure.iot.device.exceptions import (
+    ConnectionFailedError,
+    ConnectionDroppedError,
+    OperationCancelled,
+    NoConnectionError,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
 pytestmark = pytest.mark.asyncio
+
+"""
+
+We will eventually have three different kinds of stress tests:
+    1. Tests which are run frequently (every night).  These are used to provide assurance that
+       we do not have any regressions.  They The run relatively quickly and rarely fail. They
+       exist to produce statistics which we can compare between libraries and from run to run.
+    2. Tests which run less frequently that are used to find bugs.  These stress the library
+       much more than the first set of tests.  They run longer than the first set of tests.
+       They are expected to fail and/or produce actionable bug reports..  If they don't,
+       we're not pushing limits hard enough.
+    3. Long haul tests.  These are designed to run for a long time under more realistic
+       scenarios.  Their purpose is to behave in a more realistic manner and find bugs that
+       might not come up in the artificial conditions we use for the first to sets of tests.
+
+This file contains tests from the first set.
+
+"""
+
 
 # Settings that apply to all tests in this module
 TELEMETRY_PAYLOAD_SIZE = 16 * 1024
@@ -35,12 +60,10 @@ ALL_AT_ONCE_TOTAL_ELAPSED_TIME_FAILURE_TRIGGER = 10 * 60
 
 # Settings that apply to flaky network telemetry test
 SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION = 5 * 60
-SEND_TELEMETRY_FLAKY_NETWORK_MESSAGES_PER_SECOND = 10
+SEND_TELEMETRY_FLAKY_NETWORK_MESSAGES_PER_SECOND = 20
 SEND_TELEMETRY_FLAKY_NETWORK_KEEPALIVE_INTERVAL = 10
 SEND_TELEMETRY_FLAKY_NETWORK_CONNECTED_INTERVAL = 15
 SEND_TELEMETRY_FLAKY_NETWORK_DISCONNECTED_INTERVAL = 15
-
-call_with_retry = retry_exponential_backoff_with_jitter
 
 
 @pytest.mark.stress
@@ -57,9 +80,53 @@ class TestSendMessageStress(object):
         # logs on failure because it lets us know _which_ messages didn't finish.
         self.outstanding_message_ids.add(random_message.message_id)
 
-        await call_with_retry(client, client.send_message, random_message)
+        sent = False
+        attempt = 1
 
-        # Wait for the arrival of the message.
+        # "Poor-man's" retry policy.  retry 5 times with linear backoff
+        while not sent:
+            try:
+                # If we're not connected, we need to connect.  This could be done better.
+                # If we're sending 10 messages per second, this will give us ten calls to
+                # client.connect when we really only need one.
+                if not client.connected:
+                    logger.info("Connecting for  message {}".format(random_message.message_id))
+                    await client.connect()
+
+                logger.info("Sending message {}".format(random_message.message_id))
+                await client.send_message(random_message)
+                logger.info("Done sending message {}".format(random_message.message_id))
+
+                sent = True
+
+            except (
+                ConnectionFailedError,
+                ConnectionDroppedError,
+                OperationCancelled,
+                NoConnectionError,
+            ) as e:
+                # These are the errors that client.connect or client.send_message can raise
+                # if we're not connected.  Can we limit this list?  Surely, we don't expect
+                # ConnectoinDroppedError if auto_connect==True.  Do we want to fail if we do?
+                logger.info(
+                    "{} exception for for message {}".format(type(e), random_message.message_id)
+                )
+                if attempt == 5:
+                    raise
+                sleep_time = 5 * attempt
+
+                logger.warning(
+                    "ConnectionFailedError.  Sleeping for {} before trying again".format(sleep_time)
+                )
+                await asyncio.sleep(sleep_time)
+                attempt += 1
+            except Exception as e:
+                logger.info("send_message raised {}".format(type(e)))
+                raise
+
+        # Wait for the arrival of the message.  We have a relatively short timeout here
+        # (set as a default parameter to wait_for_eventhub_arrival), but that's OK because
+        # the message has already been sent at this point.
         logger.info("Waiting for arrival of message {}".format(random_message.message_id))
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
 
@@ -88,7 +155,7 @@ class TestSendMessageStress(object):
         """
 
         # We use `self.outstanding_message_ids` for logging.
-        # And we use `futures` to know when all tasks have been completed.
+        # And we use `futures` to konw when all tasks have been completed.
         self.outstanding_message_ids = set()
         test_end = time.time() + test_length_in_seconds
         futures = list()
@@ -234,7 +301,6 @@ class TestSendMessageStress(object):
         self,
         client,
         service_helper,
-        leak_tracker,
         messages_per_second=CONTINUOUS_TELEMETRY_MESSAGES_PER_SECOND,
         test_length_in_seconds=CONTINUOUS_TELEMETRY_TEST_DURATION,
     ):
@@ -244,8 +310,6 @@ class TestSendMessageStress(object):
         limits of the code
         """
 
-        leak_tracker.set_initial_object_list()
-
         await self.send_and_verify_continous_telemetry(
             client=client,
             service_helper=service_helper,
@@ -253,15 +317,12 @@ class TestSendMessageStress(object):
             test_length_in_seconds=test_length_in_seconds,
         )
 
-        leak_tracker.check_for_leaks()
-
     @pytest.mark.it("send {} messages all at once".format(ALL_AT_ONCE_MESSAGE_COUNT))
     @pytest.mark.timeout(ALL_AT_ONCE_TOTAL_ELAPSED_TIME_FAILURE_TRIGGER)
     async def test_stress_send_message_all_at_once(
         self,
         client,
         service_helper,
-        leak_tracker,
         message_count=ALL_AT_ONCE_MESSAGE_COUNT,
     ):
         """
@@ -270,15 +331,11 @@ class TestSendMessageStress(object):
         handle large volumes of outstanding messages.
         """
 
-        leak_tracker.set_initial_object_list()
-
         await self.send_and_verify_many_telemetry_messages(
             client=client,
             service_helper=service_helper,
             message_count=message_count,
         )
-
-        leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "regular message delivery with flaky network {} messages per second for {} seconds".format(
@@ -289,14 +346,11 @@ class TestSendMessageStress(object):
     @pytest.mark.keep_alive(SEND_TELEMETRY_FLAKY_NETWORK_KEEPALIVE_INTERVAL)
     @pytest.mark.timeout(SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION * 2)
     @pytest.mark.dropped_connection
-    @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     async def test_stress_send_message_with_flaky_network(
         self,
         client,
         service_helper,
         dropper,
-        leak_tracker,
         messages_per_second=SEND_TELEMETRY_FLAKY_NETWORK_MESSAGES_PER_SECOND,
         test_length_in_seconds=SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION,
     ):
@@ -306,8 +360,6 @@ class TestSendMessageStress(object):
         current connection state, and the code will queue the messages as necessary and verify
         that they always arrive.
         """
-
-        leak_tracker.set_initial_object_list()
 
         await asyncio.gather(
             self.do_periodic_network_disconnects(
@@ -324,5 +376,3 @@ class TestSendMessageStress(object):
                 test_length_in_seconds=test_length_in_seconds,
             ),
         )
-
-        leak_tracker.check_for_leaks()
