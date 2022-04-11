@@ -1,0 +1,14 @@
+{
+    "registrationId": "sample2",
+    "attestation": {
+        "type": "symmetricKey"
+    },
+    "capabilities": {
+        "iotEdge": false
+    },
+    "allocationPolicy": "static",
+    "iotHubs": [
+        "crispop-iothub1.azure-devices.net"
+    ],
+    "trustBundleId": "sometb2"
+}

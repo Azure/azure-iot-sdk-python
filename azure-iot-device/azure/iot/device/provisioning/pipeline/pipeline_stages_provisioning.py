@@ -62,6 +62,7 @@ class CommonProvisioningStage(PipelineStage):
                 etag=decoded_state.get("etag", None),
                 payload=decoded_state.get("payload", None),
                 client_cert=decoded_state.get("issuedClientCertificate", None),
+                trust_bundle=decoded_state.get("trustBundle", None),
             )
 
         registration_result = RegistrationResult(
