@@ -3,10 +3,8 @@
 # license information.
 import pytest
 import asyncio
-import functools
 import e2e_settings
 import logging
-import time
 import datetime
 import json
 import retry_async

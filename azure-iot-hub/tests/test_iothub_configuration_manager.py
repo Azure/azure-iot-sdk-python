@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from azure.iot.hub.protocol.models import AuthenticationMechanism
 from azure.iot.hub.iothub_configuration_manager import IoTHubConfigurationManager
 from azure.iot.hub.auth import ConnectionStringAuthentication
 from azure.iot.hub.protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs

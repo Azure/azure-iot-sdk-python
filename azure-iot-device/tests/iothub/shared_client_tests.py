@@ -6,7 +6,6 @@
 """This module contains tests that are shared between sync/async clients
 i.e. tests for things defined in abstract clients"""
 
-from azure.iot.device.iothub.client_event import ClientEvent
 import pytest
 import logging
 import os

@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 """This module provides patches used to dynamically modify items from the libraries"""
 
-import sys
 import inspect
 import logging
 

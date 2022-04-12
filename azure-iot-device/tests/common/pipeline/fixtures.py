@@ -5,11 +5,9 @@
 # --------------------------------------------------------------------------
 import pytest
 import threading
-from tests.common.pipeline import helpers
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
-    pipeline_thread,
 )
 
 

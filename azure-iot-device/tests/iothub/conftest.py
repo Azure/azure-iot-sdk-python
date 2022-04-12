@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 # These fixtures are shared between sync and async clients
-from .client_fixtures import (
+from .client_fixtures import (  # noqa: F401
     message,
     method_response,
     method_request,

@@ -5,7 +5,6 @@ import asyncio
 import pytest
 import logging
 import json
-import uuid
 import utils
 from azure.iot.device.exceptions import OperationCancelled, ClientError
 

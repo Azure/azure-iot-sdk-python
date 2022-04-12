@@ -5,9 +5,9 @@ from an IoT device.
 """
 
 # Import all exposed items in subpackages to expose them via this package
-from .iothub import *
-from .provisioning import *
-from .common import *  # TODO: do we really want to do this?
+from .iothub import *  # noqa: F401, F403
+from .provisioning import *  # noqa: F401, F403
+from .common import *  # noqa: F401, F403   TODO: do we really want to do this?
 
 # Import the subpackages themselves in order to set the __all__
 from . import iothub

@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import azure.iot.device.common.mqtt_transport as mqtt_transport
 from azure.iot.device.common.mqtt_transport import MQTTTransport, OperationManager
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.common import transport_exceptions as errors
@@ -19,7 +18,6 @@ import socks
 import threading
 import gc
 import weakref
-import azure.iot.device.common.pipeline.config as pipeline_config
 
 logging.basicConfig(level=logging.DEBUG)
 

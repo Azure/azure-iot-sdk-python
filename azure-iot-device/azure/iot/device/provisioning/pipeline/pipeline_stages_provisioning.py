@@ -17,7 +17,6 @@ import logging
 import weakref
 import json
 from threading import Timer
-import time
 
 logger = logging.getLogger(__name__)
 

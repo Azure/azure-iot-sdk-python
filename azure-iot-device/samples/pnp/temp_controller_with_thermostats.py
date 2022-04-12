@@ -7,7 +7,6 @@ import os
 import asyncio
 import random
 import logging
-import json
 
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient

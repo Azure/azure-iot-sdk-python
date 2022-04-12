@@ -8,8 +8,8 @@
 # For now, present relevant transport errors as part of the Pipeline API surface
 # so that they do not have to be duplicated at this layer.
 # OK TODO This mimics the IotHub Case. Both IotHub and Provisioning needs to change
-from azure.iot.device.common.pipeline.pipeline_exceptions import *
-from azure.iot.device.common.transport_exceptions import (
+from azure.iot.device.common.pipeline.pipeline_exceptions import *  # noqa: F401, F403
+from azure.iot.device.common.transport_exceptions import (  # noqa: F401
     ConnectionFailedError,
     ConnectionDroppedError,
     # CT TODO: UnauthorizedError (the one from transport) should probably not surface out of

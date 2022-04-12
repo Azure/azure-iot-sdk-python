@@ -6,7 +6,6 @@
 """ This module contains the manager for handler methods used by the aio clients"""
 
 import asyncio
-from asyncio.tasks import run_coroutine_threadsafe
 import logging
 import inspect
 import concurrent.futures

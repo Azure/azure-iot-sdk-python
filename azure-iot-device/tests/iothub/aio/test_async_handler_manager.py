@@ -6,7 +6,6 @@
 import logging
 import pytest
 import asyncio
-import inspect
 import threading
 import concurrent.futures
 from azure.iot.device.common import handle_exceptions

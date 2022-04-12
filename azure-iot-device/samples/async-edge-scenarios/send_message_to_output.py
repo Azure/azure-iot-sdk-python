@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import asyncio
-import time
 import uuid
 from azure.iot.device.aio import IoTHubModuleClient
 from azure.iot.device import Message
