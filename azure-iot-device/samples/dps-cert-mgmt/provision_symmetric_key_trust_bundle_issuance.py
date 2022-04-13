@@ -7,24 +7,12 @@
 import asyncio
 from azure.iot.device.aio import ProvisioningDeviceClient
 import os
-from azure.iot.device.aio import IoTHubDeviceClient
-from azure.iot.device import Message
-import uuid
-from azure.iot.device import X509
-import logging
-
-logging.basicConfig(level=logging.DEBUG, filename="output.log")
-
 
 messages_to_send = 10
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
 symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
-
-# csr_file = "request-trust.csr"
-# key_file = "key-trust.pem"
-# issued_cert_file = "mycerttesttrustbundle.pem"
 
 
 async def main():
@@ -34,62 +22,55 @@ async def main():
         id_scope=id_scope,
         symmetric_key=symmetric_key,  # authenticate for DPS
     )
-    # The trust bundle feature is orthogonal, so we do not need to send CSR.
-    # with open(csr_file, "r") as csr:
-    #     csr_data = csr.read()
-    #     # set the CSR on the client
-    #     provisioning_device_client.client_csr = str(csr_data)
-
+    # The trust bundle feature is orthogonal, we do not need to send CSR.
     registration_result = await provisioning_device_client.register()
 
     print("The complete registration result is")
     print(registration_result.registration_state)
 
-    print("the trust bundles")
     trust_bundle = registration_result.registration_state.trust_bundle
-    print(trust_bundle)
-
-    # with open(issued_cert_file, "w") as out_ca_pem:
-    #     # Write the issued certificate on the file.
-    #     cert_data = registration_result.registration_state.issued_client_certificate
-    #     out_ca_pem.write(cert_data)
-
-    if registration_result.status == "assigned":
-        print("Will send telemetry from the provisioned device")
-        device_client = IoTHubDeviceClient.create_from_symmetric_key(
-            symmetric_key=symmetric_key,
-            hostname=registration_result.registration_state.assigned_hub,
-            device_id=registration_result.registration_state.device_id,
-        )
-
-        # x509 = X509(
-        #     cert_file=issued_cert_file,
-        #     key_file=key_file,
-        # )
-        #
-        # device_client = IoTHubDeviceClient.create_from_x509_certificate(
-        #     hostname=registration_result.registration_state.assigned_hub,
-        #     device_id=registration_result.registration_state.device_id,
-        #     x509=x509,
-        # )
-
-        # Connect the client.
-        await device_client.connect()
-
-        async def send_test_message(i):
-            print("sending message #" + str(i))
-            msg = Message("test wind speed " + str(i))
-            msg.message_id = uuid.uuid4()
-            await device_client.send_message(msg)
-            print("done sending message #" + str(i))
-
-        # send `messages_to_send` messages in parallel
-        await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
-
-        # finally, disconnect
-        await device_client.disconnect()
+    if not trust_bundle:
+        print("Trust bundle is empty")
     else:
-        print("Can not send telemetry from the provisioned device")
+        etag = trust_bundle.get("etag", None)
+        # If the TrustBundle is updated, the application needs to update the Trusted Root.
+        # Old etag and current etag can be compared to arrive at this decision.
+        # New certificates in the bundle should be added to the correct store.
+        # Certificates previously installed but not present in the bundle should be removed.
+        if etag:
+            print("New trust bundle version.")
+
+        certificates = trust_bundle.get("certificates", None)
+        if not certificates:
+            print("Unexpected trust bundle response")
+        else:
+            count_certs = len(certificates)
+            print("Trust bundle has {number} number of certificates".format(number=count_certs))
+            for i in range(0, count_certs):
+                certificate = certificates[i]
+                if not certificate:
+                    print("Unable to parse certificate")
+                else:
+                    cert_content = certificate.get("certificate", None)
+                    if not cert_content:
+                        print("Certificate has NO content")
+                    else:
+                        self_signed = False
+                        metadata = certificate.get("metadata", None)
+                        subject = metadata.get("subjectName", None)
+                        issuer = metadata.get("issuerName", None)
+                        if not subject or not issuer:
+                            print("Invalid CA certificate")
+                        elif subject == issuer:
+                            # If the TrustBundle certificate is a CA root, it should be installed within the
+                            # Trusted Root store.
+                            self_signed = True
+                            print("It is a self-signed = {}, certificate".format(self_signed))
+                        else:
+                            print("It is a NOT a self-signed = {}, certificate".format(self_signed))
+                            print("Subject = {}".format(subject))
+                            print("Issuer = {}".format(issuer))
+                            print("Content of PEM = {}".format(cert_content))
 
 
 if __name__ == "__main__":
