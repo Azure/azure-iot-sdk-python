@@ -1,1 +1,0 @@
-{"registrationId":"tbtest1","deviceId":"tbtest1","attestation":{"type":"symmetricKey"},"capabilities":{"iotEdge":false},"allocationPolicy":"hashed","iotHubs":["crispop-iothub1.azure-devices.net"], "trustBundleId": "myTrustBundle1"}
