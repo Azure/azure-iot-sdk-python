@@ -79,7 +79,7 @@ class RegistrationState(object):
         :param etag: The entity tag associated with the resource.
         :param payload: The payload with which hub is responding.
         :param client_cert: Client certificate issued to the device in PEM format.
-        :param trust_bundle:
+        :param trust_bundle: The trust bundle returned from the service.
         """
         self._device_id = device_id
         self._assigned_hub = assigned_hub
