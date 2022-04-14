@@ -2,12 +2,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 import pytest
-import copy
-import collections
-import json
-import functools
-import time
-import sys
 import test_config
 
 

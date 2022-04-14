@@ -16,7 +16,6 @@ from azure.iot.device.common.pipeline import (
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from azure.iot.device.provisioning.pipeline import mqtt_topic_provisioning
-from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from azure.iot.device import constant as pkg_constant
 from . import constant as pipeline_constant
 from azure.iot.device import user_agent

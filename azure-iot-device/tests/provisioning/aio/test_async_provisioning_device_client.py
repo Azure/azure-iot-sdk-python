@@ -8,7 +8,6 @@ import logging
 from azure.iot.device.provisioning.aio.async_provisioning_device_client import (
     ProvisioningDeviceClient,
 )
-from azure.iot.device.provisioning import pipeline
 from azure.iot.device.common import async_adapter
 import asyncio
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions

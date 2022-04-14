@@ -7,12 +7,10 @@
 import os
 import uuid
 import asyncio
-from azure.iot.device.aio import IoTHubDeviceClient, IoTHubModuleClient
+from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import X509
-import http.client
 import pprint
-import json
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
+from azure.storage.blob import BlobClient
 from azure.core.exceptions import ResourceExistsError
 import logging
 

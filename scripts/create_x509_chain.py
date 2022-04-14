@@ -2,7 +2,6 @@ import os
 import re
 import argparse
 import getpass
-from sys import platform
 
 
 def create_custom_config():

@@ -12,18 +12,13 @@ from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning,
     pipeline_ops_provisioning,
 )
-from azure.iot.device.common.pipeline import pipeline_ops_base, pipeline_events_base
+from azure.iot.device.common.pipeline import pipeline_ops_base
 from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device.exceptions import ServiceError
 
-from azure.iot.device.provisioning.models.registration_result import (
-    RegistrationResult,
-    RegistrationState,
-)
 from tests.common.pipeline.helpers import StageRunOpTestBase
 from azure.iot.device import exceptions
 from azure.iot.device.provisioning.pipeline import constant
-import threading
 
 logging.basicConfig(level=logging.DEBUG)
 this_module = sys.modules[__name__]
