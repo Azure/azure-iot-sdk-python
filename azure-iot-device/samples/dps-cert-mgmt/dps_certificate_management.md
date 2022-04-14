@@ -25,28 +25,35 @@ These steps must be done for any scenario inside DPS Cert Management.
     curl -k -L -i -X PUT https://<dps_service_endpoint>/certificateAuthorities/<ca_name>?api-version=2021-11-01-preview -H 'Authorization: <service_api_sas_token>' -H 'Content-Type: application/json' -H 'Content-Encoding: utf-8' -d'{"certificateAuthorityType":"DigiCertCertificateAuthority","apiKey":"<api_key>","profileName":"<profile_id>"}'
     ```
    where,
-    * `dps_service_endpoint` - available in overview blade.
+    * `dps_service_endpoint` - available in overview blade of the DPS details.
     * `ca_name` - this is an user chosen friendly name (e.g. myca1).
     * `service_api_sas_token` - generated using shared access policy `provisioningserviceowner`
     * `api_key` and `profile_id` obtained before.
+* Query the Service API for the individual or group enrollment and save it to a file called enrollment.json. 
+_NOTE: This is a preferred way so that for updating the enrollment only modification of the enrollment.json file is needed._
+    ```bash
+    curl -X GET -H "Content-Type: application/json" -H "Content-Encoding:  utf-8" -H "Authorization: <service_api_sas_token>" https://<dps_service_endpoint>/enrollments/<registration_id>?api-version=2021-11-01-preview > enrollment.json
+    ```
      
 ### Client Certificate Issuance
 * All prerequisite steps must be done before following the rest.
-* Use DPS Service API to connect the CA to the __individual__ enrollment or group enrollment. Ensure attestation type matches enrollment settings.
-Here we have used `symmetrickey`.
+* Use DPS Service API to connect the CA to the __individual__ enrollment or group enrollment.
+    * First, update the enrollment.json file to add the following
+    ```
+    "clientCertificateIssuancePolicy": {"certificateAuthorityName": "<ca_name>"}
+    ```
+    where,
+    * `ca_name` - The friendly name that was assigned to the CA created in previous 5 (e.g. myca1).
+    * Then, update the enrollment information:
    ```bash
-   curl -k -L -i -X PUT -H "Content-Type: application/json" -H "Content-Encoding:  utf-8" -H "Authorization: <service_api_sas_token>" https://<dps_service_endpoint>/enrollments/<registration_id>?api-version=2021-11-01-preview -H "If-Match: *" -d '{ "registrationId": "<registration_id>", "attestation": { "type": "symmetricKey" }, "clientCertificateIssuancePolicy": {"certificateAuthorityName":"<ca_name>"} }' 
+   curl -k -L -i -X PUT -H "Content-Type: application/json" -H "Content-Encoding:  utf-8" -H "Authorization: <service_api_sas_token>" https://<dps_service_endpoint>/enrollments/<registration_id>?api-version=2021-11-01-preview -H "If-Match: <etag>" -d @enrollment.json 
    ```
    where,
-    * `dps_service_endpoint` - available in overview blade.
+    * `dps_service_endpoint` - available in overview blade of the DPS details.
     * `registration_id` – Is your individual enrollment registration id (e.g. mydevice1).
-    * `ca_name` - The friendly name that was assigned to the CA created in step 5 (e.g. myca1).
     * `service_api_sas_token` - The DPS Service API shared access token generated previously.
     
 * If a group enrollment was created then similar command must be performed for the group.
-    ```bash
-    curl -k -L -i -X PUT -H "Content-Type: application/json" -H "Content-Encoding:  utf-8" -H "Authorization: <service_api_sas_token>" https://<dps_service_endpoint>/enrollmentGroups/<enrollment_group_id>?api-version=2021-11-01-preview -H "If-Match: *" -d '{ "enrollmentGroupId": "<enrollment_group_id>", "attestation": { "type": "symmetricKey" },"clientCertificateIssuancePolicy": {"certificateAuthorityName":"<ca_name>"}}'
-    ```
 * Generate an ECC P-256 keypair using OpenSSL as follows:
     ```bash
     openssl ecparam -genkey -name prime256v1 -out ec256-key-pair.key
@@ -54,7 +61,7 @@ Here we have used `symmetrickey`.
 * Generate a CSR using OpenSSL. Replace the CN with the registration ID of the device. __Important: DPS has character set restrictions for registration ID.__
 Note: The same CSR can be reused and sent to DPS multiple times.
     ```bash
-    openssl req -new -key ec256-key-pair.key -out ecc256.csr -subj '/CN=my-registration-id'
+    openssl req -new -key ec256-key-pair.key -out ecc256.csr -subj '/CN=<registration_id>'
     ```
 * Run [sample](provision_symmetric_key_client_cert_issuance_send_message_x509.py) for DPS. Use the file path of the above generated csr for the environment variable `CSR_FILE` and 
 use file path for the key file for the environment variable `X509_KEY_FILE`.
@@ -80,15 +87,6 @@ use file path for the key file for the environment variable `X509_KEY_FILE`.
             ]
         }
         ```
-* Retrieve the details about an individual enrollment that you wish to associate the trust bundle with and store them in a file.
-    ```bash
-    curl -X GET -H "Content-Type: application/json" -H "Content-Encoding:  utf-8" -H "Authorization: <service_api_sas_token>" https://<dps_service_endpoint>/enrollments/<registration_id>?api-version=2021-11-01-preview > enrollment.json
-    ```
-    where,
-    * `dps_service_endpoint` - available in overview blade.
-    * `registration_id` – Is your individual enrollment registration id (e.g. mydevice1).
-    * `service_api_sas_token` - The DPS Service API shared access token generated previously.
-    * `enrollment.json` - A file that contains all the enrollment details that was retrieved.
 * Use DPS Service API to connect the trust bundle or update the __individual__ enrollment with the trust bundle.
     ```bash
     curl -k -L -i -X PUT -H "Content-Type: application/json" -H "Content-Encoding:  utf-8" -H "Authorization: <service_api_sas_token>" https://<dps_service_endpoint>/enrollments/<registration_id>?api-version=2021-11-01-preview -H "If-Match: <etag>" -d @enrollment.json
