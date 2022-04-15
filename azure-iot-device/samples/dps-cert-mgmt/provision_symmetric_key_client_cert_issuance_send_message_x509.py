@@ -32,7 +32,7 @@ async def main():
     )
     with open(csr_file, "r") as csr:
         csr_data = csr.read()
-        # set the CSR on the client
+        # Set the CSR on the client to send it to DPS
         provisioning_device_client.client_csr = str(csr_data)
 
     registration_result = await provisioning_device_client.register()
@@ -41,7 +41,7 @@ async def main():
     print(registration_result.registration_state)
 
     with open(issued_cert_file, "w") as out_ca_pem:
-        # Write the issued certificate on the file.
+        # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
         cert_data = registration_result.registration_state.issued_client_certificate
         out_ca_pem.write(cert_data)
 
@@ -51,7 +51,6 @@ async def main():
         x509 = X509(
             cert_file=issued_cert_file,
             key_file=key_file,
-            pass_phrase=os.getenv("PASS_PHRASE"),
         )
 
         device_client = IoTHubDeviceClient.create_from_x509_certificate(

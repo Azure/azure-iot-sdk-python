@@ -30,6 +30,7 @@ class RegistrationState(object):
         etag=None,
         payload=None,
         client_cert=None,
+        trust_bundle=None,
     ):
         """
         :param device_id: Desired device id for the provisioned device
@@ -41,6 +42,7 @@ class RegistrationState(object):
         :param etag: The entity tag associated with the resource.
         :param payload: The payload with which hub is responding.
         :param client_cert: Client certificate issued to the device in PEM format.
+        :param trust_bundle: The trust bundle returned from the service.
         """
         self._device_id = device_id
         self._assigned_hub = assigned_hub
@@ -50,6 +52,7 @@ class RegistrationState(object):
         self._etag = etag
         self._response_payload = payload
         self._issued_client_certificate = client_cert
+        self._trust_bundle = trust_bundle
 
     @property
     def device_id(self) -> str:
@@ -82,6 +85,10 @@ class RegistrationState(object):
     @property
     def issued_client_certificate(self):
         return self._issued_client_certificate
+
+    @property
+    def trust_bundle(self):
+        return self._trust_bundle
 
     def __str__(self):
         return "\n".join(
