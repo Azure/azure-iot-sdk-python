@@ -109,14 +109,19 @@ class EnsureDesiredPropertiesStage(PipelineStage):
                 "{}: Desired patch received.  Saving $version={}".format(self.name, version)
             )
             self.last_version_seen = version
+            self.send_event_up(event)
         elif isinstance(event, pipeline_events_base.ConnectedEvent):
             # If last_version_seen is truthy, that means we've seen desired property patches
             # before (or we've enabled them at least).  If this is the case, get the twin to
             # see if the desired props have been updated.
             if self.last_version_seen:
                 logger.info("{}: Reconnected.  Getting twin".format(self.name))
+                self.send_event_up(event)
                 self._ensure_get_op()
-        self.send_event_up(event)
+            else:
+                self.send_event_up(event)
+        else:
+            self.send_event_up(event)
 
 
 class TwinRequestResponseStage(PipelineStage):
