@@ -5,8 +5,8 @@ from an IoT device.
 """
 
 # Import all exposed items in aio subpackages to expose them via this package
-from azure.iot.device.iothub.aio import *
-from azure.iot.device.provisioning.aio import *
+from azure.iot.device.iothub.aio import *  # noqa: F401, F403
+from azure.iot.device.provisioning.aio import *  # noqa: F401, F403
 
 # Import the subpackages themselves in order to set the __all__
 import azure.iot.device.iothub.aio

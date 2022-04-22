@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import os
 import asyncio
 import uuid
 from azure.iot.device.aio import IoTHubModuleClient

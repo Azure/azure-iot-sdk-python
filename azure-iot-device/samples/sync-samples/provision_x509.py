@@ -7,7 +7,6 @@ import os
 from azure.iot.device import ProvisioningDeviceClient, X509
 import time
 from azure.iot.device import IoTHubDeviceClient, Message
-import uuid
 
 
 provisioning_host = os.getenv("PROVISIONING_HOST")

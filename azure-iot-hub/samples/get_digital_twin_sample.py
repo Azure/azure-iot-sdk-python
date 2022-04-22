@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
 import os
 import msrest
 from azure.iot.hub import DigitalTwinClient

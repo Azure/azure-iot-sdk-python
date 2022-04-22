@@ -7,7 +7,6 @@
 import pytest
 import time
 import urllib
-from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest
 from azure.iot.device.common.models.x509 import X509
 

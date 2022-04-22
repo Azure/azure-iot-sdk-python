@@ -9,8 +9,6 @@ import hmac
 import hashlib
 from azure.iot.device import ProvisioningDeviceClient
 from azure.iot.device import IoTHubDeviceClient
-from azure.iot.device import Message
-import uuid
 import time
 
 provisioning_host = os.getenv("PROVISIONING_HOST")

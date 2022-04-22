@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 """This module contains an Inbox class for use with an asynchronous client"""
 import asyncio
-import threading
 import janus
 from azure.iot.device.iothub.sync_inbox import AbstractInbox
 from . import loop_management

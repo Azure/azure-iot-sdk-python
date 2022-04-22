@@ -16,7 +16,6 @@ from azure.iot.device.common.pipeline import (
     pipeline_events_mqtt,
     pipeline_stages_mqtt,
     pipeline_exceptions,
-    config,
 )
 from tests.common.pipeline.helpers import StageRunOpTestBase
 from tests.common.pipeline import pipeline_stage_test

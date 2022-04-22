@@ -6,7 +6,6 @@
 
 from .auth import ConnectionStringAuthentication, AzureIdentityCredentialAdapter
 from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
-from .protocol.models import Configuration, ConfigurationContent, ConfigurationQueriesTestInput
 
 
 class IoTHubConfigurationManager(object):

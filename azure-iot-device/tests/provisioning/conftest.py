@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from .shared_client_fixtures import (
+from .shared_client_fixtures import (  # noqa: F401
     mock_pipeline_init,
     provisioning_pipeline,
     registration_result,

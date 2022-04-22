@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from email.policy import HTTP
 import logging
 import ssl
 import requests

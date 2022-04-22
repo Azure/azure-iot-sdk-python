@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-import logging
 from tests.common.pipeline.config_test import PipelineConfigInstantiationTestBase
 from azure.iot.device.provisioning.pipeline.config import ProvisioningPipelineConfig
 

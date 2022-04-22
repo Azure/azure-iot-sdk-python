@@ -2,7 +2,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 import pytest
-import functools
 import time
 import e2e_settings
 import logging

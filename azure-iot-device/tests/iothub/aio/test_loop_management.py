@@ -6,7 +6,6 @@
 
 import pytest
 import asyncio
-import threading
 import logging
 from azure.iot.device.iothub.aio import loop_management
 

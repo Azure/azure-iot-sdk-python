@@ -12,12 +12,6 @@ from .protocol.models import (
     SymmetricKey,
     X509Thumbprint,
     AuthenticationMechanism,
-    ServiceStatistics,
-    RegistryStatistics,
-    QuerySpecification,
-    Twin,
-    CloudToDeviceMethod,
-    CloudToDeviceMethodResult,
     DeviceCapabilities,
 )
 
