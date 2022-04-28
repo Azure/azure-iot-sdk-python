@@ -21,7 +21,6 @@ This repository contains the following libraries:
 * [Azure IoT Hub Service library](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-hub/README.md)
      * [API Reference](https://docs.microsoft.com/en-us/python/api/azure-iot-hub)
 
-* Coming Soon: Azure IoT Device Provisioning Service Library
 
 ## Critical Upcoming Changes Notice
 
@@ -117,17 +116,6 @@ This SDK only supports the **MQTT protocol**.
 | [Query](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-query-language)                       | :heavy_check_mark: | Use your backend app to perform query for information.       |
 | [Jobs](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs)                                  | :heavy_multiplication_x: | Use your backend app to perform job operation. |
 
-### IoTHub Provisioning Service Library
-
-Feature is Coming Soon
-
-| Features                                            | Status                   | Description                                                                                                                                    |
-|-----------------------------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| CRUD Operation with TPM Individual Enrollment       | :heavy_multiplication_x: | Manage device enrollment using TPM with the service SDK.                             |
-| Bulk CRUD Operation with TPM Individual Enrollment  | :heavy_multiplication_x: | Bulk manage device enrollment using TPM with the service SDK.                        |
-| CRUD Operation with X.509 Individual Enrollment     | :heavy_multiplication_x: | Manages device enrollment using X.509 individual enrollment with the service SDK.    |
-| CRUD Operation with X.509 Group Enrollment          | :heavy_multiplication_x: | Manages device enrollment using X.509 group enrollment with the service SDK.         |
-| Query enrollments                                   | :heavy_multiplication_x: | Query registration states with the service SDK.                                      |
 
 # Releases
 
