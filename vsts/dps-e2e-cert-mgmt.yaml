@@ -46,6 +46,10 @@ jobs:
       PROVISIONING_ROOT_PASSWORD: $(DPSCERT-MAC-ROOT-CERT-PASSWORD)
       PYTHONUNBUFFERED: True
 
+      # Extra variable manually created
+      DPS_CERT_ISSUANCE_SYM_KEY_AIO: $(DPSCERT-MAC-DPS-CLIENT-CERT-ISSUE-SYM-KEY-ASYNC)
+      DPS_CERT_ISSUANCE_SYM_KEY_SYNC: $(DPSCERT-MAC-DPS-CLIENT-CERT-ISSUE-SYM-KEY-SYNC)
+
   - task: PublishTestResults@2
     displayName: 'Publish Test Results'
     condition: always()
