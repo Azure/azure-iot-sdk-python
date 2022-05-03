@@ -209,5 +209,5 @@ async def result_from_register(registration_id, symmetric_key, protocol, client_
         websockets=protocol_boolean_mapping[protocol],
     )
     if client_csr:
-        provisioning_device_client.client_certificate_signing_request = client_csr
+        provisioning_device_client.client_certificate_signing_request = str(client_csr)
     return await provisioning_device_client.register()

@@ -186,7 +186,7 @@ def assert_device_provisioned(device_id, registration_result):
     assert device.device_id == device_id
 
 
-def result_from_register(registration_id, symmetric_key, protocol, client_csr):
+def result_from_register(registration_id, symmetric_key, protocol, client_csr=None):
     protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
     provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
         provisioning_host=PROVISIONING_HOST,
@@ -197,5 +197,5 @@ def result_from_register(registration_id, symmetric_key, protocol, client_csr):
     )
 
     if client_csr:
-        provisioning_device_client.client_certificate_signing_request = client_csr
+        provisioning_device_client.client_certificate_signing_request = str(client_csr)
     return provisioning_device_client.register()
