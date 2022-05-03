@@ -98,7 +98,7 @@ def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individua
         # registration_id = individual_enrollment_record.registration_id
         # symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
 
-        registration_id = "e2e-dps-avis"
+        registration_id = "e2e-dps-ventus"
         symmetric_key = symmetric_key_for_cert_management
 
         key_file = "key.pem"
