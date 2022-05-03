@@ -33,11 +33,12 @@ service_client = ProvisioningServiceClient.create_from_connection_string(conn_st
 device_registry_helper = Helper(os.getenv("IOTHUB_CONNECTION_STRING"))
 linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRING"))
 # TODO Delete this line. This is a pre created variable in key vault now.
-symmetric_key_for_cert_management = os.getenv("DPS_CERT_ISSUANCE_SYM_KEY")
+symmetric_key_for_cert_management = os.getenv("DPS_CERT_ISSUANCE_SYM_KEY_AIO")
 
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.skip
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the device_id equal to the registration_id"
     "of the individual enrollment that has been created with a symmetric key authentication"
@@ -64,6 +65,7 @@ async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
+@pytest.mark.skip
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a symmetric key authentication"
 )
