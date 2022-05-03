@@ -381,14 +381,14 @@ class TestSendRegister(object):
         fake_client_csr = "fake_client_csr"
         pipeline.register(client_csr=fake_client_csr, callback=cb)
         op = pipeline._pipeline.run_op.call_args[0][0]
-        assert op.client_csr is fake_client_csr
+        assert op.client_certificate_signing_request is fake_client_csr
 
     @pytest.mark.it("sets client_csr on the RegistrationRequest to None if no csr is provided")
     def test_sets_empty_csr(self, pipeline, mocker):
         cb = mocker.MagicMock()
         pipeline.register(callback=cb)
         op = pipeline._pipeline.run_op.call_args[0][0]
-        assert op.client_csr is None
+        assert op.client_certificate_signing_request is None
 
     @pytest.mark.it(
         "Triggers the callback upon successful completion of the RegisterOperation, passing the registration result in the result parameter"

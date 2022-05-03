@@ -246,11 +246,11 @@ class AbstractProvisioningDeviceClient(abc.ABC):
         self._provisioning_payload = provisioning_payload
 
     @property
-    def client_csr(self):
+    def client_certificate_signing_request(self):
         return self._client_csr
 
-    @client_csr.setter
-    def client_csr(self, csr):
+    @client_certificate_signing_request.setter
+    def client_certificate_signing_request(self, csr):
         """
         Set the certificate signing request for device client certificate.
         The certificate will be used later for authentication after provisioning.

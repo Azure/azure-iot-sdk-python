@@ -69,7 +69,7 @@ class RegisterOperationInstantiationTests(RegisterOperationTestConfig):
     )
     def test_client_csr(self, cls_type, init_kwargs, csr_input):
         op = cls_type(**init_kwargs, client_csr=csr_input)
-        assert op.client_csr is csr_input
+        assert op.client_certificate_signing_request is csr_input
 
 
 pipeline_ops_test.add_operation_tests(

@@ -33,7 +33,7 @@ async def main():
     with open(csr_file, "r") as csr:
         csr_data = csr.read()
         # Set the CSR on the client to send it to DPS
-        provisioning_device_client.client_csr = str(csr_data)
+        provisioning_device_client.client_certificate_signing_request = str(csr_data)
 
     registration_result = await provisioning_device_client.register()
 

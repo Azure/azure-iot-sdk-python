@@ -35,7 +35,7 @@ async def main():
     with open(csr_file, "r") as csr:
         csr_data = csr.read()
         # set the CSR on the client
-        provisioning_device_client.client_csr = str(csr_data)
+        provisioning_device_client.client_certificate_signing_request = str(csr_data)
 
     registration_result = await provisioning_device_client.register()
 
