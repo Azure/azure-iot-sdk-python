@@ -35,6 +35,8 @@ linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRI
 # TODO Delete this line. This is a pre created variable in key vault now.
 symmetric_key_for_cert_management = os.getenv("DPS_CERT_ISSUANCE_SYM_KEY")
 
+logger = logging.getLogger(__name__)
+
 
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the device_id equal to the registration_id"
@@ -112,6 +114,8 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_ind
         registration_id = "e2e-dps-avis"
         symmetric_key = symmetric_key_for_cert_management
 
+        logger.debug("the symmetric key for e2e-dps-avis")
+        logger.debug(symmetric_key_for_cert_management)
         private_key = create_private_key(key_file)
         client_csr = create_csr(private_key, csr_file, registration_id)
 
