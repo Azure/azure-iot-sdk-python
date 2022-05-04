@@ -382,7 +382,7 @@ class TestClientCsr(object):
         provisioning_pipeline = mocker.MagicMock()
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
-        client.client_csr = csr_input
+        client.client_certificate_signing_request = csr_input
         assert client._client_csr == csr_input
 
     @pytest.mark.it("Gets the csr from the client csr property")
@@ -397,5 +397,5 @@ class TestClientCsr(object):
         provisioning_pipeline = mocker.MagicMock()
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
-        client.client_csr = csr_input
-        assert client.client_csr == csr_input
+        client.client_certificate_signing_request = csr_input
+        assert client.client_certificate_signing_request == csr_input
