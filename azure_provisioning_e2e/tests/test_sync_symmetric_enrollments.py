@@ -112,10 +112,10 @@ def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individua
         issued_cert_file = "cert.pem"
 
         private_key = create_private_key(key_file)
-        client_csr = create_csr(private_key, csr_file, registration_id)
+        create_csr(private_key, csr_file, registration_id)
 
         registration_result = result_from_register(
-            registration_id, symmetric_key, protocol, client_csr=client_csr
+            registration_id, symmetric_key, protocol, csr_file=csr_file
         )
 
         assert_device_provisioned(
@@ -192,7 +192,7 @@ def assert_device_provisioned(device_id, registration_result):
     assert device.device_id == device_id
 
 
-def result_from_register(registration_id, symmetric_key, protocol, client_csr=None):
+def result_from_register(registration_id, symmetric_key, protocol, csr_file=None):
     protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
     provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
         provisioning_host=PROVISIONING_HOST,
@@ -202,6 +202,9 @@ def result_from_register(registration_id, symmetric_key, protocol, client_csr=No
         websockets=protocol_boolean_mapping[protocol],
     )
 
-    if client_csr:
-        provisioning_device_client.client_certificate_signing_request = str(client_csr)
+    if csr_file:
+        with open(csr_file, "r") as csr:
+            csr_data = csr.read()
+            # Set the CSR on the client to send it to DPS
+            provisioning_device_client.client_certificate_signing_request = str(csr_data)
     return provisioning_device_client.register()

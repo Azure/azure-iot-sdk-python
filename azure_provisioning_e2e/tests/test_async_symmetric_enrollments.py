@@ -119,10 +119,10 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_ind
         logger.debug("the symmetric key for e2e-dps-avis")
         logger.debug(symmetric_key_for_cert_management)
         private_key = create_private_key(key_file)
-        client_csr = create_csr(private_key, csr_file, registration_id)
+        create_csr(private_key, csr_file, registration_id)
 
         registration_result = await result_from_register(
-            registration_id, symmetric_key, protocol, client_csr=client_csr
+            registration_id, symmetric_key, protocol, csr_file=csr_file
         )
 
         assert_device_provisioned(
@@ -203,7 +203,7 @@ def assert_device_provisioned(device_id, registration_result, client_cert=False)
         assert registration_result.registration_state.issued_client_certificate is not None
 
 
-async def result_from_register(registration_id, symmetric_key, protocol, client_csr=None):
+async def result_from_register(registration_id, symmetric_key, protocol, csr_file=None):
     # We have this mapping because the pytest logs look better with "mqtt" and "mqttws"
     # instead of just "True" and "False".
     protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
@@ -214,6 +214,9 @@ async def result_from_register(registration_id, symmetric_key, protocol, client_
         symmetric_key=symmetric_key,
         websockets=protocol_boolean_mapping[protocol],
     )
-    if client_csr:
-        provisioning_device_client.client_certificate_signing_request = str(client_csr)
+    if csr_file:
+        with open(csr_file, "r") as csr:
+            csr_data = csr.read()
+            # Set the CSR on the client to send it to DPS
+            provisioning_device_client.client_certificate_signing_request = str(csr_data)
     return await provisioning_device_client.register()
