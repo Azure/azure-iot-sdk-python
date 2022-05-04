@@ -119,7 +119,7 @@ def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individua
         )
 
         assert_device_provisioned(
-            device_id=registration_id, registration_result=registration_result
+            device_id=registration_id, registration_result=registration_result, client_cert=True
         )
         with open(issued_cert_file, "w") as out_ca_pem:
             # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
@@ -176,7 +176,7 @@ def create_individual_enrollment(registration_id, device_id=None):
     return service_client.create_or_update(individual_provisioning_model)
 
 
-def assert_device_provisioned(device_id, registration_result):
+def assert_device_provisioned(device_id, registration_result, client_cert=False):
     """
     Assert that the device has been provisioned correctly to iothub from the registration result as well as from the device registry
     :param device_id: The device id
@@ -188,8 +188,13 @@ def assert_device_provisioned(device_id, registration_result):
 
     device = device_registry_helper.get_device(device_id)
     assert device is not None
-    assert device.authentication.type == "sas"
+    if client_cert:
+        assert device.authentication.type == "selfSigned"
+    else:
+        assert device.authentication.type == "sas"
     assert device.device_id == device_id
+    if client_cert:
+        assert registration_result.registration_state.issued_client_certificate is not None
 
 
 def result_from_register(registration_id, symmetric_key, protocol, csr_file=None):

@@ -196,7 +196,10 @@ def assert_device_provisioned(device_id, registration_result, client_cert=False)
 
     device = device_registry_helper.get_device(device_id)
     assert device is not None
-    assert device.authentication.type == "sas"
+    if client_cert:
+        assert device.authentication.type == "selfSigned"
+    else:
+        assert device.authentication.type == "sas"
     assert device.device_id == device_id
 
     if client_cert:
