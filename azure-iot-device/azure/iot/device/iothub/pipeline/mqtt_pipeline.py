@@ -92,21 +92,14 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.AutoConnectStage())
             #
-            # ReconnectStage needs to be after AutoConnectStage because ReconnectStage sets/clears
-            # the virtually_conencted flag and we want an automatic connection op to set this flag so
-            # we can reconnect autoconnect operations.  This is important, for example, if a
-            # send_message causes the transport to automatically connect, but that connection fails.
-            # When that happens, the ReconnectState will hold onto the ConnectOperation until it
-            # succeeds, and only then will return success to the AutoConnectStage which will
-            # allow the publish to continue.
+            # ConnectionStateStage needs to be after AutoConnectStage because ConnectionStateStage
+            # tracks the connection state and reconnect logic. The AutoConnectStage can generate a
+            # ConnectionOperation which naturally will affect the Connection State.
+            # Additionally, connection operations which are unnecessary (e.g. ConnectOperation
+            # while already connected) will auto-complete here, as the Transport doesn't deal well
+            # with operations being issued to change state to a state it is already in.
             #
-            .append_stage(pipeline_stages_base.ReconnectStage())
-            # #
-            # # The Transport doesn't deal well with operations being issued to change the connection
-            # # state to a state it already is in (e.g. ConnectOperation while already connected).
-            # # The AutoCompleteStage will complete these operations automatically before they get to
-            # # the Transport.
-            # .append_stage(pipeline_stages_base.AutoCompleteStage())
+            .append_stage(pipeline_stages_base.ConnectionStateStage())
             #
             # RetryStage needs to be near the end because it's retrying low-level MQTT operations.
             #
