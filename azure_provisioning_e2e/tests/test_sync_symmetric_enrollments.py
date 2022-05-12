@@ -87,7 +87,7 @@ def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollmen
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individual_enrollment(
-    protocol,
+    protocol
 ):
     key_file = "key.pem"
     csr_file = "request.pem"

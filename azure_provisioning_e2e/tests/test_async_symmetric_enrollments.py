@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment(
-    protocol,
+    protocol
 ):
     try:
         individual_enrollment_record = create_individual_enrollment(
@@ -95,7 +95,7 @@ async def test_device_register_with_device_id_for_a_symmetric_key_individual_enr
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individual_enrollment(
-    protocol,
+    protocol
 ):
     key_file = "key.pem"
     csr_file = "request.pem"
