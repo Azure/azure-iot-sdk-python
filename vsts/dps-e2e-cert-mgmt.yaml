@@ -27,7 +27,7 @@ jobs:
 
   - script: |
       cd $(Build.SourcesDirectory)/azure_provisioning_e2e/tests
-      pytest test_*.py --junitxml=junit/dps-e2e-test-results.xml
+      pytest test_*.py --junitxml=junit/dps-cert-mgmt-e2e-test-results.xml
     displayName: 'Run Specified E2E Test with env variables'
 
     env:
@@ -45,6 +45,10 @@ jobs:
       PROVISIONING_ROOT_CERT_KEY: $(DPSCERT-MAC-IOT-PROVISIONING-ROOT-CERT-KEY)
       PROVISIONING_ROOT_PASSWORD: $(DPSCERT-MAC-ROOT-CERT-PASSWORD)
       PYTHONUNBUFFERED: True
+
+      # Extra variable manually created
+      DPS_CERT_ISSUANCE_SYM_KEY_AIO: $(DPSCERT-MAC-DPS-CLIENT-CERT-ISSUE-SYM-KEY-ASYNC)
+      DPS_CERT_ISSUANCE_SYM_KEY_SYNC: $(DPSCERT-MAC-DPS-CLIENT-CERT-ISSUE-SYM-KEY-SYNC)
 
   - task: PublishTestResults@2
     displayName: 'Publish Test Results'
