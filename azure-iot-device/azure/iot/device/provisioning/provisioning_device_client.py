@@ -82,7 +82,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         self._pipeline.register(
             payload=self._provisioning_payload,
             callback=register_complete,
-            client_csr=self.client_csr,
+            client_csr=self.client_certificate_signing_request,
         )
         result = handle_result(register_complete)
 
