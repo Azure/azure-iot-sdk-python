@@ -1,4 +1,4 @@
-FROM node:latest
+FROM mcr.microsoft.com/mirror/docker/library/node:18-bullseye-slim
 
 WORKDIR /app
 
