@@ -26,7 +26,7 @@ async def main():
     x509 = X509(
         cert_file=os.getenv("X509_CERT_FILE"),
         key_file=os.getenv("X509_KEY_FILE"),
-        pass_phrase=os.getenv("PASS_PHRASE"),
+        pass_phrase=os.getenv("X509_PASS_PHRASE"),
     )
 
     module_client = IoTHubModuleClient.create_from_x509_certificate(

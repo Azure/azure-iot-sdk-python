@@ -18,7 +18,7 @@ async def main():
     x509 = X509(
         cert_file=os.getenv("X509_CERT_FILE"),
         key_file=os.getenv("X509_KEY_FILE"),
-        pass_phrase=os.getenv("PASS_PHRASE"),
+        pass_phrase=os.getenv("X509_PASS_PHRASE"),
     )
 
     # The client object is used to interact with your Azure IoT hub.
