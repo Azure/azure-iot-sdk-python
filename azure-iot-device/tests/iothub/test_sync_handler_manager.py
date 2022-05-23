@@ -299,7 +299,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         return "_" + handler_name
 
     @pytest.mark.it(
-        "Creates and starts a daemon Thread for the correpsonding handler runner when value is set to a function"
+        "Creates and starts a daemon Thread for the corresponding handler runner when value is set to a function"
     )
     def test_thread_created(self, handler_name, handler_name_internal, handler_manager, handler):
         assert handler_manager._receiver_handler_runners[handler_name_internal] is None

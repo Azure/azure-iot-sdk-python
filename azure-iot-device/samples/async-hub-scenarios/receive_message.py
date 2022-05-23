@@ -28,7 +28,7 @@ async def main():
         print("content Type: {0}".format(message.content_type))
         print("")
 
-    # set the mesage received handler on the client
+    # set the message received handler on the client
     device_client.on_message_received = message_received_handler
 
     # define behavior for halting the application

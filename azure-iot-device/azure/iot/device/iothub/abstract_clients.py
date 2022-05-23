@@ -736,7 +736,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 raise new_err
 
             # Read the certificate file to pass it on as a string
-            # TODO: variant server_verification_cert file vs data object that would remove the need for this fopen
+            # TODO: variant server_verification_cert file vs data object that would remove the need for this file open
             try:
                 with io.open(ca_cert_filepath, mode="r") as ca_cert_file:
                     server_verification_cert = ca_cert_file.read()

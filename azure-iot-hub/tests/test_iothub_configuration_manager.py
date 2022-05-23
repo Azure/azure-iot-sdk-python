@@ -15,7 +15,7 @@ fake_shared_access_key = "Zm9vYmFy"
 fake_shared_access_key_name = "alohomora"
 fake_hostname = "beauxbatons.academy-net"
 fake_device_id = "MyPensieve"
-fake_etag = "taggedbymisnitryofmagic"
+fake_etag = "taggedbyministryofmagic"
 fake_configuration_id = "fake_configuration_id"
 
 

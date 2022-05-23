@@ -37,13 +37,13 @@ class EventedCallback(object):
                     self.result = kwargs[return_arg_name]
                 else:
                     raise TypeError(
-                        "internal error: excepected argument with name '{}', did not get".format(
+                        "internal error: expected argument with name '{}', did not get".format(
                             return_arg_name
                         )
                     )
 
             if self.exception:
-                # Do not use exc_info parameter on logger.* calls.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+                # Do not use exc_info parameter on logger.* calls.  This causes pytest to save the traceback which saves stack frames which shows up as a leak
                 logger.info("Callback completed with error {}".format(self.exception))
                 logger.info(traceback.format_exc())
             else:

@@ -142,7 +142,7 @@ class IoTHubRegistryManager(object):
         :param str device_id: The name (Id) of the device.
         :param str primary_key: Primary authentication key.
         :param str secondary_key: Secondary authentication key.
-        :param str status: Initital state of the created device.
+        :param str status: Initial state of the created device.
             (Possible values: "enabled" or "disabled")
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
@@ -192,7 +192,7 @@ class IoTHubRegistryManager(object):
         :param str device_id: The name (Id) of the device.
         :param str primary_thumbprint: Primary X509 thumbprint.
         :param str secondary_thumbprint: Secondary X509 thumbprint.
-        :param str status: Initital state of the created device.
+        :param str status: Initial state of the created device.
             (Possible values: "enabled" or "disabled")
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
@@ -292,7 +292,7 @@ class IoTHubRegistryManager(object):
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str primary_key: Primary authentication key.
         :param str secondary_key: Secondary authentication key.
-        :param str status: Initital state of the created device.
+        :param str status: Initial state of the created device.
             (Possible values: "enabled" or "disabled").
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
@@ -349,7 +349,7 @@ class IoTHubRegistryManager(object):
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str primary_thumbprint: Primary X509 thumbprint.
         :param str secondary_thumbprint: Secondary X509 thumbprint.
-        :param str status: Initital state of the created device.
+        :param str status: Initial state of the created device.
             (Possible values: "enabled" or "disabled").
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
@@ -406,7 +406,7 @@ class IoTHubRegistryManager(object):
 
         :param str device_id: The name (Id) of the device.
         :param str etag: The etag (if_match) value to use for the update operation.
-        :param str status: Initital state of the created device.
+        :param str status: Initial state of the created device.
             (Possible values: "enabled" or "disabled").
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
@@ -916,10 +916,10 @@ class IoTHubRegistryManager(object):
         return self.protocol.modules.invoke_method(device_id, module_id, direct_method_request)
 
     def send_c2d_message(self, device_id, message, properties={}):
-        """Send a C2D mesage to a IoTHub Device.
+        """Send a C2D message to a IoTHub Device.
 
         :param str device_id: The name (Id) of the device.
-        :param str message: The message that is to be delievered to the device.
+        :param str message: The message that is to be delivered to the device.
         :param dict properties: The properties to be send with the message.  Can contain
             application properties and system properties
 

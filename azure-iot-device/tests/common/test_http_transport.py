@@ -138,7 +138,7 @@ class TestInstantiation(object):
     @pytest.mark.it(
         "Configures TLS/SSL context with provided cipher if present during instantiation"
     )
-    def test_confgures_tls_context_with_cipher(self, mocker):
+    def test_configures_tls_context_with_cipher(self, mocker):
         mock_ssl_context = mocker.patch.object(ssl, "SSLContext").return_value
 
         HTTPTransport(hostname=fake_hostname, cipher=fake_cipher)
@@ -168,7 +168,7 @@ class TestInstantiation(object):
     def test_http_adapter_pool_manager(self, mocker):
         # NOTE: This test involves mocking and testing deeper parts of the requests library stack
         # in order to show that the HTTPAdapter is functioning as intended. This naturally gets a
-        # little messy from a unittesting perspective
+        # little messy from a unit testing perspective
         poolmanager_init_mock = mocker.patch.object(requests.adapters, "PoolManager")
         proxymanager_init_mock = mocker.patch.object(urllib3.poolmanager, "ProxyManager")
         socksproxymanager_init_mock = mocker.patch.object(requests.adapters, "SOCKSProxyManager")

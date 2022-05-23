@@ -184,7 +184,7 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
         assert isinstance(stage.send_op_down.call_args[0][0], pipeline_ops_iothub.GetTwinOperation)
 
     @pytest.mark.it(
-        "Does not send a GetTwinOperation if last verion seen is set and there is already a pending GetTwinOperation"
+        "Does not send a GetTwinOperation if last version seen is set and there is already a pending GetTwinOperation"
     )
     def test_last_version_seen_pending(self, mocker, stage, event):
         stage.last_version_seen = mocker.MagicMock()
@@ -206,7 +206,7 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
         assert stage.send_op_down.call_count == 0
 
     @pytest.mark.it(
-        "Does not send a GetTwinOperation if last verion seen is not set and there is already a pending GetTwinOperation"
+        "Does not send a GetTwinOperation if last version seen is not set and there is already a pending GetTwinOperation"
     )
     def test_no_last_version_seen_pending(self, mocker, stage, event):
         stage.last_version_seen = None
@@ -333,7 +333,7 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         assert isinstance(stage.pending_get_request, pipeline_ops_iothub.GetTwinOperation)
 
     @pytest.mark.it(
-        "Does not send a `TwinDesiredPropertiesPatchEvent` if the op copmletes with an error"
+        "Does not send a `TwinDesiredPropertiesPatchEvent` if the op completes with an error"
     )
     def test_doesnt_send_patch_event_if_error(self, stage, get_twin_op, arbitrary_exception):
         get_twin_op.complete(arbitrary_exception)

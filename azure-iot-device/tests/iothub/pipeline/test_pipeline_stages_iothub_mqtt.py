@@ -64,7 +64,7 @@ def op_error(request, arbitrary_exception):
         return None
 
 
-# NOTE: This fixutre is defined out here rather than on a class because it is used for both
+# NOTE: This fixture is defined out here rather than on a class because it is used for both
 # EnableFeatureOperation and DisableFeatureOperation tests
 @pytest.fixture
 def expected_mqtt_topic_fn(mock_mqtt_topic, iothub_pipeline_feature):
@@ -83,7 +83,7 @@ def expected_mqtt_topic_fn(mock_mqtt_topic, iothub_pipeline_feature):
         assert False
 
 
-# NOTE: This fixutre is defined out here rather than on a class because it is used for both
+# NOTE: This fixture is defined out here rather than on a class because it is used for both
 # EnableFeatureOperation and DisableFeatureOperation tests
 @pytest.fixture
 def expected_mqtt_topic_fn_call(mocker, iothub_pipeline_feature, stage):
@@ -337,9 +337,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
 
 
 # NOTE: All of the following run op tests are tested against a pipeline_config that has been
-# configured for a Device Client, not a Module Client. It's worth considering parametrizing
+# configured for a Device Client, not a Module Client. It's worth considering parameterizing
 # that fixture so that these tests all run twice - once for a Device, and once for a Module.
-# HOWEVER, it's not stricly necessary, due to knowledge of implementation - we are testing that
+# HOWEVER, it's not strictly necessary, due to knowledge of implementation - we are testing that
 # the expected values (including module id, which just happens to be set to None when configured
 # for a device) are passed where they are expected to be passed. If they're being passed
 # correctly, we know it would work no matter what the values are set to.
@@ -485,7 +485,7 @@ class TestIoTHubMQTTTranslationStageWithSendMethodResponseOperation(
         )
 
     @pytest.mark.it("Derives the IoTHub telemetry topic using the op's request id and status")
-    def test_telemtry_topic(self, mocker, stage, op, mock_mqtt_topic):
+    def test_telemetry_topic(self, mocker, stage, op, mock_mqtt_topic):
         stage.run_op(op)
 
         assert mock_mqtt_topic.get_method_topic_for_publish.call_count == 1
@@ -698,7 +698,7 @@ class TestIoTHubMQTTTranslationStageWithRequestOperation(
 @pytest.mark.describe(
     "IoTHubMQTTTranslationStage - .run_op() -- Called with other arbitrary operation"
 )
-class TestIoTHubMQTTTranslationStageRunOpWithAribtraryOperation(
+class TestIoTHubMQTTTranslationStageRunOpWithArbitraryOperation(
     StageRunOpTestBase, IoTHubMQTTTranslationStageTestConfig
 ):
     @pytest.fixture

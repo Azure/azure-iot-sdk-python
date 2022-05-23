@@ -2,7 +2,7 @@ def translate_error(sc, reason):
     """
     Codes_SRS_NODE_IOTHUB_REST_API_CLIENT_16_012: [Any error object returned by translate_error shall inherit from the generic Error Javascript object and have 3 properties:
     - response shall contain the IncomingMessage object returned by the HTTP layer.
-    - reponseBody shall contain the content of the HTTP response.
+    - response Body shall contain the content of the HTTP response.
     - message shall contain a human-readable error message.]
     """
     message = "Error: {}".format(reason)

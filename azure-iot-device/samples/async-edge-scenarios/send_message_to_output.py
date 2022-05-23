@@ -13,7 +13,7 @@ messages_to_send = 10
 
 
 async def main():
-    # Inputs/Ouputs are only supported in the context of Azure IoT Edge and module client
+    # Inputs/Outputs are only supported in the context of Azure IoT Edge and module client
     # The module client object acts as an Azure IoT Edge module and interacts with an Azure IoT Edge hub
     module_client = IoTHubModuleClient.create_from_edge_environment()
 

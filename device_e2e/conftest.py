@@ -176,7 +176,7 @@ def pytest_configure(config):
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     """
-    This hook runs for every test (after paramratizing), as part of the test setup.
+    This hook runs for every test (after parametrizing), as part of the test setup.
 
     If a single function has parameters that make it run 8 times with different options,
     then this function will be called 8 times.

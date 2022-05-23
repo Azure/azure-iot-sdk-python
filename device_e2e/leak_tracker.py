@@ -215,7 +215,7 @@ class LeakTracker(object):
             >>> a.something = b
             ```
 
-        This means that `a` has a reference to `b`, which meanms that `b` will not be collected
+        This means that `a` has a reference to `b`, which means that `b` will not be collected
         until _after_ `a` is collected.  In other words. `a` is keeping `b` alive.
 
         You can see this by using `gc.get_referrers(b)` to see who refers to `b`.  But, If you do
@@ -269,7 +269,7 @@ class LeakTracker(object):
             ```
 
         With this mapping, we can show that `a` refers to `b`, even when it is `a.__dict__` that is
-        refering to `b`.
+        referring to `b`.
 
         Phew.
         """

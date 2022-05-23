@@ -31,7 +31,7 @@ class JobRequest(Model):
     :type query_condition: str
     :param start_time: ISO 8601 date time to start the job
     :type start_time: datetime
-    :param max_execution_time_in_seconds: Max execution time in secounds (ttl
+    :param max_execution_time_in_seconds: Max execution time in seconds (ttl
      duration)
     :type max_execution_time_in_seconds: long
     """

@@ -8,7 +8,7 @@ import time
 import uuid
 from azure.iot.device import IoTHubModuleClient, Message
 
-# Inputs/Ouputs are only supported in the context of Azure IoT Edge and module client
+# Inputs/Outputs are only supported in the context of Azure IoT Edge and module client
 # The module client object acts as an Azure IoT Edge module and interacts with an Azure IoT Edge hub
 module_client = IoTHubModuleClient.create_from_edge_environment()
 

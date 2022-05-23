@@ -36,7 +36,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 def token_parser(token_str):
-    """helper function that parses a token string for indvidual values"""
+    """helper function that parses a token string for individual values"""
     token_map = {}
     kv_string = token_str.split(" ")[1]
     kv_pairs = kv_string.split("&")
@@ -730,7 +730,7 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         assert mqtt_pipeline.enable_feature.call_count == 0
 
 
-# NOTE: If more properties are added, this class should become a general purpose properties testclass
+# NOTE: If more properties are added, this class should become a general purpose properties test class
 class SharedIoTHubClientPROPERTYConnectedTests(object):
     @pytest.mark.it("Cannot be changed")
     def test_read_only(self, client):
@@ -1481,10 +1481,10 @@ class SharedIoTHubModuleClientCreateFromX509CertificateTests(
 class SharedIoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests(
     SharedIoTHubClientCreateMethodUserOptionTests
 ):
-    """This class inherites the user option tests shared by all create method APIs, and overrides
-    tests in order to accomodate unique requirements for the .create_from_edge_enviornment() method.
+    """This class inherits the user option tests shared by all create method APIs, and overrides
+    tests in order to accommodate unique requirements for the .create_from_edge_environment() method.
 
-    Because .create_from_edge_environment() tests are spread accross multiple test units
+    Because .create_from_edge_environment() tests are spread across multiple test units
     (i.e. test classes), these overrides are done in this class, which is then inherited by all
     .create_from_edge_environment() test units below.
     """
@@ -1919,7 +1919,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
         assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
         assert isinstance(mock_mqtt_pipeline_init.call_args[0][0], IoTHubPipelineConfig)
 
-        # Verify the IoTHubPipelingConfig is constructed as expected
+        # Verify the IoTHubPipelineConfig is constructed as expected
         config = mock_mqtt_pipeline_init.call_args[0][0]
         assert config.device_id == cs_obj[cs.DEVICE_ID]
         assert config.module_id == cs_obj[cs.MODULE_ID]

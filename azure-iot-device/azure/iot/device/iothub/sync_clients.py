@@ -66,7 +66,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """Initializer for a generic synchronous client.
 
         This initializer should not be called directly.
-        Instead, use one of the 'create_from_' classmethods to instantiate
+        Instead, use one of the 'create_from_' class methods to instantiate
 
         :param mqtt_pipeline: The MQTTPipeline used for the client
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
@@ -299,7 +299,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         callback = EventedCallback()
         self._mqtt_pipeline.reauthorize_connection(callback=callback)
         handle_result(callback)
-        # NOTE: Currently due to the MQTT3 implemenation, the pipeline reauthorization will return
+        # NOTE: Currently due to the MQTT3 implementation, the pipeline reauthorization will return
         # after the disconnect. It does not wait for the reconnect to complete. This means that
         # any errors that may occur as part of the connect will not return via this callback.
         # They will instead go to the background exception handler.
@@ -532,7 +532,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
-        Instead, use one of the 'create_from_' classmethods to instantiate
+        Instead, use one of the 'create_from_' class methods to instantiate
 
         :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
@@ -590,7 +590,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
         :param str correlation_id: Provided by IoT Hub on get_storage_info_for_blob request.
         :param bool is_success: A boolean that indicates whether the file was uploaded successfully.
-        :param int status_code: A numeric status code that is the status for the upload of the fiel to storage.
+        :param int status_code: A numeric status code that is the status for the upload of the file to storage.
         :param str status_description: A description that corresponds to the status_code.
         """
         callback = EventedCallback()
@@ -609,10 +609,10 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     """A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance."""
 
     def __init__(self, mqtt_pipeline, http_pipeline):
-        """Intializer for a IoTHubModuleClient.
+        """Initializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
-        Instead, use one of the 'create_from_' classmethods to instantiate
+        Instead, use one of the 'create_from_' class methods to instantiate
 
         :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`

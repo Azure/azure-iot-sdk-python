@@ -135,7 +135,7 @@ class HTTPPipeline(object):
 
         :param str correlation_id: Provided by IoT Hub on get_storage_info_for_blob request.
         :param bool is_success: A boolean that indicates whether the file was uploaded successfully.
-        :param int status_code: A numeric status code that is the status for the upload of the fiel to storage.
+        :param int status_code: A numeric status code that is the status for the upload of the file to storage.
         :param str status_description: A description that corresponds to the status_code.
 
         :param callback: callback which is called when request has been fulfilled.

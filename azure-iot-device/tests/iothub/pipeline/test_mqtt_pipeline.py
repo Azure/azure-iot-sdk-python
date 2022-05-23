@@ -28,7 +28,7 @@ pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 @pytest.fixture
 def pipeline_configuration(mocker):
-    # NOTE: Consider parametrizing this to serve as both a device and module configuration.
+    # NOTE: Consider adding parameters to this to serve as both a device and module configuration.
     # The reason this isn't currently done is that it's not strictly necessary, but it might be
     # more correct and complete to do so. Certainly this must be done if any device/module
     # specific logic is added to the code under test.
@@ -233,7 +233,7 @@ class TestMQTTPipelineShutdown(object):
         # Pipeline is still running
         assert pipeline._running
 
-        # Trigger op copmletion (failure)
+        # Trigger op completion (failure)
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.complete(error=arbitrary_exception)
 

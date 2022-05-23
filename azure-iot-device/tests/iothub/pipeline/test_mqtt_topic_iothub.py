@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.DEBUG)
 # For URL encoding, we must always test the ' ' and '/' characters specifically, in addition
 # to a generic URL encoding value (e.g. $, #, etc.)
 #
-# For URL decoding, we must always test the '+' character speicifically, in addition to
+# For URL decoding, we must always test the '+' character specifically, in addition to
 # a generic URL encoded value (e.g. %24, %23, etc.)
 #
 # Please also always test that provided values are converted to strings in order to ensure
@@ -133,7 +133,7 @@ class TestGetMethodTopicForSubscribe(object):
 
 @pytest.mark.describe("get_twin_response_topic_for_subscribe()")
 class TestGetTwinResponseTopicForSubscribe(object):
-    @pytest.mark.it("Returns the topic for subscribing to twin repsonse from IoTHub")
+    @pytest.mark.it("Returns the topic for subscribing to twin response from IoTHub")
     def test_returns_topic(self):
         topic = mqtt_topic_iothub.get_twin_response_topic_for_subscribe()
         assert topic == "$iothub/twin/res/#"
@@ -237,7 +237,7 @@ class TestGetMethodTopicForPublish(object):
     @pytest.mark.parametrize(
         "request_id, status, expected_topic",
         [
-            pytest.param("1", "200", "$iothub/methods/res/200/?$rid=1", id="Succesful result"),
+            pytest.param("1", "200", "$iothub/methods/res/200/?$rid=1", id="Successful result"),
             pytest.param(
                 "475764", "500", "$iothub/methods/res/500/?$rid=475764", id="Failure result"
             ),

@@ -495,7 +495,7 @@ class ServiceOperations(object):
         """Create, update, or delete the identities of multiple devices from the
         IoT hub identity registry.
 
-        Create, update, or delete the identiies of multiple devices from the
+        Create, update, or delete the identities of multiple devices from the
         IoT hub identity registry. A device identity can be specified only once
         in the list. Different operations (create, update, delete) on different
         devices are allowed. A maximum of 100 devices can be specified per

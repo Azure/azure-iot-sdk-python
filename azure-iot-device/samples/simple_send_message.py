@@ -10,7 +10,7 @@ from azure.iot.device.aio import IoTHubDeviceClient
 
 
 async def main():
-    # Fetch the connection string from an enviornment variable
+    # Fetch the connection string from an environment variable
     conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 
     # Create instance of the device client using the connection string

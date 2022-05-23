@@ -35,7 +35,7 @@ def message_received_handler(message):
     print(message.custom_properties)
 
 
-# Set the message received h andler on the client
+# Set the message received handler on the client
 device_client.on_message_received = message_received_handler
 
 

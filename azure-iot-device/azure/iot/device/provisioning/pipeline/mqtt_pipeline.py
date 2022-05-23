@@ -104,7 +104,7 @@ class MQTTPipeline(object):
         )
 
         def _on_pipeline_event(event):
-            # error becuse no events should
+            # error because no events should
             logger.error("Dropping unknown pipeline event {}".format(event.name))
 
         def _on_connected():
