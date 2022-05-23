@@ -90,7 +90,9 @@ class IoTHubAmqpClientSharedAccessKeyAuth(IoTHubAmqpClientBase):
         )
         auth.update_token()
         self.amqp_client = uamqp.SendClient(
-            target="amqps://" + hostname + "/messages/devicebound", auth=auth
+            target="amqps://" + hostname + "/messages/devicebound",
+            auth=auth,
+            keep_alive_interval=120,
         )
 
 
@@ -110,4 +112,4 @@ class IoTHubAmqpClientTokenAuth(IoTHubAmqpClientBase):
         )
         auth.update_token()
         target = "amqps://" + hostname + "/messages/devicebound"
-        self.amqp_client = uamqp.SendClient(target=target, auth=auth)
+        self.amqp_client = uamqp.SendClient(target=target, auth=auth, keep_alive_interval=120)

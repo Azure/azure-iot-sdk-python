@@ -36,6 +36,9 @@ try:
     iothub_registry_manager.delete_module(device_id, module_id)
     print("Deleted Module {0}".format(module_id))
 
+    # Set registry manager object to `None` so all open files get closed
+    iothub_registry_manager = None
+
 except msrest.exceptions.HttpOperationError as ex:
     print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
