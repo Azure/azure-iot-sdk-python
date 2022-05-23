@@ -7,9 +7,7 @@
 import logging
 import threading
 import abc
-import six
 from azure.iot.device.common import handle_exceptions
-from azure.iot.device.common.chainable_exception import ChainableException
 from azure.iot.device.iothub.client_event import (
     CONNECTION_STATE_CHANGE,
     NEW_SASTOKEN_REQUIRED,
@@ -30,7 +28,7 @@ CLIENT_EVENT = "client_event"
 client_events = [CONNECTION_STATE_CHANGE, NEW_SASTOKEN_REQUIRED, BACKGROUND_EXCEPTION]
 
 
-class HandlerManagerException(ChainableException):
+class HandlerManagerException(Exception):
     """An exception raised by a HandlerManager"""
 
     pass
@@ -45,8 +43,7 @@ class HandlerRunnerKillerSentinel(object):
     pass
 
 
-@six.add_metaclass(abc.ABCMeta)
-class AbstractHandlerManager(object):
+class AbstractHandlerManager(abc.ABC):
     """Partial class that defines handler manager functionality shared between sync/async"""
 
     def __init__(self, inbox_manager):
@@ -174,18 +171,18 @@ class AbstractHandlerManager(object):
                 # This shouldn't happen because cancellation or timeout shouldn't occur...
                 # But just in case...
                 new_err = HandlerManagerException(
-                    message="HANDLER ({}): Unable to retrieve exception data from incomplete invocation".format(
+                    "HANDLER ({}): Unable to retrieve exception data from incomplete invocation".format(
                         handler_name
-                    ),
-                    cause=raised_e,
+                    )
                 )
+                new_err.__cause__ = raised_e
                 handle_exceptions.handle_background_exception(new_err)
             else:
                 if e:
                     new_err = HandlerManagerException(
-                        message="HANDLER ({}): Error during invocation".format(handler_name),
-                        cause=e,
+                        "HANDLER ({}): Error during invocation".format(handler_name),
                     )
+                    new_err.__cause__ = e
                     handle_exceptions.handle_background_exception(new_err)
                 else:
                     logger.debug(
@@ -287,6 +284,26 @@ class AbstractHandlerManager(object):
         if self._client_event_runner is None:
             self._start_handler_runner(CLIENT_EVENT)
 
+    # ~~~Other Properties~~~
+    @property
+    def handling_client_events(self):
+        """Indicates if the HandlerManager is currently capable of resolving ClientEvents"""
+        # This client event runner is only running if at least one handler for client events has
+        # been set. If none have been set, it is dangerous to add items to the client event inbox
+        # as none will ever be retrieved due to no runner process occurring, thus the need for this
+        # check.
+        #
+        # The ideal solution would be to always keep the client event runner running, but this
+        # could break older customer code due to older APIs on the customer-facing clients. It is
+        # unfortunate that something related to an API has seeped into this internal and ideally
+        # isolated module, but the needs of the client design have influenced the design of this
+        # manager (by only starting the runner when a handler is set), so the mitigation must also
+        # be located in this module.
+        if self._client_event_runner is None:
+            return False
+        else:
+            return True
+
 
 class SyncHandlerManager(AbstractHandlerManager):
     """Handler manager for use with synchronous clients"""
@@ -320,6 +337,10 @@ class SyncHandlerManager(AbstractHandlerManager):
             logger.debug("HANDLER RUNNER ({}): Invoking handler".format(handler_name))
             fut = tpe.submit(handler, handler_arg)
             fut.add_done_callback(_handler_callback)
+            # Free up this object so the garbage collector can free it if necessary. If we don't
+            # do this, we end up keeping this object alive until the next event arrives, which
+            # might be a long time. Tests would flag this as a memory leak if that happened.
+            del handler_arg
 
     def _client_event_handler_runner(self):
         """Run infinite loop that waits for the client event inbox to receive an event from it,
@@ -348,6 +369,10 @@ class SyncHandlerManager(AbstractHandlerManager):
                 )
                 fut = tpe.submit(handler, *event.args_for_user)
                 fut.add_done_callback(_handler_callback)
+                # Free up this object so the garbage collector can free it if necessary. If we don't
+                # do this, we end up keeping this object alive until the next event arrives, which
+                # might be a long time. Tests would flag this as a memory leak if that happened.
+                del event
             else:
                 logger.debug(
                     "No handler for event {} set. Skipping handler invocation".format(event)

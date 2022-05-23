@@ -11,8 +11,8 @@ import json
 
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
-from azure.iot.device import constant, Message, MethodResponse
-from datetime import date, timedelta, datetime
+from azure.iot.device import Message, MethodResponse
+from datetime import timedelta, datetime
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -336,7 +336,7 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 
-    # If using Python 3.6 or below, use the following code instead of asyncio.run(main()):
+    # If using Python 3.6 use the following code instead of asyncio.run(main()):
     # loop = asyncio.get_event_loop()
     # loop.run_until_complete(main())
     # loop.close()

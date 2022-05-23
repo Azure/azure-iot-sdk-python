@@ -4,9 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import logging
-import os
-import sys
 import base64
 import time
 import hashlib
@@ -14,12 +11,6 @@ import hmac
 from uuid import uuid4
 import six.moves.urllib as urllib
 from azure.core.credentials import AccessToken
-
-try:
-    from urllib import quote, quote_plus, urlencode  # Py2
-except Exception:
-    from urllib.parse import quote, quote_plus, urlencode
-
 import uamqp
 
 

@@ -7,16 +7,13 @@ import concurrent.futures
 import test_config
 import device_identity_helper
 import const
-import sys
-import leak_tracker
+import leak_tracker as leak_tracker_module
 import iptables
 import e2e_settings
 from utils import get_random_message, get_random_dict, is_windows
 
-# noqa: F401 defined in .flake8 file in root of repo
-
-from drop_fixtures import dropper
-from client_fixtures import (
+from drop_fixtures import dropper  # noqa: F401
+from client_fixtures import (  # noqa: F401
     client_kwargs,
     auto_connect,
     connection_retry,
@@ -25,10 +22,10 @@ from client_fixtures import (
     module_id,
     sastoken_ttl,
     keep_alive,
-)
+)  # noqa: F401
 
 logging.basicConfig(
-    format="%(asctime)s %(levelname)-8s %(message)s",
+    format="%(asctime)s %(levelname)-8s %(module)s:%(funcName)s:%(message)s",
     level=logging.WARNING,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
@@ -58,6 +55,54 @@ def random_message():
 @pytest.fixture(scope="function")
 def random_reported_props():
     return {const.TEST_CONTENT: get_random_dict()}
+
+
+# define what objects are allowed to leak.
+# `all_objects_can_leak` lists types which are allowed to leak an arbitrary number of objects.
+# `one_object_can_leak` lists types where a single object is allowed to leak.
+#    These are typically cases where an object that is in the initial object list gets replaced
+#    during the run, such as a new `Alarm` being set to replace a previous `Alarm` object. Without
+#    this suppression, the replacement object might otherwise show up as a leak.
+all_objects_can_leak = []
+one_object_can_leak = [
+    "<class 'azure.iot.device.common.alarm.Alarm'>",
+    "<class 'paho.mqtt.client.WebsocketWrapper'>",
+]
+
+
+def leak_tracker_filter(leaks):
+    """
+    Function to filter false positives out of a leak list.  Returns a new list after filtering
+    is complete
+    """
+    for allowed_leak in all_objects_can_leak:
+        # Remove all objects of a given type from the leak list.  This is useful for
+        # suppressing known leaks until a bug can be fixed.
+        new_list = []
+        for leak in leaks:
+            if str(leak.object_type) not in all_objects_can_leak:
+                new_list.append(leak)
+        leaks = new_list
+
+    for allowed_leak in one_object_can_leak:
+        # Remove a single object from the leak list.  This is useful in cases where
+        # a new object gets allocated to replace an old object (like a new Alert replacing
+        # an expired Alert).
+        for i in range(len(leaks)):
+            if str(leaks[i].object_type) == allowed_leak:
+                del leaks[i]
+                break
+
+    return leaks
+
+
+@pytest.fixture(scope="function")
+def leak_tracker():
+    tracker = leak_tracker_module.LeakTracker()
+    tracker.track_module("azure.iot.device")
+    tracker.track_module("paho")
+    tracker.filter_callback = leak_tracker_filter
+    return tracker
 
 
 @pytest.fixture(scope="session")
@@ -152,9 +197,22 @@ def pytest_runtest_setup(item):
             pytest.skip("test uses iptables")
             return
 
-    item.leak_tracker = leak_tracker.LeakTracker()
-    item.leak_tracker.track_module("azure.iot.device")
-    item.leak_tracker.set_initial_object_list()
+    # We have 2 leak trackers.
+    #
+    # 1. The `outer_leak_tracker` object attached to tests is called after `disconnect` or
+    #    `shutdown` is called. This means it can only detect objects that survive `shutdown`.
+    #
+    # 2. The `leak_tracker` fixture is used within tests and needs to be manually invoked.
+    #    This means it gets called before `shutdown`, so it can detect leaks that might otherwise
+    #    get cleaned up.
+    #
+    # Of these 2, the `leak_tracker` fixture is more useful, but it does require manual steps.
+    #
+    item.outer_leak_tracker = leak_tracker_module.LeakTracker()
+    item.outer_leak_tracker.track_module("azure.iot.device")
+    item.outer_leak_tracker.track_module("paho")
+    item.outer_leak_tracker.filter_callback = leak_tracker_filter
+    item.outer_leak_tracker.set_initial_object_list()
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -164,9 +222,9 @@ def pytest_exception_interact(node, call, report):
     logger.error("EXCEPTION RAISED in {} phase: {}".format(report.when, str(e) or type(e)))
     logger.error("------------------------------------------------------")
 
-    if hasattr(node, "leak_tracker"):
+    if hasattr(node, "outer_leak_tracker"):
         logger.info("Skipping leak tracking because of Exception {}".format(str(e) or type(e)))
-        del node.leak_tracker
+        del node.outer_leak_tracker
 
     yield
 
@@ -178,7 +236,7 @@ def pytest_runtest_teardown(item, nextitem):
 
     We use this to check for leaks.
     """
-    if hasattr(item, "leak_tracker"):
+    if hasattr(item, "outer_leak_tracker"):
         logger.info("CHECKING FOR LEAKS")
         # Get rid of our fixtures so they don't cause leaks.
         #
@@ -200,13 +258,9 @@ def pytest_runtest_teardown(item, nextitem):
         # now that fixtures are gone, we can check for leaks.  `check_for_leaks` will
         # call into the garbage collector to make sure everything is cleaned up before
         # we check.
-        item.leak_tracker.check_for_leaks()
-        del item.leak_tracker
+        item.outer_leak_tracker.check_for_leaks()
+        del item.outer_leak_tracker
         logger.info("DONE CHECKING FOR LEAKS")
 
 
 collect_ignore = ["test_settings.py"]
-
-# Ignore Async tests if below Python 3.5
-if sys.version_info < (3, 5):
-    collect_ignore.append("aio")

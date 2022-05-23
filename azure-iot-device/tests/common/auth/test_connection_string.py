@@ -6,7 +6,6 @@
 
 import pytest
 import logging
-import six
 from azure.iot.device.common.auth.connection_string import ConnectionString
 
 logging.basicConfig(level=logging.DEBUG)
@@ -31,12 +30,20 @@ class TestConnectionString(object):
                 id="Device connection string w/ gatewayhostname",
             ),
             pytest.param(
+                "HostName=my.host.name;DeviceId=my-device;x509=True",
+                id="Device connection string w/ X509",
+            ),
+            pytest.param(
                 "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=Zm9vYmFy",
                 id="Module connection string",
             ),
             pytest.param(
                 "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=Zm9vYmFy;GatewayHostName=mygateway",
                 id="Module connection string w/ gatewayhostname",
+            ),
+            pytest.param(
+                "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;x509=True",
+                id="Module connection string w/ X509",
             ),
         ],
     )
@@ -59,6 +66,10 @@ class TestConnectionString(object):
                 "HostName=my.host.name;HostName=my.host.name;SharedAccessKey=mykeyname;SharedAccessKey=Zm9vYmFy",
                 id="Duplicate key",
             ),
+            pytest.param(
+                "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=mykeyname;x509=True",
+                id="Mixed authentication scheme",
+            ),
         ],
     )
     def test_raises_value_error_on_invalid_input(self, input_string):
@@ -71,11 +82,7 @@ class TestConnectionString(object):
         [
             pytest.param(2123, id="Integer"),
             pytest.param(23.098, id="Float"),
-            pytest.param(
-                b"bytes",
-                id="Bytes",
-                marks=pytest.mark.xfail(six.PY2, reason="Bytes are valid in Python 2.7"),
-            ),
+            pytest.param(b"bytes", id="Bytes"),
             pytest.param(object(), id="Complex object"),
             pytest.param(["a", "b"], id="List"),
             pytest.param({"a": "b"}, id="Dictionary"),

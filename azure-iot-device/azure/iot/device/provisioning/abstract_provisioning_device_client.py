@@ -9,7 +9,6 @@ Device Provisioning Service.
 """
 
 import abc
-import six
 import logging
 from azure.iot.device.provisioning import pipeline
 
@@ -25,6 +24,7 @@ def _validate_kwargs(exclude=[], **kwargs):
     # TODO: add support for server_verification_cert
     valid_kwargs = [
         "server_verification_cert",
+        "gateway_hostname",
         "websockets",
         "cipher",
         "proxy_options",
@@ -46,6 +46,7 @@ def _get_config_kwargs(**kwargs):
     """Get the subset of kwargs which pertain the config object"""
     valid_config_kwargs = [
         "server_verification_cert",
+        "gateway_hostname",
         "websockets",
         "cipher",
         "proxy_options",
@@ -65,8 +66,7 @@ def _form_sas_uri(id_scope, registration_id):
     )
 
 
-@six.add_metaclass(abc.ABCMeta)
-class AbstractProvisioningDeviceClient(object):
+class AbstractProvisioningDeviceClient(abc.ABC):
     """
     Super class for any client that can be used to register devices to Device Provisioning Service.
     """
@@ -114,6 +114,8 @@ class AbstractProvisioningDeviceClient(object):
         :param str server_verification_cert: Configuration Option. The trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
@@ -184,6 +186,8 @@ class AbstractProvisioningDeviceClient(object):
         :param str server_verification_cert: Configuration Option. The trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in

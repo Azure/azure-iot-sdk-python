@@ -4,21 +4,13 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
-import pytest
-from .shared_client_fixtures import (
+from .shared_client_fixtures import (  # noqa: F401
     mock_pipeline_init,
     provisioning_pipeline,
     registration_result,
     x509,
 )
 
-collect_ignore = []
-
-
-# Ignore Async tests if below Python 3.5
-if sys.version_info < (3, 5):
-    collect_ignore.append("aio")
 
 fake_status = "flying"
 fake_sub_status = "FlyingOnHippogriff"

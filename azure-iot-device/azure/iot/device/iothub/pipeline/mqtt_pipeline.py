@@ -5,10 +5,8 @@
 # --------------------------------------------------------------------------
 
 import logging
-import sys
 from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device.common.pipeline import (
-    pipeline_events_base,
     pipeline_stages_base,
     pipeline_ops_base,
     pipeline_stages_mqtt,

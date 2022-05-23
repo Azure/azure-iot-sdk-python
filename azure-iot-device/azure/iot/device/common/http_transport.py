@@ -13,6 +13,10 @@ from .pipeline import pipeline_thread
 logger = logging.getLogger(__name__)
 
 
+# NOTE: There should probably be a more global timeout configuration, but for now this will do.
+HTTP_TIMEOUT = 10
+
+
 class HTTPTransport(object):
     """
     A wrapper class that provides an implementation-agnostic HTTP interface.
@@ -52,11 +56,11 @@ class HTTPTransport(object):
         class CustomSSLContextHTTPAdapter(requests.adapters.HTTPAdapter):
             def init_poolmanager(self, *args, **kwargs):
                 kwargs["ssl_context"] = ssl_context
-                return super(CustomSSLContextHTTPAdapter, self).init_poolmanager(*args, **kwargs)
+                return super().init_poolmanager(*args, **kwargs)
 
             def proxy_manager_for(self, *args, **kwargs):
                 kwargs["ssl_context"] = ssl_context
-                return super(CustomSSLContextHTTPAdapter, self).proxy_manager_for(*args, **kwargs)
+                return super().proxy_manager_for(*args, **kwargs)
 
         return CustomSSLContextHTTPAdapter()
 
@@ -127,27 +131,42 @@ class HTTPTransport(object):
             # Note that various configuration options are not set here due to them being set
             # via the HTTPAdapter that was mounted at session level.
             if method == "GET":
-                response = session.get(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.get(
+                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                )
             elif method == "POST":
-                response = session.post(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.post(
+                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                )
             elif method == "PUT":
-                response = session.put(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.put(
+                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                )
             elif method == "PATCH":
-                response = session.patch(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.patch(
+                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                )
             elif method == "DELETE":
-                response = session.delete(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.delete(
+                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                )
             else:
                 raise ValueError("Invalid method type: {}".format(method))
         except ValueError as e:
             # Allow ValueError to propagate
             callback(error=e)
+        except requests.exceptions.Timeout as e:
+            # Allow Timeout to propagate
+            # NOTE: This breaks the convention in transports where we don't expose anything
+            # but builtin exceptions and the exceptions defined in transport_exceptions.py.
+            # However, we don't exactly have infrastructure to support timeout at Transport level.
+            # For now, just expose it, and if/when we more broadly support timeout, this can change
+            callback(error=e)
         except Exception as e:
             # Raise error via the callback
-            callback(
-                error=exceptions.ProtocolClientError(
-                    message="Unexpected HTTPS failure during connect", cause=e
-                )
-            )
+            new_err = exceptions.ProtocolClientError("Unexpected HTTPS failure during connect")
+            new_err.__cause__ = e
+            callback(error=new_err)
         else:
             # Return the data from the response via the callback
             response_obj = {

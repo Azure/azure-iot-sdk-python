@@ -15,9 +15,11 @@ logger.setLevel(level=logging.INFO)
 class TestConnectDisconnect(object):
     @pytest.mark.it("Can disconnect and reconnect")
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     @pytest.mark.quicktest_suite
-    def test_sync_connect_disconnect(self, brand_new_client):
+    def test_sync_connect_disconnect(self, brand_new_client, leak_tracker):
+        leak_tracker.set_initial_object_list()
+
         client = brand_new_client
 
         client.connect()
@@ -29,105 +31,39 @@ class TestConnectDisconnect(object):
         client.connect()
         assert client.connected
 
-    @pytest.mark.it("calls `on_connection_state_change` when setting the handler (connected case)")
-    @pytest.mark.quicktest_suite
-    def test_sync_on_connection_state_change_gets_called_with_current_state_connected(
-        self, brand_new_client
-    ):
-        """
-        This test verifies that the `on_connection_state_change` handler gets called if
-        the client is connected when the handler is set.
-        """
-        client = brand_new_client
-
-        handler_called = threading.Event()
-
-        nonlocal_py27_hack = {"handler_called": handler_called}
-
-        def handle_on_connection_state_change():
-            if client.connected:
-                nonlocal_py27_hack["handler_called"].set()
-
-        client.connect()
-        assert client.connected
-        client.on_connection_state_change = handle_on_connection_state_change
-        handler_called.wait()
-
-    @pytest.mark.parametrize(
-        "previously_connected",
-        [
-            pytest.param(True, id="previously connected"),
-            pytest.param(
-                False,
-                id="not previously connected",
-                marks=pytest.mark.skip(reason="inconssitent behavior"),
-            ),
-        ],
-    )
-    @pytest.mark.it(
-        "calls `on_connection_state_change` when setting the handler (disconnected case)"
-    )
-    @pytest.mark.quicktest_suite
-    def test_sync_on_connection_state_change_gets_called_with_current_state_disconnected(
-        self, brand_new_client, previously_connected
-    ):
-        """
-        This test verifies that the `on_connection_state_change` handler gets called if
-        the client is not connected when the handler is set.
-
-        The "not previously connected" case is marked as skip because this inconsistent
-        behavior appears to be a bug.
-        """
-        client = brand_new_client
-
-        handler_called = threading.Event()
-
-        nonlocal_py27_hack = {"handler_called": handler_called}
-
-        def handle_on_connection_state_change():
-            if not client.connected:
-                nonlocal_py27_hack["handler_called"].set()
-
-        if previously_connected:
-            client.connect()
-            client.disconnect()
-            assert not client.connected
-
-        client.on_connection_state_change = handle_on_connection_state_change
-        handler_called.wait()
+        leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "Can do a manual connect in the `on_connection_state_change` call that is notifying the user about a disconnect."
     )
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     # see "This assert fails because of initial and secondary disconnects" below
     @pytest.mark.skip(reason="two stage disconect causes assertion in test code")
     def test_sync_connect_in_the_middle_of_disconnect(
-        self,
-        brand_new_client,
-        service_helper,
-        random_message,
+        self, brand_new_client, service_helper, random_message, leak_tracker
     ):
         """
         Explanation: People will call `connect` inside `on_connection_state_change` handlers.
         We have to make sure that we can handle this without getting stuck in a bad state.
         """
+        leak_tracker.set_initial_object_list()
+
         client = brand_new_client
         assert client
 
         reconnected_event = threading.Event()
 
-        nonlocal_py27_hack = {"reconnected_event": reconnected_event}
-
         def handle_on_connection_state_change():
+            nonlocal reconnected_event
+
             if client.connected:
                 logger.info("handle_on_connection_state_change connected.  nothing to do")
             else:
                 logger.info("handle_on_connection_state_change disconnected.  reconnecting.")
                 client.connect()
                 assert client.connected
-                nonlocal_py27_hack["reconnected_event"].set()
+                reconnected_event.set()
                 logger.info("reconnect event set")
 
         client.on_connection_state_change = handle_on_connection_state_change
@@ -158,37 +94,41 @@ class TestConnectDisconnect(object):
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert event
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.it(
         "Can do a manual disconnect in the `on_connection_state_change` call that is notifying the user about a connect."
     )
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     @pytest.mark.parametrize(
         "first_connect",
         [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
     )
     def test_sync_disconnect_in_the_middle_of_connect(
-        self, brand_new_client, service_helper, random_message, first_connect
+        self, brand_new_client, service_helper, random_message, first_connect, leak_tracker
     ):
         """
         Explanation: This is the inverse of `test_connect_in_the_middle_of_disconnect`.  This is
         less likely to be a user scenario, but it lets us test with unusual-but-specific timing
         on the call to `disconnect`.
         """
+        leak_tracker.set_initial_object_list()
+
         client = brand_new_client
         assert client
         disconnect_on_next_connect_event = False
 
         disconnected_event = threading.Event()
 
-        nonlocal_py27_hack = {"disconnected_event": disconnected_event}
-
         def handle_on_connection_state_change():
+            nonlocal disconnected_event
+
             if client.connected:
                 if disconnect_on_next_connect_event:
                     logger.info("connected.  disconnecitng now")
                     client.disconnect()
-                    nonlocal_py27_hack["disconnected_event"].set()
+                    disconnected_event.set()
                 else:
                     logger.info("connected, but nothing to do")
             else:
@@ -228,17 +168,20 @@ class TestConnectDisconnect(object):
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert event
 
+        leak_tracker.check_for_leaks()
+
 
 @pytest.mark.dropped_connection
 @pytest.mark.describe("Client object with dropped connection")
 @pytest.mark.keep_alive(5)
 class TestConnectDisconnectDroppedConnection(object):
     @pytest.mark.it("disconnects when network drops all outgoing packets")
-    def test_sync_disconnect_on_drop_outgoing(self, client, dropper):
+    def test_sync_disconnect_on_drop_outgoing(self, client, dropper, leak_tracker):
         """
         This test verifies that the client will disconnect (eventually) if the network starts
         dropping packets
         """
+        leak_tracker.set_initial_object_list()
 
         client.connect()
         assert client.connected
@@ -247,12 +190,21 @@ class TestConnectDisconnectDroppedConnection(object):
         while client.connected:
             time.sleep(1)
 
+        # we've passed the test. Now wait to reconnect before we check for leaks. Otherwise we
+        # have a pending ConnectOperation floating around and this would get tagged as a leak.
+        dropper.restore_all()
+        while not client.connected:
+            time.sleep(1)
+
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.it("disconnects when network rejects all outgoing packets")
-    def test_sync_disconnect_on_reject_outgoing(self, client, dropper):
+    def test_sync_disconnect_on_reject_outgoing(self, client, dropper, leak_tracker):
         """
         This test verifies that the client will disconnect (eventually) if the network starts
         rejecting packets
         """
+        leak_tracker.set_initial_object_list()
 
         client.connect()
         assert client.connected
@@ -260,3 +212,11 @@ class TestConnectDisconnectDroppedConnection(object):
 
         while client.connected:
             time.sleep(1)
+
+        # we've passed the test. Now wait to reconnect before we check for leaks. Otherwise we
+        # have a pending ConnectOperation floating around and this would get tagged as a leak.
+        dropper.restore_all()
+        while not client.connected:
+            time.sleep(1)
+
+        leak_tracker.check_for_leaks()

@@ -14,7 +14,6 @@ from azure.iot.hub.iothub_amqp_client import (
     IoTHubAmqpClientSharedAccessKeyAuth,
     IoTHubAmqpClientTokenAuth,
 )
-import time
 
 """---Constants---"""
 fake_device_id = "device_id"

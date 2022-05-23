@@ -34,7 +34,9 @@ class TestMethods(object):
         include_request_payload,
         include_response_payload,
         service_helper,
+        leak_tracker,
     ):
+        leak_tracker.set_initial_object_list()
 
         if include_request_payload:
             request_payload = get_random_dict()
@@ -46,12 +48,10 @@ class TestMethods(object):
         else:
             response_payload = None
 
-        # hack needed because there is no `nonlocal` keyword in py27.
-        nonlocal_py27_hack = {"actual_request": None}
-
         def handle_on_method_request_received(request):
+            nonlocal actual_request
             logger.info("Method request for {} received".format(request.name))
-            nonlocal_py27_hack["actual_request"] = request
+            actual_request = request
             logger.info("Sending response")
             client.send_method_response(
                 MethodResponse.create_from_method_request(
@@ -66,7 +66,6 @@ class TestMethods(object):
         method_response = service_helper.invoke_method(method_name, request_payload)
 
         # verify that the method request arrived correctly
-        actual_request = nonlocal_py27_hack["actual_request"]
         assert actual_request.name == method_name
         if request_payload:
             assert actual_request.payload == request_payload
@@ -76,3 +75,6 @@ class TestMethods(object):
         # and make sure the response came back successfully
         assert method_response.status == method_response_status
         assert method_response.payload == response_payload
+
+        actual_request = None  # so this isn't tagged as a leak
+        leak_tracker.check_for_leaks()

@@ -6,7 +6,6 @@
 import logging
 import pytest
 import asyncio
-import inspect
 import threading
 import concurrent.futures
 from azure.iot.device.common import handle_exceptions
@@ -777,8 +776,8 @@ class TestAsyncHandlerManagerPropertyOnTwinDesiredPropertiesPatchReceived(
         return inbox_manager.get_twin_patch_inbox()
 
 
-@pytest.mark.describe("SyncHandlerManager - PROPERTY: .on_connection_state_change")
-class TestSyncHandlerManagerPropertyOnConnectionStateChange(SharedClientEventHandlerPropertyTests):
+@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_connection_state_change")
+class TestAsyncHandlerManagerPropertyOnConnectionStateChange(SharedClientEventHandlerPropertyTests):
     @pytest.fixture
     def handler_name(self):
         return "on_connection_state_change"
@@ -788,8 +787,8 @@ class TestSyncHandlerManagerPropertyOnConnectionStateChange(SharedClientEventHan
         return client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
 
 
-@pytest.mark.describe("SyncHandlerManager - PROPERTY: .on_new_sastoken_required")
-class TestSyncHandlerManagerPropertyOnNewSastokenRequired(SharedClientEventHandlerPropertyTests):
+@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_new_sastoken_required")
+class TestAsyncHandlerManagerPropertyOnNewSastokenRequired(SharedClientEventHandlerPropertyTests):
     @pytest.fixture
     def handler_name(self):
         return "on_new_sastoken_required"
@@ -799,8 +798,8 @@ class TestSyncHandlerManagerPropertyOnNewSastokenRequired(SharedClientEventHandl
         return client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
 
 
-@pytest.mark.describe("SyncHandlerManager - PROPERTY: .on_background_exception")
-class TestSyncHandlerManagerPropertyOnBackgroundException(SharedClientEventHandlerPropertyTests):
+@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_background_exception")
+class TestAsyncHandlerManagerPropertyOnBackgroundException(SharedClientEventHandlerPropertyTests):
     @pytest.fixture
     def handler_name(self):
         return "on_background_exception"
@@ -808,3 +807,29 @@ class TestSyncHandlerManagerPropertyOnBackgroundException(SharedClientEventHandl
     @pytest.fixture
     def event(self, arbitrary_exception):
         return client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, arbitrary_exception)
+
+
+@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .handling_client_events")
+class TestAsyncHandlerManagerPropertyHandlingClientEvents(object):
+    @pytest.fixture
+    def handler_manager(self, inbox_manager):
+        hm = AsyncHandlerManager(inbox_manager)
+        yield hm
+        hm.stop()
+
+    @pytest.mark.it("Is True if the Client Event Handler Runner is running")
+    async def test_client_event_runner_running(self, handler_manager):
+        # Add a fake client event runner thread
+        fake_runner_future = concurrent.futures.Future()
+        handler_manager._client_event_runner = fake_runner_future
+
+        assert handler_manager.handling_client_events is True
+
+        # Clean up the future so tests don't hang
+        fake_runner_future.cancel()
+        handler_manager._client_event_runner = None
+
+    @pytest.mark.it("Is False if the Client Event Handler Runner is not running")
+    async def test_client_event_runner_not_running(self, handler_manager):
+        assert handler_manager._client_event_runner is None
+        assert handler_manager.handling_client_events is False

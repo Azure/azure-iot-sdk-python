@@ -4,13 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
 import os
 import msrest
 import uuid
 import base64
 from azure.iot.hub import IoTHubRegistryManager
-from azure.iot.hub.models import Twin, TwinProperties
 from azure.identity import DefaultAzureCredential
 
 device_id = "test-device"  # os.getenv("IOTHUB_DEVICE_ID")

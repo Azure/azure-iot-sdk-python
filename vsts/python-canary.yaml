@@ -6,14 +6,6 @@ jobs:
   strategy:
     maxParallel: 4
     matrix:
-      py27_windows_mqtt:
-        pv: '2.7'
-        transport: 'mqtt'
-        imageName: 'windows-latest'
-      py27_windows_mqttws:
-        pv: '2.7'
-        transport: 'mqttws'
-        imageName: 'windows-latest'
       py39_windows_mqtt:
         pv: '3.9'
         transport: 'mqtt'
@@ -60,6 +52,7 @@ jobs:
         IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-EVENTHUB-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: e2e-nightly-stress-consumer-group
+        PYTHONUNBUFFERED: True
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'

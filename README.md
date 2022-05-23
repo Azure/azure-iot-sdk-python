@@ -21,7 +21,6 @@ This repository contains the following libraries:
 * [Azure IoT Hub Service library](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-hub/README.md)
      * [API Reference](https://docs.microsoft.com/en-us/python/api/azure-iot-hub)
 
-* Coming Soon: Azure IoT Device Provisioning Service Library
 
 ## Critical Upcoming Changes Notice
 
@@ -40,24 +39,21 @@ To prepare for this change, make sure your device's certificate store has both o
 For a more in depth explanation as to why the IoT services are doing this, please see
 [this article](https://techcommunity.microsoft.com/t5/internet-of-things/azure-iot-tls-critical-changes-are-almost-here-and-why-you/ba-p/2393169).
 
-### Python 2.7 support
-All Azure IoT SDK users are advised to be aware that support for Python 2.7 will be dropped in January 2022.
-While existing releases will continue to function with Python 2.7 as normal, future releases beyond this point will no longer support Python 2.7
 
 ## Installing the libraries
 
 Pip installs are provided for all of the SDK libraries in this repo:
 
-[Device libraries](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-device#installation)
+[Device Client libraries](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-device#installation)
 
-[IoTHub library](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-hub/README.md#installation)
+[IoTHub Service library](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-hub/README.md#installation)
 
 ## Using the libraries
 Want to start off on the right foot? Be sure to learn about [**common pitfalls**](https://github.com/Azure/azure-iot-sdk-python/wiki/pitfalls) of using this Python SDK before starting a project.  
 
 You can also view samples in each library:
-- [Device Samples](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-device/samples) cover device and Edge module scenarios.
-- [IoT Hub Samples](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-hub/samples) cover IoT Hub service side scenarios.
+- [Device Client Samples](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-device/samples) cover device and Edge module scenarios.
+- [IoTHub Service Samples](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-hub/samples) cover IoT Hub service side scenarios.
 
 
 ## Features
@@ -120,17 +116,6 @@ This SDK only supports the **MQTT protocol**.
 | [Query](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-query-language)                       | :heavy_check_mark: | Use your backend app to perform query for information.       |
 | [Jobs](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs)                                  | :heavy_multiplication_x: | Use your backend app to perform job operation. |
 
-### IoTHub Provisioning Service Library
-
-Feature is Coming Soon
-
-| Features                                            | Status                   | Description                                                                                                                                    |
-|-----------------------------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| CRUD Operation with TPM Individual Enrollment       | :heavy_multiplication_x: | Manage device enrollment using TPM with the service SDK.                             |
-| Bulk CRUD Operation with TPM Individual Enrollment  | :heavy_multiplication_x: | Bulk manage device enrollment using TPM with the service SDK.                        |
-| CRUD Operation with X.509 Individual Enrollment     | :heavy_multiplication_x: | Manages device enrollment using X.509 individual enrollment with the service SDK.    |
-| CRUD Operation with X.509 Group Enrollment          | :heavy_multiplication_x: | Manages device enrollment using X.509 group enrollment with the service SDK.         |
-| Query enrollments                                   | :heavy_multiplication_x: | Query registration states with the service SDK.                                      |
 
 # Releases
 

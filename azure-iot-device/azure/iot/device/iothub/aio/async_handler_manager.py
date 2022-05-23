@@ -6,7 +6,6 @@
 """ This module contains the manager for handler methods used by the aio clients"""
 
 import asyncio
-from asyncio.tasks import run_coroutine_threadsafe
 import logging
 import inspect
 import concurrent.futures
@@ -60,10 +59,18 @@ class AsyncHandlerManager(AbstractHandlerManager):
                 # TODO: Can we call this on the user loop instead?
                 handler_loop = loop_management.get_client_handler_loop()
                 fut = asyncio.run_coroutine_threadsafe(handler(handler_arg), handler_loop)
+                # Free up this object so the garbage collector can free it if necessary. If we don't
+                # do this, we end up keeping this object alive until the next event arrives, which
+                # might be a long time. Tests would flag this as a memory leak if that happened.
+                del handler_arg
                 fut.add_done_callback(_handler_callback)
             else:
                 # Run function directly in ThreadPool
                 fut = tpe.submit(handler, handler_arg)
+                # Free up this object so the garbage collector can free it if necessary. If we don't
+                # do this, we end up keeping this object alive until the next event arrives, which
+                # might be a long time. Tests would flag this as a memory leak if that happened.
+                del handler_arg
                 fut.add_done_callback(_handler_callback)
 
     async def _client_event_handler_runner(self):
@@ -102,10 +109,18 @@ class AsyncHandlerManager(AbstractHandlerManager):
                     fut = asyncio.run_coroutine_threadsafe(
                         handler(*event.args_for_user), handler_loop
                     )
+                    # Free up this object so the garbage collector can free it if necessary. If we don't
+                    # do this, we end up keeping this object alive until the next event arrives, which
+                    # might be a long time. Tests would flag this as a memory leak if that happened.
+                    del event
                     fut.add_done_callback(_handler_callback)
                 else:
                     # Run a function directly in ThreadPool
                     fut = tpe.submit(handler, *event.args_for_user)
+                    # Free up this object so the garbage collector can free it if necessary. If we don't
+                    # do this, we end up keeping this object alive until the next event arrives, which
+                    # might be a long time. Tests would flag this as a memory leak if that happened.
+                    del event
                     fut.add_done_callback(_handler_callback)
             else:
                 logger.debug(
@@ -201,11 +216,11 @@ class AsyncHandlerManager(AbstractHandlerManager):
                 # This shouldn't happen because cancellation or timeout shouldn't occur...
                 # But just in case...
                 new_err = HandlerManagerException(
-                    message="HANDLER RUNNER ({}): Unable to retrieve exception data from incomplete task".format(
+                    "HANDLER RUNNER ({}): Unable to retrieve exception data from incomplete task".format(
                         handler_name
-                    ),
-                    cause=raised_e,
+                    )
                 )
+                new_err.__cause__ = raised_e
                 handle_exceptions.handle_background_exception(new_err)
             else:
                 if e:
@@ -213,11 +228,9 @@ class AsyncHandlerManager(AbstractHandlerManager):
                     # We must log the error, and then restart the runner so that the program
                     # does not enter an invalid state
                     new_err = HandlerManagerException(
-                        message="HANDLER RUNNER ({}): Unexpected error during task".format(
-                            handler_name
-                        ),
-                        cause=e,
+                        "HANDLER RUNNER ({}): Unexpected error during task".format(handler_name),
                     )
+                    new_err.__cause__ = e
                     handle_exceptions.handle_background_exception(new_err)
                     # Clear the tracked runner, and start a new one
                     logger.debug("HANDLER RUNNER ({}): Restarting handler runner")

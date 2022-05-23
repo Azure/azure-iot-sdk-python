@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import logging
-import six
 import traceback
 import threading
 import weakref
@@ -20,7 +19,6 @@ from . import (
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
 from azure.iot.device.common import handle_exceptions, transport_exceptions
-from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +35,7 @@ class MQTTTransportStage(PipelineStage):
     """
 
     def __init__(self):
-        super(MQTTTransportStage, self).__init__()
+        super().__init__()
 
         # The transport will be instantiated upon receiving the InitializePipelineOperation
         self.transport = None
@@ -66,6 +64,12 @@ class MQTTTransportStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _start_connection_watchdog(self, connection_op):
+        """
+        Start a watchdog on the conection operation. This protects against cases where transport.connect()
+        succeeds but the CONNACK never arrives. This is like a timeout, but it is handled at this level
+        because specific cleanup needs to take place on timeout (see below), and this cleanup doesn't
+        belong anywhere else since it is very specific to this stage.
+        """
         logger.debug("{}({}): Starting watchdog".format(self.name, connection_op.name))
 
         self_weakref = weakref.ref(self)
@@ -79,7 +83,17 @@ class MQTTTransportStage(PipelineStage):
                 logger.info(
                     "{}({}): Connection watchdog expired.  Cancelling op".format(this.name, op.name)
                 )
-                this.transport.disconnect()
+                try:
+                    this.transport.disconnect()
+                except Exception:
+                    # If we don't catch this, the pending connection op might not ever be cancelled.
+                    # Most likely, the transport isn't actually connected, but other failures are theoreticaly
+                    # possible. Either way, if disconnect fails, we should assume that we're disconencted.
+                    logger.info(
+                        "transport.disconnect raised error while disconnecting in watchdog.  Safe to ignore."
+                    )
+                    logger.info(traceback.format_exc())
+
                 if this.pipeline_root.connected:
                     logger.info(
                         "{}({}): Pipeline is still connected on watchdog expiration.  Sending DisconnectedEvent".format(
@@ -143,18 +157,10 @@ class MQTTTransportStage(PipelineStage):
                 proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
                 keep_alive=self.pipeline_root.pipeline_configuration.keep_alive,
             )
-            self.transport.on_mqtt_connected_handler = CallableWeakMethod(
-                self, "_on_mqtt_connected"
-            )
-            self.transport.on_mqtt_connection_failure_handler = CallableWeakMethod(
-                self, "_on_mqtt_connection_failure"
-            )
-            self.transport.on_mqtt_disconnected_handler = CallableWeakMethod(
-                self, "_on_mqtt_disconnected"
-            )
-            self.transport.on_mqtt_message_received_handler = CallableWeakMethod(
-                self, "_on_mqtt_message_received"
-            )
+            self.transport.on_mqtt_connected_handler = self._on_mqtt_connected
+            self.transport.on_mqtt_connection_failure_handler = self._on_mqtt_connection_failure
+            self.transport.on_mqtt_disconnected_handler = self._on_mqtt_disconnected
+            self.transport.on_mqtt_message_received_handler = self._on_mqtt_message_received
 
             # There can only be one pending connection operation (Connect, Disconnect)
             # at a time. The existing one must be completed or canceled before a new one is set.
@@ -452,5 +458,6 @@ class MQTTTransportStage(PipelineStage):
 
             # Regardless of cause, it is now a ConnectionDroppedError. Log it and swallow it.
             # Higher layers will see that we're disconencted and may reconnect as necessary.
-            e = transport_exceptions.ConnectionDroppedError("Unexpected disconnection", cause=cause)
+            e = transport_exceptions.ConnectionDroppedError("Unexpected disconnection")
+            e.__cause__ = cause
             self.report_background_exception(e)

@@ -6,14 +6,12 @@
 """This module contains tests that are shared between sync/async clients
 i.e. tests for things defined in abstract clients"""
 
-from azure.iot.device.iothub.client_event import ClientEvent
 import pytest
 import logging
 import os
 import io
-import six
 import time
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device.common import auth, handle_exceptions
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.auth import connection_string as cs
@@ -232,6 +230,28 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert config.server_verification_cert == server_verification_cert
 
     @pytest.mark.it(
+        "Sets the 'gateway_hostname' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_gateway_hostname_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        gateway_hostname = "my.gateway"
+        client_create_method(*create_method_args, gateway_hostname=gateway_hostname)
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_mqtt_pipeline_init.call_count == 1
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+        assert config == mock_http_pipeline_init.call_args[0][0]
+
+        assert config.gateway_hostname == gateway_hostname
+
+    @pytest.mark.it(
         "Sets the 'proxy_options' user option parameter on the PipelineConfig, if provided"
     )
     def test_proxy_options(
@@ -350,6 +370,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         with pytest.raises(TypeError):
             client_create_method(*create_method_args, invalid_option="some_value")
 
+    # NOTE: If any further tests need to override this test, it's time to restructure.
     @pytest.mark.it("Sets default user options if none are provided")
     def test_default_options(
         self,
@@ -375,6 +396,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert config.cipher == ""
         assert config.proxy_options is None
         assert config.server_verification_cert is None
+        assert config.gateway_hostname is None
         assert config.keep_alive == DEFAULT_KEEPALIVE
         assert config.auto_connect is True
         assert config.connection_retry is True
@@ -396,6 +418,56 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
     def create_method_args(self, connection_string):
         """Provides the specific create method args for use in universal tests"""
         return [connection_string]
+
+    @pytest.mark.it(
+        "Raises a TypeError if the 'gateway_hostname' user option parameter is provided"
+    )
+    def test_gateway_hostname_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        """THIS TEST OVERRIDES AN INHERITED TEST"""
+        # Override to test that gateway_hostname CANNOT be provided in Edge scenarios
+
+        with pytest.raises(TypeError):
+            client_create_method(*create_method_args, gateway_hostname="my.gateway.device")
+
+    @pytest.mark.it("Sets default user options if none are provided")
+    def test_default_options(
+        self,
+        mocker,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        """THIS TEST OVERRIDES AN INHERITED TEST"""
+        # Override to remove an assertion about gateway_hostname
+
+        client_create_method(*create_method_args)
+
+        # Both pipelines use the same IoTHubPipelineConfig
+        assert mock_mqtt_pipeline_init.call_count == 1
+        assert mock_http_pipeline_init.call_count == 1
+        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+
+        # Pipeline Config has default options set that were not user-specified
+        assert config.product_info == ""
+        assert config.websockets is False
+        assert config.cipher == ""
+        assert config.proxy_options is None
+        assert config.server_verification_cert is None
+        assert config.keep_alive == DEFAULT_KEEPALIVE
+        assert config.auto_connect is True
+        assert config.connection_retry is True
+        assert config.connection_retry_interval == 10
 
     @pytest.mark.it(
         "Creates a SasToken that uses a SymmetricKeySigningMechanism, from the values in the provided connection string"
@@ -532,6 +604,10 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
                 id="Contains extraneous data",
             ),
             pytest.param("HostName=value.domain.net;DeviceId=my_device", id="Incomplete"),
+            pytest.param(
+                "HostName=value.domain.net;DeviceId=my_device;x509=True",
+                id="X509 Connection String",
+            ),
         ],
     )
     def test_raises_value_error_on_bad_connection_string(self, client_class, bad_cs):
@@ -670,14 +746,21 @@ class SharedIoTHubClientPROPERTYConnectedTests(object):
 
 
 class SharedIoTHubClientOCCURRENCEConnectTests(object):
-    @pytest.mark.it("Adds a CONNECTION_STATE_CHANGE ClientEvent to the Client Event Inbox")
-    def test_add_client_event(self, client, mocker):
+    @pytest.mark.it(
+        "Adds a CONNECTION_STATE_CHANGE ClientEvent to the ClientEvent Inbox if the HandlerManager is currently handling ClientEvents"
+    )
+    def test_handler_manager_handling_events(self, client, mocker):
+        # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+        # the rule about black-boxing other modules to simulate what we want. Sorry.
+        client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is True
         client_event_inbox = client._inbox_manager.get_client_event_inbox()
         inbox_put_spy = mocker.spy(client_event_inbox, "put")
         assert client_event_inbox.empty()
 
         client._on_connected()
 
+        # ClientEvent was added
         assert not client_event_inbox.empty()
         assert inbox_put_spy.call_count == 1
         event = inbox_put_spy.call_args[0][0]
@@ -685,16 +768,47 @@ class SharedIoTHubClientOCCURRENCEConnectTests(object):
         assert event.name == client_event.CONNECTION_STATE_CHANGE
         assert event.args_for_user == ()
 
+    @pytest.mark.it(
+        "Does not add any ClientEvents to the ClientEvent Inbox if the HandlerManager is not currently handling ClientEvents"
+    )
+    def test_handler_manager_not_handling_events(self, client):
+        assert client._handler_manager.handling_client_events is False
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        assert client_event_inbox.empty()
+
+        client._on_connected()
+
+        # Inbox is still empty
+        assert client_event_inbox.empty()
+
     @pytest.mark.it("Ensures that the HandlerManager is running")
-    def test_ensure_handler_manager_running_on_connect(self, client, mocker):
+    @pytest.mark.parametrize(
+        "handling_client_events",
+        [True, False],
+        ids=["Manager Handling ClientEvents", "Manager Not Handling ClientEvents"],
+    )
+    def test_ensure_handler_manager_running_on_connect(
+        self, client, mocker, handling_client_events
+    ):
+        if handling_client_events:
+            # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+            # the rule about black-boxing other modules to simulate what we want. Sorry.
+            client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is handling_client_events
         ensure_running_spy = mocker.spy(client._handler_manager, "ensure_running")
         client._on_connected()
         assert ensure_running_spy.call_count == 1
 
 
 class SharedIoTHubClientOCCURRENCEDisconnectTests(object):
-    @pytest.mark.it("Adds a CONNECTION_STATE_CHANGE ClientEvent to the Client Event Inbox")
-    def test_add_client_event(self, client, mocker):
+    @pytest.mark.it(
+        "Adds a CONNECTION_STATE_CHANGE ClientEvent to the ClientEvent Inbox if the HandlerManager is currently handling ClientEvents"
+    )
+    def test_handler_manager_handling_event(self, client, mocker):
+        # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+        # the rule about black-boxing other modules to simulate what we want. Sorry.
+        client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is True
         client_event_inbox = client._inbox_manager.get_client_event_inbox()
         inbox_put_spy = mocker.spy(client_event_inbox, "put")
         assert client_event_inbox.empty()
@@ -708,16 +822,47 @@ class SharedIoTHubClientOCCURRENCEDisconnectTests(object):
         assert event.name == client_event.CONNECTION_STATE_CHANGE
         assert event.args_for_user == ()
 
-    @pytest.mark.it("Clears all pending MethodRequests upon disconnect")
-    def test_state_change_handler_clears_method_request_inboxes_on_disconnect(self, client, mocker):
+    @pytest.mark.it(
+        "Does not add any ClientEvents to the ClientEvent Inbox if the HandlerManager is not currently handling ClientEvents"
+    )
+    def test_handler_manager_not_handling_events(self, client):
+        assert client._handler_manager.handling_client_events is False
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        assert client_event_inbox.empty()
+
+        client._on_disconnected()
+
+        # Inbox is still empty
+        assert client_event_inbox.empty()
+
+    @pytest.mark.it("Clears all pending MethodRequests")
+    @pytest.mark.parametrize(
+        "handling_client_events",
+        [True, False],
+        ids=["Manager Handling ClientEvents", "Manager Not Handling ClientEvents"],
+    )
+    def test_state_change_handler_clears_method_request_inboxes_on_disconnect(
+        self, client, mocker, handling_client_events
+    ):
+        if handling_client_events:
+            # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+            # the rule about black-boxing other modules to simulate what we want. Sorry.
+            client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is handling_client_events
         clear_method_request_spy = mocker.spy(client._inbox_manager, "clear_all_method_requests")
         client._on_disconnected()
         assert clear_method_request_spy.call_count == 1
 
 
 class SharedIoTHubClientOCCURRENCENewSastokenRequired(object):
-    @pytest.mark.it("Adds a NEW_SASTOKEN_REQUIRED ClientEvent to the Client Event Inbox")
-    def test_add_client_event(self, client, mocker):
+    @pytest.mark.it(
+        "Adds a NEW_SASTOKEN_REQUIRED ClientEvent to the ClientEvent Inbox if the HandlerManager is currently handling ClientEvents"
+    )
+    def test_handler_manager_handling_events(self, client, mocker):
+        # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+        # the rule about black-boxing other modules to simulate what we want. Sorry.
+        client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is True
         client_event_inbox = client._inbox_manager.get_client_event_inbox()
         inbox_put_spy = mocker.spy(client_event_inbox, "put")
         assert client_event_inbox.empty()
@@ -731,10 +876,35 @@ class SharedIoTHubClientOCCURRENCENewSastokenRequired(object):
         assert event.name == client_event.NEW_SASTOKEN_REQUIRED
         assert event.args_for_user == ()
 
+    @pytest.mark.it(
+        "Does not add any ClientEvents to the ClientEvent Inbox if the HandlerManager is not currently handling ClientEvents"
+    )
+    def test_handler_manager_not_handling_events(self, client):
+        assert client._handler_manager.handling_client_events is False
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        assert client_event_inbox.empty()
+
+        client._on_new_sastoken_required()
+
+        # Inbox still empty
+        assert client_event_inbox.empty()
+
 
 class SharedIoTHubClientOCCURRENCEBackgroundException(object):
     @pytest.mark.it("Sends the exception to the handle_exceptions module")
-    def test_handle_exceptions_module(self, client, mocker, arbitrary_exception):
+    @pytest.mark.parametrize(
+        "handling_client_events",
+        [True, False],
+        ids=["Manager Handling ClientEvents", "Manager Not Handling ClientEvents"],
+    )
+    def test_handle_exceptions_module(
+        self, client, mocker, arbitrary_exception, handling_client_events
+    ):
+        if handling_client_events:
+            # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+            # the rule about black-boxing other modules to simulate what we want. Sorry.
+            client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is handling_client_events
         background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
 
         client._on_background_exception(arbitrary_exception)
@@ -743,9 +913,13 @@ class SharedIoTHubClientOCCURRENCEBackgroundException(object):
         assert background_exc_spy.call_args == mocker.call(arbitrary_exception)
 
     @pytest.mark.it(
-        "Adds a BACKGROUND_EXCEPTION ClientEvent (containing the exception) to the ClientEvent Inbox"
+        "Adds a BACKGROUND_EXCEPTION ClientEvent (containing the exception) to the ClientEvent Inbox if the HandlerManager is currently handling ClientEvents"
     )
-    def test_add_client_event(self, client, mocker, arbitrary_exception):
+    def test_handler_manager_handling_events(self, client, mocker, arbitrary_exception):
+        # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+        # the rule about black-boxing other modules to simulate what we want. Sorry.
+        client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is True
         client_event_inbox = client._inbox_manager.get_client_event_inbox()
         inbox_put_spy = mocker.spy(client_event_inbox, "put")
         assert client_event_inbox.empty()
@@ -758,6 +932,19 @@ class SharedIoTHubClientOCCURRENCEBackgroundException(object):
         assert isinstance(event, client_event.ClientEvent)
         assert event.name == client_event.BACKGROUND_EXCEPTION
         assert event.args_for_user == (arbitrary_exception,)
+
+    @pytest.mark.it(
+        "Does not add any ClientEvents to the ClientEvent Inbox if the HandlerManager is not currently handling ClientEvents"
+    )
+    def test_handler_manager_not_handling_events(self, client, arbitrary_exception):
+        assert client._handler_manager.handling_client_events is False
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        assert client_event_inbox.empty()
+
+        client._on_background_exception(arbitrary_exception)
+
+        # Inbox is still empty
+        assert client_event_inbox.empty()
 
 
 ##############################
@@ -1331,6 +1518,23 @@ class SharedIoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests(
                 *create_method_args, server_verification_cert="fake_server_verification_cert"
             )
 
+    @pytest.mark.it(
+        "Raises a TypeError if the 'gateway_hostname' user option parameter is provided"
+    )
+    def test_gateway_hostname_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        """THIS TEST OVERRIDES AN INHERITED TEST"""
+        # Override to test that gateway_hostname CANNOT be provided in Edge scenarios
+
+        with pytest.raises(TypeError):
+            client_create_method(*create_method_args, gateway_hostname="my.gateway.device")
+
     @pytest.mark.it("Sets default user options if none are provided")
     def test_default_options(
         self,
@@ -1788,36 +1992,26 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
             client_class.create_from_edge_environment()
 
     @pytest.mark.it(
-        "Raises ValueError if the filepath in the EdgeModuleCACertificateFile environment variable is invalid"
+        "Raises FileNotFoundError if the filepath in the EdgeModuleCACertificateFile environment variable is invalid"
     )
     def test_bad_filepath(self, mocker, client_class, edge_local_debug_environment, mock_open):
-        # To make tests compatible with Python 2 & 3, redfine errors
-        try:
-            FileNotFoundError  # noqa: F823
-        except NameError:
-            FileNotFoundError = IOError
-
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         my_fnf_error = FileNotFoundError()
         mock_open.side_effect = my_fnf_error
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(FileNotFoundError) as e_info:
             client_class.create_from_edge_environment()
-        assert e_info.value.__cause__ is my_fnf_error
+        assert e_info.value is my_fnf_error
 
     @pytest.mark.it(
         "Raises ValueError if the file referenced by the filepath in the EdgeModuleCACertificateFile environment variable cannot be opened"
     )
     def test_bad_file_io(self, mocker, client_class, edge_local_debug_environment, mock_open):
-        # Raise a different error in Python 2 vs 3
-        if six.PY2:
-            error = IOError()
-        else:
-            error = OSError()
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
-        mock_open.side_effect = error
+        my_os_error = OSError()
+        mock_open.side_effect = my_os_error
         with pytest.raises(ValueError) as e_info:
             client_class.create_from_edge_environment()
-        assert e_info.value.__cause__ is error
+        assert e_info.value.__cause__ is my_os_error
 
     @pytest.mark.it("Raises ValueError if a SasToken creation results in failure")
     def test_raises_value_error_on_sastoken_failure(

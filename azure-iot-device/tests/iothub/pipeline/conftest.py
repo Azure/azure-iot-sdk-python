@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from tests.common.pipeline.fixtures import (
+from tests.common.pipeline.fixtures import (  # noqa: F401
     fake_pipeline_thread,
     fake_non_pipeline_thread,
     arbitrary_op,

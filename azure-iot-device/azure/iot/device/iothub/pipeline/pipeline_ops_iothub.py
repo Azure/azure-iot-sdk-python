@@ -22,7 +22,7 @@ class SendD2CMessageOperation(PipelineOperation):
          The callback function must accept A PipelineOperation object which indicates the specific operation which
          has completed or failed.
         """
-        super(SendD2CMessageOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.message = message
 
 
@@ -43,7 +43,7 @@ class SendOutputMessageOperation(PipelineOperation):
          The callback function must accept A PipelineOperation object which indicates the specific operation which
          has completed or failed.
         """
-        super(SendOutputMessageOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.message = message
 
 
@@ -65,7 +65,7 @@ class SendMethodResponseOperation(PipelineOperation):
          has completed or failed.
         :type callback: Function/callable
         """
-        super(SendMethodResponseOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.method_response = method_response
 
 
@@ -82,7 +82,7 @@ class GetTwinOperation(PipelineOperation):
         """
         Initializer for GetTwinOperation objects.
         """
-        super(GetTwinOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.twin = None
 
 
@@ -99,5 +99,5 @@ class PatchTwinReportedPropertiesOperation(PipelineOperation):
         :param patch: The reported properties patch to send to the service.
         :type patch: dict, str, int, float, bool, or None (JSON compatible values)
         """
-        super(PatchTwinReportedPropertiesOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.patch = patch

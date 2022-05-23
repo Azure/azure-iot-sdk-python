@@ -5,17 +5,15 @@
 # --------------------------------------------------------------------------
 import pytest
 import threading
-from tests.common.pipeline import helpers
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
-    pipeline_thread,
 )
 
 
 class ArbitraryEvent(pipeline_events_base.PipelineEvent):
     def __init__(self):
-        super(ArbitraryEvent, self).__init__()
+        super().__init__()
 
 
 @pytest.fixture
@@ -25,7 +23,7 @@ def arbitrary_event():
 
 class ArbitraryOperation(pipeline_ops_base.PipelineOperation):
     def __init__(self, callback=None):
-        super(ArbitraryOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
 
 
 @pytest.fixture

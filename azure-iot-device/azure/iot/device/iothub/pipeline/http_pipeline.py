@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import logging
-import sys
 from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
@@ -16,9 +15,6 @@ from azure.iot.device.common.pipeline import (
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 
 from . import (
-    constant,
-    pipeline_stages_iothub,
-    pipeline_ops_iothub,
     pipeline_ops_iothub_http,
     pipeline_stages_iothub_http,
 )

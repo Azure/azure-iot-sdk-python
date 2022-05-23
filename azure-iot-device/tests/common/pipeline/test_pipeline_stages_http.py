@@ -6,14 +6,11 @@
 import logging
 import pytest
 import sys
-import six
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_base,
     pipeline_ops_http,
     pipeline_stages_http,
-    pipeline_exceptions,
-    config,
 )
 from tests.common.pipeline.helpers import StageRunOpTestBase
 from tests.common.pipeline import pipeline_stage_test

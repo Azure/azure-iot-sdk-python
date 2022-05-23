@@ -6,7 +6,6 @@
 """This module contains abstract classes for the various clients of the Azure IoT Hub Device SDK
 """
 
-import six
 import abc
 import logging
 import threading
@@ -30,6 +29,7 @@ def _validate_kwargs(exclude=[], **kwargs):
     Raises TypeError if an invalid option has been provided"""
     valid_kwargs = [
         "server_verification_cert",
+        "gateway_hostname",
         "websockets",
         "cipher",
         "product_info",
@@ -50,6 +50,7 @@ def _get_config_kwargs(**kwargs):
     """Get the subset of kwargs which pertain the config object"""
     valid_config_kwargs = [
         "server_verification_cert",
+        "gateway_hostname",
         "websockets",
         "cipher",
         "product_info",
@@ -100,8 +101,7 @@ RECEIVE_TYPE_HANDLER = "handler"  # Only use handlers for receive
 RECEIVE_TYPE_API = "api"  # Only use APIs for receive
 
 
-@six.add_metaclass(abc.ABCMeta)
-class AbstractIoTHubClient(object):
+class AbstractIoTHubClient(abc.ABC):
     """A superclass representing a generic IoTHub client.
     This class needs to be extended for specific clients.
     """
@@ -124,8 +124,10 @@ class AbstractIoTHubClient(object):
         """Helper handler that is called upon an iothub pipeline connect"""
         logger.info("Connection State - Connected")
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
-        event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
-        client_event_inbox.put(event)
+        # Only add a ClientEvent to the inbox if the Handler Manager is capable of dealing with it
+        if self._handler_manager.handling_client_events:
+            event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
+            client_event_inbox.put(event)
         # Ensure that all handlers are running now that connection is re-established.
         self._handler_manager.ensure_running()
 
@@ -133,8 +135,10 @@ class AbstractIoTHubClient(object):
         """Helper handler that is called upon an iothub pipeline disconnect"""
         logger.info("Connection State - Disconnected")
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
-        event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
-        client_event_inbox.put(event)
+        # Only add a ClientEvent to the inbox if the Handler Manager is capable of dealing with it
+        if self._handler_manager.handling_client_events:
+            event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
+            client_event_inbox.put(event)
         # Locally stored method requests on client are cleared.
         # They will be resent by IoTHub on reconnect.
         self._inbox_manager.clear_all_method_requests()
@@ -144,15 +148,19 @@ class AbstractIoTHubClient(object):
         """Helper handler that is called upon the iothub pipeline needing new SAS token"""
         logger.info("New SasToken required from user")
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
-        event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
-        client_event_inbox.put(event)
+        # Only add a ClientEvent to the inbox if the Handler Manager is capable of dealing with it
+        if self._handler_manager.handling_client_events:
+            event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
+            client_event_inbox.put(event)
 
     def _on_background_exception(self, e):
         """Helper handler that is called upon an iothub pipeline background exception"""
         handle_exceptions.handle_background_exception(e)
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
-        event = client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, e)
-        client_event_inbox.put(event)
+        # Only add a ClientEvent to the inbox if the Handler Manager is capable of dealing with it
+        if self._handler_manager.handling_client_events:
+            event = client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, e)
+            client_event_inbox.put(event)
 
     def _check_receive_mode_is_api(self):
         """Call this function first in EVERY receive API"""
@@ -265,10 +273,15 @@ class AbstractIoTHubClient(object):
         # TODO: Make this device/module specific and reject non-matching connection strings.
 
         # Ensure no invalid kwargs were passed by the user
-        _validate_kwargs(**kwargs)
+        excluded_kwargs = ["gateway_hostname"]
+        _validate_kwargs(exclude=excluded_kwargs, **kwargs)
 
         # Create SasToken
         connection_string = cs.ConnectionString(connection_string)
+        if connection_string.get(cs.X509) is not None:
+            raise ValueError(
+                "Use the .create_from_x509_certificate() method instead when using X509 certificates"
+            )
         uri = _form_sas_uri(
             hostname=connection_string[cs.HOST_NAME],
             device_id=connection_string[cs.DEVICE_ID],
@@ -312,6 +325,8 @@ class AbstractIoTHubClient(object):
         :param str server_verification_cert: Configuration Option. The trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
@@ -501,7 +516,6 @@ class AbstractIoTHubClient(object):
         )
 
 
-@six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     @classmethod
     def create_from_x509_certificate(cls, x509, hostname, device_id, **kwargs):
@@ -520,6 +534,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param str server_verification_cert: Configuration Option. The trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
@@ -573,6 +589,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param str server_verification_cert: Configuration Option. The trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
@@ -655,7 +673,6 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         )
 
 
-@six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
     @classmethod
     def create_from_edge_environment(cls, **kwargs):
@@ -694,7 +711,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             authentication.
         """
         # Ensure no invalid kwargs were passed by the user
-        excluded_kwargs = ["server_verification_cert"]
+        excluded_kwargs = ["server_verification_cert", "gateway_hostname"]
         _validate_kwargs(exclude=excluded_kwargs, **kwargs)
 
         # First try the regular Edge container variables
@@ -723,17 +740,10 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             try:
                 with io.open(ca_cert_filepath, mode="r") as ca_cert_file:
                     server_verification_cert = ca_cert_file.read()
-            except (OSError, IOError) as e:
-                # In Python 2, a non-existent file raises IOError, and an invalid file raises an IOError.
-                # In Python 3, a non-existent file raises FileNotFoundError, and an invalid file raises an OSError.
-                # However, FileNotFoundError inherits from OSError, and IOError has been turned into an alias for OSError,
-                # thus we can catch the errors for both versions in this block.
-                # Unfortunately, we can't distinguish cause of error from error type, so the raised ValueError has a generic
-                # message. If, in the future, we want to add detail, this could be accomplished by inspecting the e.errno
-                # attribute
-                new_err = ValueError("Invalid CA certificate file")
-                new_err.__cause__ = e
-                raise new_err
+            except FileNotFoundError:
+                raise
+            except OSError as e:
+                raise ValueError("Invalid CA certificate file") from e
 
             # Extract config values from connection string
             connection_string = cs.ConnectionString(connection_string)
@@ -817,6 +827,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param str server_verification_cert: Configuration Option. The trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in

@@ -22,7 +22,7 @@ async def main():
     x509 = X509(
         cert_file=os.getenv("X509_CERT_FILE"),
         key_file=os.getenv("X509_KEY_FILE"),
-        pass_phrase=os.getenv("PASS_PHRASE"),
+        pass_phrase=os.getenv("X509_PASS_PHRASE"),
     )
 
     # The client object is used to interact with your Azure IoT hub.
@@ -54,7 +54,7 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 
-    # If using Python 3.6 or below, use the following code instead of asyncio.run(main()):
+    # If using Python 3.6 use the following code instead of asyncio.run(main()):
     # loop = asyncio.get_event_loop()
     # loop.run_until_complete(main())
     # loop.close()

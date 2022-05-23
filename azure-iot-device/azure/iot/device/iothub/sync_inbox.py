@@ -5,17 +5,15 @@
 # --------------------------------------------------------------------------
 """This module contains an Inbox class for use with a synchronous client."""
 
-from six.moves import queue
-import six
-from abc import ABCMeta, abstractmethod
+import queue
+import abc
 
 
 class InboxEmpty(Exception):
     pass
 
 
-@six.add_metaclass(ABCMeta)
-class AbstractInbox:
+class AbstractInbox(abc.ABC):
     """Abstract Base Class for Inbox.
 
     Holds generic incoming data for a client.
@@ -23,7 +21,7 @@ class AbstractInbox:
     All methods, when implemented, should be threadsafe.
     """
 
-    @abstractmethod
+    @abc.abstractmethod
     def put(self, item):
         """Put an item into the Inbox.
 
@@ -34,7 +32,7 @@ class AbstractInbox:
         """
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def get(self):
         """Remove and return an item from the inbox.
 
@@ -45,7 +43,7 @@ class AbstractInbox:
         """
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def empty(self):
         """Returns True if the inbox is empty, False otherwise
 
@@ -53,7 +51,7 @@ class AbstractInbox:
         """
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def clear(self):
         """Remove all items from the inbox."""
         pass

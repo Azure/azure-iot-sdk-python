@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 import threading
 import logging
-import six
 import traceback
 
 logger = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ class EventedCallback(object):
         """
         # LBYL because this mistake doesn't cause an exception until the callback
         # which is much later and very difficult to trace back to here.
-        if return_arg_name and not isinstance(return_arg_name, six.string_types):
+        if return_arg_name and not isinstance(return_arg_name, str):
             raise TypeError("internal error: return_arg_name must be a string")
 
         self.completion_event = threading.Event()

@@ -4,19 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.common.pipeline.pipeline_exceptions import (
-    OperationCancelled,
-    OperationTimeout,
-)
-from azure.iot.device.common.evented_callback import EventedCallback
 import pytest
 import logging
 import threading
 import time
-import os
-import io
-import six
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device import exceptions as client_exceptions
 from azure.iot.device.common.auth import sastoken as st
@@ -695,8 +687,7 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
         message = Message(data_input)
         # This check was put as message class may undergo the default content type encoding change
         # and the above calculation will change.
-        # Had to do greater than check for python 2. Ideally should be not equal check
-        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
+        if message.get_size() != device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
             assert False
 
         client.send_message(message)
@@ -2351,8 +2342,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
         message = Message(data_input)
         # This check was put as message class may undergo the default content type encoding change
         # and the above calculation will change.
-        # Had to do greater than check for python 2. Ideally should be not equal check
-        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
+        if message.get_size() != device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
             assert False
 
         client.send_message_to_output(message, output_name)
@@ -2740,14 +2730,14 @@ class TestIoTHubModuleClientOCCURRENCEDisconnect(
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURRENCE: New Sastoken Required")
-class TestIoTHubModuleClientOCURRENCENewSastokenRequired(
+class TestIoTHubModuleClientOCCURRENCENewSastokenRequired(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCENewSastokenRequired
 ):
     pass
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURRENCE: Background Exception")
-class TestIoTHubModuleClientOCCURRENCENewSastokenRequired(
+class TestIoTHubModuleClientOCCURRENCEBackgroundException(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCEBackgroundException
 ):
     pass

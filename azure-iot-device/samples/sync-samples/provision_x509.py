@@ -7,7 +7,6 @@ import os
 from azure.iot.device import ProvisioningDeviceClient, X509
 import time
 from azure.iot.device import IoTHubDeviceClient, Message
-import uuid
 
 
 provisioning_host = os.getenv("PROVISIONING_HOST")
@@ -17,7 +16,7 @@ registration_id = os.getenv("DPS_X509_REGISTRATION_ID")
 x509 = X509(
     cert_file=os.getenv("X509_CERT_FILE"),
     key_file=os.getenv("X509_KEY_FILE"),
-    pass_phrase=os.getenv("PASS_PHRASE"),
+    pass_phrase=os.getenv("X509_PASS_PHRASE"),
 )
 
 provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certificate(

@@ -7,7 +7,7 @@ jobs:
 
   strategy:
     matrix:
-      py27_mqtt:              { pv: '2.7', transport: 'mqtt', consumer_group: 'e2e-consumer-group-1' }
+      py37_mqtt:              { pv: '3.7', transport: 'mqtt', consumer_group: 'e2e-consumer-group-1' }
       py310_mqttws:           { pv: '3.10', transport: 'mqttws', consumer_group: 'e2e-consumer-group-2' }
 
   steps:
@@ -27,6 +27,7 @@ jobs:
         IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumer_group)
+        PYTHONUNBUFFERED: True
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -39,7 +40,7 @@ jobs:
   strategy:
     matrix:
       py310_mqtt:              { pv: '3.10', transport: 'mqtt', consumer_group: 'e2e-consumer-group-3' }
-      py27_mqtt_ws:           { pv: '2.7', transport: 'mqttws', consumer_group: 'e2e-consumer-group-4' }
+      py36_mqtt_ws:           { pv: '3.6', transport: 'mqttws', consumer_group: 'e2e-consumer-group-4' }
 
   steps:
     - task: UsePythonVersion@0
@@ -57,7 +58,8 @@ jobs:
       env:
         IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONSUMER_GRPOUP: $(consumer_group)
+        IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumer_group)
+        PYTHONUNBUFFERED: True
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'

@@ -2,12 +2,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 import pytest
-import copy
-import collections
-import json
-import functools
-import time
-import sys
 import test_config
 
 
@@ -78,10 +72,3 @@ def client_kwargs(auto_connect, connection_retry, websockets, keep_alive, sastok
     if sastoken_ttl is not None:
         kwargs["sastoken_ttl"] = sastoken_ttl
     return kwargs
-
-
-collect_ignore = []
-
-# Ignore Async tests if below Python 3.5
-if sys.version_info < (3, 5):
-    collect_ignore.append("aio")

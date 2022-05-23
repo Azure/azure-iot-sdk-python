@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 """This module provides patches used to dynamically modify items from the libraries"""
 
-import sys
 import inspect
 import logging
 
@@ -16,7 +15,6 @@ logger = logging.getLogger(__name__)
 shim_scope = {}
 
 
-# TODO: make this work for Python 2.7 and 3.4
 def add_shims_for_inherited_methods(target_class):
     """Dynamically add overriding, pass-through shim methods for all public inherited methods
     on a child class, which simply call into the parent class implementation of the same method.

@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from azure.iot.device.common.http_transport import HTTPTransport
+from azure.iot.device.common.http_transport import HTTPTransport, HTTP_TIMEOUT
 from azure.iot.device.common.models import X509, ProxyOptions
 from azure.iot.device.common import transport_exceptions as errors
 import pytest
@@ -318,7 +318,11 @@ class TestRequest(object):
         session_method = getattr(session, request_method.lower())
         assert session_method.call_count == 1
         assert session_method.call_args == mocker.call(
-            expected_url, data=body, headers=headers, proxies=transport._proxies
+            expected_url,
+            data=body,
+            headers=headers,
+            proxies=transport._proxies,
+            timeout=HTTP_TIMEOUT,
         )
 
     @pytest.mark.it(
@@ -339,6 +343,31 @@ class TestRequest(object):
         assert response_obj["resp"] == response.text
 
     @pytest.mark.it(
+        "Returns a ValueError via the callback if the request method provided is not valid"
+    )
+    def test_invalid_method(self, mocker, transport):
+        cb_mock = mocker.MagicMock()
+        transport.request(method="NOT A REAL METHOD", path=fake_path, callback=cb_mock)
+
+        assert cb_mock.call_count == 1
+        error = cb_mock.call_args[1]["error"]
+        assert isinstance(error, ValueError)
+
+    @pytest.mark.it(
+        "Returns a requests.exceptions.Timeout via the callback if the HTTP request times out"
+    )
+    def test_request_timeout(self, mocker, transport, session, request_method):
+        session_method = getattr(session, request_method.lower())
+        session_method.side_effect = requests.exceptions.Timeout
+        cb_mock = mocker.MagicMock()
+
+        transport.request(method=request_method, path=fake_path, callback=cb_mock)
+
+        assert cb_mock.call_count == 1
+        error = cb_mock.call_args[1]["error"]
+        assert isinstance(error, requests.exceptions.Timeout)
+
+    @pytest.mark.it(
         "Returns a ProtocolClientError via the callback if making the HTTP request raises an unexpected Exception"
     )
     def test_client_raises_unexpected_error(
@@ -354,14 +383,3 @@ class TestRequest(object):
         error = cb_mock.call_args[1]["error"]
         assert isinstance(error, errors.ProtocolClientError)
         assert error.__cause__ is arbitrary_exception
-
-    @pytest.mark.it(
-        "Returns a ValueError via the callback if the request method provided is not valid"
-    )
-    def test_invalid_method(self, mocker, transport):
-        cb_mock = mocker.MagicMock()
-        transport.request(method="NOT A REAL METHOD", path=fake_path, callback=cb_mock)
-
-        assert cb_mock.call_count == 1
-        error = cb_mock.call_args[1]["error"]
-        assert isinstance(error, ValueError)
