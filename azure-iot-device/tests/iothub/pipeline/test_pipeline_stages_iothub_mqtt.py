@@ -337,7 +337,7 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
 
 
 # NOTE: All of the following run op tests are tested against a pipeline_config that has been
-# configured for a Device Client, not a Module Client. It's worth considering parameterizing
+# configured for a Device Client, not a Module Client. It's worth considering parametrizing
 # that fixture so that these tests all run twice - once for a Device, and once for a Module.
 # HOWEVER, it's not strictly necessary, due to knowledge of implementation - we are testing that
 # the expected values (including module id, which just happens to be set to None when configured

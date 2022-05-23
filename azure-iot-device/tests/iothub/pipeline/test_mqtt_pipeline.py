@@ -28,7 +28,7 @@ pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 @pytest.fixture
 def pipeline_configuration(mocker):
-    # NOTE: Consider adding parameters to this to serve as both a device and module configuration.
+    # NOTE: Consider parametrizing this to serve as both a device and module configuration.
     # The reason this isn't currently done is that it's not strictly necessary, but it might be
     # more correct and complete to do so. Certainly this must be done if any device/module
     # specific logic is added to the code under test.
