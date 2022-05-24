@@ -42,7 +42,7 @@ def add_shims_for_inherited_methods(target_class):
     # the defining class of a given method.
     class_attributes = inspect.classify_class_attrs(target_class)
 
-    # We must alias classnames to prevent naming collisions when this fn is called multiple times
+    # We must alias class names to prevent naming collisions when this fn is called multiple times
     # with classes that share a name. If we've already used this classname, add trailing underscore(s)
     classname_alias = target_class.__name__
     while classname_alias in shim_scope:

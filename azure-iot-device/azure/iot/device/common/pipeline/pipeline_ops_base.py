@@ -14,7 +14,7 @@ class PipelineOperation(object):
     """
     A base class for data objects representing operations that travels down the pipeline.
 
-    Each PipelineOperation object represents a single asyncroneous operation that is performed
+    Each PipelineOperation object represents a single asynchronous operation that is performed
     by the pipeline. The PipelineOperation objects travel through "stages" of the pipeline,
     and each stage has the opportunity to act on each specific operation that it
     receives.  If a stage does not handle a particular operation, it needs to pass it to the
@@ -247,7 +247,7 @@ class ReauthorizeConnectionOperation(PipelineOperation):
     Clients will most-likely submit a ReauthorizeConnectionOperation when some credential (such as a sas token) has changed and the protocol client
     needs to re-establish the connection to refresh the credentials
 
-    This operation is in the group of base operations because reauthorizinging is a common operation that many clients might need to do.
+    This operation is in the group of base operations because reauthorizing is a common operation that many clients might need to do.
 
     Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """

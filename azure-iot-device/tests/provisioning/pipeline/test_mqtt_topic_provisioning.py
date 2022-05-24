@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG)
 # For URL encoding, we must always test the ' ' and '/' characters specifically, in addition
 # to a generic URL encoding value (e.g. $, #, etc.)
 #
-# For URL decoding, we must always test the '+' character speicifically, in addition to
+# For URL decoding, we must always test the '+' character specifically, in addition to
 # a generic URL encoded value (e.g. %24, %23, etc.)
 #
 # Please also always test that provided values are converted to strings in order to ensure

@@ -18,7 +18,7 @@ handling. Furthermore, because the exception in question is derived from either 
 BaseException, but is not itself an instance of either, tests checking that the exception in
 question is raised will not spuriously pass due to different exceptions being raised.
 
-For consistency, and to prevent confusion, please do this ONLY by using one of the follwing
+For consistency, and to prevent confusion, please do this ONLY by using one of the following
 fixtures.
 
 You may (and should!) still use exceptions defined elsewhere for specific, non-arbitrary exceptions

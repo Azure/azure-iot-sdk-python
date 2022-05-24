@@ -22,7 +22,7 @@ class JobResponse(Model):
     :param end_time: System generated.  Ignored at creation.
      Represents the time the job stopped processing.
     :type end_time: datetime
-    :param max_execution_time_in_seconds: Max execution time in secounds (ttl
+    :param max_execution_time_in_seconds: Max execution time in seconds (ttl
      duration)
     :type max_execution_time_in_seconds: long
     :param type: Required.

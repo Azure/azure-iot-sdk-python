@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
 # --------------------------------------
-# Parameters for our backoff and jitter
+# Parameters for our back-off and jitter
 # --------------------------------------
 
-# Retry immediately after failure, or wait unti after first delay?
+# Retry immediately after failure, or wait until after first delay?
 IMMEDIATE_FIRST_RETRY = True
 
-# Seconds to sleep for first sleep period. The exponential backoff will use
+# Seconds to sleep for first sleep period. The exponential back-off will use
 # 2x this number for the second sleep period, then 4x this number for the third
 # period, then 8x and so on.
 INITIAL_DELAY = 5
@@ -94,7 +94,7 @@ def get_type_name(obj):
 
 async def retry_exponential_backoff_with_jitter(client, func, *args, **kwargs):
     """
-    wrapper function to call a function with retry using exponential backoff with jitter.
+    wrapper function to call a function with retry using exponential back-off with jitter.
     """
     global running_call_index, running_call_index_lock
 
@@ -135,9 +135,9 @@ async def retry_exponential_backoff_with_jitter(client, func, *args, **kwargs):
             OperationCancelled,
             NoConnectionError,
         ) as e:
-            # These are all "retriable errors". If we've hit our maximum time, fail. If not,
+            # These are all "retryable errors". If we've hit our maximum time, fail. If not,
             # sleep and try again.
-            increment_retry_stat_count("retriable_error_{}".format(get_type_name(e)))
+            increment_retry_stat_count("retryable_error_{}".format(get_type_name(e)))
 
             if time.time() > fail_time:
                 logger.info(
@@ -170,10 +170,10 @@ async def retry_exponential_backoff_with_jitter(client, func, *args, **kwargs):
             await asyncio.sleep(sleep_time)
 
         except Exception as e:
-            # This a "non-retriable" error. Don't retry. Just fail.
-            increment_retry_stat_count("non_retriable_error_{}".format(type(e)))
+            # This a "non-retryable" error. Don't retry. Just fail.
+            increment_retry_stat_count("non_retryable_error_{}".format(type(e)))
             logger.info(
-                "retry: Call {} raised non-retriable error {}".format(call_id, str(e) or type(e))
+                "retry: Call {} raised non-retryable error {}".format(call_id, str(e) or type(e))
             )
 
             raise e

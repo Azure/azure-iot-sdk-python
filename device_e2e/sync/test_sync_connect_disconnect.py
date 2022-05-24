@@ -39,7 +39,7 @@ class TestConnectDisconnect(object):
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     # see "This assert fails because of initial and secondary disconnects" below
-    @pytest.mark.skip(reason="two stage disconect causes assertion in test code")
+    @pytest.mark.skip(reason="two stage disconnect causes assertion in test code")
     def test_sync_connect_in_the_middle_of_disconnect(
         self, brand_new_client, service_helper, random_message, leak_tracker
     ):
@@ -72,7 +72,7 @@ class TestConnectDisconnect(object):
         client.connect()
         assert client.connected
 
-        # disconnet.
+        # disconnect.
         reconnected_event.clear()
         logger.info("Calling client.disconnect.")
         client.disconnect()
@@ -81,7 +81,7 @@ class TestConnectDisconnect(object):
         logger.info("waiting for reconnect_event to be set.")
         reconnected_event.wait()
 
-        logger.info("reconect_event.wait() returned.  client.conencted={}".format(client.connected))
+        logger.info("reconnect_event.wait() returned.  client.connected={}".format(client.connected))
         # This assert fails because of initial and secondary disconnects
         assert client.connected
 
@@ -126,7 +126,7 @@ class TestConnectDisconnect(object):
 
             if client.connected:
                 if disconnect_on_next_connect_event:
-                    logger.info("connected.  disconnecitng now")
+                    logger.info("connected.  disconnecting now")
                     client.disconnect()
                     disconnected_event.set()
                 else:
@@ -141,7 +141,7 @@ class TestConnectDisconnect(object):
             client.connect()
             assert client.connected
 
-            # disconnet.
+            # disconnect.
             client.disconnect()
 
         assert not client.connected

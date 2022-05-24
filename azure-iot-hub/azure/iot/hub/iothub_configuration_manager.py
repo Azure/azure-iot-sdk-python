@@ -154,7 +154,7 @@ class IoTHubConfigurationManager(object):
 
     def apply_configuration_on_edge_device(self, device_id, configuration_content):
         """Applies the provided configuration content to the specified edge
-           device. Modules content is mandantory.
+           device. Modules content is mandatory.
 
         :param ConfigurationContent configuration_content: The name (Id) of the edge device.
 

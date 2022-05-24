@@ -141,7 +141,7 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
         assert config.x509 is x509
 
     @pytest.mark.it(
-        "Instantiates with the 'x509' attribute set to 'None' if no 'x509 paramater is provided"
+        "Instantiates with the 'x509' attribute set to 'None' if no 'x509 parameter is provided"
     )
     def test_x509_default(self, config_cls, required_kwargs, sastoken):
         config = config_cls(sastoken=sastoken, **required_kwargs)
@@ -168,7 +168,7 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
         assert config.server_verification_cert == svc
 
     @pytest.mark.it(
-        "Instantiates with the 'server_verification_cert' attribute set to 'None' if no 'server_verification_cert' paramater is provided"
+        "Instantiates with the 'server_verification_cert' attribute set to 'None' if no 'server_verification_cert' parameter is provided"
     )
     def test_server_verification_cert_default(self, config_cls, required_kwargs, sastoken):
         config = config_cls(sastoken=sastoken, **required_kwargs)
@@ -341,7 +341,7 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
         assert config.connection_retry_interval == 10
 
     @pytest.mark.it(
-        "Raises a TypeError if the provided 'connection_retry_interval' paramater is not numeric"
+        "Raises a TypeError if the provided 'connection_retry_interval' parameter is not numeric"
     )
     @pytest.mark.parametrize(
         "connection_retry_interval",

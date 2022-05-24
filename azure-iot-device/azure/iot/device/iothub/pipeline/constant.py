@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-"""This module contains constants realted to the pipeline package.
+"""This module contains constants related to the pipeline package.
 """
 
 # Feature names

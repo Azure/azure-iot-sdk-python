@@ -18,7 +18,7 @@ all_transports = ["mqtt", "mqttws"]
 
 def get_sudo_prefix():
     """
-    Get the prefix for running sudo commands.  If the sudo binary doens't exist, then
+    Get the prefix for running sudo commands.  If the sudo binary doesn't exist, then
     we assume that we're running in a container or somewhere else where we don't
     need to use sudo to elevate our process.
     """
@@ -82,7 +82,7 @@ def disconnect_output_port(disconnect_type, transport, host):
 def reconnect_all(transport, host):
     """
     Reconnect all disconnects for this host and transport.  Effectively, clean up
-    anyting that this module may have done.
+    anything that this module may have done.
     """
     if not is_windows():
         ip = get_ip(host)

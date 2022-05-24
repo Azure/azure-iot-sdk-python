@@ -266,7 +266,7 @@ class TestIotHubAmqpClientTokenAuthInstantiation(IoTHubAmqpClientTokenAuthTestCo
     @pytest.mark.it(
         "Retrieves the token from the azure-identity TokenCredential using the specified token scope"
     )
-    def test_retreive_token_from_azure_identity(self, mock_azure_identity_TokenCredential):
+    def test_retrieve_token_from_azure_identity(self, mock_azure_identity_TokenCredential):
         IoTHubAmqpClientTokenAuth(
             fake_hostname, mock_azure_identity_TokenCredential, fake_token_scope
         )

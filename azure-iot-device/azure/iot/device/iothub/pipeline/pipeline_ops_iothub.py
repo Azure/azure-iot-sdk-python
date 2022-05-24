@@ -8,7 +8,7 @@ from azure.iot.device.common.pipeline import PipelineOperation
 
 class SendD2CMessageOperation(PipelineOperation):
     """
-    A PipelineOperation object which contains arguments used to send a telemetry message to an IoTHub or EdegHub server.
+    A PipelineOperation object which contains arguments used to send a telemetry message to an IoTHub or EdgeHub server.
 
     This operation is in the group of IoTHub operations because it is very specific to the IoTHub client
     """
@@ -49,7 +49,7 @@ class SendOutputMessageOperation(PipelineOperation):
 
 class SendMethodResponseOperation(PipelineOperation):
     """
-    A PipleineOperation object which contains arguments used to send a method response to an IoTHub or EdgeHub server.
+    A PipelineOperation object which contains arguments used to send a method response to an IoTHub or EdgeHub server.
 
     This operation is in the group of IoTHub operations because it is very specific to the IoTHub client.
     """

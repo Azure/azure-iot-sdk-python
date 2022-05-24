@@ -90,7 +90,7 @@ class TestIoTEdgeHsmInstantiation(object):
         assert edge_hsm.generation_id == generation_id
 
     @pytest.mark.it("Sets the provided api_version parameter as an attribute")
-    def test_set_api_verison(self):
+    def test_set_api_version(self):
         module_id = "my_module_id"
         generation_id = "my_generation_id"
         api_version = "my_api_version"

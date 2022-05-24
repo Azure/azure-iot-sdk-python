@@ -58,7 +58,7 @@ async def upload_via_storage_blob(blob_info):
     blob_info - an object containing the information needed to generate a sas_url for creating a blob client
 
     Returns:
-    status of blob upload operation, in the storage provided strcuture.
+    status of blob upload operation, in the storage provided structure.
     """
 
     print("Azure Blob storage v12 - Python quickstart sample")

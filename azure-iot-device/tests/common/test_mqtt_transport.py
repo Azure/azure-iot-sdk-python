@@ -310,7 +310,7 @@ class TestInstantiation(object):
     @pytest.mark.it(
         "Configures TLS/SSL context with provided cipher if present during instantiation"
     )
-    def test_confgures_tls_context_with_cipher(self, mocker, mock_mqtt_client):
+    def test_configures_tls_context_with_cipher(self, mocker, mock_mqtt_client):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = mock_ssl_context_constructor.return_value
 
@@ -1004,7 +1004,7 @@ class TestEventDisconnectCompleted(object):
         ids=["{}->{}".format(x["name"], x["error"].__name__) for x in operation_return_codes],
     )
     @pytest.mark.it(
-        "Triggers on_mqtt_disconnected_handler event handler with custom Exception when an error RC is returned upon disconnect competion."
+        "Triggers on_mqtt_disconnected_handler event handler with custom Exception when an error RC is returned upon disconnect completion."
     )
     def test_calls_event_handler_callback_with_failure_user_driven(
         self, mocker, mock_mqtt_client, transport, error_params
@@ -1411,7 +1411,7 @@ class TestSubscribe(object):
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Recovers from Exception in callback when Paho event handler triggered early")
-    def test_callback_rasies_exception_when_paho_on_subscribe_triggered_early(
+    def test_callback_raises_exception_when_paho_on_subscribe_triggered_early(
         self, mocker, mock_mqtt_client, transport, arbitrary_exception
     ):
         callback = mocker.MagicMock(side_effect=arbitrary_exception)
@@ -1664,7 +1664,7 @@ class TestUnsubscribe(object):
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Recovers from Exception in callback when Paho event handler triggered early")
-    def test_callback_rasies_exception_when_paho_on_unsubscribe_triggered_early(
+    def test_callback_raises_exception_when_paho_on_unsubscribe_triggered_early(
         self, mocker, mock_mqtt_client, transport, arbitrary_exception
     ):
         callback = mocker.MagicMock(side_effect=arbitrary_exception)
@@ -1688,7 +1688,7 @@ class TestUnsubscribe(object):
     @pytest.mark.it(
         "Allows any BaseExceptions raised in callback when Paho event handler triggered early to propagate"
     )
-    def test_callback_rasies_base_exception_when_paho_on_unsubscribe_triggered_early(
+    def test_callback_raises_base_exception_when_paho_on_unsubscribe_triggered_early(
         self, mocker, mock_mqtt_client, transport, arbitrary_base_exception
     ):
         callback = mocker.MagicMock(side_effect=arbitrary_base_exception)
@@ -1977,7 +1977,7 @@ class TestPublish(object):
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Recovers from Exception in callback when Paho event handler triggered early")
-    def test_callback_rasies_exception_when_paho_on_publish_triggered_early(
+    def test_callback_raises_exception_when_paho_on_publish_triggered_early(
         self, mocker, mock_mqtt_client, transport, message_info, arbitrary_exception
     ):
         callback = mocker.MagicMock(side_effect=arbitrary_exception)
@@ -2003,7 +2003,7 @@ class TestPublish(object):
     @pytest.mark.it(
         "Allows any BaseExceptions raised in callback when Paho event handler triggered early to propagate"
     )
-    def test_callback_rasies_base_exception_when_paho_on_publish_triggered_early(
+    def test_callback_raises_base_exception_when_paho_on_publish_triggered_early(
         self, mocker, mock_mqtt_client, transport, message_info, arbitrary_base_exception
     ):
         callback = mocker.MagicMock(side_effect=arbitrary_base_exception)

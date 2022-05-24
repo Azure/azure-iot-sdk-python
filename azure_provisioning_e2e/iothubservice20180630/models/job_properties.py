@@ -49,7 +49,7 @@ class JobProperties(Model):
      jobs.  Default: false.  If false, authorization keys are included
      in export output.  Keys are exported as null otherwise.
     :type exclude_keys_in_export: bool
-    :param failure_reason: System genereated.  Ignored at creation.
+    :param failure_reason: System generated.  Ignored at creation.
      If status == failure, this represents a string containing the reason.
     :type failure_reason: str
     """

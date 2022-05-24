@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class EnsureDesiredPropertiesStage(PipelineStage):
     """
     Pipeline stage Responsible for making sure that desired properties are always kept up to date.
-    It does this by sending diwn a GetTwinOperation after a connection is reestablished, and, if
+    It does this by sending down a GetTwinOperation after a connection is reestablished, and, if
     the desired properties have changed since the last time a patch was received, it will send up
     an artificial patch event to send those updated properties to the app.
     """
