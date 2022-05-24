@@ -66,7 +66,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """Initializer for a generic synchronous client.
 
         This initializer should not be called directly.
-        Instead, use one of the 'create_from_' class methods to instantiate
+        Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param mqtt_pipeline: The MQTTPipeline used for the client
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
@@ -532,7 +532,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
-        Instead, use one of the 'create_from_' class methods to instantiate
+        Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
@@ -612,7 +612,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         """Initializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
-        Instead, use one of the 'create_from_' class methods to instantiate
+        Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`

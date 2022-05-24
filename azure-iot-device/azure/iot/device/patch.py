@@ -32,7 +32,7 @@ def add_shims_for_inherited_methods(target_class):
     # Depending on how the method was defined, it could be either a function or a method.
     # Thus we need to find the union of the two sets.
     # Here instance methods are considered functions because they are not yet bound to an instance
-    # of the class. Class methods on the other hand, are already bound, and show up as methods.
+    # of the class. Classmethods on the other hand, are already bound, and show up as methods.
     # It also is worth noting that async functions/methods ARE picked up by this introspection.
     class_functions = inspect.getmembers(target_class, predicate=inspect.isfunction)
     class_methods = inspect.getmembers(target_class, predicate=inspect.ismethod)
@@ -70,7 +70,7 @@ def add_shims_for_inherited_methods(target_class):
             method_sig = inspect.signature(method_obj)
             sig_params = method_sig.parameters
 
-            # Bound methods (i.e. class methods) remove the first parameter (i.e. cls)
+            # Bound methods (i.e. classmethods) remove the first parameter (i.e. cls)
             # so we need to add it back
             if inspect.ismethod(method_obj):
                 complete_params = []
@@ -92,7 +92,7 @@ def add_shims_for_inherited_methods(target_class):
 
             # Choose syntactical variants
             if inspect.ismethod(method_obj):
-                obj_or_type = "cls"  # Use 'cls' to invoke super() for class methods
+                obj_or_type = "cls"  # Use 'cls' to invoke super() for classmethods
             else:
                 obj_or_type = "self"  # Use 'self' to invoke super() for instance methods
             if inspect.iscoroutine(method_obj) or inspect.iscoroutinefunction(method_obj):

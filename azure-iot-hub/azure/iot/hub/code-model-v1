@@ -1763,7 +1763,7 @@
      "documentation": {
       "$id": "257",
       "fixed": false,
-      "raw": "The collection of desired property key-value pairs. The keys are UTF-8 encoded, case-sensitive and up-to 1KB in length. Allowed characters exclude UNICODE control characters (segments C0 and C1), '.', '$' and space. The desired property values are JSON objects, up-to 4KB in length."
+      "raw": "The collection of desired property key-value pairs. The keys are UTF-8 encoded, case-sensitive and up-to 1KB in length. Allowed characters exclude UNICODE control characters (segments C0 and C1), '.', '$' and space. The desired porperty values are JSON objects, up-to 4KB in length."
      },
      "isRequired": false,
      "isConstant": false,
@@ -3055,7 +3055,7 @@
      "documentation": {
       "$id": "450",
       "fixed": false,
-      "raw": "The date and time when the device last connected or received or sent a message. The date and time is specified in ISO8601 date/time format in UTC, for example, 2015-01-28T16:24:48.789Z. This value is not updated if the device uses the HTTP/1 protocol to perform messaging operations."
+      "raw": "The date and time when the device last connected or received or sent a message. The date and time is sepecified in ISO8601 datetime format in UTC, for example, 2015-01-28T16:24:48.789Z. This value is not updated if the device uses the HTTP/1 protocol to perform messaging operations."
      },
      "isRequired": false,
      "isConstant": false,
@@ -3990,7 +3990,7 @@
      "documentation": {
       "$id": "592",
       "fixed": false,
-      "raw": "System generated.  Ignored at creation. The reason for failure, if a failure occurred."
+      "raw": "System genereated.  Ignored at creation. The reason for failure, if a failure occurred."
      },
      "isRequired": false,
      "isConstant": false,
@@ -7317,7 +7317,7 @@
      "documentation": {
       "$id": "1131",
       "fixed": false,
-      "raw": "The maximum execution time in seconds."
+      "raw": "The maximum execution time in secounds."
      },
      "isRequired": false,
      "isConstant": false,
@@ -11771,7 +11771,7 @@
    "documentation": {
     "$id": "1686",
     "fixed": false,
-    "raw": "The unique identifier of the device."
+    "raw": "The unique identifier of the deivce."
    },
    "extensions": {
     "x-ms-metadata": {
