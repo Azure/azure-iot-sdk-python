@@ -786,8 +786,18 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                         self.name, op_waiting_for_response.name, request_id
                     )
                 )
-                del self.pending_responses[request_id]
-                op_waiting_for_response.complete(error=error)
+                # if there's no pending response for the given request_id, there's nothing to delete
+                if request_id not in self.pending_responses:
+                    logger.info(
+                        "{}({}): request_id {} not found in pending list.  Nothing to do.  Dropping".format(
+                            self.name, op_waiting_for_response.name, request_id
+                        )
+                    )
+                    pass
+
+                else:
+                    del self.pending_responses[request_id]
+                    op_waiting_for_response.complete(error=error)
             else:
                 # request sent.  Nothing to do except wait for the response
                 pass
@@ -852,7 +862,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             when the connection dropped.  The fact that the operation is still pending means
             that we haven't received the response yet.  Sending the request more than once
             will result in a reasonable response for all known operations, aside from extra
-            processing on the server in the case of a re-sent provisioing request, or the
+            processing on the server in the case of a re-sent provisioning request, or the
             appearance of a jump in $version attributes in the case of a lost twin PATCH
             operation.  Since we're reusing the same $rid, the server, of course, _could_
             recognize that this is a duplicate request, but the behavior in this case is
