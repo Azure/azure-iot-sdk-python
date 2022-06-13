@@ -2145,64 +2145,6 @@ class TestCoordinateRequestAndResponseStageRunOpWithArbitraryOperation(
 
 
 @pytest.mark.describe(
-    "CoordinateRequestAndResponseStage - OCCURRENCE: pending_response is deleted, but another response is received"
-)
-class TestCoordinateRequestAndResponseStageRequestDeletedPendingOp(
-    CoordinateRequestAndResponseStageTestConfig
-):
-    @pytest.fixture
-    def event(self, fake_uuid):
-        return pipeline_events_base.ResponseEvent(
-            request_id=fake_uuid, status_code=200, response_body="response body"
-        )
-
-    @pytest.fixture
-    def request_response_op(self, mocker):
-        return pipeline_ops_base.RequestAndResponseOperation(
-            request_type="some_request_type",
-            method="SOME_METHOD",
-            resource_location="some/resource/location",
-            request_body="some_request_body",
-            callback=mocker.MagicMock(),
-        )
-
-    @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs, fake_uuid, request_response_op):
-        stage = cls_type(**init_kwargs)
-        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
-            pipeline_configuration=mocker.MagicMock()
-        )
-        stage.next = mocker.MagicMock(spec=pipeline_stages_base.PipelineStage)
-        stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "report_background_exception")
-        return stage
-
-    @pytest.mark.it(
-        "Does not raise an exception when a RequestOperation callback with an error after being called with success"
-    )
-    def test_does_not_raise_on_second_callback(
-        self, stage, request_response_op, arbitrary_exception
-    ):
-
-        assert len(stage.pending_responses) == 0
-        assert stage.next.run_op.call_count == 0
-        assert request_response_op.callback_stack[0].call_count == 0
-
-        stage.run_op(request_response_op)
-
-        assert len(stage.pending_responses) == 1
-        assert stage.next.run_op.call_count == 1
-        request_op = stage.next.run_op.call_args[0][0]
-        callback_count = request_response_op.callback_stack[0].call_count
-        assert callback_count == 0
-
-        request_op.complete(error=arbitrary_exception)
-
-        assert len(stage.pending_responses) == 0
-        assert callback_count == 0
-
-
-@pytest.mark.describe(
     "CoordinateRequestAndResponseStage - OCCURRENCE: RequestOperation tied to a stored RequestAndResponseOperation is completed"
 )
 class TestCoordinateRequestAndResponseStageRequestOperationCompleted(
@@ -2252,6 +2194,26 @@ class TestCoordinateRequestAndResponseStageRequestOperationCompleted(
         assert request_op.completed
         assert not op.completed
         assert stage.pending_responses[request_op.request_id] is op
+
+    @pytest.mark.it(
+        "Does not remove a no-longer existing RequestAndResponseOperation from the 'pending_responses' dict, if the RequestOperation is completed unsuccessfully"
+    )
+    def test_deleted_request_completed_unsuccessfully(self, stage, op, arbitrary_exception):
+        stage.run_op(op)
+        request_op = stage.send_op_down.call_args[0][0]
+
+        assert stage.pending_responses[request_op.request_id] is op
+
+        # Complete and remove the RequestAndResponseOperation
+        op.complete()
+        del stage.pending_responses[request_op.request_id]
+
+        assert request_op.request_id not in stage.pending_responses
+
+        # Complete the RequestOperation
+        request_op.complete(error=arbitrary_exception)
+        # There are no further assertions because, if this does not raise an error,
+        # the test is successful
 
 
 @pytest.mark.describe(
@@ -2633,7 +2595,7 @@ class OpTimeoutStageTestConfig(object):
 
 
 class OpTimeoutStageInstantiationTests(OpTimeoutStageTestConfig):
-    # TODO: this will no longer be necessary once these are implemented as part of a more robust retry policy
+    # NOTE: this will no longer be necessary once these are implemented as part of a more robust retry policy
     @pytest.mark.it(
         "Sets default timeout intervals to 10 seconds for MQTTSubscribeOperation and MQTTUnsubscribeOperation"
     )

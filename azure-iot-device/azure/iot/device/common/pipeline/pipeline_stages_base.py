@@ -786,18 +786,28 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                         self.name, op_waiting_for_response.name, request_id
                     )
                 )
+
+                # NOTE: When the client disconnects, all pending ops are removed from the pipeline.
+                # Given enough connects and disconnects with a twin desired properties patch, eventually
+                # a pending op will be removed from the pipeline but will still reach Paho. Paho will
+                # send up a PUBACK, which in turn triggers the deletion of the pending op, however
+                # the pending op will have already been deleted due to the disconnect.
+                # At this time, not cancelling pending ops upon disconnect will likely cause
+                # further issues, and there is not a current, straightforward way that I know of to
+                # cancel pending ops on Paho's end.
+
                 # if there's no pending response for the given request_id, there's nothing to delete
-                if request_id not in self.pending_responses:
-                    logger.info(
+
+                if request_id in self.pending_responses:
+                    del self.pending_responses[request_id]
+                    op_waiting_for_response.complete(error=error)
+                else:
+                    logger.debug(
                         "{}({}): request_id {} not found in pending list.  Nothing to do.  Dropping".format(
                             self.name, op_waiting_for_response.name, request_id
                         )
                     )
                     pass
-
-                else:
-                    del self.pending_responses[request_id]
-                    op_waiting_for_response.complete(error=error)
             else:
                 # request sent.  Nothing to do except wait for the response
                 pass
