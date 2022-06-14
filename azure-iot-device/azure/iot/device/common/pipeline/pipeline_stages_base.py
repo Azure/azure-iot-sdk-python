@@ -786,7 +786,6 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                         self.name, op_waiting_for_response.name, request_id
                     )
                 )
-
                 # if there's no pending response for the given request_id, there's nothing to delete
                 if request_id in self.pending_responses:
                     del self.pending_responses[request_id]
