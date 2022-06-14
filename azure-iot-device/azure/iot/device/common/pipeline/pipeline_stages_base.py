@@ -787,14 +787,13 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                     )
                 )
 
-                # NOTE: This shouldn't ever happen under normal conditions, but the following logic
-                # ensures that, if it does, it's handled safely.
-
                 # if there's no pending response for the given request_id, there's nothing to delete
                 if request_id in self.pending_responses:
                     del self.pending_responses[request_id]
                     op_waiting_for_response.complete(error=error)
                 else:
+                    # NOTE: This shouldn't ever happen under normal conditions, but the following logic
+                    # ensures that, if it does, it's handled safely.
                     logger.debug(
                         "{}({}): request_id {} not found in pending list.  Unexpected behavior.  Dropping".format(
                             self.name, op_waiting_for_response.name, request_id
