@@ -11,7 +11,7 @@ from azure.iot.device.common.pipeline.pipeline_nucleus import PipelineNucleus
 @pytest.mark.describe("PipelineNucleus - Instantiation")
 class TestPipelineNucleusInstantiation(object):
     @pytest.fixture
-    def pipeline_config(mocker):
+    def pipeline_config(self, mocker):
         return mocker.MagicMock()
 
     @pytest.mark.it(
