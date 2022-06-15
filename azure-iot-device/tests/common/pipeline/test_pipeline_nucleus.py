@@ -8,6 +8,9 @@ import logging
 from azure.iot.device.common.pipeline.pipeline_nucleus import PipelineNucleus
 
 
+logging.basicConfig(level=logging.DEBUG)
+
+
 @pytest.mark.describe("PipelineNucleus - Instantiation")
 class TestPipelineNucleusInstantiation(object):
     @pytest.fixture

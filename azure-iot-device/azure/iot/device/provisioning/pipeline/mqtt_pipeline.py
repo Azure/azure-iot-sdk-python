@@ -39,13 +39,13 @@ class MQTTPipeline(object):
         self._registration_id = pipeline_configuration.registration_id
 
         # Contains data and information shared globally within the pipeline
-        self.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration)
+        self._pipeline_nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration)
 
         self._pipeline = (
             #
             # The root is always the root.  By definition, it's the first stage in the pipeline.
             #
-            pipeline_stages_base.PipelineRootStage(self.nucleus)
+            pipeline_stages_base.PipelineRootStage(self._pipeline_nucleus)
             #
             # SasTokenStage comes near the root by default because it should be as close
             # to the top of the pipeline as possible, and does not need to be after anything.
