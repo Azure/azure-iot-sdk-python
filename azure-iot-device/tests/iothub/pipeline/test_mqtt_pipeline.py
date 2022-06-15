@@ -11,6 +11,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_stages_mqtt,
     pipeline_ops_base,
     pipeline_exceptions,
+    pipeline_nucleus,
 )
 from azure.iot.device.iothub.pipeline import (
     config,
@@ -94,8 +95,15 @@ class TestMQTTPipelineInstantiation(object):
         assert pipeline._pipeline.on_connected_handler is not None
         assert pipeline._pipeline.on_disconnected_handler is not None
 
+    @pytest.mark.it("Configures the pipeline with a PipelineNucleus")
+    def test_pipeline_nucleus(self, pipeline_configuration):
+        pipeline = MQTTPipeline(pipeline_configuration)
+
+        assert isinstance(pipeline.nucleus, pipeline_nucleus.PipelineNucleus)
+        assert pipeline.nucleus.pipeline_configuration is pipeline_configuration
+
     @pytest.mark.it("Configures the pipeline with a series of PipelineStages")
-    def test_pipeline_configuration(self, pipeline_configuration):
+    def test_pipeline_stages(self, pipeline_configuration):
         pipeline = MQTTPipeline(pipeline_configuration)
         curr_stage = pipeline._pipeline
 
@@ -118,6 +126,7 @@ class TestMQTTPipelineInstantiation(object):
         for i in range(len(expected_stage_order)):
             expected_stage = expected_stage_order[i]
             assert isinstance(curr_stage, expected_stage)
+            assert curr_stage.pipeline_nucleus is pipeline.nucleus
             curr_stage = curr_stage.next
 
         # Assert there are no more additional stages
@@ -1107,9 +1116,9 @@ class TestMQTTPipelinePROPERTYPipelineConfiguration(object):
         pipeline.pipeline_configuration.sastoken = None
         assert pipeline.pipeline_configuration.sastoken is None
 
-    @pytest.mark.it("Reflects the value of the root stage attribute of the same name")
+    @pytest.mark.it("Reflects the value of the PipelineNucleus attribute of the same name")
     def test_reflects_pipeline_attribute(self, pipeline):
-        assert pipeline.pipeline_configuration is pipeline._pipeline.pipeline_configuration
+        assert pipeline.pipeline_configuration is pipeline.nucleus.pipeline_configuration
 
 
 @pytest.mark.describe("MQTTPipeline - PROPERTY .connected")
@@ -1119,9 +1128,9 @@ class TestMQTTPipelinePROPERTYConnected(object):
         with pytest.raises(AttributeError):
             pipeline.connected = not pipeline.connected
 
-    @pytest.mark.it("Reflects the value of the root stage attribute of the same name")
+    @pytest.mark.it("Reflects the value of the PipelineNucleus attribute of the same name")
     def test_reflects_pipeline_attribute(self, pipeline):
-        pipeline._pipeline.connected = True
+        pipeline.nucleus.connected = True
         assert pipeline.connected
-        pipeline._pipeline.connected = False
+        pipeline.nucleus.connected = False
         assert not pipeline.connected

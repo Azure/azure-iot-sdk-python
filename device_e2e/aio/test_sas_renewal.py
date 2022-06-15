@@ -36,7 +36,7 @@ class TestSasRenewal(object):
 
         logger.info("connected and ready")
 
-        token_object = client._mqtt_pipeline._pipeline.pipeline_configuration.sastoken
+        token_object = client._mqtt_pipeline.pipeline_configuration.sastoken
 
         async def handle_on_connection_state_change():
             nonlocal token_at_connect_time

@@ -28,7 +28,7 @@ class TestSasRenewal(object):
         connected_event = threading.Event()
         disconnected_event = threading.Event()
 
-        token_object = client._mqtt_pipeline._pipeline.pipeline_configuration.sastoken
+        token_object = client._mqtt_pipeline.pipeline_configuration.sastoken
         token_at_connect_time = None
 
         def handle_on_connection_state_change():

@@ -8,7 +8,7 @@ import logging
 import sys
 from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device.common.pipeline import (
-    pipeline_events_base,
+    pipeline_nucleus,
     pipeline_stages_base,
     pipeline_ops_base,
     pipeline_stages_mqtt,
@@ -52,13 +52,14 @@ class MQTTPipeline(object):
         self.on_method_request_received = None
         self.on_twin_patch_received = None
 
-        # Currently a single timeout stage and a single retry stage for MQTT retry only.
-        # Later, a higher level timeout and a higher level retry stage.
+        # Contains data and information shared globally within the pipeline
+        self.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration)
+
         self._pipeline = (
             #
             # The root is always the root.  By definition, it's the first stage in the pipeline.
             #
-            pipeline_stages_base.PipelineRootStage(pipeline_configuration)
+            pipeline_stages_base.PipelineRootStage(self.nucleus)
             #
             # SasTokenStage comes near the root by default because it should be as close
             # to the top of the pipeline as possible, and does not need to be after anything.
@@ -593,11 +594,11 @@ class MQTTPipeline(object):
         Pipeline Configuration for the pipeline. Note that while a new config object cannot be
         provided (read-only), the values stored in the config object CAN be changed.
         """
-        return self._pipeline.pipeline_configuration
+        return self.nucleus.pipeline_configuration
 
     @property
     def connected(self):
         """
         Read-only property to indicate if the transport is connected or not.
         """
-        return self._pipeline.connected
+        return self.nucleus.connected

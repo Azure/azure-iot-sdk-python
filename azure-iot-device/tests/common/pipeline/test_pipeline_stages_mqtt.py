@@ -10,13 +10,12 @@ import threading
 from azure.iot.device.common import transport_exceptions, handle_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
-    pipeline_stages_base,
     pipeline_ops_mqtt,
     pipeline_events_base,
     pipeline_events_mqtt,
     pipeline_stages_mqtt,
     pipeline_exceptions,
-    config,
+    pipeline_nucleus,
 )
 from tests.common.pipeline.helpers import StageRunOpTestBase
 from tests.common.pipeline import pipeline_stage_test
@@ -64,10 +63,10 @@ class MQTTTransportStageTestConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
-        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+        stage.pipeline_nucleus = pipeline_nucleus.PipelineNucleus(
             pipeline_configuration=mocker.MagicMock()
         )
-        stage.pipeline_root.hostname = "some.fake-host.name.com"
+        stage.pipeline_nucleus.pipeline_configuration.hostname = "some.fake-host.name.com"
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")
@@ -162,17 +161,17 @@ class TestMQTTTransportStageRunOpCalledWithInitializePipelineOperation(
         keep_alive,
     ):
         # Configure websockets & cipher & keep alive
-        stage.pipeline_root.pipeline_configuration.websockets = websockets
-        stage.pipeline_root.pipeline_configuration.cipher = cipher
-        stage.pipeline_root.pipeline_configuration.proxy_options = proxy_options
-        stage.pipeline_root.pipeline_configuration.gateway_hostname = gateway_hostname
-        stage.pipeline_root.pipeline_configuration.keep_alive = keep_alive
+        stage.pipeline_nucleus.pipeline_configuration.websockets = websockets
+        stage.pipeline_nucleus.pipeline_configuration.cipher = cipher
+        stage.pipeline_nucleus.pipeline_configuration.proxy_options = proxy_options
+        stage.pipeline_nucleus.pipeline_configuration.gateway_hostname = gateway_hostname
+        stage.pipeline_nucleus.pipeline_configuration.keep_alive = keep_alive
 
         # NOTE: if more of this type of logic crops up, consider splitting this test up
-        if stage.pipeline_root.pipeline_configuration.gateway_hostname:
-            expected_hostname = stage.pipeline_root.pipeline_configuration.gateway_hostname
+        if stage.pipeline_nucleus.pipeline_configuration.gateway_hostname:
+            expected_hostname = stage.pipeline_nucleus.pipeline_configuration.gateway_hostname
         else:
-            expected_hostname = stage.pipeline_root.pipeline_configuration.hostname
+            expected_hostname = stage.pipeline_nucleus.pipeline_configuration.hostname
 
         assert stage.transport is None
 
@@ -183,8 +182,8 @@ class TestMQTTTransportStageRunOpCalledWithInitializePipelineOperation(
             client_id=op.client_id,
             hostname=expected_hostname,
             username=op.username,
-            server_verification_cert=stage.pipeline_root.pipeline_configuration.server_verification_cert,
-            x509_cert=stage.pipeline_root.pipeline_configuration.x509,
+            server_verification_cert=stage.pipeline_nucleus.pipeline_configuration.server_verification_cert,
+            x509_cert=stage.pipeline_nucleus.pipeline_configuration.x509,
             websockets=websockets,
             cipher=cipher,
             proxy_options=proxy_options,
@@ -232,7 +231,7 @@ class MQTTTransportStageTestConfigComplex(MQTTTransportStageTestConfig):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs, mock_transport):
         stage = cls_type(**init_kwargs)
-        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+        stage.pipeline_nucleus = pipeline_nucleus.PipelineNucleus(
             pipeline_configuration=mocker.MagicMock()
         )
         stage.send_op_down = mocker.MagicMock()
@@ -334,14 +333,14 @@ class TestMQTTTransportStageRunOpCalledWithConnectOperation(
         assert mock_timer.return_value.start.call_count == 1
 
     @pytest.mark.it(
-        "Performs an MQTT connect via the MQTTTransport, using the root's SasToken as a password, if using SAS-based authentication"
+        "Performs an MQTT connect via the MQTTTransport, using the PipelineNucleus' SasToken as a password, if using SAS-based authentication"
     )
     def test_mqtt_connect_sastoken(self, mocker, stage, op):
-        assert stage.pipeline_root.pipeline_configuration.sastoken is not None
+        assert stage.pipeline_nucleus.pipeline_configuration.sastoken is not None
         stage.run_op(op)
         assert stage.transport.connect.call_count == 1
         assert stage.transport.connect.call_args == mocker.call(
-            password=str(stage.pipeline_root.pipeline_configuration.sastoken)
+            password=str(stage.pipeline_nucleus.pipeline_configuration.sastoken)
         )
 
     @pytest.mark.it(
@@ -349,7 +348,7 @@ class TestMQTTTransportStageRunOpCalledWithConnectOperation(
     )
     def test_mqtt_connect_no_sastoken(self, mocker, stage, op):
         # no token
-        stage.pipeline_root.pipeline_configuration.sastoken = None
+        stage.pipeline_nucleus.pipeline_configuration.sastoken = None
         stage.run_op(op)
         assert stage.transport.connect.call_count == 1
         assert stage.transport.connect.call_args == mocker.call(password=None)
@@ -1175,7 +1174,7 @@ class TestMQTTTransportStageOnDisconnectedUnexpectedNoPendingConnectionOp(
     def test_inflight_no_retry(self, mocker, stage, cause):
         stage.transport._op_manager = mocker.MagicMock()
         mock_cancel = stage.transport._op_manager.cancel_all_operations
-        stage.pipeline_root.pipeline_configuration.connection_retry = False
+        stage.pipeline_nucleus.pipeline_configuration.connection_retry = False
         assert stage._pending_connection_op is None
         assert mock_cancel.call_count == 0
 
@@ -1191,7 +1190,7 @@ class TestMQTTTransportStageOnDisconnectedUnexpectedNoPendingConnectionOp(
     def test_inflight_unexpected_with_retry(self, mocker, stage, cause):
         stage.transport._op_manager = mocker.MagicMock()
         mock_cancel = stage.transport._op_manager.cancel_all_operations
-        stage.pipeline_root.pipeline_configuration.connection_retry = True
+        stage.pipeline_nucleus.pipeline_configuration.connection_retry = True
         assert stage._pending_connection_op is None
         assert mock_cancel.call_count == 0
 
@@ -1274,12 +1273,12 @@ class TestMQTTTransportStageWatchdogExpired(MQTTTransportStageTestConfigComplex)
         assert callback.call_count == 0
 
     @pytest.mark.it(
-        "Sends a DisconnectedEvent if the op that started the watchdog is still pending and the pipeline_root connected flag is True"
+        "Sends a DisconnectedEvent if the op that started the watchdog is still pending and the PipelineNucleus connected flag is True"
     )
     def test_sends_disconnected_event_if_still_pendin_and_connected(
         self, mocker, stage, pending_op, mock_timer
     ):
-        stage.pipeline_root.connected = True
+        stage.pipeline_nucleus.connected = True
         stage.run_op(pending_op)
 
         watchdog_expiration = mock_timer.call_args[0][1]
@@ -1291,12 +1290,12 @@ class TestMQTTTransportStageWatchdogExpired(MQTTTransportStageTestConfigComplex)
         )
 
     @pytest.mark.it(
-        "Does not send a DisconnectedEvent if the op that started the watchdog is still pending and the pipeline_root connected flag is False"
+        "Does not send a DisconnectedEvent if the op that started the watchdog is still pending and the PipelineNucleus connected flag is False"
     )
     def test_does_not_send_disconnected_event_if_still_pending_and_not_connected(
         self, mocker, stage, pending_op, mock_timer
     ):
-        stage.pipeline_root.connected = False
+        stage.pipeline_nucleus.connected = False
         stage.run_op(pending_op)
 
         watchdog_expiration = mock_timer.call_args[0][1]
@@ -1310,7 +1309,7 @@ class TestMQTTTransportStageWatchdogExpired(MQTTTransportStageTestConfigComplex)
     def test_does_not_send_disconnected_event_if_no_longer_pending_and_connected(
         self, mocker, stage, pending_op, mock_timer
     ):
-        stage.pipeline_root.connected = True
+        stage.pipeline_nucleus.connected = True
         stage.run_op(pending_op)
         stage._pending_connection_op = None
 
@@ -1325,7 +1324,7 @@ class TestMQTTTransportStageWatchdogExpired(MQTTTransportStageTestConfigComplex)
     def test_does_not_send_disconnected_event_if_no_longer_pending_and_not_connected(
         self, mocker, stage, pending_op, mock_timer
     ):
-        stage.pipeline_root.connected = False
+        stage.pipeline_nucleus.connected = False
         stage.run_op(pending_op)
         stage._pending_connection_op = None
 

@@ -78,7 +78,7 @@ class MQTTTransportStage(PipelineStage):
                     "{}({}): Connection watchdog expired.  Cancelling op".format(this.name, op.name)
                 )
                 this.transport.disconnect()
-                if this.pipeline_root.connected:
+                if this.pipeline_nucleus.connected:
                     logger.info(
                         "{}({}): Pipeline is still connected on watchdog expiration.  Sending DisconnectedEvent".format(
                             this.name, op.name
@@ -113,20 +113,20 @@ class MQTTTransportStage(PipelineStage):
 
             # If there is a gateway hostname, use that as the hostname for connection,
             # rather than the hostname itself
-            if self.pipeline_root.pipeline_configuration.gateway_hostname:
+            if self.pipeline_nucleus.pipeline_configuration.gateway_hostname:
                 logger.debug(
                     "Gateway Hostname Present. Setting Hostname to: {}".format(
-                        self.pipeline_root.pipeline_configuration.gateway_hostname
+                        self.pipeline_nucleus.pipeline_configuration.gateway_hostname
                     )
                 )
-                hostname = self.pipeline_root.pipeline_configuration.gateway_hostname
+                hostname = self.pipeline_nucleus.pipeline_configuration.gateway_hostname
             else:
                 logger.debug(
                     "Gateway Hostname not present. Setting Hostname to: {}".format(
-                        self.pipeline_root.pipeline_configuration.hostname
+                        self.pipeline_nucleus.pipeline_configuration.hostname
                     )
                 )
-                hostname = self.pipeline_root.pipeline_configuration.hostname
+                hostname = self.pipeline_nucleus.pipeline_configuration.hostname
 
             # Create the Transport object, set it's handlers
             logger.debug("{}({}): got connection args".format(self.name, op.name))
@@ -134,12 +134,12 @@ class MQTTTransportStage(PipelineStage):
                 client_id=op.client_id,
                 hostname=hostname,
                 username=op.username,
-                server_verification_cert=self.pipeline_root.pipeline_configuration.server_verification_cert,
-                x509_cert=self.pipeline_root.pipeline_configuration.x509,
-                websockets=self.pipeline_root.pipeline_configuration.websockets,
-                cipher=self.pipeline_root.pipeline_configuration.cipher,
-                proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
-                keep_alive=self.pipeline_root.pipeline_configuration.keep_alive,
+                server_verification_cert=self.pipeline_nucleus.pipeline_configuration.server_verification_cert,
+                x509_cert=self.pipeline_nucleus.pipeline_configuration.x509,
+                websockets=self.pipeline_nucleus.pipeline_configuration.websockets,
+                cipher=self.pipeline_nucleus.pipeline_configuration.cipher,
+                proxy_options=self.pipeline_nucleus.pipeline_configuration.proxy_options,
+                keep_alive=self.pipeline_nucleus.pipeline_configuration.keep_alive,
             )
             self.transport.on_mqtt_connected_handler = self._on_mqtt_connected
             self.transport.on_mqtt_connection_failure_handler = self._on_mqtt_connection_failure
@@ -181,8 +181,8 @@ class MQTTTransportStage(PipelineStage):
             self._start_connection_watchdog(op)
             # Use SasToken as password if present. If not present (e.g. using X509),
             # then no password is required because auth is handled via other means.
-            if self.pipeline_root.pipeline_configuration.sastoken:
-                password = str(self.pipeline_root.pipeline_configuration.sastoken)
+            if self.pipeline_nucleus.pipeline_configuration.sastoken:
+                password = str(self.pipeline_nucleus.pipeline_configuration.sastoken)
             else:
                 password = None
             try:
@@ -428,7 +428,7 @@ class MQTTTransportStage(PipelineStage):
 
             # If there is no connection retry, cancel any transport operations waiting on response
             # so that they do not get stuck there.
-            if not self.pipeline_root.pipeline_configuration.connection_retry:
+            if not self.pipeline_nucleus.pipeline_configuration.connection_retry:
                 logger.debug(
                     "{}: Connection Retry disabled - cancelling in-flight operations".format(
                         self.name

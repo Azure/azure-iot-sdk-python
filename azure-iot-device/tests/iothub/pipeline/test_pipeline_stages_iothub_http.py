@@ -8,7 +8,7 @@ import pytest
 import json
 import sys
 import urllib
-from azure.iot.device.common.pipeline import pipeline_stages_base, pipeline_ops_http
+from azure.iot.device.common.pipeline import pipeline_nucleus, pipeline_ops_http
 from azure.iot.device.iothub.pipeline import (
     pipeline_ops_iothub_http,
     pipeline_stages_iothub_http,
@@ -71,9 +71,7 @@ class IoTHubHTTPTranslationStageTestConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs, pipeline_config):
         stage = cls_type(**init_kwargs)
-        stage.pipeline_root = stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
-            pipeline_config
-        )
+        stage.pipeline_nucleus = pipeline_nucleus.PipelineNucleus(pipeline_config)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")
@@ -170,7 +168,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
         ],
     )
     def test_new_op_headers(self, mocker, stage, op, custom_user_agent, pipeline_config):
-        stage.pipeline_root.pipeline_configuration.product_info = custom_user_agent
+        stage.pipeline_nucleus.pipeline_configuration.product_info = custom_user_agent
         stage.run_op(op)
 
         # Op was sent down
@@ -400,7 +398,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
         ],
     )
     def test_new_op_headers(self, mocker, stage, op, custom_user_agent, pipeline_config):
-        stage.pipeline_root.pipeline_configuration.product_info = custom_user_agent
+        stage.pipeline_nucleus.pipeline_configuration.product_info = custom_user_agent
         stage.run_op(op)
 
         # Op was sent down
@@ -630,7 +628,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperati
         ],
     )
     def test_new_op_headers(self, mocker, stage, op, custom_user_agent, pipeline_config):
-        stage.pipeline_root.pipeline_configuration.product_info = custom_user_agent
+        stage.pipeline_nucleus.pipeline_configuration.product_info = custom_user_agent
         stage.run_op(op)
 
         # Op was sent down

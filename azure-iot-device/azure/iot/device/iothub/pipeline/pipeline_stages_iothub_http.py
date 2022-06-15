@@ -54,16 +54,16 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             # NOTE: we do not add the sas Authorization header here. Instead we add it later on in
             # the HTTPTransportStage
             x_ms_edge_string = "{deviceId}/{moduleId}".format(
-                deviceId=self.pipeline_root.pipeline_configuration.device_id,
-                moduleId=self.pipeline_root.pipeline_configuration.module_id,
+                deviceId=self.pipeline_nucleus.pipeline_configuration.device_id,
+                moduleId=self.pipeline_nucleus.pipeline_configuration.module_id,
             )  # these are the identifiers of the current module
             user_agent_string = urllib.parse.quote_plus(
                 user_agent.get_iothub_user_agent()
-                + str(self.pipeline_root.pipeline_configuration.product_info)
+                + str(self.pipeline_nucleus.pipeline_configuration.product_info)
             )
             # Method Invoke must be addressed to the gateway hostname because it is an Edge op
             headers = {
-                "Host": self.pipeline_root.pipeline_configuration.gateway_hostname,
+                "Host": self.pipeline_nucleus.pipeline_configuration.gateway_hostname,
                 "Content-Type": "application/json",
                 "Content-Length": str(len(str(body))),
                 "x-ms-edge-moduleId": x_ms_edge_string,
@@ -99,15 +99,15 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
             )
             path = http_path_iothub.get_storage_info_for_blob_path(
-                self.pipeline_root.pipeline_configuration.device_id
+                self.pipeline_nucleus.pipeline_configuration.device_id
             )
             body = json.dumps({"blobName": op.blob_name})
             user_agent_string = urllib.parse.quote_plus(
                 user_agent.get_iothub_user_agent()
-                + str(self.pipeline_root.pipeline_configuration.product_info)
+                + str(self.pipeline_nucleus.pipeline_configuration.product_info)
             )
             headers = {
-                "Host": self.pipeline_root.pipeline_configuration.hostname,
+                "Host": self.pipeline_nucleus.pipeline_configuration.hostname,
                 "Accept": "application/json",
                 "Content-Type": "application/json",
                 "Content-Length": str(len(str(body))),
@@ -144,7 +144,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
             )
             path = http_path_iothub.get_notify_blob_upload_status_path(
-                self.pipeline_root.pipeline_configuration.device_id
+                self.pipeline_nucleus.pipeline_configuration.device_id
             )
             body = json.dumps(
                 {
@@ -156,13 +156,13 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             )
             user_agent_string = urllib.parse.quote_plus(
                 user_agent.get_iothub_user_agent()
-                + str(self.pipeline_root.pipeline_configuration.product_info)
+                + str(self.pipeline_nucleus.pipeline_configuration.product_info)
             )
 
             # NOTE we do not add the sas Authorization header here. Instead we add it later on in
             # the HTTPTransportStage
             headers = {
-                "Host": self.pipeline_root.pipeline_configuration.hostname,
+                "Host": self.pipeline_nucleus.pipeline_configuration.hostname,
                 "Content-Type": "application/json; charset=utf-8",
                 "Content-Length": str(len(str(body))),
                 "User-Agent": user_agent_string,

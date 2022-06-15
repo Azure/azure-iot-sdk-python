@@ -65,10 +65,9 @@ class PipelineStage(abc.ABC):
     :type next: PipelineStage
     :ivar previous: The previous stage in the pipeline.  Set to None if this is the first stage in the pipeline.
     :type previous: PipelineStage
-    :ivar pipeline_root: The first stage (root) of the pipeline.  This is useful if a stage wants to
-      submit an operation to the pipeline starting at the root.  This type of behavior is uncommon but not
-      unexpected.
-    :type pipeline_root: PipelineStage
+    :ivar pipeline_nucleus: The pipeline's "nucleus" which contains global pipeline information, accessible
+        from all stages
+    :type pipeline_nucleus: PipelineNucleus
     """
 
     def __init__(self):
@@ -78,7 +77,7 @@ class PipelineStage(abc.ABC):
         self.name = self.__class__.__name__
         self.next = None
         self.previous = None
-        self.pipeline_root = None
+        self.pipeline_nucleus = None
 
     @pipeline_thread.runs_on_pipeline_thread
     def run_op(self, op):
@@ -254,15 +253,14 @@ class PipelineRootStage(PipelineStage):
     :type on_disconnected_handler: Function
     """
 
-    def __init__(self, pipeline_configuration):
+    def __init__(self, pipeline_nucleus):
         super().__init__()
         self.on_pipeline_event_handler = None
         self.on_connected_handler = None
         self.on_disconnected_handler = None
         self.on_new_sastoken_required_handler = None
         self.on_background_exception_handler = None
-        self.connected = False
-        self.pipeline_configuration = pipeline_configuration
+        self.pipeline_nucleus = pipeline_nucleus
 
     def run_op(self, op):
         # CT-TODO: make this more elegant
@@ -285,7 +283,7 @@ class PipelineRootStage(PipelineStage):
             old_tail = old_tail.next
         old_tail.next = new_stage
         new_stage.previous = old_tail
-        new_stage.pipeline_root = self
+        new_stage.pipeline_nucleus = self.pipeline_nucleus
         return self
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -303,7 +301,7 @@ class PipelineRootStage(PipelineStage):
             logger.debug(
                 "{}: ConnectedEvent received. Calling on_connected_handler".format(self.name)
             )
-            self.connected = True
+            self.pipeline_nucleus.connected = True
             if self.on_connected_handler:
                 pipeline_thread.invoke_on_callback_thread_nowait(self.on_connected_handler)()
 
@@ -311,7 +309,7 @@ class PipelineRootStage(PipelineStage):
             logger.debug(
                 "{}: DisconnectedEvent received. Calling on_disconnected_handler".format(self.name)
             )
-            self.connected = False
+            self.pipeline_nucleus.connected = False
             if self.on_disconnected_handler:
                 pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
 
@@ -369,14 +367,14 @@ class SasTokenStage(PipelineStage):
     def _run_op(self, op):
         if (
             isinstance(op, pipeline_ops_base.InitializePipelineOperation)
-            and self.pipeline_root.pipeline_configuration.sastoken is not None
+            and self.pipeline_nucleus.pipeline_configuration.sastoken is not None
         ):
             # Start an alarm (renewal or replacement depending on token type)
             self._start_token_update_alarm()
             self.send_op_down(op)
         elif (
             isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation)
-            and self.pipeline_root.pipeline_configuration.sastoken is not None
+            and self.pipeline_nucleus.pipeline_configuration.sastoken is not None
         ):
             # NOTE 1: This case (currently) implies that we are using Non-Renewable SAS,
             # although it's not enforced here (it's a product of how the pipeline and client are
@@ -430,7 +428,7 @@ class SasTokenStage(PipelineStage):
         self._cancel_token_update_alarm()
 
         update_time = (
-            self.pipeline_root.pipeline_configuration.sastoken.expiry_time
+            self.pipeline_nucleus.pipeline_configuration.sastoken.expiry_time
             - self.DEFAULT_TOKEN_UPDATE_MARGIN
         )
 
@@ -445,7 +443,7 @@ class SasTokenStage(PipelineStage):
             update_time = time.time() + threading.TIMEOUT_MAX
             logger.warning(
                 "SAS Token expiration ({expiry} seconds) exceeds max scheduled renewal time ({max} seconds). Will be renewing after {max} seconds instead".format(
-                    expiry=self.pipeline_root.pipeline_configuration.sastoken.expiry_time,
+                    expiry=self.pipeline_nucleus.pipeline_configuration.sastoken.expiry_time,
                     max=threading.TIMEOUT_MAX,
                 )
             )
@@ -454,7 +452,7 @@ class SasTokenStage(PipelineStage):
 
         # For renewable SasTokens, create an alarm that will automatically renew the token,
         # and then start another alarm.
-        if isinstance(self.pipeline_root.pipeline_configuration.sastoken, st.RenewableSasToken):
+        if isinstance(self.pipeline_nucleus.pipeline_configuration.sastoken, st.RenewableSasToken):
             logger.debug(
                 "{}: Scheduling automatic SAS Token renewal at epoch time: {}".format(
                     self.name, update_time
@@ -468,7 +466,7 @@ class SasTokenStage(PipelineStage):
                 this._cancel_reauth_retry_timer()
                 logger.info("{}: Renewing SAS Token...".format(self.name))
                 # Renew the token
-                sastoken = this.pipeline_root.pipeline_configuration.sastoken
+                sastoken = this.pipeline_nucleus.pipeline_configuration.sastoken
                 try:
                     sastoken.refresh()
                 except st.SasTokenError as e:
@@ -481,7 +479,7 @@ class SasTokenStage(PipelineStage):
                     # now that token has been renewed. If the pipeline is not currently connected,
                     # there is no need to do this, as the next connection will be using the new
                     # credentials.
-                    if this.pipeline_root.connected:
+                    if this.pipeline_nucleus.connected:
                         this._reauthorize()
 
                     # Once again, start a renewal alarm
@@ -530,8 +528,8 @@ class SasTokenStage(PipelineStage):
                 # wouldn't know to reconnect, because the expected state of a failed reauth is
                 # to be disconnected.
                 if (
-                    not this.pipeline_root.connected
-                    and this.pipeline_root.pipeline_configuration.connection_retry
+                    not this.pipeline_nucleus.connected
+                    and this.pipeline_nucleus.pipeline_configuration.connection_retry
                 ):
                     logger.info("{}: Retrying connection reauthorization".format(this.name))
                     # No need to cancel the timer, because if this is running, it has already ended
@@ -541,11 +539,11 @@ class SasTokenStage(PipelineStage):
                         # We need to check this when the timer expires as well as before creating
                         # the timer in case connection has been re-established while timer was
                         # running
-                        if not this.pipeline_root.connected:
+                        if not this.pipeline_nucleus.connected:
                             this._reauthorize()
 
                     this._reauth_retry_timer = threading.Timer(
-                        this.pipeline_root.pipeline_configuration.connection_retry_interval,
+                        this.pipeline_nucleus.pipeline_configuration.connection_retry_interval,
                         retry_reauthorize,
                     )
                     this._reauth_retry_timer.daemon = True
@@ -572,8 +570,8 @@ class AutoConnectStage(PipelineStage):
         # we're not connected and the auto-connect feature is enabled.
         if (
             op.needs_connection
-            and not self.pipeline_root.connected
-            and self.pipeline_root.pipeline_configuration.auto_connect
+            and not self.pipeline_nucleus.connected
+            and self.pipeline_nucleus.pipeline_configuration.auto_connect
         ):
             logger.debug(
                 "{}({}): Op needs connection.  Queueing this op and starting a ConnectionOperation".format(
@@ -644,7 +642,7 @@ class ConnectionLockStage(PipelineStage):
             )
             self.queue.put_nowait(op)
 
-        elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
+        elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_nucleus.connected:
             logger.info(
                 "{}({}): Transport is already connected.  Completing.".format(self.name, op.name)
             )
@@ -652,7 +650,7 @@ class ConnectionLockStage(PipelineStage):
 
         elif (
             isinstance(op, pipeline_ops_base.DisconnectOperation)
-            and not self.pipeline_root.connected
+            and not self.pipeline_nucleus.connected
         ):
             logger.info(
                 "{}({}): Transport is already disconnected.  Completing.".format(self.name, op.name)
@@ -1096,7 +1094,7 @@ class ReconnectStage(PipelineStage):
         # NOTE: Connection Retry == Reconnect. These terms are used interchangably. 'reconnect' is a
         # more accurate term for the process happening internally here, but the feature is called
         # 'connection retry' when facing the end user.
-        if self.pipeline_root.pipeline_configuration.connection_retry:
+        if self.pipeline_nucleus.pipeline_configuration.connection_retry:
 
             # If receiving a connection op while one is already in progress, wait for the current
             # one to finish. This is kind of like a ConnectionLockStage, but inside this one.
@@ -1214,7 +1212,7 @@ class ReconnectStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
         # Connection Retry Enabled
-        if self.pipeline_root.pipeline_configuration.connection_retry:
+        if self.pipeline_nucleus.pipeline_configuration.connection_retry:
             if isinstance(event, pipeline_events_base.ConnectedEvent):
                 # First, clear the reconnect timer no matter what.
                 # We are now connected, so any ongoing reconnect is unnecessary
@@ -1242,7 +1240,7 @@ class ReconnectStage(PipelineStage):
                 else:
                     logger.warning(
                         "{}: ConnectedEvent received while in unexpected state - {}, Connected: {}".format(
-                            self.name, self.state, self.pipeline_root.connected
+                            self.name, self.state, self.pipeline_nucleus.connected
                         )
                     )
                     logger.debug(
@@ -1302,7 +1300,7 @@ class ReconnectStage(PipelineStage):
                 else:
                     logger.warning(
                         "{}: DisconnectEvent received while in unexpected state - {}, Connected: {}".format(
-                            self.name, self.state, self.pipeline_root.connected
+                            self.name, self.state, self.pipeline_nucleus.connected
                         )
                     )
                     logger.debug(
@@ -1381,7 +1379,7 @@ class ReconnectStage(PipelineStage):
                         op.name,
                         error,
                         this.state,
-                        this.pipeline_root.connected,
+                        this.pipeline_nucleus.connected,
                     )
                 )
 
@@ -1402,7 +1400,7 @@ class ReconnectStage(PipelineStage):
                             "{}: Reconnect failed. Starting reconnection timer".format(this.name)
                         )
                         this._start_reconnect_timer(
-                            this.pipeline_root.pipeline_configuration.connection_retry_interval
+                            this.pipeline_nucleus.pipeline_configuration.connection_retry_interval
                         )
                     else:
                         # all others are permanent errors
@@ -1424,7 +1422,7 @@ class ReconnectStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _should_reconnect(self, error):
         """Returns True if a reconnect should occur in response to an error, False otherwise"""
-        if self.pipeline_root.pipeline_configuration.connection_retry:
+        if self.pipeline_nucleus.pipeline_configuration.connection_retry:
             if type(error) in self.transient_connect_errors:
                 return True
         return False
@@ -1443,7 +1441,7 @@ class ReconnectStage(PipelineStage):
             this = self_weakref()
             logger.debug(
                 "{}: Reconnect timer expired. State is {} Connected is {}.".format(
-                    self.name, self.state, self.pipeline_root.connected
+                    self.name, self.state, self.pipeline_nucleus.connected
                 )
             )
             # Clear the reconnect timer here first and foremost so it doesn't accidentally
@@ -1474,7 +1472,7 @@ class ReconnectStage(PipelineStage):
                     )
                 )
                 this._start_reconnect_timer(
-                    this.pipeline_root.pipeline_configuration.connection_retry_interval
+                    this.pipeline_nucleus.pipeline_configuration.connection_retry_interval
                 )
             else:
                 logger.debug(
