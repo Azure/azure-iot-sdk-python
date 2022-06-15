@@ -14,7 +14,7 @@ stop_event = threading.Event()
 
 
 def create_client():
-    # Inputs/Ouputs are only supported in the context of Azure IoT Edge and module client
+    # Inputs/Outputs are only supported in the context of Azure IoT Edge and module client
     # The module client object acts as an Azure IoT Edge module and interacts with an Azure IoT Edge hub
     client = IoTHubModuleClient.create_from_edge_environment()
 

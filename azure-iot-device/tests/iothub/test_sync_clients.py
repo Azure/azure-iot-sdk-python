@@ -1430,7 +1430,7 @@ class IoTHubDeviceClientTestsConfig(object):
 
     @pytest.fixture
     def connection_string(self, device_connection_string):
-        """This fixture is parametrized to provie all valid device connection strings.
+        """This fixture is parametrized to prove all valid device connection strings.
         See client_fixtures.py
         """
         return device_connection_string
@@ -1823,7 +1823,7 @@ class TestIoTHubDeviceClientGetStorageInfo(WaitsForEventCompletion, IoTHubDevice
 
         assert (
             received_storage_info is fake_storage_info
-        )  # Note: the return value this is checkign for is defined in client_fixtures.py
+        )  # Note: the return value this is checking for is defined in client_fixtures.py
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .notify_blob_upload_status()")
@@ -2030,7 +2030,7 @@ class IoTHubModuleClientTestsConfig(object):
 
     @pytest.fixture
     def connection_string(self, module_connection_string):
-        """This fixture is parametrized to provie all valid device connection strings.
+        """This fixture is parametrized to prove all valid device connection strings.
         See client_fixtures.py
         """
         return module_connection_string

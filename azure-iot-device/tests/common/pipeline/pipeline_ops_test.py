@@ -77,7 +77,7 @@ def add_operation_tests(
             assert op.callback_stack[0] is init_kwargs["callback"]
 
     # If an extended operation instantiation test class is provided, use those tests as well.
-    # By using the extended_op_instantation_test_class as the first parent class, this ensures that
+    # By using the extended_op_instantiation_test_class as the first parent class, this ensures that
     # tests from OperationBaseInstantiationTests (e.g. test_needs_connection) can be overwritten by
     # tests provided in extended_op_instantiation_test_class.
     if extended_op_instantiation_test_class:
@@ -479,7 +479,7 @@ def add_operation_tests(
             assert op.error is error
 
         @pytest.mark.it(
-            "Halts triggering of callbacks if a callback invokes the .halt_completion() method, leaving untriggered callbacks in the operation's callback stack"
+            "Halts triggering of callbacks if a callback invokes the .halt_completion() method, leaving un-triggered callbacks in the operation's callback stack"
         )
         def test_halt_during_callback(self, mocker, cls_type, init_kwargs, error):
             def cb2(op, error):

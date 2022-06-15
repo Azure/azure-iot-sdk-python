@@ -76,7 +76,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),
             )
 
-            # Dynamically attach the derived MQTT values to the InitalizePipelineOperation
+            # Dynamically attach the derived MQTT values to the InitializePipelineOperation
             # to be used later down the pipeline
             op.username = username
             op.client_id = client_id
@@ -86,7 +86,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         elif isinstance(op, pipeline_ops_iothub.SendD2CMessageOperation) or isinstance(
             op, pipeline_ops_iothub.SendOutputMessageOperation
         ):
-            # Convert SendTelementry and SendOutputMessageOperation operations into MQTT Publish operations
+            # Convert SendTelemetry and SendOutputMessageOperation operations into MQTT Publish operations
             telemetry_topic = mqtt_topic_iothub.get_telemetry_topic_for_publish(
                 device_id=self.pipeline_nucleus.pipeline_configuration.device_id,
                 module_id=self.pipeline_nucleus.pipeline_configuration.module_id,

@@ -784,8 +784,19 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                         self.name, op_waiting_for_response.name, request_id
                     )
                 )
-                del self.pending_responses[request_id]
-                op_waiting_for_response.complete(error=error)
+                # if there's no pending response for the given request_id, there's nothing to delete
+                if request_id in self.pending_responses:
+                    del self.pending_responses[request_id]
+                    op_waiting_for_response.complete(error=error)
+                else:
+                    # NOTE: This shouldn't ever happen under normal conditions, but the following logic
+                    # ensures that, if it does, it's handled safely.
+                    logger.debug(
+                        "{}({}): request_id {} not found in pending list.  Unexpected behavior.  Dropping".format(
+                            self.name, op_waiting_for_response.name, request_id
+                        )
+                    )
+                    pass
             else:
                 # request sent.  Nothing to do except wait for the response
                 pass
@@ -850,7 +861,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             when the connection dropped.  The fact that the operation is still pending means
             that we haven't received the response yet.  Sending the request more than once
             will result in a reasonable response for all known operations, aside from extra
-            processing on the server in the case of a re-sent provisioing request, or the
+            processing on the server in the case of a re-sent provisioning request, or the
             appearance of a jump in $version attributes in the case of a lost twin PATCH
             operation.  Since we're reusing the same $rid, the server, of course, _could_
             recognize that this is a duplicate request, but the behavior in this case is
@@ -894,7 +905,7 @@ class OpTimeoutStage(PipelineStage):
     catastrophic.
 
     Also, as a long-term plan, the operations that need to be watched for timeout
-    will become an initialization parameter for this stage so that differet
+    will become an initialization parameter for this stage so that different
     instances of this stage can watch for timeouts on different operations.
     This will be done because we want a lower-level timeout stage which can watch
     for timeouts at the MQTT level, and we want a higher-level timeout stage which
@@ -907,7 +918,7 @@ class OpTimeoutStage(PipelineStage):
     def __init__(self):
         super().__init__()
         # use a fixed list and fixed intervals for now.  Later, this info will come in
-        # as an init param or a retry poicy
+        # as an init param or a retry policy
         self.timeout_intervals = {
             pipeline_ops_mqtt.MQTTSubscribeOperation: 10,
             pipeline_ops_mqtt.MQTTUnsubscribeOperation: 10,
@@ -1091,7 +1102,7 @@ class ReconnectStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        # NOTE: Connection Retry == Reconnect. These terms are used interchangably. 'reconnect' is a
+        # NOTE: Connection Retry == Reconnect. These terms are used interchangeably. 'reconnect' is a
         # more accurate term for the process happening internally here, but the feature is called
         # 'connection retry' when facing the end user.
         if self.pipeline_nucleus.pipeline_configuration.connection_retry:
@@ -1121,7 +1132,7 @@ class ReconnectStage(PipelineStage):
                         )
                         self._add_connection_op_callback(op)
                         # NOTE: This is the safest thing to do while the ConnectionLockStage is
-                        # doing autocompletes based on connection status. When it is revisited,
+                        # doing auto-completes based on connection status. When it is revisited,
                         # this logic may need to be updated.
                     elif self.state is ReconnectState.DISCONNECTED:
                         logger.debug(
@@ -1159,7 +1170,7 @@ class ReconnectStage(PipelineStage):
                         )
                         self._add_connection_op_callback(op)
                         # NOTE: This is the safest thing to do while the ConnectionLockStage is
-                        # doing autocompletes based on connection status. When it is revisited,
+                        # doing auto-completes based on connection status. When it is revisited,
                         # this logic may need to be updated.
                     else:
                         # This should be impossible to reach. If the state were intermediate, it
@@ -1230,7 +1241,7 @@ class ReconnectStage(PipelineStage):
                 # EXPECTED CONNECTION (ReauthorizeConnectionOperation was previously issued)
                 elif self.state is ReconnectState.REAUTHORIZING:
                     logger.debug(
-                        "{}({}): State changes REAUTHORIZING -> CONNECTED. Connection re-established after reauthentication".format(
+                        "{}({}): State changes REAUTHORIZING -> CONNECTED. Connection re-established after re-authentication".format(
                             self.name, event.name
                         )
                     )
@@ -1262,7 +1273,7 @@ class ReconnectStage(PipelineStage):
                         )
                     )
                     # Set the state change before starting the timer in order to make sure
-                    # there's no issues when the timer expires. The pipline threading model should
+                    # there's no issues when the timer expires. The pipeline threading model should
                     # already be preventing any weirdness with timing, but can't hurt to do this
                     # as well.
                     self.state = ReconnectState.DISCONNECTED

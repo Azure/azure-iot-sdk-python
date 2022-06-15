@@ -8,7 +8,6 @@ import pytest
 from azure.iot.hub.protocol.models import AuthenticationMechanism, DeviceCapabilities
 from azure.iot.hub.iothub_registry_manager import IoTHubRegistryManager
 from azure.iot.hub import iothub_amqp_client
-from azure.iot.hub.auth import ConnectionStringAuthentication
 from azure.iot.hub.protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs
 
 """---Constants---"""
@@ -1191,10 +1190,10 @@ class TestGetDevicesWithMax(object):
         assert mock_devices_operations.get_devices.call_args == mocker.call(max_number_of_devices)
 
 
-@pytest.mark.describe("IoTHubRegistryManager - .bulk_create_or_update_identitys()")
+@pytest.mark.describe("IoTHubRegistryManager - .bulk_create_or_update_identities()")
 class TestBulkCreateUpdateDevices(object):
-    @pytest.mark.it("Test bulk_create_or_update_identitys")
-    def test_bulk_create_or_update_identitys(
+    @pytest.mark.it("Test bulk_create_or_update_identities")
+    def test_bulk_create_or_update_identities(
         self, mocker, mock_bulk_registry_operations, iothub_registry_manager
     ):
         iothub_registry_manager.bulk_create_or_update_devices(fake_devices)

@@ -4,13 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
 import os
 import msrest
 import uuid
 import base64
 from azure.iot.hub import IoTHubRegistryManager
-from azure.iot.hub.models import Twin, TwinProperties, DeviceCapabilities
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 device_id = os.getenv("IOTHUB_NEW_DEVICE_ID")
@@ -69,6 +67,9 @@ try:
 
     # Delete the device
     iothub_registry_manager.delete_device(device_id)
+
+    # Set registry manager object to `None` so all open files get closed
+    iothub_registry_manager = None
 
 except msrest.exceptions.HttpOperationError as ex:
     print("HttpOperationError error {0}".format(ex.response.text))

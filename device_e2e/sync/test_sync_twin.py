@@ -4,7 +4,6 @@
 import pytest
 import logging
 import time
-import threading
 import const
 import queue
 from utils import get_random_dict

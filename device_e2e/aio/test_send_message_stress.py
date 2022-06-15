@@ -5,13 +5,8 @@ import asyncio
 import pytest
 import logging
 import json
-import uuid
 import time
 import parametrize
-import contextlib
-import psutil
-import threading
-import os
 import task_cleanup
 from iptables import all_disconnect_types
 from utils import get_random_message
@@ -63,7 +58,7 @@ class TestSendMessageStress(object):
         logger.info("Waiting for arrival of message {}".format(random_message.message_id))
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
 
-        # verify the mesage
+        # verify the message
         assert event, "service helper returned falsy event"
         assert (
             event.system_properties["message-id"] == random_message.message_id
@@ -75,7 +70,7 @@ class TestSendMessageStress(object):
 
         self.outstanding_message_ids.remove(random_message.message_id)
 
-    async def send_and_verify_continous_telemetry(
+    async def send_and_verify_continuous_telemetry(
         self,
         client,
         service_helper,
@@ -84,7 +79,7 @@ class TestSendMessageStress(object):
     ):
         """
         Send continuous telemetry.  This coroutine will queue telemetry at a regular rate
-        of `messages_per_second` and verify that they arive at eventhub.
+        of `messages_per_second` and verify that they arrive at eventhub.
         """
 
         # We use `self.outstanding_message_ids` for logging.
@@ -139,7 +134,7 @@ class TestSendMessageStress(object):
                 futures = list(pending)
 
         finally:
-            # Clean up any (possily) running tasks to avoid "Task exception was never retrieved" errors
+            # Clean up any (possibly) running tasks to avoid "Task exception was never retrieved" errors
             if len(futures):
                 await task_cleanup.cleanup_tasks(futures)
 
@@ -184,7 +179,7 @@ class TestSendMessageStress(object):
                 futures = list(pending)
 
         finally:
-            # Clean up any (possily) running tasks to avoid "Task exception was never retrieved" errors
+            # Clean up any (possibly) running tasks to avoid "Task exception was never retrieved" errors
             if len(futures):
                 await task_cleanup.cleanup_tasks(futures)
 
@@ -246,7 +241,7 @@ class TestSendMessageStress(object):
 
         leak_tracker.set_initial_object_list()
 
-        await self.send_and_verify_continous_telemetry(
+        await self.send_and_verify_continuous_telemetry(
             client=client,
             service_helper=service_helper,
             messages_per_second=messages_per_second,
@@ -317,7 +312,7 @@ class TestSendMessageStress(object):
                 connected_interval=SEND_TELEMETRY_FLAKY_NETWORK_CONNECTED_INTERVAL,
                 dropper=dropper,
             ),
-            self.send_and_verify_continous_telemetry(
+            self.send_and_verify_continuous_telemetry(
                 client=client,
                 service_helper=service_helper,
                 messages_per_second=messages_per_second,

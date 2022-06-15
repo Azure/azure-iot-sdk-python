@@ -51,7 +51,7 @@ The intention of these decorators is to ensure the following:
 6. Calls into the callback thread could theoretically block, but we currently
   only have decorators which enter the callback thread without blocking.  This
   is done to ensure that client code does not execute on the pipeline thread and
-  also to ensure that the pipline thread is not blocked while waiting for client
+  also to ensure that the pipeline thread is not blocked while waiting for client
   code to execute.
 
 These decorators use concurrent.futures.Future and the ThreadPoolExecutor because:
@@ -62,7 +62,7 @@ These decorators use concurrent.futures.Future and the ThreadPoolExecutor becaus
   different one is running, the ThreadPoolExecutor will queue the code until the
   first call is completed.
 
-2. The concurent.futures.Future object properly handles both Exception and
+2. The concurrent.futures.Future object properly handles both Exception and
   BaseException errors, re-raising them when the Future.result method is called.
   threading.Thread.get() was not an option because it doesn't re-raise
   BaseException errors when Thread.get is called.

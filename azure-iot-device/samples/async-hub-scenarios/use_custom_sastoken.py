@@ -42,7 +42,7 @@ async def main():
         await device_client.update_sastoken(sastoken)
         print("SAS Token updated")
 
-    # set the mesage received handler on the client
+    # set the message received handler on the client
     device_client.on_message_received = message_received_handler
     # set the sastoken update handler on the client
     device_client.on_new_sastoken_required = sastoken_update_handler

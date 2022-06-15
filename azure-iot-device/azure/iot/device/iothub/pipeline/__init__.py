@@ -5,6 +5,6 @@ This package provides a protocol pipeline for use with the Azure IoT Hub Device 
 INTERNAL USAGE ONLY
 """
 
-from .mqtt_pipeline import MQTTPipeline
-from .http_pipeline import HTTPPipeline
-from .config import IoTHubPipelineConfig
+from .mqtt_pipeline import MQTTPipeline  # noqa: F401
+from .http_pipeline import HTTPPipeline  # noqa: F401
+from .config import IoTHubPipelineConfig  # noqa: F401

@@ -4,19 +4,9 @@
 import asyncio
 import pytest
 import logging
-import json
-import uuid
-import time
 import parametrize
-import contextlib
-import psutil
-import threading
-import os
-import task_cleanup
 import const
 import utils
-from iptables import all_disconnect_types
-from utils import get_random_message
 from retry_async import retry_exponential_backoff_with_jitter
 
 logger = logging.getLogger(__name__)
@@ -187,7 +177,7 @@ class TestTwinStress(object):
                 {const.TEST_CONTENT: property_value},
             )
 
-            # wait for the property udpate to arrive at the client
+            # wait for the property update to arrive at the client
             received_patch = await asyncio.wait_for(patches.get(), 60)
             assert received_patch[const.TEST_CONTENT] == property_value
 
@@ -228,7 +218,7 @@ class TestTwinStress(object):
 
         for _ in range(0, iteration_count, batch_size):
 
-            # update `batch_size` properties, each with a call to `set_desired_proprties`
+            # update `batch_size` properties, each with a call to `set_desired_properties`
             props = {"key_{}".format(k): get_random_property_value() for k in range(0, batch_size)}
             tasks = [
                 service_helper.set_desired_properties({const.TEST_CONTENT: {key: props[key]}})
@@ -270,7 +260,7 @@ class TestTwinStress(object):
         self, client, service_helper, toxic, iteration_count, leak_tracker
     ):
         """
-        Call `get_twin` once-at-a-time to verify that updated properites show up. This test
+        Call `get_twin` once-at-a-time to verify that updated properties show up. This test
         calls `get_twin()` `iteration_count` times. Once a reported property shows up in the
         twin, that property is updated to be verified in future `get_twin` calls.
         """
@@ -325,7 +315,7 @@ class TestTwinStress(object):
         self, client, service_helper, toxic, iteration_count, batch_size, leak_tracker
     ):
         """
-        Call `get_twin` many times, overlapped, to verify that updated properites show up. This test
+        Call `get_twin` many times, overlapped, to verify that updated properties show up. This test
         calls `get_twin()` `iteration_count` times. Once a reported property shows up in the
         twin, that property is updated to be verified in future `get_twin` calls.
         """
@@ -353,7 +343,7 @@ class TestTwinStress(object):
         for i in range(0, iteration_count, batch_size):
             logger.info("Iteration {} of {}".format(i, iteration_count))
 
-            # Update the property if it's time to udpate
+            # Update the property if it's time to update
             if not current_property_value:
                 current_property_value = get_random_property_value()
                 logger.info("patching to {}".format(current_property_value))
@@ -383,7 +373,7 @@ class TestTwinStress(object):
                     assert twin[const.REPORTED][const.TEST_CONTENT] == last_property_value
 
             # Once we verify that `get_twin` returned the new property value, we set
-            # it to `None` so the next ieration of the loop can update this value.
+            # it to `None` so the next iteration of the loop can update this value.
             if got_a_match:
                 last_property_value = current_property_value
                 current_property_value = None

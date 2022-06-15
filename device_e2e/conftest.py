@@ -7,16 +7,13 @@ import concurrent.futures
 import test_config
 import device_identity_helper
 import const
-import sys
 import leak_tracker as leak_tracker_module
 import iptables
 import e2e_settings
 from utils import get_random_message, get_random_dict, is_windows
 
-# noqa: F401 defined in .flake8 file in root of repo
-
-from drop_fixtures import dropper
-from client_fixtures import (
+from drop_fixtures import dropper  # noqa: F401
+from client_fixtures import (  # noqa: F401
     client_kwargs,
     auto_connect,
     connection_retry,
@@ -25,7 +22,7 @@ from client_fixtures import (
     module_id,
     sastoken_ttl,
     keep_alive,
-)
+)  # noqa: F401
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(module)s:%(funcName)s:%(message)s",
@@ -179,7 +176,7 @@ def pytest_configure(config):
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     """
-    This hook runs for every test (after paramratizing), as part of the test setup.
+    This hook runs for every test (after parametrizing), as part of the test setup.
 
     If a single function has parameters that make it run 8 times with different options,
     then this function will be called 8 times.

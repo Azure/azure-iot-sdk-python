@@ -6,7 +6,7 @@
 import logging
 import pytest
 from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
-from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage, PipelineRootStage
+from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from azure.iot.device.common.pipeline import pipeline_exceptions, pipeline_events_base
 
 logging.basicConfig(level=logging.DEBUG)

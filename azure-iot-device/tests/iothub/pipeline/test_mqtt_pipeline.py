@@ -242,7 +242,7 @@ class TestMQTTPipelineShutdown(object):
         # Pipeline is still running
         assert pipeline._running
 
-        # Trigger op copmletion (failure)
+        # Trigger op completion (failure)
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.complete(error=arbitrary_exception)
 

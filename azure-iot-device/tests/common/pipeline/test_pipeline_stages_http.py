@@ -224,7 +224,7 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
         assert headers.get("Authorization") is None
 
     @pytest.mark.it(
-        "Completes the operation unsucessfully if there is a failure requesting via the HTTPTransport, using the error raised by the HTTPTransport"
+        "Completes the operation unsuccessfully if there is a failure requesting via the HTTPTransport, using the error raised by the HTTPTransport"
     )
     def test_fails_operation(self, mocker, stage, op, arbitrary_exception):
         stage.transport.request.side_effect = arbitrary_exception

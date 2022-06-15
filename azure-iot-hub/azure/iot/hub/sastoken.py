@@ -29,7 +29,7 @@ class SasToken(object):
     """Shared Access Signature Token used to authenticate a request
 
     Parameters:
-    uri (str): URI of the resouce to be accessed
+    uri (str): URI of the resource to be accessed
     key_name (str): Shared Access Key Name
     key (str): Shared Access Key (base64 encoded)
     ttl (int)[default 3600]: Time to live for the token, in seconds
@@ -64,7 +64,7 @@ class SasToken(object):
         self._token = self._build_token()
 
     def _build_token(self):
-        """Buid SasToken representation
+        """Build SasToken representation
 
         Returns:
         String representation of the token

@@ -4,11 +4,10 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
 import os
 import msrest
 from azure.iot.hub import IoTHubJobManager
-from azure.iot.hub.models import JobProperties, ManagedIdentity
+from azure.iot.hub.models import JobProperties
 
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")

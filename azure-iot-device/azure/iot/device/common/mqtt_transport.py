@@ -44,6 +44,7 @@ paho_rc_to_error = {
     mqtt.MQTT_ERR_UNKNOWN: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_ERRNO: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_QUEUE_SIZE: exceptions.ProtocolClientError,
+    mqtt.MQTT_ERR_KEEPALIVE: exceptions.ConnectionDroppedError,
 }
 
 
@@ -69,7 +70,7 @@ def _create_error_from_rc_code(rc):
         message = mqtt.error_string(rc)
         return paho_rc_to_error[rc](message)
     else:
-        return exceptions.ProtocolClientError("Unknown CONNACK rc=={}".format(rc))
+        return exceptions.ProtocolClientError("Unknown rc=={}".format(rc))
 
 
 class MQTTTransport(object):
@@ -135,7 +136,7 @@ class MQTTTransport(object):
         """
         logger.debug("creating mqtt client")
 
-        # Instaniate the client
+        # Instantiate the client
         if self._websockets:
             logger.info("Creating client for connecting using MQTT over websockets")
             mqtt_client = mqtt.Client(
@@ -283,7 +284,7 @@ class MQTTTransport(object):
         to try reconnecting after the reconnect interval. We don't want Paho to reconnect because
         we want to control the timing of the reconnect, so we force the loop to stop.
 
-        We are relying on intimite knowledge of Paho behavior here.  If this becomes a problem,
+        We are relying on intimate knowledge of Paho behavior here.  If this becomes a problem,
         it may be necessary to write our own Paho thread and stop using thread_start()/thread_stop().
         This is certainly supported by Paho, but the thread that Paho provides works well enough
         (so far) and making our own would be more complex than is currently justified.
@@ -293,7 +294,7 @@ class MQTTTransport(object):
 
         # Note: We are calling this inside our on_disconnect() handler, so we might be inside the
         # Paho thread at this point. This is perfectly valid.  Comments in Paho's client.py
-        # loop_forever() function recomment calling disconnect() from a callback to exit the
+        # loop_forever() function re-comment calling disconnect() from a callback to exit the
         # Paho thread/loop.
 
         self._mqtt_client.disconnect()
@@ -373,7 +374,10 @@ class MQTTTransport(object):
         :raises: ConnectionFailedError if connection could not be established.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: UnauthorizedError if there is an error authenticating.
+        :raises: NoConnectionError in certain failure scenarios where a connection could not be established
         :raises: ProtocolClientError if there is some other client error.
+        :raises: TlsExchangeAuthError if there a failure with TLS certificate exchange
+        :raises: ProtocolProxyError if there is a proxy-specific error
         """
         logger.debug("connecting to mqtt broker")
 
@@ -427,6 +431,10 @@ class MQTTTransport(object):
         Disconnect from the MQTT broker.
 
         :raises: ProtocolClientError if there is some client error.
+        :raises: ConnectionDroppedError in unexpected cases.
+        :raises: UnauthorizedError in unexpected cases.
+        :raises: ConnectionFailedError in unexpected cases.
+        :raises: NoConnectionError if the client isn't actually connected.
         """
         logger.info("disconnecting MQTT client")
         try:
@@ -467,6 +475,7 @@ class MQTTTransport(object):
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
+        :raises: NoConnectionError if the client isn't actually connected.
         """
         logger.info("subscribing to {} with qos {}".format(topic, qos))
         try:
@@ -491,6 +500,7 @@ class MQTTTransport(object):
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
+        :raises: NoConnectionError if the client isn't actually connected.
         """
         logger.info("unsubscribing from {}".format(topic))
         try:
@@ -524,6 +534,7 @@ class MQTTTransport(object):
         :raises: TypeError if payload is not a valid type
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
+        :raises: NoConnectionError if the client isn't actually connected.
         """
         logger.info("publishing on {}".format(topic))
         try:
@@ -542,7 +553,7 @@ class MQTTTransport(object):
 
 
 class OperationManager(object):
-    """Tracks pending operations and thier associated callbacks until completion."""
+    """Tracks pending operations and their associated callbacks until completion."""
 
     def __init__(self):
         # Maps mid->callback for operations where a request has been sent
@@ -593,7 +604,7 @@ class OperationManager(object):
                     logger.error("Unexpected error calling callback for MID: {}".format(mid))
                     logger.error(traceback.format_exc())
             else:
-                # Not entirely unexpected becuase of QOS=1
+                # Not entirely unexpected because of QOS=1
                 logger.debug("No callback for MID: {}".format(mid))
 
     def complete_operation(self, mid):

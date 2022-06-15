@@ -182,7 +182,7 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
         return [fake_provisioning_host, fake_registration_id, fake_id_scope, fake_symmetric_key]
 
     @pytest.mark.it(
-        "Creates a SasToken that uses a SymmetricKeySigningMechanism, from the values provided in paramaters"
+        "Creates a SasToken that uses a SymmetricKeySigningMechanism, from the values provided in parameters"
     )
     def test_sastoken(self, mocker, client_class):
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
@@ -322,7 +322,7 @@ class SharedProvisioningClientCreateFromX509CertificateTests(
         return [fake_provisioning_host, fake_registration_id, fake_id_scope, x509]
 
     @pytest.mark.it(
-        "Creats MQTT pipeline with a ProvisioningPipelineConfig object containing the X509 and other values provided in parameters"
+        "Creates MQTT pipeline with a ProvisioningPipelineConfig object containing the X509 and other values provided in parameters"
     )
     def test_pipeline_config(self, mocker, client_class, x509, mock_pipeline_init):
         client_class.create_from_x509_certificate(

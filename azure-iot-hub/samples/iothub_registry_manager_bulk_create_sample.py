@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
 import os
 import msrest
 import uuid
@@ -80,6 +79,9 @@ try:
     device_list = [device1, device2]
 
     iothub_registry_manager.bulk_create_or_update_devices(device_list)
+
+    # Set registry manager object to `None` so all open files get closed
+    iothub_registry_manager = None
 
 except msrest.exceptions.HttpOperationError as ex:
     print("HttpOperationError error {0}".format(ex.response.text))

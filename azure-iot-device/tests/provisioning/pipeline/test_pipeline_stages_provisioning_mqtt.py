@@ -11,7 +11,6 @@ from azure.iot.device import constant as pkg_constant
 from azure.iot.device.common.pipeline import (
     pipeline_nucleus,
     pipeline_ops_base,
-    pipeline_stages_base,
     pipeline_ops_mqtt,
     pipeline_events_mqtt,
     pipeline_events_base,
@@ -159,7 +158,7 @@ class TestProvisioningMQTTTranslationStageRunOpWithRequestOperationRegister(
         assert new_op.topic == mock_mqtt_topic.get_register_topic_for_publish.return_value
         assert new_op.payload == op.request_body
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTPbulishOperation")
+    @pytest.mark.it("Completes the original op upon completion of the new MQTTPublishOperation")
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -216,7 +215,7 @@ class TestProvisioningMQTTTranslationStageRunOpWithRequestOperationQuery(
         assert new_op.topic == mock_mqtt_topic.get_query_topic_for_publish.return_value
         assert new_op.payload == op.request_body
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTPbulishOperation")
+    @pytest.mark.it("Completes the original op upon completion of the new MQTTPublishOperation")
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -444,7 +443,7 @@ class TestProvisioningMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMes
 
 
 @pytest.mark.describe(
-    "ProvisioningMQTTTranslationStage - .handle_pipeline_event() -- Called with IncomingMQTTMessaveEvent (Unrecognized topic string)"
+    "ProvisioningMQTTTranslationStage - .handle_pipeline_event() -- Called with IncomingMQTTMessageEvent (Unrecognized topic string)"
 )
 class TestProvisioningMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEventUnknownTopicString(
     StageHandlePipelineEventTestBase, ProvisioningMQTTTranslationStageTestConfig

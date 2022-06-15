@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
 import os
 import msrest
 from azure.iot.hub import IoTHubRegistryManager
@@ -32,6 +31,9 @@ try:
     registry_manager.send_c2d_message(
         device_id, send_message, properties={"prop1": "value1", "correlationId": "1234"}
     )
+
+    # Set registry manager object to `None` so all open files get closed
+    iothub_registry_manager = None
 
 except msrest.exceptions.HttpOperationError as ex:
     print("HttpOperationError error {0}".format(ex.response.text))

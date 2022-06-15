@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
 import os
 import msrest
 from azure.iot.hub import IoTHubRegistryManager
@@ -73,6 +72,9 @@ try:
             query_specification, continuation_token
         )
         print_query_result("Query all device twins - continued", query_result2)
+
+    # Set registry manager object to `None` so all open files get closed
+    iothub_registry_manager = None
 
 
 except msrest.exceptions.HttpOperationError as ex:

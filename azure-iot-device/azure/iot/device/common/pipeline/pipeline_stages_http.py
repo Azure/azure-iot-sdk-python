@@ -25,7 +25,7 @@ class HTTPTransportStage(PipelineStage):
 
     def __init__(self):
         super().__init__()
-        # The sas_token will be set when Connetion Args are received
+        # The sas_token will be set when Connection Args are received
         self.sas_token = None
 
         # The transport will be instantiated when Connection Args are received
@@ -66,7 +66,7 @@ class HTTPTransportStage(PipelineStage):
             op.complete()
 
         elif isinstance(op, pipeline_ops_http.HTTPRequestAndResponseOperation):
-            # This will call down to the HTTP Transport with a request and also created a request callback. Because the HTTP Transport will run on the http transport thread, this call should be non-blocking to the pipline thread.
+            # This will call down to the HTTP Transport with a request and also created a request callback. Because the HTTP Transport will run on the http transport thread, this call should be non-blocking to the pipeline thread.
             logger.debug(
                 "{}({}): Generating HTTP request and setting callback before completing.".format(
                     self.name, op.name

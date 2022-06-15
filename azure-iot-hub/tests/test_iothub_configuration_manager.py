@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from azure.iot.hub.protocol.models import AuthenticationMechanism
 from azure.iot.hub.iothub_configuration_manager import IoTHubConfigurationManager
 from azure.iot.hub.auth import ConnectionStringAuthentication
 from azure.iot.hub.protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs
@@ -16,7 +15,7 @@ fake_shared_access_key = "Zm9vYmFy"
 fake_shared_access_key_name = "alohomora"
 fake_hostname = "beauxbatons.academy-net"
 fake_device_id = "MyPensieve"
-fake_etag = "taggedbymisnitryofmagic"
+fake_etag = "taggedbyministryofmagic"
 fake_configuration_id = "fake_configuration_id"
 
 

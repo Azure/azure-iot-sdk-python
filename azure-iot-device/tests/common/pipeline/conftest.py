@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from tests.common.pipeline.fixtures import (
+from tests.common.pipeline.fixtures import (  # noqa: F401
     arbitrary_event,
     arbitrary_op,
     fake_pipeline_thread,

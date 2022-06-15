@@ -7,8 +7,6 @@ import pytest
 import logging
 from azure.iot.device.provisioning.provisioning_device_client import ProvisioningDeviceClient
 from azure.iot.device.provisioning.pipeline import exceptions as pipeline_exceptions
-from azure.iot.device.provisioning import pipeline
-import threading
 from azure.iot.device import exceptions as client_exceptions
 from .shared_client_tests import (
     SharedProvisioningClientInstantiationTests,

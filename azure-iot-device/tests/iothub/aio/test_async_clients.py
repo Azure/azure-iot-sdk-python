@@ -1164,7 +1164,7 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
     async def test_enables_c2d_messaging_only_if_not_already_enabled(
         self, mocker, client, mqtt_pipeline
     ):
-        # patch this receive_twin_desired_properites_patch won't block
+        # patch this receive_twin_desired_properties_patch won't block
         mocker.patch.object(
             AsyncClientInbox, "get", return_value=(await create_completed_future(None))
         )
@@ -1263,7 +1263,7 @@ class IoTHubDeviceClientTestsConfig(object):
 
     @pytest.fixture
     def connection_string(self, device_connection_string):
-        """This fixture is parametrized to provie all valid device connection strings.
+        """This fixture is parametrized to prove all valid device connection strings.
         See client_fixtures.py
         """
         return device_connection_string
@@ -1584,7 +1584,7 @@ class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
 
         assert (
             received_storage_info is fake_storage_info
-        )  # Note: the return value this is checkign for is defined in client_fixtures.py
+        )  # Note: the return value this is checking for is defined in client_fixtures.py
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) -.notify_blob_upload_status()")
@@ -1785,7 +1785,7 @@ class IoTHubModuleClientTestsConfig(object):
 
     @pytest.fixture
     def connection_string(self, module_connection_string):
-        """This fixture is parametrized to provie all valid device connection strings.
+        """This fixture is parametrized to prove all valid device connection strings.
         See client_fixtures.py
         """
         return module_connection_string

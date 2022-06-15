@@ -30,7 +30,7 @@ auth_rule_token_format = (
 
 
 def token_parser(token_str):
-    """helper function that parses a token string for indvidual values"""
+    """helper function that parses a token string for individual values"""
     token_map = {}
     kv_string = token_str.split(" ")[1]
     kv_pairs = kv_string.split("&")

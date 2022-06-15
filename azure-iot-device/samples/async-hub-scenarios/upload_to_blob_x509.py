@@ -7,12 +7,10 @@
 import os
 import uuid
 import asyncio
-from azure.iot.device.aio import IoTHubDeviceClient, IoTHubModuleClient
+from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import X509
-import http.client
 import pprint
-import json
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
+from azure.storage.blob import BlobClient
 from azure.core.exceptions import ResourceExistsError
 import logging
 
@@ -48,7 +46,7 @@ IOTHUB_DEVICE_ID = os.getenv("IOTHUB_DEVICE_ID")
 
 X509_CERT_FILE = os.getenv("X509_CERT_FILE")
 X509_KEY_FILE = os.getenv("X509_KEY_FILE")
-X509_PASS_PHRASE = os.getenv("PASS_PHRASE")
+X509_PASS_PHRASE = os.getenv("X509_PASS_PHRASE")
 
 # Host is in format "<iothub name>.azure-devices.net"
 
@@ -60,7 +58,7 @@ async def upload_via_storage_blob(blob_info):
     blob_info - an object containing the information needed to generate a sas_url for creating a blob client
 
     Returns:
-    status of blob upload operation, in the storage provided strcuture.
+    status of blob upload operation, in the storage provided structure.
     """
 
     print("Azure Blob storage v12 - Python quickstart sample")

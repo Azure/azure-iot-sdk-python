@@ -7,8 +7,8 @@
 
 # For now, present relevant transport errors as part of the Pipeline API surface
 # so that they do not have to be duplicated at this layer.
-from azure.iot.device.common.pipeline.pipeline_exceptions import *
-from azure.iot.device.common.transport_exceptions import (
+from azure.iot.device.common.pipeline.pipeline_exceptions import *  # noqa: F401, F403
+from azure.iot.device.common.transport_exceptions import (  # noqa: F401
     ConnectionFailedError,
     ConnectionDroppedError,
     NoConnectionError,

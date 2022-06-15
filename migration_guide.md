@@ -72,7 +72,7 @@ key file with the optional pass phrase if neccessary.
     x509 = X509(
         cert_file=os.getenv("X509_CERT_FILE"),
         key_file=os.getenv("X509_KEY_FILE"),
-        pass_phrase=os.getenv("PASS_PHRASE")
+        pass_phrase=os.getenv("X509_PASS_PHRASE")
     )
     client = IoTHubDeviceClient.create_from_x509_certificate(hostname=hostname, device_id=device_id, x509=x509)
     await device_client.connect()

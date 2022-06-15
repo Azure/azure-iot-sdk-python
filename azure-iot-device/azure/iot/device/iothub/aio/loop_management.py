@@ -8,7 +8,6 @@
 import asyncio
 import threading
 import logging
-from azure.iot.device.common import asyncio_compat
 
 logger = logging.getLogger(__name__)
 

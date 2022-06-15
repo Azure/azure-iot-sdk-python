@@ -3,10 +3,8 @@
 # license information.
 import pytest
 import asyncio
-import functools
 import e2e_settings
 import logging
-import time
 import datetime
 import json
 import retry_async
@@ -32,7 +30,7 @@ def pytest_pyfunc_call(pyfuncitem):
         # Run the test. We can do this because hookwrapper=True
         yield
     finally:
-        # If we actualy collected any stats, store them.
+        # If we actually collected any stats, store them.
         if retry_async.retry_stats:
             pyfuncitem.retry_stats = retry_async.retry_stats
 

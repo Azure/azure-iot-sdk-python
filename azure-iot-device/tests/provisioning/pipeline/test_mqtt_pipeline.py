@@ -8,8 +8,6 @@ import pytest
 import logging
 from azure.iot.device.common.models import X509
 from azure.iot.device.provisioning.pipeline.mqtt_pipeline import MQTTPipeline
-from tests.common.pipeline import helpers
-import json
 from azure.iot.device.provisioning.pipeline import constant as dps_constants
 from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning,
@@ -209,7 +207,7 @@ class TestMQTTPipelineShutdown(object):
         assert cb.call_args == mocker.call(error=None)
 
     @pytest.mark.it(
-        "Calls the callback with the error upon unscessful completion of the ShutdownPipelineOperation"
+        "Calls the callback with the error upon unsuccessful completion of the ShutdownPipelineOperation"
     )
     def test_op_fail(self, mocker, pipeline, arbitrary_exception):
         cb = mocker.MagicMock()
@@ -236,7 +234,7 @@ class TestMQTTPipelineShutdown(object):
         # Pipeline is still running
         assert pipeline._running
 
-        # Trigger op copmletion (failure)
+        # Trigger op completion (failure)
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.complete(error=arbitrary_exception)
 

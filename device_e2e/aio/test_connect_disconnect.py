@@ -42,7 +42,7 @@ class TestConnectDisconnect(object):
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     # see "This assert fails because of initial and secondary disconnects" below
-    @pytest.mark.skip(reason="two stage disconect causes assertion in test code")
+    @pytest.mark.skip(reason="two stage disconnect causes assertion in test code")
     async def test_connect_in_the_middle_of_disconnect(
         self, brand_new_client, event_loop, service_helper, random_message, leak_tracker
     ):
@@ -73,7 +73,7 @@ class TestConnectDisconnect(object):
         await client.connect()
         assert client.connected
 
-        # disconnet.
+        # disconnect.
         reconnected_event.clear()
         logger.info("Calling client.disconnect.")
         await client.disconnect()
@@ -81,7 +81,7 @@ class TestConnectDisconnect(object):
         # wait for handle_on_connection_state_change to reconnect
         await reconnected_event.wait()
 
-        logger.info("reconect_event.wait() returned.  client.conencted={}".format(client.connected))
+        logger.info("reconnect_event.wait() returned.  client.connected={}".format(client.connected))
 
         # This assert fails because of initial and secondary disconnects
         assert client.connected
@@ -133,7 +133,7 @@ class TestConnectDisconnect(object):
             nonlocal disconnected_event
             if client.connected:
                 if disconnect_on_next_connect_event:
-                    logger.info("connected.  disconnecitng now")
+                    logger.info("connected.  disconnecting now")
                     await client.disconnect()
                     event_loop.call_soon_threadsafe(disconnected_event.set)
                 else:
@@ -148,7 +148,7 @@ class TestConnectDisconnect(object):
             await client.connect()
             assert client.connected
 
-            # disconnet.
+            # disconnect.
             await client.disconnect()
 
         assert not client.connected

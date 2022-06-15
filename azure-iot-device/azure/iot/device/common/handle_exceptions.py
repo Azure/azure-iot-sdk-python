@@ -18,7 +18,7 @@ def handle_background_exception(e):
     nobody else to catch them.
 
     This function gets called from inside an arbitrary thread context, so code that
-    runs from this function should be limited to the bare minumum.
+    runs from this function should be limited to the bare minimum.
 
     :param Error e: Exception object raised from inside a background thread
     """

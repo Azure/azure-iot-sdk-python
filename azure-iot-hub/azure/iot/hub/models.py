@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 """This module imports and re-exposes the contents of the .protocol.models
-subpacakge to be better exposed through the user API surface
+subpackage to be better exposed through the user API surface
 """
-from .protocol.models import *
+
+from .protocol.models import *  # noqa: F401, F403

@@ -11,7 +11,7 @@ logger.setLevel(level=logging.INFO)
 async def cleanup_tasks(task_list):
     """
     Go through a task list and retrieve all task results.  This prevents any "Task result was
-    never retireved" errors, especially when a test fails and the test script doesn't get a
+    never retrieved" errors, especially when a test fails and the test script doesn't get a
     chance to gather all the task results.
     """
 

@@ -14,7 +14,6 @@ from azure.iot.hub.iothub_amqp_client import (
     IoTHubAmqpClientSharedAccessKeyAuth,
     IoTHubAmqpClientTokenAuth,
 )
-import time
 
 """---Constants---"""
 fake_device_id = "device_id"
@@ -154,7 +153,7 @@ class TestIoTHubAmqpClientSharedAccessKeyAuthInstantiation(
         assert mock_uamqp_SendClient.call_count == 1
         expected_target = "amqps://" + fake_hostname + "/messages/devicebound"
         assert mock_uamqp_SendClient.call_args == mocker.call(
-            target=expected_target, auth=amqp_token_mock
+            target=expected_target, auth=amqp_token_mock, keep_alive_interval=120
         )
 
     @pytest.mark.it("Creates an HMAC to generate a shared access signature")
@@ -236,7 +235,7 @@ class TestIotHubAmqpClientTokenAuthInstantiation(IoTHubAmqpClientTokenAuthTestCo
         assert mock_uamqp_SendClient.call_count == 1
         expected_target = "amqps://" + fake_hostname + "/messages/devicebound"
         assert mock_uamqp_SendClient.call_args == mocker.call(
-            target=expected_target, auth=amqp_token_mock
+            target=expected_target, auth=amqp_token_mock, keep_alive_interval=120
         )
 
     @pytest.mark.it(
@@ -261,13 +260,13 @@ class TestIotHubAmqpClientTokenAuthInstantiation(IoTHubAmqpClientTokenAuthTestCo
         assert mock_uamqp_SendClient.call_count == 1
         expected_target = "amqps://" + fake_hostname + "/messages/devicebound"
         assert mock_uamqp_SendClient.call_args == mocker.call(
-            target=expected_target, auth=amqp_token_mock
+            target=expected_target, auth=amqp_token_mock, keep_alive_interval=120
         )
 
     @pytest.mark.it(
         "Retrieves the token from the azure-identity TokenCredential using the specified token scope"
     )
-    def test_retreive_token_from_azure_identity(self, mock_azure_identity_TokenCredential):
+    def test_retrieve_token_from_azure_identity(self, mock_azure_identity_TokenCredential):
         IoTHubAmqpClientTokenAuth(
             fake_hostname, mock_azure_identity_TokenCredential, fake_token_scope
         )

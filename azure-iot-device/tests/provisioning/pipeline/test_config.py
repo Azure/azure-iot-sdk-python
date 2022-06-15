@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-import logging
 from tests.common.pipeline.config_test import PipelineConfigInstantiationTestBase
 from azure.iot.device.provisioning.pipeline.config import ProvisioningPipelineConfig
 
@@ -31,7 +30,7 @@ class TestProvisioningPipelineConfigInstantiation(PipelineConfigInstantiationTes
     # It does not matter which is used for the purposes of these tests.
 
     @pytest.mark.it(
-        "Instantiates with the 'registration_id' attribute set to the provided 'registration_id' paramameter"
+        "Instantiates with the 'registration_id' attribute set to the provided 'registration_id' parameter"
     )
     def test_registration_id_set(self, sastoken):
         config = ProvisioningPipelineConfig(

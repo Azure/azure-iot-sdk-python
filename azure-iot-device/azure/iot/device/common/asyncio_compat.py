@@ -12,7 +12,7 @@ import sys
 def get_running_loop():
     """Gets the currently running event loop
 
-    Uses asyncio.get_running_loop() if available (Python 3.7+) or a backported
+    Uses asyncio.get_running_loop() if available (Python 3.7+) or a back-ported
     version of the same function in 3.6.
     """
     try:
@@ -29,7 +29,7 @@ def create_task(coro):
 
     If available (Python 3.7+), use asyncio.create_task, which is preferred as it is
     more specific for the goal of immediately scheduling a task from a coroutine. If
-    not available, use the more general puprose asyncio.ensure_future.
+    not available, use the more general purpose asyncio.ensure_future.
 
     :returns: A new Task object.
     """

@@ -7,7 +7,6 @@ import json
 import logging
 import test_config
 import parametrize
-from azure.iot.device.common.alarm import Alarm
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)

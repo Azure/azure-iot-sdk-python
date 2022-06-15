@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
 import os
 import msrest
 import uuid
@@ -124,6 +123,9 @@ try:
     print("GetDeviceRegistryStatistics")
     registry_statistics = iothub_registry_manager.get_device_registry_statistics()
     print(registry_statistics)
+
+    # Set registry manager object to `None` so all open files get closed
+    iothub_registry_manager = None
 
 except msrest.exceptions.HttpOperationError as ex:
     print("HttpOperationError error {0}".format(ex.response.text))

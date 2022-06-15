@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-import logging
 from tests.common.pipeline.config_test import PipelineConfigInstantiationTestBase
 from azure.iot.device.iothub.pipeline.config import IoTHubPipelineConfig
 
@@ -33,14 +32,14 @@ class TestIoTHubPipelineConfigInstantiation(PipelineConfigInstantiationTestBase)
     # It does not matter which is used for the purposes of these tests.
 
     @pytest.mark.it(
-        "Instantiates with the 'device_id' attribute set to the provided 'device_id' paramater"
+        "Instantiates with the 'device_id' attribute set to the provided 'device_id' parameter"
     )
     def test_device_id_set(self, sastoken):
         config = IoTHubPipelineConfig(device_id=device_id, hostname=hostname, sastoken=sastoken)
         assert config.device_id == device_id
 
     @pytest.mark.it(
-        "Instantiates with the 'module_id' attribute set to the provided 'module_id' paramater"
+        "Instantiates with the 'module_id' attribute set to the provided 'module_id' parameter"
     )
     def test_module_id_set(self, sastoken):
         config = IoTHubPipelineConfig(
@@ -49,7 +48,7 @@ class TestIoTHubPipelineConfigInstantiation(PipelineConfigInstantiationTestBase)
         assert config.module_id == module_id
 
     @pytest.mark.it(
-        "Instantiates with the 'module_id' attribute set to 'None' if no 'module_id' paramater is provided"
+        "Instantiates with the 'module_id' attribute set to 'None' if no 'module_id' parameter is provided"
     )
     def test_module_id_default(self, sastoken):
         config = IoTHubPipelineConfig(device_id=device_id, hostname=hostname, sastoken=sastoken)
@@ -65,7 +64,7 @@ class TestIoTHubPipelineConfigInstantiation(PipelineConfigInstantiationTestBase)
         assert config.product_info == product_info
 
     @pytest.mark.it(
-        "Instantiates with the 'product_info' attribute defaulting to empty string if no 'product_info' paramater is provided"
+        "Instantiates with the 'product_info' attribute defaulting to empty string if no 'product_info' parameter is provided"
     )
     def test_product_info_default(self, sastoken):
         config = IoTHubPipelineConfig(device_id=device_id, hostname=hostname, sastoken=sastoken)
