@@ -14,7 +14,11 @@ from azure.iot.device.iothub.pipeline import (
     pipeline_stages_iothub,
     constant as pipeline_constants,
 )
-from azure.iot.device.common.pipeline import pipeline_events_base, pipeline_ops_base
+from azure.iot.device.common.pipeline import (
+    pipeline_nucleus,
+    pipeline_ops_base,
+    pipeline_events_base,
+)
 from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
 from tests.common.pipeline import pipeline_stage_test
 
@@ -65,6 +69,8 @@ class EnsureDesiredPropertiesStageTestConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
+        stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration=mocker.MagicMock())
+        stage.nucleus.pipeline_configuration.ensure_desired_properties = True
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")
