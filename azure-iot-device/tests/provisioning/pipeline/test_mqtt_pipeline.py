@@ -91,8 +91,8 @@ class TestMQTTPipelineInstantiation(object):
     def test_pipeline_nucleus(self, pipeline_configuration):
         pipeline = MQTTPipeline(pipeline_configuration)
 
-        assert isinstance(pipeline._pipeline_nucleus, pipeline_nucleus.PipelineNucleus)
-        assert pipeline._pipeline_nucleus.pipeline_configuration is pipeline_configuration
+        assert isinstance(pipeline._nucleus, pipeline_nucleus.PipelineNucleus)
+        assert pipeline._nucleus.pipeline_configuration is pipeline_configuration
 
     @pytest.mark.it("Configures the pipeline with a series of PipelineStages")
     def test_pipeline_stages(self, pipeline_configuration):
@@ -118,7 +118,7 @@ class TestMQTTPipelineInstantiation(object):
         for i in range(len(expected_stage_order)):
             expected_stage = expected_stage_order[i]
             assert isinstance(curr_stage, expected_stage)
-            assert curr_stage.pipeline_nucleus is pipeline._pipeline_nucleus
+            assert curr_stage.nucleus is pipeline._nucleus
             curr_stage = curr_stage.next
 
         # Assert there are no more additional stages
@@ -369,9 +369,7 @@ class TestSendRegister(object):
         assert pipeline._pipeline.run_op.call_count == 1
         op = pipeline._pipeline.run_op.call_args[0][0]
         assert isinstance(op, pipeline_ops_provisioning.RegisterOperation)
-        assert (
-            op.registration_id == pipeline._pipeline_nucleus.pipeline_configuration.registration_id
-        )
+        assert op.registration_id == pipeline._nucleus.pipeline_configuration.registration_id
 
     @pytest.mark.it("passes the payload parameter as request_payload on the RegistrationRequest")
     def test_sets_request_payload(self, pipeline, mocker):

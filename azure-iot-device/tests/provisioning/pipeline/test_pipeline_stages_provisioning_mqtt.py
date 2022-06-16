@@ -69,7 +69,7 @@ class ProvisioningMQTTTranslationStageTestConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs, pipeline_config):
         stage = cls_type(**init_kwargs)
-        stage.pipeline_nucleus = pipeline_nucleus.PipelineNucleus(pipeline_config)
+        stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_config)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")

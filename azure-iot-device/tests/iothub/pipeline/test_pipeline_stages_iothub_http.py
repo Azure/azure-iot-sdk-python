@@ -71,7 +71,7 @@ class IoTHubHTTPTranslationStageTestConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs, pipeline_config):
         stage = cls_type(**init_kwargs)
-        stage.pipeline_nucleus = pipeline_nucleus.PipelineNucleus(pipeline_config)
+        stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_config)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")
@@ -168,7 +168,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
         ],
     )
     def test_new_op_headers(self, mocker, stage, op, custom_user_agent, pipeline_config):
-        stage.pipeline_nucleus.pipeline_configuration.product_info = custom_user_agent
+        stage.nucleus.pipeline_configuration.product_info = custom_user_agent
         stage.run_op(op)
 
         # Op was sent down
@@ -398,7 +398,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
         ],
     )
     def test_new_op_headers(self, mocker, stage, op, custom_user_agent, pipeline_config):
-        stage.pipeline_nucleus.pipeline_configuration.product_info = custom_user_agent
+        stage.nucleus.pipeline_configuration.product_info = custom_user_agent
         stage.run_op(op)
 
         # Op was sent down
@@ -628,7 +628,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperati
         ],
     )
     def test_new_op_headers(self, mocker, stage, op, custom_user_agent, pipeline_config):
-        stage.pipeline_nucleus.pipeline_configuration.product_info = custom_user_agent
+        stage.nucleus.pipeline_configuration.product_info = custom_user_agent
         stage.run_op(op)
 
         # Op was sent down
