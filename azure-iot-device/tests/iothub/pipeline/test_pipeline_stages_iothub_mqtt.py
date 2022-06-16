@@ -88,11 +88,11 @@ def expected_mqtt_topic_fn(mock_mqtt_topic, iothub_pipeline_feature):
 @pytest.fixture
 def expected_mqtt_topic_fn_call(mocker, iothub_pipeline_feature, stage):
     if iothub_pipeline_feature == constant.C2D_MSG:
-        return mocker.call(stage.pipeline_nucleus.pipeline_configuration.device_id)
+        return mocker.call(stage.nucleus.pipeline_configuration.device_id)
     elif iothub_pipeline_feature == constant.INPUT_MSG:
         return mocker.call(
-            stage.pipeline_nucleus.pipeline_configuration.device_id,
-            stage.pipeline_nucleus.pipeline_configuration.module_id,
+            stage.nucleus.pipeline_configuration.device_id,
+            stage.nucleus.pipeline_configuration.module_id,
         )
     else:
         return mocker.call()
@@ -120,7 +120,7 @@ class IoTHubMQTTTranslationStageTestConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs, pipeline_config):
         stage = cls_type(**init_kwargs)
-        stage.pipeline_nucleus = pipeline_nucleus.PipelineNucleus(pipeline_config)
+        stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_config)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")
@@ -761,7 +761,7 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
         "Sends the original event up the pipeline instead, if the device id in the topic string does not match the client details"
     )
     def test_nonmatching_device_id(self, mocker, event, stage):
-        stage.pipeline_nucleus.pipeline_configuration.device_id = "different_device_id"
+        stage.nucleus.pipeline_configuration.device_id = "different_device_id"
         stage.handle_pipeline_event(event)
 
         assert stage.send_event_up.call_count == 1
@@ -847,9 +847,9 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
     )
     def test_nonmatching_ids(self, mocker, event, stage, alt_device_id, alt_module_id):
         if alt_device_id:
-            stage.pipeline_nucleus.pipeline_configuration.device_id = alt_device_id
+            stage.nucleus.pipeline_configuration.device_id = alt_device_id
         if alt_module_id:
-            stage.pipeline_nucleus.pipeline_configuration.module_id = alt_module_id
+            stage.nucleus.pipeline_configuration.module_id = alt_module_id
         stage.handle_pipeline_event(event)
 
         assert stage.send_event_up.call_count == 1
