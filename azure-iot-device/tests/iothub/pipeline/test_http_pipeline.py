@@ -10,6 +10,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_stages_http,
     pipeline_ops_base,
+    pipeline_nucleus,
 )
 from azure.iot.device.iothub.pipeline import (
     pipeline_stages_iothub_http,
@@ -56,8 +57,15 @@ def mock_transport(mocker):
 
 @pytest.mark.describe("HTTPPipeline - Instantiation")
 class TestHTTPPipelineInstantiation(object):
+    @pytest.mark.it("Configures the pipeline with a PipelineNucleus")
+    def test_pipeline_nucleus(self, pipeline_configuration):
+        pipeline = HTTPPipeline(pipeline_configuration)
+
+        assert isinstance(pipeline._pipeline_nucleus, pipeline_nucleus.PipelineNucleus)
+        assert pipeline._pipeline_nucleus.pipeline_configuration is pipeline_configuration
+
     @pytest.mark.it("Configures the pipeline with a series of PipelineStages")
-    def test_pipeline_configuration(self, pipeline_configuration):
+    def test_pipeline_stages(self, pipeline_configuration):
         pipeline = HTTPPipeline(pipeline_configuration)
         curr_stage = pipeline._pipeline
 
@@ -71,6 +79,7 @@ class TestHTTPPipelineInstantiation(object):
         for i in range(len(expected_stage_order)):
             expected_stage = expected_stage_order[i]
             assert isinstance(curr_stage, expected_stage)
+            assert curr_stage.pipeline_nucleus is pipeline._pipeline_nucleus
             curr_stage = curr_stage.next
 
         # Assert there are no more additional stages
@@ -131,7 +140,7 @@ class TestHTTPPipelineInvokeMethod(object):
         "Calls the callback with the error if the pipeline_configuration.method_invoke is not True"
     )
     def test_op_configuration_fail(self, mocker, pipeline, arbitrary_exception):
-        pipeline._pipeline.pipeline_configuration.method_invoke = False
+        pipeline._pipeline_nucleus.pipeline_configuration.method_invoke = False
         cb = mocker.MagicMock()
 
         pipeline.invoke_method(
@@ -222,7 +231,7 @@ class TestHTTPPipelineGetStorageInfo(object):
         "Calls the callback with the error upon unsuccessful completion of the GetStorageInfoOperation"
     )
     def test_op_configuration_fail(self, mocker, pipeline):
-        pipeline._pipeline.pipeline_configuration.blob_upload = False
+        pipeline._pipeline_nucleus.pipeline_configuration.blob_upload = False
         cb = mocker.MagicMock()
         pipeline.get_storage_info_for_blob(blob_name="__fake_blob_name__", callback=cb)
 
@@ -283,7 +292,7 @@ class TestHTTPPipelineNotifyBlobUploadStatus(object):
         "Calls the callback with the error if pipeline_configuration.blob_upload is not True"
     )
     def test_op_configuration_fail(self, mocker, pipeline):
-        pipeline._pipeline.pipeline_configuration.blob_upload = False
+        pipeline._pipeline_nucleus.pipeline_configuration.blob_upload = False
         cb = mocker.MagicMock()
         pipeline.notify_blob_upload_status(
             correlation_id="__fake_correlation_id__",

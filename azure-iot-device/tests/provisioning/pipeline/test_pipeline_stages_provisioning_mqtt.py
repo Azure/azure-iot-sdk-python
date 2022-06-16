@@ -9,8 +9,8 @@ import sys
 import urllib
 from azure.iot.device import constant as pkg_constant
 from azure.iot.device.common.pipeline import (
+    pipeline_nucleus,
     pipeline_ops_base,
-    pipeline_stages_base,
     pipeline_ops_mqtt,
     pipeline_events_mqtt,
     pipeline_events_base,
@@ -69,7 +69,7 @@ class ProvisioningMQTTTranslationStageTestConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs, pipeline_config):
         stage = cls_type(**init_kwargs)
-        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(pipeline_config)
+        stage.pipeline_nucleus = pipeline_nucleus.PipelineNucleus(pipeline_config)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")

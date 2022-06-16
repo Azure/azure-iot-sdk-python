@@ -50,10 +50,10 @@ def add_base_pipeline_stage_tests(
             stage = cls_type(**init_kwargs)
             assert stage.previous is None
 
-        @pytest.mark.it("Initializes 'pipeline_root' attribute as None")
-        def test_pipeline_root(self, cls_type, init_kwargs):
+        @pytest.mark.it("Initializes 'pipeline_nucleus' attribute as None")
+        def test_pipeline_nucleus(self, cls_type, init_kwargs):
             stage = cls_type(**init_kwargs)
-            assert stage.pipeline_root is None
+            assert stage.pipeline_nucleus is None
 
     if extended_stage_instantiation_test_class:
 
