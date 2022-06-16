@@ -38,6 +38,9 @@ class EnsureDesiredPropertiesStage(PipelineStage):
             # If we're enabling twin patches, we set last_version_seen to -1
             # as a way of enabling this functionality.  If the ConnectedEvent handler
             # sees this -1, it will send a GetTwinOperation to refresh desired properties.
+
+            # Ensure_desired_properties is set to True by default, but if changed to false,
+            # the last_version_seen will not be set to -1.
             if (
                 op.feature_name == constant.TWIN_PATCHES
                 and self.nucleus.pipeline_configuration.ensure_desired_properties
