@@ -184,12 +184,6 @@ class TestPipelineRootStageHandlePipelineEventWithConnectedEvent(
     def event(self):
         return pipeline_events_base.ConnectedEvent()
 
-    @pytest.mark.it("Sets the 'connected' attribute on the PipelineNucleus to True")
-    def test_set_connected_true(self, stage, event):
-        assert not stage.pipeline_nucleus.connected
-        stage.handle_pipeline_event(event)
-        assert stage.pipeline_nucleus.connected
-
     @pytest.mark.it("Invokes the 'on_connected_handler' handler function, if set")
     def test_invoke_handler(self, mocker, stage, event):
         mock_handler = mocker.MagicMock()
@@ -209,12 +203,6 @@ class TestPipelineRootStageHandlePipelineEventWithDisconnectedEvent(
     @pytest.fixture
     def event(self):
         return pipeline_events_base.DisconnectedEvent()
-
-    @pytest.mark.it("Sets the 'connected' attribute on the PipelineNucleus to True")
-    def test_set_connected_false(self, stage, event):
-        stage.pipeline_nucleus.connected = True
-        stage.handle_pipeline_event(event)
-        assert not stage.pipeline_nucleus.connected
 
     @pytest.mark.it("Invokes the 'on_disconnected_handler' handler function, if set")
     def test_invoke_handler(self, mocker, stage, event):

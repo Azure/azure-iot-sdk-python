@@ -301,7 +301,6 @@ class PipelineRootStage(PipelineStage):
             logger.debug(
                 "{}: ConnectedEvent received. Calling on_connected_handler".format(self.name)
             )
-            self.pipeline_nucleus.connected = True
             if self.on_connected_handler:
                 pipeline_thread.invoke_on_callback_thread_nowait(self.on_connected_handler)()
 
@@ -309,7 +308,6 @@ class PipelineRootStage(PipelineStage):
             logger.debug(
                 "{}: DisconnectedEvent received. Calling on_disconnected_handler".format(self.name)
             )
-            self.pipeline_nucleus.connected = False
             if self.on_disconnected_handler:
                 pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
 
