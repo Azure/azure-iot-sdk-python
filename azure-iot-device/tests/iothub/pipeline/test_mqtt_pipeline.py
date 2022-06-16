@@ -99,8 +99,8 @@ class TestMQTTPipelineInstantiation(object):
     def test_pipeline_nucleus(self, pipeline_configuration):
         pipeline = MQTTPipeline(pipeline_configuration)
 
-        assert isinstance(pipeline._pipeline_nucleus, pipeline_nucleus.PipelineNucleus)
-        assert pipeline._pipeline_nucleus.pipeline_configuration is pipeline_configuration
+        assert isinstance(pipeline._nucleus, pipeline_nucleus.PipelineNucleus)
+        assert pipeline._nucleus.pipeline_configuration is pipeline_configuration
 
     @pytest.mark.it("Configures the pipeline with a series of PipelineStages")
     def test_pipeline_stages(self, pipeline_configuration):
@@ -126,7 +126,7 @@ class TestMQTTPipelineInstantiation(object):
         for i in range(len(expected_stage_order)):
             expected_stage = expected_stage_order[i]
             assert isinstance(curr_stage, expected_stage)
-            assert curr_stage.pipeline_nucleus is pipeline._pipeline_nucleus
+            assert curr_stage.nucleus is pipeline._nucleus
             curr_stage = curr_stage.next
 
         # Assert there are no more additional stages
@@ -1118,7 +1118,7 @@ class TestMQTTPipelinePROPERTYPipelineConfiguration(object):
 
     @pytest.mark.it("Reflects the value of the PipelineNucleus attribute of the same name")
     def test_reflects_pipeline_attribute(self, pipeline):
-        assert pipeline.pipeline_configuration is pipeline._pipeline_nucleus.pipeline_configuration
+        assert pipeline.pipeline_configuration is pipeline._nucleus.pipeline_configuration
 
 
 @pytest.mark.describe("MQTTPipeline - PROPERTY .connected")
@@ -1130,7 +1130,7 @@ class TestMQTTPipelinePROPERTYConnected(object):
 
     @pytest.mark.it("Reflects the value of the PipelineNucleus attribute of the same name")
     def test_reflects_pipeline_attribute(self, pipeline):
-        pipeline._pipeline_nucleus.connected = True
+        pipeline._nucleus.connected = True
         assert pipeline.connected
-        pipeline._pipeline_nucleus.connected = False
+        pipeline._nucleus.connected = False
         assert not pipeline.connected
