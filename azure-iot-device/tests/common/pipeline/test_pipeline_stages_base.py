@@ -26,7 +26,7 @@ from azure.iot.device.common.pipeline import (
 # I normally try to keep my imports in tests at module level, but it's just too unwieldy w/ ReconnectState
 from azure.iot.device.common.pipeline.pipeline_stages_base import ReconnectState
 from .helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
-from .fixtures import ArbitraryOperation, ArbitraryEvent
+from .fixtures import ArbitraryOperation
 from tests.common.pipeline import pipeline_stage_test
 
 
@@ -3095,10 +3095,10 @@ class TestRetryStageNonretryableOperationCompleted(RetryStageTestConfig):
 ###################
 
 
-class ReconnectStageTestConfig(object):
+class ConnectionStateStageTestConfig(object):
     @pytest.fixture
     def cls_type(self):
-        return pipeline_stages_base.ReconnectStage
+        return pipeline_stages_base.ConnectionStateStage
 
     @pytest.fixture
     def init_kwargs(self, mocker):
@@ -3108,8 +3108,6 @@ class ReconnectStageTestConfig(object):
     def stage(self, mocker, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
         stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration=mocker.MagicMock())
-        # Majority of tests will want connection retry enabled
-        stage.nucleus.pipeline_configuration.connection_retry = True
         stage.nucleus.pipeline_configuration.connection_retry_interval = 1234
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
@@ -3118,7 +3116,7 @@ class ReconnectStageTestConfig(object):
         return stage
 
 
-class ReconnectStageInstantiationTests(ReconnectStageTestConfig):
+class ConnectionStateStageInstantiationTests(ConnectionStateStageTestConfig):
     @pytest.mark.it("Initializes the 'reconnect_timer' attribute as None")
     def test_reconnect_timer(self, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
@@ -3138,16 +3136,16 @@ class ReconnectStageInstantiationTests(ReconnectStageTestConfig):
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
     test_module=this_module,
-    stage_class_under_test=pipeline_stages_base.ReconnectStage,
-    stage_test_config_class=ReconnectStageTestConfig,
-    extended_stage_instantiation_test_class=ReconnectStageInstantiationTests,
+    stage_class_under_test=pipeline_stages_base.ConnectionStateStage,
+    stage_test_config_class=ConnectionStateStageTestConfig,
+    extended_stage_instantiation_test_class=ConnectionStateStageInstantiationTests,
 )
 
 
-@pytest.mark.describe(
-    "ReconnectStage - .run_op() -- Called with ConnectOperation (Connection Retry/Reconnect enabled)"
-)
-class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, StageRunOpTestBase):
+@pytest.mark.describe("ConnectionStateStage - .run_op() -- Called with ConnectOperation")
+class TestConnectionStateStageRunOpWithConnectOperation(
+    ConnectionStateStageTestConfig, StageRunOpTestBase
+):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
@@ -3313,10 +3311,10 @@ class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, Stag
             assert stage.run_op.call_args_list[i] == mocker.call(queued_ops[i])
 
 
-@pytest.mark.describe(
-    "ReconnectStage - .run_op() -- Called with DisconnectOperation (Connection Retry/Reconnect enabled)"
-)
-class TestReconnectStageRunOpWithDisconnectOperation(ReconnectStageTestConfig, StageRunOpTestBase):
+@pytest.mark.describe("ConnectionStateStage - .run_op() -- Called with DisconnectOperation")
+class TestConnectionStateStageRunOpWithDisconnectOperation(
+    ConnectionStateStageTestConfig, StageRunOpTestBase
+):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
@@ -3507,10 +3505,10 @@ class TestReconnectStageRunOpWithDisconnectOperation(ReconnectStageTestConfig, S
 
 
 @pytest.mark.describe(
-    "ReconnectStage - .run_op() -- Called with ReauthorizeConnectionOperation (Connection Retry/Reconnect enabled)"
+    "ConnectionStateStage - .run_op() -- Called with ReauthorizeConnectionOperation"
 )
-class TestReconnectStageRunOpWithReauthorizeConnectionOperation(
-    ReconnectStageTestConfig, StageRunOpTestBase
+class TestConnectionStateStageRunOpWithReauthorizeConnectionOperation(
+    ConnectionStateStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
@@ -3681,11 +3679,9 @@ class TestReconnectStageRunOpWithReauthorizeConnectionOperation(
             assert stage.run_op.call_args_list[i] == mocker.call(queued_ops[i])
 
 
-@pytest.mark.describe(
-    "ReconnectStage - .run_op() -- Called with ShutdownPipelineOperation (Connection Retry/Reconnect enabled)"
-)
-class TestReconnectStageRunOpWithShutdownPipelineOperation(
-    ReconnectStageTestConfig, StageRunOpTestBase
+@pytest.mark.describe("ConnectionStateStage - .run_op() -- Called with ShutdownPipelineOperation")
+class TestConnectionStateStageRunOpWithShutdownPipelineOperation(
+    ConnectionStateStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
@@ -3763,10 +3759,10 @@ class TestReconnectStageRunOpWithShutdownPipelineOperation(
         assert stage.state is state
 
 
-@pytest.mark.describe(
-    "ReconnectStage - .run_op() -- Called with arbitrary other operation (Connection Retry/Reconnect enabled)"
-)
-class TestReconnectStageRunOpWithArbitraryOperation(ReconnectStageTestConfig, StageRunOpTestBase):
+@pytest.mark.describe("ConnectionStateStage - .run_op() -- Called with arbitrary other operation")
+class TestConnectionStateStageRunOpWithArbitraryOperation(
+    ConnectionStateStageTestConfig, StageRunOpTestBase
+):
     @pytest.fixture
     def op(self, arbitrary_op):
         return arbitrary_op
@@ -3792,59 +3788,11 @@ class TestReconnectStageRunOpWithArbitraryOperation(ReconnectStageTestConfig, St
         assert stage.state is state
 
 
-@pytest.mark.describe("ReconnectStage - .run_op() -- Connection Retry/Reconnect disabled")
-class TestReconnectStageRunOpWhileConnectionRetryDisabled(
-    ReconnectStageTestConfig, StageRunOpTestBase
-):
-    @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs):
-        # Override fixture to set connect retry to False
-        stage = cls_type(**init_kwargs)
-        stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration=mocker.MagicMock())
-        stage.nucleus.pipeline_configuration.connection_retry = False
-        mocker.spy(stage, "run_op")
-        stage.send_op_down = mocker.MagicMock()
-        stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "report_background_exception")
-        return stage
-
-    @pytest.fixture(
-        params=[
-            pipeline_ops_base.ConnectOperation,
-            pipeline_ops_base.DisconnectOperation,
-            pipeline_ops_base.ReauthorizeConnectionOperation,
-            pipeline_ops_base.ShutdownPipelineOperation,
-            ArbitraryOperation,
-        ]
-    )
-    def op(self, request, mocker):
-        return request.param(mocker.MagicMock())
-
-    @pytest.mark.it("Sends the operation down the pipeline without changing the state")
-    @pytest.mark.parametrize(
-        "state",
-        [
-            ReconnectState.CONNECTING,
-            ReconnectState.CONNECTED,
-            ReconnectState.DISCONNECTING,
-            ReconnectState.DISCONNECTED,
-            ReconnectState.REAUTHORIZING,
-        ],
-    )
-    def test_sends_op_down(self, mocker, stage, op, state):
-        stage.state = state
-        stage.run_op(op)
-
-        assert stage.send_op_down.call_count == 1
-        assert stage.send_op_down.call_args == mocker.call(op)
-        assert stage.state is state
-
-
 @pytest.mark.describe(
-    "ReconnectStage - .handle_pipeline_event() -- Called with ConnectedEvent (Connection Retry/Reconnect enabled)"
+    "ConnectionStateStage - .handle_pipeline_event() -- Called with ConnectedEvent"
 )
-class TestReconnectStageHandlePipelineEventCalledWithConnectedEvent(
-    ReconnectStageTestConfig, StageHandlePipelineEventTestBase
+class TestConnectionStateStageHandlePipelineEventCalledWithConnectedEvent(
+    ConnectionStateStageTestConfig, StageHandlePipelineEventTestBase
 ):
     @pytest.fixture
     def event(self):
@@ -3920,82 +3868,148 @@ class TestReconnectStageHandlePipelineEventCalledWithConnectedEvent(
 
 
 @pytest.mark.describe(
-    "ReconnectStage - .handle_pipeline_event() -- Called with DisconnectedEvent (Connection Retry/Reconnect enabled)"
+    "ConnectionStateStage - .handle_pipeline_event() -- Called with DisconnectedEvent"
 )
-class TestReconnectStageHandlePipelineEventCalledWithDisconnectedEvent(
-    ReconnectStageTestConfig, StageHandlePipelineEventTestBase
+class TestConnectionStateStageHandlePipelineEventCalledWithDisconnectedEvent(
+    ConnectionStateStageTestConfig, StageHandlePipelineEventTestBase
 ):
     @pytest.fixture
     def event(self):
         return pipeline_events_base.DisconnectedEvent()
 
     @pytest.mark.it(
-        "Changes the state to DISCONNECTED, starts a immediate reconnect timer, and sends the event up the pipeline if in a CONNECTED state (i.e. Unexpected Disconnect)"
+        "Changes the state to DISCONNECTED and sends the event up the pipeline if in a CONNECTED state (i.e. Unexpected Disconnect)"
     )
     def test_connected_state(self, mocker, stage, event, mock_timer):
+        # mock_timer is required here, even though it's unused so that we don't set a real timer
         stage.state = ReconnectState.CONNECTED
-        assert stage.reconnect_timer is None
 
         stage.handle_pipeline_event(event)
 
         assert stage.state is ReconnectState.DISCONNECTED
-        assert stage.reconnect_timer is mock_timer.return_value
-        assert mock_timer.call_count == 1
-        assert mock_timer.call_args == mocker.call(0.01, mocker.ANY)
-        assert mock_timer.return_value.start.call_count == 1
         assert stage.send_event_up.call_count == 1
         assert stage.send_event_up.call_args == mocker.call(event)
 
     @pytest.mark.it(
-        "Changes the state to DISCONNECTED, does NOT start a reconnect timer, but sends the event up the pipeline if in a DISCONNECTING state (i.e. Expected Disconnect - Disconnection process)"
+        "Changes the state to DISCONNECTED and sends the event up the pipeline if in a DISCONNECTING state (i.e. Expected Disconnect - Disconnection process)"
     )
     def test_disconnecting_state(self, mocker, stage, event):
         stage.state = ReconnectState.DISCONNECTING
-        assert stage.reconnect_timer is None
 
         stage.handle_pipeline_event(event)
 
         assert stage.state is ReconnectState.DISCONNECTED
-        assert stage.reconnect_timer is None
         assert stage.send_event_up.call_count == 1
         assert stage.send_event_up.call_args == mocker.call(event)
 
     @pytest.mark.it(
-        "Does NOT change the state or start a reconnect timer, but sends the event up the pipeline if in a REAUTHORIZING state (i.e. Expected Disconnect - Reauthorization process)"
+        "Does NOT change the state, but sends the event up the pipeline if in a REAUTHORIZING state (i.e. Expected Disconnect - Reauthorization process)"
     )
     def test_reauthorizing_state(self, mocker, stage, event):
         stage.state = ReconnectState.REAUTHORIZING
-        assert stage.reconnect_timer is None
 
         stage.handle_pipeline_event(event)
 
         assert stage.state is ReconnectState.REAUTHORIZING
-        assert stage.reconnect_timer is None
         assert stage.send_event_up.call_count == 1
         assert stage.send_event_up.call_args == mocker.call(event)
 
     @pytest.mark.it(
-        "Changes the state to DISCONNECTED, does NOT start a reconnect timer, but sends the event up the pipeline if in an invalid state"
+        "Changes the state to DISCONNECTED and sends the event up the pipeline if in an invalid state"
     )
     @pytest.mark.parametrize("state", [ReconnectState.DISCONNECTED, ReconnectState.CONNECTING])
     def test_invalid_states(self, mocker, stage, event, state):
         # NOTE: This should never happen in practice
         stage.state = state
-        assert stage.reconnect_timer is None
 
         stage.handle_pipeline_event(event)
 
         assert stage.state is ReconnectState.DISCONNECTED
-        assert stage.reconnect_timer is None
         assert stage.send_event_up.call_count == 1
         assert stage.send_event_up.call_args == mocker.call(event)
 
+    @pytest.mark.it(
+        "Starts an immediate reconnect timer following an Unexpected Disconnect if Connection Retry is enabled"
+    )
+    def test_reconnect_timer_created(self, mocker, stage, event, mock_timer):
+        stage.nucleus.pipeline_configuration.connection_retry = True
+        stage.state = ReconnectState.CONNECTED
+        assert stage.reconnect_timer is None
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.reconnect_timer is mock_timer.return_value
+        assert mock_timer.call_count == 1
+        assert mock_timer.call_args == mocker.call(0.01, mocker.ANY)
+        assert mock_timer.return_value.start.call_count == 1
+
+    @pytest.mark.it("Does NOT start a reconnect timer under any other conditions")
+    @pytest.mark.parametrize(
+        "state, retry_enabled",
+        [
+            pytest.param(
+                ReconnectState.CONNECTED,
+                False,
+                id="Unexpected Disconnect - Connection Retry Disabled",
+            ),
+            pytest.param(
+                ReconnectState.DISCONNECTING,
+                True,
+                id="Expected Disconnect (Disconnection Process) - Connection Retry Enabled",
+            ),
+            pytest.param(
+                ReconnectState.DISCONNECTING,
+                False,
+                id="Expected Disconnect (Disconnection Process) - Connection Retry Disabled",
+            ),
+            pytest.param(
+                ReconnectState.REAUTHORIZING,
+                True,
+                id="Expected Disconnect (Reauthorization Process) - Connection Retry Enabled",
+            ),
+            pytest.param(
+                ReconnectState.REAUTHORIZING,
+                False,
+                id="Expected Disconnect (Reauthorization Process) - Connection Retry Disabled",
+            ),
+            pytest.param(
+                ReconnectState.DISCONNECTED,
+                True,
+                id="Unexpected Disconnect (Invalid State: DISCONNECTED) - Connection Retry Enabled",
+            ),
+            pytest.param(
+                ReconnectState.DISCONNECTED,
+                False,
+                id="Unexpected Disconnect (Invalid State: DISCONNECTED) - Connection Retry Disabled",
+            ),
+            pytest.param(
+                ReconnectState.CONNECTING,
+                True,
+                id="Unexpected Disconnect (Invalid State: CONNECTING) - Connection Retry Enabled",
+            ),
+            pytest.param(
+                ReconnectState.CONNECTING,
+                False,
+                id="Unexpected Disconnect (Invalid State: CONNECTING) - Connection Retry Disabled",
+            ),
+        ],
+    )
+    def test_no_reconnect_timer_creation(self, stage, event, state, retry_enabled, mock_timer):
+        stage.nucleus.pipeline_configuration.connection_retry = retry_enabled
+        stage.state = state
+        assert stage.reconnect_timer is None
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.reconnect_timer is None
+        assert mock_timer.call_count == 0
+
 
 @pytest.mark.describe(
-    "ReconnectStage - .handle_pipeline_event() -- Called with arbitrary other event (Connection Retry/Reconnect enabled)"
+    "ConnectionStateStage - .handle_pipeline_event() -- Called with arbitrary other event"
 )
-class TestReconnectStageHandlePipelineEventCalledWithArbitraryEvent(
-    ReconnectStageTestConfig, StageHandlePipelineEventTestBase
+class TestConnectionStateStageHandlePipelineEventCalledWithArbitraryEvent(
+    ConnectionStateStageTestConfig, StageHandlePipelineEventTestBase
 ):
     @pytest.fixture
     def event(self, arbitrary_event):
@@ -4026,61 +4040,8 @@ class TestReconnectStageHandlePipelineEventCalledWithArbitraryEvent(
         assert stage.send_event_up.call_args == mocker.call(event)
 
 
-@pytest.mark.describe(
-    "ReconnectStage -.handle_pipeline_event() -- Connection Retry/Reconnect disabled"
-)
-class TestReconnectStageHandlePipelineEventConnectionRetryDisabled(
-    ReconnectStageTestConfig, StageHandlePipelineEventTestBase
-):
-    @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs):
-        # Override fixture to set connect retry to False
-        stage = cls_type(**init_kwargs)
-        stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration=mocker.MagicMock())
-        stage.nucleus.pipeline_configuration.connection_retry = False
-        mocker.spy(stage, "run_op")
-        stage.send_op_down = mocker.MagicMock()
-        stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "report_background_exception")
-        return stage
-
-    @pytest.fixture(
-        params=[
-            pipeline_events_base.ConnectedEvent,
-            pipeline_events_base.DisconnectedEvent,
-            ArbitraryEvent,
-        ]
-    )
-    def event(self, request):
-        return request.param()
-
-    @pytest.mark.it(
-        "Sends the event up the pipeline without changing the state or starting a reconnect timer"
-    )
-    @pytest.mark.parametrize(
-        "state",
-        [
-            ReconnectState.CONNECTING,
-            ReconnectState.CONNECTED,
-            ReconnectState.DISCONNECTING,
-            ReconnectState.DISCONNECTED,
-            ReconnectState.REAUTHORIZING,
-        ],
-    )
-    def test_sends_event_up(self, mocker, stage, event, state):
-        stage.state = state
-        assert stage.reconnect_timer is None
-
-        stage.handle_pipeline_event(event)
-
-        assert stage.state is state
-        assert stage.reconnect_timer is None
-        assert stage.send_event_up.call_count == 1
-        assert stage.send_event_up.call_args == mocker.call(event)
-
-
-@pytest.mark.describe("ReconnectStage - OCCURRENCE: Reconnect Timer Expires")
-class TestReconnectStageOCCURRENCEReconnectTimerExpires(ReconnectStageTestConfig):
+@pytest.mark.describe("ConnectionStateStage - OCCURRENCE: Reconnect Timer Expires")
+class TestConnectionStateStageOCCURRENCEReconnectTimerExpires(ConnectionStateStageTestConfig):
     @pytest.fixture(
         params=[
             "Timer created by unexpected disconnect",
@@ -4209,8 +4170,8 @@ class TestReconnectStageOCCURRENCEReconnectTimerExpires(ReconnectStageTestConfig
         assert stage.reconnect_timer is None
 
 
-@pytest.mark.describe("ReconnectStage - OCCURRENCE: Reconnection Completes")
-class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig):
+@pytest.mark.describe("ConnectionStateStage - OCCURRENCE: Reconnection Completes")
+class TestConnectionStateStageOCCURRENCEReconnectionCompletes(ConnectionStateStageTestConfig):
     @pytest.fixture(
         params=[
             "Reconnect after unexpected disconnect",
