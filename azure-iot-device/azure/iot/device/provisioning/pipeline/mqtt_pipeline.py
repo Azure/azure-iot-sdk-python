@@ -81,14 +81,14 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.AutoConnectStage())
             #
-            # ReconnectStage needs to be after AutoConnectStage because ReconnectStage sets/clears
-            # the virtually_conencted flag and we want an automatic connection op to set this flag so
-            # we can reconnect autoconnect operations.
+            # ConnectionStateStage needs to be after AutoConnectStage because the AutoConnectStage
+            # can create ConnectOperations and we (may) want to queue connection related operations
+            # in the ConnectionStateStage
             #
-            .append_stage(pipeline_stages_base.ReconnectStage())
+            .append_stage(pipeline_stages_base.ConnectionStateStage())
             #
-            # ConnectionLockStage needs to be after ReconnectStage because we want any ops that
-            # ReconnectStage creates to go through the ConnectionLockStage gate
+            # ConnectionLockStage needs to be after ConnectionStateStage because we want any ops that
+            # ConnectionStateStage creates to go through the ConnectionLockStage gate
             #
             .append_stage(pipeline_stages_base.ConnectionLockStage())
             #
