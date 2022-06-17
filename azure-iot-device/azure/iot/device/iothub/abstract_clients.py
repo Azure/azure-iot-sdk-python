@@ -39,6 +39,7 @@ def _validate_kwargs(exclude=[], **kwargs):
         "auto_connect",
         "connection_retry",
         "connection_retry_interval",
+        "ensure_desired_properties",
     ]
 
     for kwarg in kwargs:
@@ -59,6 +60,7 @@ def _get_config_kwargs(**kwargs):
         "auto_connect",
         "connection_retry",
         "connection_retry_interval",
+        "ensure_desired_properties",
     ]
 
     config_kwargs = {}
@@ -264,6 +266,8 @@ class AbstractIoTHubClient(abc.ABC):
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
+        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh
+            desired properties in the EnsureDesiredPropertiesStage (Default:True)
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unsupported parameter.
@@ -345,6 +349,8 @@ class AbstractIoTHubClient(abc.ABC):
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
+        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh
+            desired properties in the EnsureDesiredPropertiesStage (Default:True)
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the sastoken parameter is invalid.
@@ -554,6 +560,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
+        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh
+            desired properties in the EnsureDesiredPropertiesStage (Default:True)
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -569,6 +577,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             device_id=device_id, hostname=hostname, x509=x509, **config_kwargs
         )
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
+        pipeline_configuration.ensure_desired_properties = True
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
@@ -611,6 +620,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
+        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh
+            desired properties in the EnsureDesiredPropertiesStage (Default:True)
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the provided parameters are invalid.
@@ -637,6 +648,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             device_id=device_id, hostname=hostname, sastoken=sastoken, **config_kwargs
         )
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
+        pipeline_configuration.ensure_desired_properties = True
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
@@ -799,6 +811,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             server_verification_cert=server_verification_cert,
             **config_kwargs
         )
+        pipeline_configuration.ensure_desired_properties = True
+
         pipeline_configuration.method_invoke = (
             True  # Method Invoke is allowed on modules created from edge environment
         )
@@ -847,6 +861,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
+        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh
+            desired properties in the EnsureDesiredPropertiesStage (Default:True)
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -861,6 +877,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         pipeline_configuration = pipeline.IoTHubPipelineConfig(
             device_id=device_id, module_id=module_id, hostname=hostname, x509=x509, **config_kwargs
         )
+        pipeline_configuration.ensure_desired_properties = True
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
