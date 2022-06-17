@@ -1252,14 +1252,7 @@ class ReconnectStage(PipelineStage):
         elif isinstance(event, pipeline_events_base.DisconnectedEvent):
             # UNEXPECTED DISCONNECTION (i.e. Connection has been lost)
             if self.state is ReconnectState.CONNECTED:
-                # When we get disconnected, we try to reconnect as soon as we can. We set a
-                # timer here that will start the process in another thread because we don't
-                # want to hold up the event flow
-                logger.debug(
-                    "{}({}): State changes CONNECTED -> DISCONNECTED. Attempting to reconnect".format(
-                        self.name, event.name
-                    )
-                )
+
                 # Set the state change before starting the timer in order to make sure
                 # there's no issues when the timer expires. The pipeline threading model should
                 # already be preventing any weirdness with timing, but can't hurt to do this
@@ -1267,7 +1260,21 @@ class ReconnectStage(PipelineStage):
                 self.state = ReconnectState.DISCONNECTED
 
                 if self.nucleus.pipeline_configuration.connection_retry:
+                    # When we get disconnected, we try to reconnect as soon as we can. We set a
+                    # timer here that will start the process in another thread because we don't
+                    # want to hold up the event flow
+                    logger.debug(
+                        "{}({}): State changes CONNECTED -> DISCONNECTED. Attempting to reconnect".format(
+                            self.name, event.name
+                        )
+                    )
                     self._start_reconnect_timer(0.01)
+                else:
+                    logger.debug(
+                        "{}({}): State changes CONNECTED -> DISCONNECTED. Not attempting to reconnect (Connection retry disabled)".format(
+                            self.name, event.name
+                        )
+                    )
 
             # EXPECTED DISCONNECTION (DisconnectOperation was previously issued)
             elif self.state is ReconnectState.DISCONNECTING:
