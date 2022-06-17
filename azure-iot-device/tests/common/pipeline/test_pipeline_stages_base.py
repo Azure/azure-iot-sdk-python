@@ -3107,10 +3107,10 @@ class TestRetryStageNonretryableOperationCompleted(RetryStageTestConfig):
 ###################
 
 
-class ReconnectStageTestConfig(object):
+class ConnectionStateStageTestConfig(object):
     @pytest.fixture
     def cls_type(self):
-        return pipeline_stages_base.ReconnectStage
+        return pipeline_stages_base.ConnectionStateStage
 
     @pytest.fixture
     def init_kwargs(self, mocker):
@@ -3128,7 +3128,7 @@ class ReconnectStageTestConfig(object):
         return stage
 
 
-class ReconnectStageInstantiationTests(ReconnectStageTestConfig):
+class ConnectionStateStageInstantiationTests(ConnectionStateStageTestConfig):
     @pytest.mark.it("Initializes the 'reconnect_timer' attribute as None")
     def test_reconnect_timer(self, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
@@ -3148,14 +3148,16 @@ class ReconnectStageInstantiationTests(ReconnectStageTestConfig):
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
     test_module=this_module,
-    stage_class_under_test=pipeline_stages_base.ReconnectStage,
-    stage_test_config_class=ReconnectStageTestConfig,
-    extended_stage_instantiation_test_class=ReconnectStageInstantiationTests,
+    stage_class_under_test=pipeline_stages_base.ConnectionStateStage,
+    stage_test_config_class=ConnectionStateStageTestConfig,
+    extended_stage_instantiation_test_class=ConnectionStateStageInstantiationTests,
 )
 
 
-@pytest.mark.describe("ReconnectStage - .run_op() -- Called with ConnectOperation")
-class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, StageRunOpTestBase):
+@pytest.mark.describe("ConnectionStateStage - .run_op() -- Called with ConnectOperation")
+class TestConnectionStateStageRunOpWithConnectOperation(
+    ConnectionStateStageTestConfig, StageRunOpTestBase
+):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
@@ -3321,8 +3323,10 @@ class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, Stag
             assert stage.run_op.call_args_list[i] == mocker.call(queued_ops[i])
 
 
-@pytest.mark.describe("ReconnectStage - .run_op() -- Called with DisconnectOperation")
-class TestReconnectStageRunOpWithDisconnectOperation(ReconnectStageTestConfig, StageRunOpTestBase):
+@pytest.mark.describe("ConnectionStateStage - .run_op() -- Called with DisconnectOperation")
+class TestConnectionStateStageRunOpWithDisconnectOperation(
+    ConnectionStateStageTestConfig, StageRunOpTestBase
+):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
@@ -3512,9 +3516,11 @@ class TestReconnectStageRunOpWithDisconnectOperation(ReconnectStageTestConfig, S
             assert stage.run_op.call_args_list[i] == mocker.call(queued_ops[i])
 
 
-@pytest.mark.describe("ReconnectStage - .run_op() -- Called with ReauthorizeConnectionOperation")
-class TestReconnectStageRunOpWithReauthorizeConnectionOperation(
-    ReconnectStageTestConfig, StageRunOpTestBase
+@pytest.mark.describe(
+    "ConnectionStateStage - .run_op() -- Called with ReauthorizeConnectionOperation"
+)
+class TestConnectionStateStageRunOpWithReauthorizeConnectionOperation(
+    ConnectionStateStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
@@ -3685,9 +3691,9 @@ class TestReconnectStageRunOpWithReauthorizeConnectionOperation(
             assert stage.run_op.call_args_list[i] == mocker.call(queued_ops[i])
 
 
-@pytest.mark.describe("ReconnectStage - .run_op() -- Called with ShutdownPipelineOperation")
-class TestReconnectStageRunOpWithShutdownPipelineOperation(
-    ReconnectStageTestConfig, StageRunOpTestBase
+@pytest.mark.describe("ConnectionStateStage - .run_op() -- Called with ShutdownPipelineOperation")
+class TestConnectionStateStageRunOpWithShutdownPipelineOperation(
+    ConnectionStateStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
@@ -3765,8 +3771,10 @@ class TestReconnectStageRunOpWithShutdownPipelineOperation(
         assert stage.state is state
 
 
-@pytest.mark.describe("ReconnectStage - .run_op() -- Called with arbitrary other operation")
-class TestReconnectStageRunOpWithArbitraryOperation(ReconnectStageTestConfig, StageRunOpTestBase):
+@pytest.mark.describe("ConnectionStateStage - .run_op() -- Called with arbitrary other operation")
+class TestConnectionStateStageRunOpWithArbitraryOperation(
+    ConnectionStateStageTestConfig, StageRunOpTestBase
+):
     @pytest.fixture
     def op(self, arbitrary_op):
         return arbitrary_op
@@ -3792,9 +3800,11 @@ class TestReconnectStageRunOpWithArbitraryOperation(ReconnectStageTestConfig, St
         assert stage.state is state
 
 
-@pytest.mark.describe("ReconnectStage - .handle_pipeline_event() -- Called with ConnectedEvent")
-class TestReconnectStageHandlePipelineEventCalledWithConnectedEvent(
-    ReconnectStageTestConfig, StageHandlePipelineEventTestBase
+@pytest.mark.describe(
+    "ConnectionStateStage - .handle_pipeline_event() -- Called with ConnectedEvent"
+)
+class TestConnectionStateStageHandlePipelineEventCalledWithConnectedEvent(
+    ConnectionStateStageTestConfig, StageHandlePipelineEventTestBase
 ):
     @pytest.fixture
     def event(self):
@@ -3869,9 +3879,11 @@ class TestReconnectStageHandlePipelineEventCalledWithConnectedEvent(
         assert stage.send_event_up.call_args == mocker.call(event)
 
 
-@pytest.mark.describe("ReconnectStage - .handle_pipeline_event() -- Called with DisconnectedEvent")
-class TestReconnectStageHandlePipelineEventCalledWithDisconnectedEvent(
-    ReconnectStageTestConfig, StageHandlePipelineEventTestBase
+@pytest.mark.describe(
+    "ConnectionStateStage - .handle_pipeline_event() -- Called with DisconnectedEvent"
+)
+class TestConnectionStateStageHandlePipelineEventCalledWithDisconnectedEvent(
+    ConnectionStateStageTestConfig, StageHandlePipelineEventTestBase
 ):
     @pytest.fixture
     def event(self):
@@ -4006,10 +4018,10 @@ class TestReconnectStageHandlePipelineEventCalledWithDisconnectedEvent(
 
 
 @pytest.mark.describe(
-    "ReconnectStage - .handle_pipeline_event() -- Called with arbitrary other event"
+    "ConnectionStateStage - .handle_pipeline_event() -- Called with arbitrary other event"
 )
-class TestReconnectStageHandlePipelineEventCalledWithArbitraryEvent(
-    ReconnectStageTestConfig, StageHandlePipelineEventTestBase
+class TestConnectionStateStageHandlePipelineEventCalledWithArbitraryEvent(
+    ConnectionStateStageTestConfig, StageHandlePipelineEventTestBase
 ):
     @pytest.fixture
     def event(self, arbitrary_event):
@@ -4040,8 +4052,8 @@ class TestReconnectStageHandlePipelineEventCalledWithArbitraryEvent(
         assert stage.send_event_up.call_args == mocker.call(event)
 
 
-@pytest.mark.describe("ReconnectStage - OCCURRENCE: Reconnect Timer Expires")
-class TestReconnectStageOCCURRENCEReconnectTimerExpires(ReconnectStageTestConfig):
+@pytest.mark.describe("ConnectionStateStage - OCCURRENCE: Reconnect Timer Expires")
+class TestConnectionStateStageOCCURRENCEReconnectTimerExpires(ConnectionStateStageTestConfig):
     @pytest.fixture(
         params=[
             "Timer created by unexpected disconnect",
@@ -4170,8 +4182,8 @@ class TestReconnectStageOCCURRENCEReconnectTimerExpires(ReconnectStageTestConfig
         assert stage.reconnect_timer is None
 
 
-@pytest.mark.describe("ReconnectStage - OCCURRENCE: Reconnection Completes")
-class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig):
+@pytest.mark.describe("ConnectionStateStage - OCCURRENCE: Reconnection Completes")
+class TestConnectionStateStageOCCURRENCEReconnectionCompletes(ConnectionStateStageTestConfig):
     @pytest.fixture(
         params=[
             "Reconnect after unexpected disconnect",

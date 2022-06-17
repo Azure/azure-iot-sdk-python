@@ -523,8 +523,8 @@ class SasTokenStage(PipelineStage):
                 # NOTE: we only do this if connection retry is enabled on the pipeline. If it is,
                 # we have a contract to maintain a connection. If it has been disabled, we have
                 # a contract to not do so.
-                # NOTE: We can't rely on the ReconnectStage to do this because 1) the pipeline
-                # stages should stand on their own, and 2) if the reauth failed, the ReconnectStage
+                # NOTE: We can't rely on the ConnectionStateStage to do this because 1) the pipeline
+                # stages should stand on their own, and 2) if the reauth failed, the ConnectionStateStage
                 # wouldn't know to reconnect, because the expected state of a failed reauth is
                 # to be disconnected.
                 if (
@@ -1065,7 +1065,7 @@ class ReconnectState(object):
     # NOTE: Reauthorizing is the process of doing a disconnect, then a connect at transport level
 
 
-class ReconnectStage(PipelineStage):
+class ConnectionStateStage(PipelineStage):
 
     intermediate_states = [
         ReconnectState.CONNECTING,
@@ -1202,7 +1202,7 @@ class ReconnectStage(PipelineStage):
                 while not self.waiting_ops.empty():
                     waiting_op = self.waiting_ops.get_nowait()
                     cancel_error = pipeline_exceptions.OperationCancelled(
-                        "Operation waiting in ReconnectStage cancelled by shutdown"
+                        "Operation waiting in ConnectionStateStage cancelled by shutdown"
                     )
                     waiting_op.complete(error=cancel_error)
 
