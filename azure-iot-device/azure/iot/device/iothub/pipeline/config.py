@@ -30,7 +30,8 @@ class IoTHubPipelineConfig(BasePipelineConfig):
         :param str device_id: The device identity being used with the IoTHub
         :param str module_id: The module identity being used with the IoTHub
         :param str product_info: A custom identification string for the type of device connecting to Azure IoT Hub.
-        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh desired properties in the EnsureDesiredPropertiesStage (Default:True)
+        :param bool ensure_desired_properties: Indicates if twin_patches should ensure the most
+            recent desired properties patch has been received upon re-connections
         """
         super().__init__(hostname=hostname, **kwargs)
 

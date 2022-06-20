@@ -266,8 +266,8 @@ class AbstractIoTHubClient(abc.ABC):
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
-        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh
-            desired properties in the EnsureDesiredPropertiesStage (Default:True)
+        :param bool ensure_desired_properties: Ensure the most recent desired properties patch has
+            been received upon re-connections (Default:True)
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unsupported parameter.
@@ -349,8 +349,8 @@ class AbstractIoTHubClient(abc.ABC):
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
-        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh
-            desired properties in the EnsureDesiredPropertiesStage (Default:True)
+        :param bool ensure_desired_properties: Ensure the most recent desired properties patch has
+            been received upon re-connections (Default:True)
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the sastoken parameter is invalid.
@@ -560,8 +560,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
-        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh
-            desired properties in the EnsureDesiredPropertiesStage (Default:True)
+        :param bool ensure_desired_properties: Ensure the most recent desired properties patch has
+            been received upon re-connections (Default:True)
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -620,8 +620,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
-        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh
-            desired properties in the EnsureDesiredPropertiesStage (Default:True)
+        :param bool ensure_desired_properties: Ensure the most recent desired properties patch has
+            been received upon re-connections (Default:True)
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the provided parameters are invalid.
@@ -861,8 +861,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
-        :param bool ensure_desired_properties: A boolean to determine whether or not to refresh
-            desired properties in the EnsureDesiredPropertiesStage (Default:True)
+        :param bool ensure_desired_properties: Ensure the most recent desired properties patch has
+            been received upon re-connections (Default:True)
 
         :raises: TypeError if given an unsupported parameter.
 
