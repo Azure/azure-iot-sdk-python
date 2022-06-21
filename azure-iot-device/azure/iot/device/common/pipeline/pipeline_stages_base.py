@@ -648,7 +648,12 @@ class ConnectionLockStage(PipelineStage):
             )
             op.complete()
 
-        elif isinstance(op, pipeline_ops_base.DisconnectOperation) and not self.nucleus.connected:
+        # CT-TODO: fix this
+        elif (
+            isinstance(op, pipeline_ops_base.DisconnectOperation)
+            and self.nucleus.connection_state is ConnectionState.DISCONNECTED
+        ):
+            # elif isinstance(op, pipeline_ops_base.DisconnectOperation) and not self.nucleus.connected:
             logger.info(
                 "{}({}): Transport is already disconnected.  Completing.".format(self.name, op.name)
             )
