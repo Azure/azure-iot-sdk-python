@@ -1239,8 +1239,8 @@ class ConnectionStateStage(PipelineStage):
             # BAD STATE (this block should not be reached)
             else:
                 logger.warning(
-                    "{}: ConnectedEvent received while in unexpected state - {}, Connected: {}".format(
-                        self.name, self.nucleus.connection_state, self.nucleus.connected
+                    "{}: ConnectedEvent received while in unexpected state - {}".format(
+                        self.name, self.nucleus.connection_state
                     )
                 )
                 logger.debug(
@@ -1308,8 +1308,8 @@ class ConnectionStateStage(PipelineStage):
             # BAD STATE (this block should not be reached)
             else:
                 logger.warning(
-                    "{}: DisconnectEvent received while in unexpected state - {}, Connected: {}".format(
-                        self.name, self.nucleus.connection_state, self.nucleus.connected
+                    "{}: DisconnectEvent received while in unexpected state - {}".format(
+                        self.name, self.nucleus.connection_state
                     )
                 )
                 logger.debug(
@@ -1379,12 +1379,11 @@ class ConnectionStateStage(PipelineStage):
             this = self_weakref()
             if this:
                 logger.debug(
-                    "{}({}): on_connect_complete error={} state={} connected={} ".format(
+                    "{}({}): on_connect_complete error={} state={} ".format(
                         this.name,
                         op.name,
                         error,
                         this.nucleus.connection_state,
-                        this.nucleus.connected,
                     )
                 )
 
@@ -1447,8 +1446,8 @@ class ConnectionStateStage(PipelineStage):
         def on_reconnect_timer_expired():
             this = self_weakref()
             logger.debug(
-                "{}: Reconnect timer expired. State is {} Connected is {}.".format(
-                    self.name, self.nucleus.connection_state, self.nucleus.connected
+                "{}: Reconnect timer expired. State is {}.".format(
+                    self.name, self.nucleus.connection_state
                 )
             )
             # Clear the reconnect timer here first and foremost so it doesn't accidentally
