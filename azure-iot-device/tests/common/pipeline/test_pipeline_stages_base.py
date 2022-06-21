@@ -1637,8 +1637,8 @@ class TestConnectionLockStageRunOpWithDisconnectOpWhileUnblocked(
         return pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
 
     @pytest.mark.it("Completes the operation immediately if the pipeline is already disconnected")
-    def test_already_disconnected(self, stage, op, pipeline_connected_mock):
-        pipeline_connected_mock.return_value = False
+    def test_already_disconnected(self, stage, op):
+        stage.nucleus.connection_state = ConnectionState.DISCONNECTED
         assert not stage.nucleus.connected
 
         # Run the operation
@@ -1654,8 +1654,8 @@ class TestConnectionLockStageRunOpWithDisconnectOpWhileUnblocked(
     @pytest.mark.it(
         "Puts the stage in a blocking state and sends the operation down the pipeline, if the pipeline is currently connected"
     )
-    def test_connected(self, mocker, stage, op, pipeline_connected_mock):
-        pipeline_connected_mock.return_value = True
+    def test_connected(self, mocker, stage, op):
+        stage.nucleus.connection_state = ConnectionState.CONNECTED
         assert stage.nucleus.connected
 
         # Stage is not blocked
@@ -1883,7 +1883,8 @@ class ConnectionLockStageBlockingOpCompletedTestConfig(ConnectionLockStageTestCo
             pipeline_connected_mock.return_value = False
             assert not stage.nucleus.connected
         else:
-            pipeline_connected_mock.return_value = True
+            # NOTE: have to use direct state here because of how the stage works
+            stage.nucleus.connection_state = ConnectionState.CONNECTED
             assert stage.nucleus.connected
 
         # Block the stage by running the blocking operation

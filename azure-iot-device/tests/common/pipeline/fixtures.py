@@ -60,10 +60,17 @@ def nucleus(mocker, pipeline_connected_mock):
     # Need to use a mock for pipeline config because we don't know
     # what type of config is being used since these are common
     nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration=mocker.MagicMock())
+
     # By default, set the connected mock to return the real connected value
     # (this can be overridden by changing the return value of pipeline_connected_mock)
-    pipeline_connected_mock.return_value = nucleus.connected
+    def dynamic_return():
+        if not isinstance(pipeline_connected_mock.return_value, mocker.Mock):
+            return pipeline_connected_mock.return_value
+        return nucleus.connection_state is pipeline_nucleus.ConnectionState.CONNECTED
+
+    pipeline_connected_mock.side_effect = dynamic_return
     type(nucleus).connected = pipeline_connected_mock
+
     return nucleus
 
 
