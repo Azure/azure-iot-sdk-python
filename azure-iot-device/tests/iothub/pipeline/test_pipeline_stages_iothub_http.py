@@ -8,7 +8,7 @@ import pytest
 import json
 import sys
 import urllib
-from azure.iot.device.common.pipeline import pipeline_nucleus, pipeline_ops_http
+from azure.iot.device.common.pipeline import pipeline_ops_http
 from azure.iot.device.iothub.pipeline import (
     pipeline_ops_iothub_http,
     pipeline_stages_iothub_http,
@@ -69,9 +69,10 @@ class IoTHubHTTPTranslationStageTestConfig(object):
         return cfg
 
     @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs, pipeline_config):
+    def stage(self, mocker, cls_type, init_kwargs, nucleus, pipeline_config):
         stage = cls_type(**init_kwargs)
-        stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_config)
+        stage.nucleus = nucleus
+        stage.nucleus.pipeline_configuration = pipeline_config
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")

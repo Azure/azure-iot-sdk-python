@@ -10,7 +10,6 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_ops_http,
     pipeline_stages_http,
-    pipeline_nucleus,
 )
 from tests.common.pipeline.helpers import StageRunOpTestBase
 from tests.common.pipeline import pipeline_stage_test
@@ -52,9 +51,9 @@ class HTTPTransportStageTestConfig(object):
         return {}
 
     @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs):
+    def stage(self, mocker, cls_type, init_kwargs, nucleus):
         stage = cls_type(**init_kwargs)
-        stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration=mocker.MagicMock())
+        stage.nucleus = nucleus
         stage.nucleus.pipeline_configuration.hostname = "some.fake-host.name.com"
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
@@ -139,9 +138,9 @@ class TestHTTPTransportStageRunOpCalledWithInitializePipelineOperation(
 # and as such, the stage fixture used will have already have one.
 class HTTPTransportStageTestConfigComplex(HTTPTransportStageTestConfig):
     @pytest.fixture
-    def stage(self, mocker, request, cls_type, init_kwargs, mock_transport):
+    def stage(self, mocker, request, cls_type, init_kwargs, nucleus, mock_transport):
         stage = cls_type(**init_kwargs)
-        stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration=mocker.MagicMock())
+        stage.nucleus = nucleus
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")
