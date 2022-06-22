@@ -13,7 +13,6 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_ops_mqtt,
     pipeline_events_mqtt,
-    pipeline_nucleus,
 )
 from azure.iot.device.iothub.pipeline import (
     constant,
@@ -118,9 +117,10 @@ class IoTHubMQTTTranslationStageTestConfig(object):
         return cfg
 
     @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs, pipeline_config):
+    def stage(self, mocker, cls_type, init_kwargs, nucleus, pipeline_config):
         stage = cls_type(**init_kwargs)
-        stage.nucleus = pipeline_nucleus.PipelineNucleus(pipeline_config)
+        stage.nucleus = nucleus
+        stage.nucleus.pipeline_configuration = pipeline_config
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")

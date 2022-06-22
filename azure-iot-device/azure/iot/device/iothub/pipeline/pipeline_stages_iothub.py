@@ -119,7 +119,7 @@ class EnsureDesiredPropertiesStage(PipelineStage):
             # before (or we've enabled them at least).  If this is the case, get the twin to
             # see if the desired props have been updated.
             if self.last_version_seen:
-                logger.info("{}: Reconnected.  Getting twin")
+                logger.info("{}: Reconnected.  Getting twin".format(self.name))
                 self._ensure_get_op()
         self.send_event_up(event)
 

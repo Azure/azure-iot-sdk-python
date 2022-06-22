@@ -1129,8 +1129,13 @@ class TestMQTTPipelinePROPERTYConnected(object):
             pipeline.connected = not pipeline.connected
 
     @pytest.mark.it("Reflects the value of the PipelineNucleus attribute of the same name")
-    def test_reflects_pipeline_attribute(self, pipeline):
-        pipeline._nucleus.connected = True
+    def test_reflects_pipeline_attribute(self, pipeline, pipeline_connected_mock):
+        # Need to set indirectly via mock due to nucleus attribute being read-only
+        type(pipeline._nucleus).connected = pipeline_connected_mock
+        pipeline_connected_mock.return_value = True
+        assert pipeline._nucleus.connected
         assert pipeline.connected
-        pipeline._nucleus.connected = False
+        # Again, must be set indirectly
+        pipeline_connected_mock.return_value = False
+        assert not pipeline._nucleus.connected
         assert not pipeline.connected
