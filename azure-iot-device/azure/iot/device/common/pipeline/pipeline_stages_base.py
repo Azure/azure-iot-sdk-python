@@ -871,8 +871,6 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             undefined.
             """
 
-            self.send_event_up(event)
-
             for request_id in self.pending_responses:
                 logger.info(
                     "{stage}: ConnectedEvent: re-publishing request {id} for {method} {type} ".format(
@@ -883,6 +881,8 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                     )
                 )
                 self._send_request_down(request_id, self.pending_responses[request_id])
+
+            self.send_event_up(event)
 
         else:
             self.send_event_up(event)
