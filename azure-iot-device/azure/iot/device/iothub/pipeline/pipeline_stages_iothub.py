@@ -41,7 +41,10 @@ class EnsureDesiredPropertiesStage(PipelineStage):
             # to not be sent. The rest of the functions in this stage stem from the GetTwinOperation,
             # so disabling ensure_desired_properties effectively disables this stage.
 
-            if self.nucleus.pipeline_configuration.ensure_desired_properties:
+            if (
+                self.nucleus.pipeline_configuration.ensure_desired_properties
+                and op.feature_name == constant.TWIN_PATCHES
+            ):
                 logger.debug(
                     "{}: enabling twin patches.  setting last_version_seen".format(self.name)
                 )
@@ -104,20 +107,21 @@ class EnsureDesiredPropertiesStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
-        if isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
-            # remember the $version when we get a patch.
-            version = event.patch["$version"]
-            logger.debug(
-                "{}: Desired patch received.  Saving $version={}".format(self.name, version)
-            )
-            self.last_version_seen = version
-        elif isinstance(event, pipeline_events_base.ConnectedEvent):
-            # If last_version_seen is truthy, that means we've seen desired property patches
-            # before (or we've enabled them at least).  If this is the case, get the twin to
-            # see if the desired props have been updated.
-            if self.last_version_seen:
-                logger.info("{}: Reconnected.  Getting twin")
-                self._ensure_get_op()
+        if self.nucleus.pipeline_configuration.ensure_desired_properties:
+            if isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
+                # remember the $version when we get a patch.
+                version = event.patch["$version"]
+                logger.debug(
+                    "{}: Desired patch received.  Saving $version={}".format(self.name, version)
+                )
+                self.last_version_seen = version
+            elif isinstance(event, pipeline_events_base.ConnectedEvent):
+                # If last_version_seen is truthy, that means we've seen desired property patches
+                # before (or we've enabled them at least).  If this is the case, get the twin to
+                # see if the desired props have been updated.
+                if self.last_version_seen:
+                    logger.info("{}: Reconnected.  Getting twin")
+                    self._ensure_get_op()
         self.send_event_up(event)
 
 
