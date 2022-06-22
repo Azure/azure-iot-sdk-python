@@ -34,21 +34,19 @@ class EnsureDesiredPropertiesStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        if isinstance(op, pipeline_ops_base.EnableFeatureOperation):
-            # Ensure_desired_properties enables twin patches, when true, by setting last version
-            # to -1. The ConnectedEvent handler sees this and sends a GetTwinOperation to refresh
-            # desired properties. Setting ensure_desired_properties to false causes the GetTwinOp
-            # to not be sent. The rest of the functions in this stage stem from the GetTwinOperation,
-            # so disabling ensure_desired_properties effectively disables this stage.
+        if self.nucleus.pipeline_configuration.ensure_desired_properties:
+            if isinstance(op, pipeline_ops_base.EnableFeatureOperation):
+                # Ensure_desired_properties enables twin patches, when true, by setting last version
+                # to -1. The ConnectedEvent handler sees this and sends a GetTwinOperation to refresh
+                # desired properties. Setting ensure_desired_properties to false causes the GetTwinOp
+                # to not be sent. The rest of the functions in this stage stem from the GetTwinOperation,
+                # so disabling ensure_desired_properties effectively disables this stage.
 
-            if (
-                self.nucleus.pipeline_configuration.ensure_desired_properties
-                and op.feature_name == constant.TWIN_PATCHES
-            ):
-                logger.debug(
-                    "{}: enabling twin patches.  setting last_version_seen".format(self.name)
-                )
-                self.last_version_seen = -1
+                if op.feature_name == constant.TWIN_PATCHES:
+                    logger.debug(
+                        "{}: enabling twin patches.  setting last_version_seen".format(self.name)
+                    )
+                    self.last_version_seen = -1
         self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
