@@ -9,4 +9,6 @@ from tests.common.pipeline.fixtures import (  # noqa: F401
     arbitrary_op,
     fake_pipeline_thread,
     fake_non_pipeline_thread,
+    pipeline_connected_mock,
+    nucleus,
 )
