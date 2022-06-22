@@ -10,6 +10,8 @@ from tests.common.pipeline.fixtures import (  # noqa: F401
     fake_non_pipeline_thread,
     arbitrary_op,
     arbitrary_event,
+    pipeline_connected_mock,
+    nucleus,
 )
 
 from azure.iot.device.iothub.pipeline import constant
