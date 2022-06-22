@@ -615,122 +615,53 @@ class AutoConnectStage(PipelineStage):
         self.send_op_down(pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete))
 
 
-class ConnectionLockStage(PipelineStage):
+class AutoCompleteStage(PipelineStage):
     """
-    This stage is responsible for serializing connect, disconnect, and reauthorize ops on
-    the pipeline, such that only a single one of these ops can go past this stage at a
-    time.  This way, we don't have to worry about cases like "what happens if we try to
-    disconnect if we're in the middle of reauthorizing."  This stage will wait for the
-    reauthorize to complete before letting the disconnect past.
+    Automatically complete connection operations that are attempting to get us to a state
+    we are already in. This is necessary because letting these operations get to the transport
+    runs the risk of them hanging, so we stop them here before they can get down there.
     """
-
-    def __init__(self):
-        super().__init__()
-        self.queue = queue.Queue()
-        self.blocked = False
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
 
-        # If this stage is currently blocked (because we're waiting for a connection, etc,
-        # to complete), we queue up all operations until after the connect completes.
-        if self.blocked:
+        if (
+            isinstance(op, pipeline_ops_base.ConnectOperation)
+            and self.nucleus.connection_state is ConnectionState.CONNECTED
+        ):
             logger.debug(
-                "{}({}): pipeline is blocked waiting for a prior connect/disconnect/reauthorize to complete.  queueing.".format(
-                    self.name, op.name
-                )
-            )
-            self.queue.put_nowait(op)
-
-        elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.nucleus.connected:
-            logger.info(
-                "{}({}): Transport is already connected.  Completing.".format(self.name, op.name)
+                "{}({}): Pipeline is already connected. Completing.".format(self.name, op.name)
             )
             op.complete()
 
-        # NOTE: We ought not to be checking specific ConnectionStates if it can be helped.
-        # Unfortunately, here, it can't be - it's okay, this stage will be deleted very soon
-        # TODO: Move auto-completion logic to ConnectionStateStage and delete this stage.
         elif (
             isinstance(op, pipeline_ops_base.DisconnectOperation)
             and self.nucleus.connection_state is ConnectionState.DISCONNECTED
         ):
-            logger.info(
-                "{}({}): Transport is already disconnected.  Completing.".format(self.name, op.name)
+            logger.debug(
+                "{}({}): Pipeline is already disconnected. Completing.".format(self.name, op.name)
             )
             op.complete()
 
-        # elif (
-        #     isinstance(op, pipeline_ops_base.DisconnectOperation)
-        #     or isinstance(op, pipeline_ops_base.ConnectOperation)
-        #     or isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation)
-        # ):
-        #     self._block(op)
-
-        #     @pipeline_thread.runs_on_pipeline_thread
-        #     def on_operation_complete(op, error):
-        #         if error:
-        #             logger.debug(
-        #                 "{}({}): op failed.  Unblocking queue with error: {}".format(
-        #                     self.name, op.name, error
-        #                 )
-        #             )
-        #         else:
-        #             logger.debug(
-        #                 "{}({}): op succeeded.  Unblocking queue".format(self.name, op.name)
-        #             )
-
-        #         self._unblock(op, error)
-
-        #     op.add_callback(on_operation_complete)
-        #     self.send_op_down(op)
+        elif self.nucleus.connection_state in [
+            ConnectionState.CONNECTING,
+            ConnectionState.DISCONNECTING,
+            ConnectionState.REAUTHORIZING,
+        ]:
+            # NOTE: This should NEVER happen. This is because of the ConnectionStateStage blocking
+            # ops from being sent down until a stable state is reached. The fact that this stage
+            # makes that assumption probably is evidence this functionality should be completely
+            # collapsed into the ConnectionStateStage at some point.
+            # This conditional block essentially just exists here for safety and logging.
+            logger.warning(
+                "{}({}): Pipeline in unexpected state: {}".format(
+                    self.name, op.name, self.nucleus.connection_state
+                )
+            )
+            self.send_op_down(op)
 
         else:
             self.send_op_down(op)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _block(self, op):
-        """
-        block this stage while we're waiting for the connect/disconnect/reauthorize operation to complete.
-        """
-        logger.debug("{}({}): blocking".format(self.name, op.name))
-        self.blocked = True
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _unblock(self, op, error):
-        """
-        Unblock this stage after the connect/disconnect/reauthorize operation is complete.  This also means
-        releasing all the operations that were queued up.
-        """
-        logger.debug("{}({}): unblocking and releasing queued ops.".format(self.name, op.name))
-        self.blocked = False
-        logger.debug(
-            "{}({}): processing {} items in queue for error={}".format(
-                self.name, op.name, self.queue.qsize(), error
-            )
-        )
-        # Loop through our queue and release all the blocked operations
-        # Put a new Queue in self.queue because releasing ops might put them back in the
-        # queue, especially if there's a ConnectOperation in the list of ops to release
-        old_queue = self.queue
-        self.queue = queue.Queue()
-        while not old_queue.empty():
-            op_to_release = old_queue.get_nowait()
-            if error:
-                # if we're unblocking the queue because something (like a connect operation) failed,
-                # then we fail all of the blocked operations with the same error.
-                logger.debug(
-                    "{}({}): failing {} op because of error".format(
-                        self.name, op.name, op_to_release.name
-                    )
-                )
-                op_to_release.complete(error=error)
-            else:
-                logger.debug(
-                    "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
-                )
-                # call run_op directly here so operations go through this stage again (especially connect/disconnect ops)
-                self.run_op(op_to_release)
 
 
 class CoordinateRequestAndResponseStage(PipelineStage):
@@ -1087,13 +1018,8 @@ class ConnectionStateStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
 
-        # If receiving a connection op while one is already in progress, wait for the current
-        # one to finish. This is kind of like a ConnectionLockStage, but inside this one.
-        # It has to happen here because just relying on a ConnectionLockStage before or after
-        # in the pipeline is insufficient, given that operations can spawn in this stage.
-        # We need a way to wait ops without letting them pass through and affect the connection
-        # state in order to address edge cases e.g. a user-initiated connect and a automatic
-        # reconnect connect happen at approximately the same time.
+        # If receiving an operation while the connection state is changing, wait for the
+        # connection state to reach a stable state before continuing.
         if self.nucleus.connection_state in self.intermediate_states:
             logger.debug(
                 "{}({}): State is {} - waiting for in-progress operation to finish".format(
@@ -1111,9 +1037,6 @@ class ConnectionStateStage(PipelineStage):
                         )
                     )
                     self._add_connection_op_callback(op)
-                    # NOTE: This is the safest thing to do while the ConnectionLockStage is
-                    # doing auto-completes based on connection status. When it is revisited,
-                    # this logic may need to be updated.
                 elif self.nucleus.connection_state is ConnectionState.DISCONNECTED:
                     logger.debug(
                         "{}({}): State changes DISCONNECTED -> CONNECTING. Sending op down".format(
@@ -1151,9 +1074,6 @@ class ConnectionStateStage(PipelineStage):
                         )
                     )
                     self._add_connection_op_callback(op)
-                    # NOTE: This is the safest thing to do while the ConnectionLockStage is
-                    # doing auto-completes based on connection status. When it is revisited,
-                    # this logic may need to be updated.
                 else:
                     # This should be impossible to reach. If the state were intermediate, it
                     # would have been added to the waiting ops queue above.
@@ -1320,7 +1240,7 @@ class ConnectionStateStage(PipelineStage):
         self_weakref = weakref.ref(self)
 
         # NOTE: we are currently protected from connect failing due to being already connected
-        # by the ConnectionLockStage. If the ConnectionLockStage changes functionality,
+        # by the AutoCompleteStage. If the AutoCompleteStage changes functionality,
         # we may need some logic changes to address an op that can fail while leaving us CONNECTED
 
         @pipeline_thread.runs_on_pipeline_thread

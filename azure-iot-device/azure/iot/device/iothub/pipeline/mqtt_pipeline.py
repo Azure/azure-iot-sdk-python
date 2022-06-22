@@ -100,10 +100,10 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.ConnectionStateStage())
             #
-            # ConnectionLockStage needs to be after ConnectionStateStage because we want any ops that
-            # ConnectionStateStage creates to go through the ConnectionLockStage gate
+            # AutoCompleteStage needs to be after ConnectionStateStage because we want any ops that
+            # ConnectionStateStage creates to have the chance to be auto-completed.
             #
-            .append_stage(pipeline_stages_base.ConnectionLockStage())
+            .append_stage(pipeline_stages_base.AutoCompleteStage())
             #
             # RetryStage needs to be near the end because it's retrying low-level MQTT operations.
             #
