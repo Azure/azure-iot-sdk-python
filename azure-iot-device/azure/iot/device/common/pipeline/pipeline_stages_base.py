@@ -660,30 +660,30 @@ class ConnectionLockStage(PipelineStage):
             )
             op.complete()
 
-        elif (
-            isinstance(op, pipeline_ops_base.DisconnectOperation)
-            or isinstance(op, pipeline_ops_base.ConnectOperation)
-            or isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation)
-        ):
-            self._block(op)
+        # elif (
+        #     isinstance(op, pipeline_ops_base.DisconnectOperation)
+        #     or isinstance(op, pipeline_ops_base.ConnectOperation)
+        #     or isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation)
+        # ):
+        #     self._block(op)
 
-            @pipeline_thread.runs_on_pipeline_thread
-            def on_operation_complete(op, error):
-                if error:
-                    logger.debug(
-                        "{}({}): op failed.  Unblocking queue with error: {}".format(
-                            self.name, op.name, error
-                        )
-                    )
-                else:
-                    logger.debug(
-                        "{}({}): op succeeded.  Unblocking queue".format(self.name, op.name)
-                    )
+        #     @pipeline_thread.runs_on_pipeline_thread
+        #     def on_operation_complete(op, error):
+        #         if error:
+        #             logger.debug(
+        #                 "{}({}): op failed.  Unblocking queue with error: {}".format(
+        #                     self.name, op.name, error
+        #                 )
+        #             )
+        #         else:
+        #             logger.debug(
+        #                 "{}({}): op succeeded.  Unblocking queue".format(self.name, op.name)
+        #             )
 
-                self._unblock(op, error)
+        #         self._unblock(op, error)
 
-            op.add_callback(on_operation_complete)
-            self.send_op_down(op)
+        #     op.add_callback(on_operation_complete)
+        #     self.send_op_down(op)
 
         else:
             self.send_op_down(op)
@@ -1065,11 +1065,6 @@ class ConnectionStateStage(PipelineStage):
         ConnectionState.DISCONNECTING,
         ConnectionState.REAUTHORIZING,
     ]
-    connection_ops = [
-        pipeline_ops_base.ConnectOperation,
-        pipeline_ops_base.DisconnectOperation,
-        pipeline_ops_base.ReauthorizeConnectionOperation,
-    ]
     transient_connect_errors = [
         pipeline_exceptions.OperationCancelled,
         pipeline_exceptions.OperationTimeout,
@@ -1099,10 +1094,7 @@ class ConnectionStateStage(PipelineStage):
         # We need a way to wait ops without letting them pass through and affect the connection
         # state in order to address edge cases e.g. a user-initiated connect and a automatic
         # reconnect connect happen at approximately the same time.
-        if (
-            self.nucleus.connection_state in self.intermediate_states
-            and type(op) in self.connection_ops
-        ):
+        if self.nucleus.connection_state in self.intermediate_states:
             logger.debug(
                 "{}({}): State is {} - waiting for in-progress operation to finish".format(
                     self.name, op.name, self.nucleus.connection_state
