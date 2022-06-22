@@ -111,7 +111,7 @@ class TestEnsureDesiredPropertiesStageRunOpWithEnableFeatureOperationWithEnsureD
         )
 
     @pytest.mark.it("Sets `last_version_seen` to -1 if `op.feature_name` is 'twin_patches'")
-    def test_edp_on_sets_last_version_seen(self, mocker, stage, op):
+    def test_sets_last_version_seen(self, mocker, stage, op):
         op.feature_name = pipeline_constants.TWIN_PATCHES
         assert stage.nucleus.pipeline_configuration.ensure_desired_properties
         assert stage.last_version_seen is None
@@ -131,7 +131,7 @@ class TestEnsureDesiredPropertiesStageRunOpWithEnableFeatureOperationWithEnsureD
     @pytest.mark.it(
         "Does not change `last_version_seen` if `op.feature_name` is not 'twin_patches'"
     )
-    def test_edp_on_no_patch_doesnt_set_last_version_seen(self, mocker, stage, op, feature_name):
+    def test_doesnt_set_last_version_seen(self, mocker, stage, op, feature_name):
         op.feature_name = feature_name
         assert stage.nucleus.pipeline_configuration.ensure_desired_properties
         stage.last_version_seen = mocker.MagicMock()
@@ -156,6 +156,7 @@ class TestEnsureDesiredPropertiesStageRunOpWithEnableFeatureOperationWithEnsureD
     )
     def test_passes_all_other_features_down(self, mocker, stage, op, feature_name):
         op.feature_name = feature_name
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties
 
         stage.run_op(op)
 
@@ -164,7 +165,7 @@ class TestEnsureDesiredPropertiesStageRunOpWithEnableFeatureOperationWithEnsureD
 
 
 @pytest.mark.describe(
-    "EnsureDesiredPropertiesStage - .run_op() -- Called with other arbitrary operation (Ensure desired properties enabled)"
+    "EnsureDesiredPropertiesStage - .run_op() -- Called with other arbitrary operation (ensure_desired_properties enabled)"
 )
 class TestEnsureDesiredPropertiesStageRunOpWithArbitraryOperationWithEnsureDesiredPropertiesEnabled(
     StageRunOpTestBase, EnsureDesiredPropertiesStageTestConfig
@@ -175,6 +176,7 @@ class TestEnsureDesiredPropertiesStageRunOpWithArbitraryOperationWithEnsureDesir
 
     @pytest.mark.it("Sends the operation down the pipeline")
     def test_sends_op_down(self, mocker, stage, op):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties
         stage.run_op(op)
 
         assert stage.send_op_down.call_count == 1
@@ -204,32 +206,6 @@ class TestEnsureDesiredPropertiesStageRunOpWithEnableFeatureOperationWithEnsureD
         mocker.spy(stage, "report_background_exception")
         return stage
 
-    @pytest.mark.it(
-        "Does not change `last_version_seen` if `op.feature_name` is not 'twin_patches' and 'ensure_desired_properties' is disabled"
-    )
-    def test_edp_off_no_patch_doesnt_set_last_version_seen(self, mocker, stage, op, feature_name):
-        stage.nucleus.pipeline_configuration.ensure_desired_properties = False
-        op.feature_name = feature_name
-        stage.last_version_seen = mocker.MagicMock()
-
-        old_value = stage.last_version_seen
-        stage.run_op(op)
-
-        assert stage.last_version_seen == old_value
-
-    @pytest.mark.it(
-        "Does not change `last_version_seen` if `op.feature_name` is 'twin_patches' but 'ensure_desired_properties' is disabled"
-    )
-    def test_edp_off_patch_doesnt_set_last_version_seen(self, mocker, stage, op):
-        stage.nucleus.pipeline_configuration.ensure_desired_properties = False
-        op.feature_name = pipeline_constants.TWIN_PATCHES
-        stage.last_version_seen = mocker.MagicMock()
-
-        old_value = stage.last_version_seen
-        stage.run_op(op)
-
-        assert stage.last_version_seen == old_value
-
     @pytest.mark.parametrize(
         "feature_name",
         [
@@ -245,15 +221,29 @@ class TestEnsureDesiredPropertiesStageRunOpWithEnableFeatureOperationWithEnsureD
     )
     def test_passes_all_other_features_down(self, mocker, stage, op, feature_name):
         op.feature_name = feature_name
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties is False
 
         stage.run_op(op)
 
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
+    @pytest.mark.it(
+        "Does not change `last_version_seen`, even if `op.feature_name` is twin_patches'"
+    )
+    def test_doesnt_set_last_version_seen(self, mocker, stage, op):
+        op.feature_name = pipeline_constants.TWIN_PATCHES
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties is False
+        stage.last_version_seen = mocker.MagicMock()
+
+        old_value = stage.last_version_seen
+        stage.run_op(op)
+
+        assert stage.last_version_seen == old_value
+
 
 @pytest.mark.describe(
-    "EnsureDesiredPropertiesStage - .run_op() -- Called with other arbitrary operation (Ensure desired properties disabled)"
+    "EnsureDesiredPropertiesStage - .run_op() -- Called with other arbitrary operation (ensure_desired_properties disabled)"
 )
 class TestEnsureDesiredPropertiesStageRunOpWithArbitraryOperationWithEnsureDesiredPropertiesDisabled(
     StageRunOpTestBase, EnsureDesiredPropertiesStageTestConfig
@@ -271,8 +261,10 @@ class TestEnsureDesiredPropertiesStageRunOpWithArbitraryOperationWithEnsureDesir
         assert stage.send_op_down.call_args == mocker.call(op)
 
 
-@pytest.mark.describe("EnsureDesiredPropertiesStage - OCCURRENCE: ConnectedEvent received")
-class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
+@pytest.mark.describe(
+    "EnsureDesiredPropertiesStage - OCCURRENCE: ConnectedEvent received (ensure_desired_properties enabled)"
+)
+class TestEnsureDesiredPropertiesStageWhenConnectedEventReceivedWithEnsureDesiredPropertiesEnabled(
     EnsureDesiredPropertiesStageTestConfig, StageHandlePipelineEventTestBase
 ):
     @pytest.fixture
@@ -293,6 +285,7 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
         "Sends a GetTwinOperation if last_version_seen is set and there is no pending GetTwinOperation"
     )
     def test_last_version_seen_no_pending(self, mocker, stage, event):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties
         stage.last_version_seen = mocker.MagicMock()
         stage.pending_get_request = None
 
@@ -305,6 +298,7 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
         "Does not send a GetTwinOperation if last version seen is set and there is already a pending GetTwinOperation"
     )
     def test_last_version_seen_pending(self, mocker, stage, event):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties
         stage.last_version_seen = mocker.MagicMock()
         stage.pending_get_request = mocker.MagicMock()
 
@@ -316,6 +310,7 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
         "Does not send a GetTwinOperation if last_version_seen is not set and there is no pending GetTwinOperation"
     )
     def test_no_last_version_seen_no_pending(self, mocker, stage, event):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties
         stage.last_version_seen = None
         stage.pending_get_request = None
 
@@ -327,6 +322,7 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
         "Does not send a GetTwinOperation if last version seen is not set and there is already a pending GetTwinOperation"
     )
     def test_no_last_version_seen_pending(self, mocker, stage, event):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties
         stage.last_version_seen = None
         stage.pending_get_request = mocker.MagicMock()
 
@@ -334,10 +330,31 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
 
         assert stage.send_op_down.call_count == 0
 
-    @pytest.mark.it("Does not send a GetTwinOperation if Ensure_Desired_Properties is disabled")
-    def test_no_ensure_desired_properties(self, stage, event):
-        stage.last_version_seen = None
+
+@pytest.mark.describe(
+    "EnsureDesiredPropertiesStage - OCCURRENCE: ConnectedEvent received (ensure_desired_properties disabled)"
+)
+class TestEnsureDesiredPropertiesStageWhenConnectedEventReceivedWithEnsureDesiredPropertiesDisabled(
+    EnsureDesiredPropertiesStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs, nucleus):
+        stage = cls_type(**init_kwargs)
+        stage.nucleus = nucleus
         stage.nucleus.pipeline_configuration.ensure_desired_properties = False
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
+        return stage
+
+    @pytest.fixture
+    def event(self):
+        return pipeline_events_base.ConnectedEvent()
+
+    @pytest.mark.it("Does not send a GetTwinOperation if Ensure_Desired_Properties is disabled")
+    def test_no_get_twin_op(self, stage, event):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties is False
+        stage.last_version_seen = None
 
         stage.handle_pipeline_event(event)
 
@@ -345,9 +362,9 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
 
 
 @pytest.mark.describe(
-    "EnsureDesiredPropertiesStage - OCCURRENCE: TwinDesiredPropertiesPatchEvent received"
+    "EnsureDesiredPropertiesStage - OCCURRENCE: TwinDesiredPropertiesPatchEvent received (ensure_desired_properties enabled)"
 )
-class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceived(
+class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceivedWithEnsureDesiredPropertiesEnabled(
     EnsureDesiredPropertiesStageTestConfig, StageHandlePipelineEventTestBase
 ):
     @pytest.fixture
@@ -370,6 +387,7 @@ class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceive
 
     @pytest.mark.it("Saves the `$version` attribute of the patch into `last_version_seen`")
     def test_saves_the_last_version_seen(self, mocker, stage, event, version):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties
         stage.last_version_seen = mocker.MagicMock()
 
         stage.handle_pipeline_event(event)
@@ -378,7 +396,7 @@ class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceive
 
     @pytest.mark.it("Sends the event to the previous stage")
     def test_sends_event_up(self, mocker, stage, event, version):
-
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties
         stage.handle_pipeline_event(event)
 
         assert stage.send_event_up.call_count == 1
@@ -386,7 +404,50 @@ class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceive
 
 
 @pytest.mark.describe(
-    "EnsureDesiredPropertiesStage - OCCURRENCE: GetTwinOperation that was sent down by this stage completes"
+    "EnsureDesiredPropertiesStage - OCCURRENCE: TwinDesiredPropertiesPatchEvent received (ensure_desired_properties disabled)"
+)
+class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceivedWithEnsureDesiredPropertiesDisabled(
+    EnsureDesiredPropertiesStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs, nucleus):
+        stage = cls_type(**init_kwargs)
+        stage.nucleus = nucleus
+        stage.nucleus.pipeline_configuration.ensure_desired_properties = False
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
+        return stage
+
+    @pytest.fixture
+    def version(self, mocker):
+        return mocker.MagicMock()
+
+    @pytest.fixture
+    def event(self, version):
+        return pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(patch={"$version": version})
+
+    @pytest.mark.it("Saves the `$version` attribute of the patch into `last_version_seen`")
+    def test_doesnt_save_the_last_version_seen(self, mocker, stage, event, version):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties is False
+        stage.last_version_seen = mocker.MagicMock()
+
+        old_version = stage.last_version_seen
+        stage.handle_pipeline_event(event)
+
+        assert stage.last_version_seen == old_version
+
+    @pytest.mark.it("Sends the event to the previous stage")
+    def test_sends_event_up(self, mocker, stage, event, version):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties is False
+        stage.handle_pipeline_event(event)
+
+        assert stage.send_event_up.call_count == 1
+        assert stage.send_event_up.call_args == mocker.call(event)
+
+
+@pytest.mark.describe(
+    "EnsureDesiredPropertiesStage - OCCURRENCE: GetTwinOperation that was sent down by this stage completes (ensure_desired_properties enabled)"
 )
 class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
     EnsureDesiredPropertiesStageTestConfig
@@ -539,6 +600,72 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         get_twin_op.complete()
 
         assert stage.last_version_seen == new_version
+
+
+@pytest.mark.describe(
+    "EnsureDesiredPropertiesStage - OCCURRENCE: ArbitraryEvent received (ensure_desired_properties enabled)"
+)
+class TestEnsureDesiredPropertiesStageWhenArbitraryEventReceivedWithEnsureDesiredPropertiesEnabled(
+    EnsureDesiredPropertiesStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs, nucleus):
+        stage = cls_type(**init_kwargs)
+        stage.nucleus = nucleus
+        stage.nucleus.pipeline_configuration.ensure_desired_properties = True
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
+        return stage
+
+    @pytest.fixture
+    def version(self, mocker):
+        return mocker.MagicMock()
+
+    @pytest.fixture
+    def event(self, arbitrary_event):
+        return arbitrary_event
+
+    @pytest.mark.it("Sends the event to the previous stage")
+    def test_sends_event_up(self, mocker, stage, event):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties
+        stage.handle_pipeline_event(event)
+
+        assert stage.send_event_up.call_count == 1
+        assert stage.send_event_up.call_args == mocker.call(event)
+
+
+@pytest.mark.describe(
+    "EnsureDesiredPropertiesStage - OCCURRENCE: ArbitraryEvent received (ensure_desired_properties disabled)"
+)
+class TestEnsureDesiredPropertiesStageWhenArbitraryEventReceivedWithEnsureDesiredPropertiesDisabled(
+    EnsureDesiredPropertiesStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs, nucleus):
+        stage = cls_type(**init_kwargs)
+        stage.nucleus = nucleus
+        stage.nucleus.pipeline_configuration.ensure_desired_properties = False
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
+        return stage
+
+    @pytest.fixture
+    def version(self, mocker):
+        return mocker.MagicMock()
+
+    @pytest.fixture
+    def event(self, arbitrary_event):
+        return arbitrary_event
+
+    @pytest.mark.it("Sends the event to the previous stage")
+    def test_sends_event_up(self, mocker, stage, event):
+        assert stage.nucleus.pipeline_configuration.ensure_desired_properties is False
+        stage.handle_pipeline_event(event)
+
+        assert stage.send_event_up.call_count == 1
+        assert stage.send_event_up.call_args == mocker.call(event)
 
 
 ###############################
