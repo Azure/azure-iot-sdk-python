@@ -1198,10 +1198,6 @@ class ConnectionStateStage(PipelineStage):
         """Adds callback to a connection op passing through to do necessary stage upkeep"""
         self_weakref = weakref.ref(self)
 
-        # NOTE: we are currently protected from connect failing due to being already connected
-        # by the AutoCompleteStage. If the AutoCompleteStage changes functionality,
-        # we may need some logic changes to address an op that can fail while leaving us CONNECTED
-
         @pipeline_thread.runs_on_pipeline_thread
         def on_complete(op, error):
             this = self_weakref()
