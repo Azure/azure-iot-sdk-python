@@ -3400,15 +3400,36 @@ class TestConnectionStateStageRunOpWithShutdownPipelineOperation(
     def op(self, mocker):
         return pipeline_ops_base.ShutdownPipelineOperation(callback=mocker.MagicMock())
 
-    @pytest.mark.it("Clears any reconnection timer that may exist")
+    @pytest.mark.it(
+        "Adds the operation to the `waiting_ops` queue and does nothing else if the pipeline connection is in an intermediate state"
+    )
     @pytest.mark.parametrize(
         "state",
         [
             ConnectionState.CONNECTING,
-            ConnectionState.CONNECTED,
             ConnectionState.DISCONNECTING,
-            ConnectionState.DISCONNECTED,
             ConnectionState.REAUTHORIZING,
+        ],
+    )
+    def test_intermediate_state(self, stage, op, state):
+        stage.nucleus.connection_state = state
+        assert stage.waiting_ops.empty()
+
+        stage.run_op(op)
+
+        assert not stage.waiting_ops.empty()
+        assert stage.waiting_ops.qsize() == 1
+        assert stage.waiting_ops.get() is op
+        assert stage.send_op_down.call_count == 0
+
+    @pytest.mark.it(
+        "Clears any reconnection timer that may exist if the pipeline connection is in a stable state"
+    )
+    @pytest.mark.parametrize(
+        "state",
+        [
+            ConnectionState.CONNECTED,
+            ConnectionState.DISCONNECTED,
         ],
     )
     def test_timer_clear(self, mocker, op, stage, state):
@@ -3421,15 +3442,14 @@ class TestConnectionStateStageRunOpWithShutdownPipelineOperation(
         assert timer_mock.cancel.call_count == 1
         assert stage.reconnect_timer is None
 
-    @pytest.mark.it("Cancels any operations in the `waiting_ops` queue")
+    @pytest.mark.it(
+        "Cancels any operations in the `waiting_ops` queue if the pipeline connection is in a stable state"
+    )
     @pytest.mark.parametrize(
         "state",
         [
-            ConnectionState.CONNECTING,
             ConnectionState.CONNECTED,
-            ConnectionState.DISCONNECTING,
             ConnectionState.DISCONNECTED,
-            ConnectionState.REAUTHORIZING,
         ],
     )
     def test_waiting_ops_cancellation(self, mocker, op, stage, state):
@@ -3451,15 +3471,14 @@ class TestConnectionStateStageRunOpWithShutdownPipelineOperation(
         assert waiting_op3.completed
         assert isinstance(waiting_op3.error, pipeline_exceptions.OperationCancelled)
 
-    @pytest.mark.it("Sends the operation down the pipeline without changing the state")
+    @pytest.mark.it(
+        "Sends the operation down the pipeline without changing the state if the pipeline connection is in a stable state"
+    )
     @pytest.mark.parametrize(
         "state",
         [
-            ConnectionState.CONNECTING,
             ConnectionState.CONNECTED,
-            ConnectionState.DISCONNECTING,
             ConnectionState.DISCONNECTED,
-            ConnectionState.REAUTHORIZING,
         ],
     )
     def test_sends_op_down(self, mocker, op, stage, state):
