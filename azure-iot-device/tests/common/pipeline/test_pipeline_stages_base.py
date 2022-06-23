@@ -2750,7 +2750,7 @@ class TestConnectionStateStageRunOpWithConnectOperation(
     def test_op_completes_success(self, stage, op):
         stage.nucleus.connection_state = ConnectionState.DISCONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.CONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.CONNECTING
         op.complete()
 
         # NOTE: This is a very weird test in that this would never happen like this "in the wild"
@@ -2762,7 +2762,7 @@ class TestConnectionStateStageRunOpWithConnectOperation(
         # to show this, we will NOT emulate the state change that occurs from the event. Just
         # remember that in practice, the state would not actually still be the modified state, but
         # instead the desired goal state
-        assert stage.nucleus.connection_state == ConnectionState.CONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.CONNECTING
 
     @pytest.mark.it(
         "Re-runs all of the ops in the `waiting_ops` queue (if any) upon completion of the op after it is sent down"
@@ -2794,7 +2794,7 @@ class TestConnectionStateStageRunOpWithConnectOperation(
     ):
         stage.nucleus.connection_state = ConnectionState.DISCONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.CONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.CONNECTING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
@@ -2882,7 +2882,7 @@ class TestConnectionStateStageRunOpWithDisconnectOperation(
         stage.run_op(op)
 
         assert op.completed
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTED
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTED
         assert stage.send_op_down.call_count == 0
 
     @pytest.mark.it(
@@ -2891,7 +2891,7 @@ class TestConnectionStateStageRunOpWithDisconnectOperation(
     def test_disconnected_state_change(self, mocker, stage, op):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
@@ -2901,11 +2901,11 @@ class TestConnectionStateStageRunOpWithDisconnectOperation(
     def test_op_completes_error(self, stage, op, arbitrary_exception):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTING
 
         op.complete(arbitrary_exception)
 
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTED
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTED
 
     @pytest.mark.it(
         "Does not change the state if the operation sent down the pipeline completes successfully"
@@ -2913,7 +2913,7 @@ class TestConnectionStateStageRunOpWithDisconnectOperation(
     def test_op_completes_success(self, stage, op):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTING
 
         op.complete()
 
@@ -2926,7 +2926,7 @@ class TestConnectionStateStageRunOpWithDisconnectOperation(
         # to show this, we will NOT emulate the state change that occurs from the event. Just
         # remember that in practice, the state would not actually still be the modified state, but
         # instead the desired goal state
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTING
 
     @pytest.mark.it(
         "Re-runs all the waiting ops in the `waiting_ops` queue (if any) upon completion of the op after it is sent down"
@@ -2958,7 +2958,7 @@ class TestConnectionStateStageRunOpWithDisconnectOperation(
     ):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
@@ -3024,7 +3024,7 @@ class TestConnectionStateStageRunOpWithReauthorizeConnectionOperation(
     def test_connected_state_change(self, mocker, stage, op):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.REAUTHORIZING
+        assert stage.nucleus.connection_state is ConnectionState.REAUTHORIZING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
@@ -3034,7 +3034,7 @@ class TestConnectionStateStageRunOpWithReauthorizeConnectionOperation(
     def test_disconnected_state_change(self, mocker, stage, op):
         stage.nucleus.connection_state = ConnectionState.DISCONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.REAUTHORIZING
+        assert stage.nucleus.connection_state is ConnectionState.REAUTHORIZING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
@@ -3065,7 +3065,7 @@ class TestConnectionStateStageRunOpWithReauthorizeConnectionOperation(
 
         op.complete(arbitrary_exception)
 
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTED
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTED
 
     @pytest.mark.it(
         "Does not change the state if the operation sent down the pipeline completes successfully"
@@ -3133,7 +3133,7 @@ class TestConnectionStateStageRunOpWithReauthorizeConnectionOperation(
     ):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.REAUTHORIZING
+        assert stage.nucleus.connection_state is ConnectionState.REAUTHORIZING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
