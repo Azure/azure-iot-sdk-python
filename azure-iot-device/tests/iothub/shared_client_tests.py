@@ -163,6 +163,28 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert config.product_info == product_info
 
     @pytest.mark.it(
+        "Sets the 'ensure_desired_properties' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_ensure_desired_properties_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+
+        client_create_method(*create_method_args, ensure_desired_properties=True)
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_mqtt_pipeline_init.call_count == 1
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+        assert config == mock_http_pipeline_init.call_args[0][0]
+
+        assert config.ensure_desired_properties is True
+
+    @pytest.mark.it(
         "Sets the 'websockets' user option parameter on the PipelineConfig, if provided"
     )
     def test_websockets_option(
@@ -401,6 +423,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert config.auto_connect is True
         assert config.connection_retry is True
         assert config.connection_retry_interval == 10
+        assert config.ensure_desired_properties is True
 
 
 # TODO: consider splitting this test class up into device/module specific test classes to avoid
