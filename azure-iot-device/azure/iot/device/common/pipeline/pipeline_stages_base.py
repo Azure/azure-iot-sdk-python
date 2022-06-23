@@ -1032,11 +1032,11 @@ class ConnectionStateStage(PipelineStage):
             if isinstance(op, pipeline_ops_base.ConnectOperation):
                 if self.nucleus.connection_state is ConnectionState.CONNECTED:
                     logger.debug(
-                        "{}({}): State is already CONNECTED. Sending op down".format(
+                        "{}({}): State is already CONNECTED. Completing operation".format(
                             self.name, op.name
                         )
                     )
-                    self._add_connection_op_callback(op)
+                    op.complete()
                 elif self.nucleus.connection_state is ConnectionState.DISCONNECTED:
                     logger.debug(
                         "{}({}): State changes DISCONNECTED -> CONNECTING. Sending op down".format(
@@ -1045,6 +1045,7 @@ class ConnectionStateStage(PipelineStage):
                     )
                     self.nucleus.connection_state = ConnectionState.CONNECTING
                     self._add_connection_op_callback(op)
+                    self.send_op_down()
                 else:
                     # This should be impossible to reach. If the state were intermediate, it
                     # would have been added to the waiting ops queue above.
@@ -1053,6 +1054,7 @@ class ConnectionStateStage(PipelineStage):
                             self.name, op.name, self.nucleus.connection_state
                         )
                     )
+                    self.send_op_down()
 
             elif isinstance(op, pipeline_ops_base.DisconnectOperation):
                 # First, always clear any reconnect timer. Because a manual disconnection is
@@ -1067,13 +1069,14 @@ class ConnectionStateStage(PipelineStage):
                     )
                     self.nucleus.connection_state = ConnectionState.DISCONNECTING
                     self._add_connection_op_callback(op)
+                    self.send_op_down()
                 elif self.nucleus.connection_state is ConnectionState.DISCONNECTED:
                     logger.debug(
-                        "{}({}): State is already DISCONNECTED. Sending op down".format(
+                        "{}({}): State is already DISCONNECTED. Completing operation".format(
                             self.name, op.name
                         )
                     )
-                    self._add_connection_op_callback(op)
+                    op.complete()
                 else:
                     # This should be impossible to reach. If the state were intermediate, it
                     # would have been added to the waiting ops queue above.
@@ -1082,6 +1085,7 @@ class ConnectionStateStage(PipelineStage):
                             self.name, op.name, self.nucleus.connection_state
                         )
                     )
+                    self.send_op_down()
 
             elif isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation):
                 if self.nucleus.connection_state is ConnectionState.CONNECTED:
@@ -1092,6 +1096,7 @@ class ConnectionStateStage(PipelineStage):
                     )
                     self.nucleus.connection_state = ConnectionState.REAUTHORIZING
                     self._add_connection_op_callback(op)
+                    self.send_op_down()
                 elif self.nucleus.connection_state is ConnectionState.DISCONNECTED:
                     logger.debug(
                         "{}({}): State changes DISCONNECTED -> REAUTHORIZING. Sending op down".format(
@@ -1100,6 +1105,7 @@ class ConnectionStateStage(PipelineStage):
                     )
                     self.nucleus.connection_state = ConnectionState.REAUTHORIZING
                     self._add_connection_op_callback(op)
+                    self.send_op_down()
                 else:
                     # This should be impossible to reach. If the state were intermediate, it
                     # would have been added to the waiting ops queue above.
@@ -1118,9 +1124,10 @@ class ConnectionStateStage(PipelineStage):
                         "Operation waiting in ConnectionStateStage cancelled by shutdown"
                     )
                     waiting_op.complete(error=cancel_error)
+                self.send_op_down()
 
-            # In all cases the op gets sent down
-            self.send_op_down(op)
+            else:
+                self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
