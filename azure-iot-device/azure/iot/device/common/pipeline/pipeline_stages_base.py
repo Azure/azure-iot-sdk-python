@@ -615,55 +615,6 @@ class AutoConnectStage(PipelineStage):
         self.send_op_down(pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete))
 
 
-class AutoCompleteStage(PipelineStage):
-    """
-    Automatically complete connection operations that are attempting to get us to a state
-    we are already in. This is necessary because letting these operations get to the transport
-    runs the risk of them hanging, so we stop them here before they can get down there.
-    """
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
-
-        if (
-            isinstance(op, pipeline_ops_base.ConnectOperation)
-            and self.nucleus.connection_state is ConnectionState.CONNECTED
-        ):
-            logger.debug(
-                "{}({}): Pipeline is already connected. Completing.".format(self.name, op.name)
-            )
-            op.complete()
-
-        elif (
-            isinstance(op, pipeline_ops_base.DisconnectOperation)
-            and self.nucleus.connection_state is ConnectionState.DISCONNECTED
-        ):
-            logger.debug(
-                "{}({}): Pipeline is already disconnected. Completing.".format(self.name, op.name)
-            )
-            op.complete()
-
-        elif self.nucleus.connection_state in [
-            ConnectionState.CONNECTING,
-            ConnectionState.DISCONNECTING,
-            ConnectionState.REAUTHORIZING,
-        ]:
-            # NOTE: This should NEVER happen. This is because of the ConnectionStateStage blocking
-            # ops from being sent down until a stable state is reached. The fact that this stage
-            # makes that assumption probably is evidence this functionality should be completely
-            # collapsed into the ConnectionStateStage at some point.
-            # This conditional block essentially just exists here for safety and logging.
-            logger.warning(
-                "{}({}): Pipeline in unexpected state: {}".format(
-                    self.name, op.name, self.nucleus.connection_state
-                )
-            )
-            self.send_op_down(op)
-
-        else:
-            self.send_op_down(op)
-
-
 class CoordinateRequestAndResponseStage(PipelineStage):
     """
     Pipeline stage which is responsible for coordinating RequestAndResponseOperation operations.  For each
