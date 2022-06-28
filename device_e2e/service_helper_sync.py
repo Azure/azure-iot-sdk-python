@@ -237,7 +237,7 @@ class ServiceHelperSync(object):
 
     def _eventhub_thread(self):
         def on_error(partition_context, error):
-            logger.error("EventHub on_error: {}".format(str(error) or type(error)))
+            logger.warning("EventHub on_error: {}".format(str(error) or type(error)))
 
         def on_partition_initialize(partition_context):
             logger.warning("EventHub on_partition_initialize")
@@ -278,7 +278,7 @@ class ServiceHelperSync(object):
                         else:
                             self._store_patch_arrival(converted_event)
             except Exception:
-                logger.error("Error on on_event_batch", exc_info=True)
+                logger.warning("Error on on_event_batch", exc_info=True)
                 raise
 
         try:
@@ -292,5 +292,5 @@ class ServiceHelperSync(object):
                     on_partition_close=on_partition_close,
                 )
         except Exception:
-            logger.error("_eventhub_thread exception", exc_info=True)
+            logger.debug("_eventhub_thread exception", exc_info=True)
             raise

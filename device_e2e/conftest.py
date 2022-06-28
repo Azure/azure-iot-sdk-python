@@ -218,9 +218,9 @@ def pytest_runtest_setup(item):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_exception_interact(node, call, report):
     e = call.excinfo.value
-    logger.error("------------------------------------------------------")
-    logger.error("EXCEPTION RAISED in {} phase: {}".format(report.when, str(e) or type(e)))
-    logger.error("------------------------------------------------------")
+    logger.warning("------------------------------------------------------")
+    logger.warning("EXCEPTION RAISED in {} phase: {}".format(report.when, str(e) or type(e)))
+    logger.warning("------------------------------------------------------")
 
     if hasattr(node, "outer_leak_tracker"):
         logger.info("Skipping leak tracking because of Exception {}".format(str(e) or type(e)))

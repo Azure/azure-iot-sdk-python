@@ -149,16 +149,16 @@ class PipelineStage(abc.ABC):
         except Exception as e:
             # Do not use exc_info parameter on logger.* calls. This causes pytest to save the
             # traceback which saves stack frames which shows up as a leak
-            logger.error(
+            logger.warning(
                 msg="{}: Unexpected error in ._handle_pipeline_event() call: {}".format(self, e)
             )
             if self.previous:
-                logger.error("{}: Raising background exception")
+                logger.warning("{}: Raising background exception")
                 self.report_background_exception(e)
             else:
                 # Nothing else we can do but log this. There exists no stage we can send the
                 # exception to, and raising would send the error back down the pipeline.
-                logger.error(
+                logger.warning(
                     "{}: Cannot report a background exception because there is no previous stage!"
                 )
 
@@ -187,7 +187,7 @@ class PipelineStage(abc.ABC):
             self.next.run_op(op)
         else:
             # This shouldn't happen if the pipeline was created correctly
-            logger.error(
+            logger.warning(
                 "{}({}): no next stage.cannot send op down. completing with error".format(
                     self.name, op.name
                 )
@@ -344,7 +344,7 @@ class PipelineRootStage(PipelineStage):
                 )
             else:
                 # unexpected condition: we should be handling all pipeline events
-                logger.error("incoming {} event with no handler.  dropping.".format(event.name))
+                logger.debug("incoming {} event with no handler.  dropping.".format(event.name))
 
 
 # NOTE: This stage could be a candidate for being refactored into some kind of other

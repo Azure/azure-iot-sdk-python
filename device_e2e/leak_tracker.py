@@ -275,7 +275,7 @@ class LeakTracker(object):
         """
 
         logger.info("-----------------------------------------------")
-        logger.error("Test failure.  {} objects have leaked:".format(len(leaked_objects)))
+        logger.warning("Test failure.  {} objects have leaked:".format(len(leaked_objects)))
         logger.info("(Default text format is <type(obj): str(obj)>")
 
         id_to_name_map = {}
