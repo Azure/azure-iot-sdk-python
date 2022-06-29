@@ -1525,546 +1525,6 @@ class TestAutoConnectStageRunOpWithAutoConnectDisabled(
         assert stage.send_op_down.call_args == mocker.call(op)
 
 
-#########################
-# CONNECTION LOCK STAGE #
-#########################
-
-# This is a list of operations which can trigger a block on the ConnectionLockStage
-connection_ops = [
-    pipeline_ops_base.ConnectOperation,
-    pipeline_ops_base.DisconnectOperation,
-    pipeline_ops_base.ReauthorizeConnectionOperation,
-]
-
-
-class ConnectionLockStageTestConfig(object):
-    @pytest.fixture
-    def cls_type(self):
-        return pipeline_stages_base.ConnectionLockStage
-
-    @pytest.fixture
-    def init_kwargs(self, mocker):
-        return {}
-
-    @pytest.fixture
-    def stage(self, mocker, cls_type, nucleus, init_kwargs):
-        stage = cls_type(**init_kwargs)
-        stage.nucleus = nucleus
-        stage.send_op_down = mocker.MagicMock()
-        stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "report_background_exception")
-        return stage
-
-
-class ConnectionLockStageInstantiationTests(ConnectionLockStageTestConfig):
-    @pytest.mark.it("Initializes 'queue' as an empty Queue object")
-    def test_queue(self, init_kwargs):
-        stage = pipeline_stages_base.ConnectionLockStage(**init_kwargs)
-        assert isinstance(stage.queue, queue.Queue)
-        assert stage.queue.empty()
-
-    @pytest.mark.it("Initializes 'blocked' as False")
-    def test_blocked(self, init_kwargs):
-        stage = pipeline_stages_base.ConnectionLockStage(**init_kwargs)
-        assert not stage.blocked
-
-
-pipeline_stage_test.add_base_pipeline_stage_tests(
-    test_module=this_module,
-    stage_class_under_test=pipeline_stages_base.ConnectionLockStage,
-    stage_test_config_class=ConnectionLockStageTestConfig,
-    extended_stage_instantiation_test_class=ConnectionLockStageInstantiationTests,
-)
-
-
-@pytest.mark.describe(
-    "ConnectionLockStage - .run_op() -- Called with a ConnectOperation while not in a blocking state"
-)
-class TestConnectionLockStageRunOpWithConnectOpWhileUnblocked(
-    ConnectionLockStageTestConfig, StageRunOpTestBase
-):
-    @pytest.fixture
-    def op(self, mocker):
-        return pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
-
-    @pytest.mark.it("Completes the operation immediately if the pipeline is already connected")
-    def test_already_connected(self, mocker, stage, op, pipeline_connected_mock):
-        pipeline_connected_mock.return_value = True
-        assert stage.nucleus.connected
-
-        # Run the operation
-        stage.run_op(op)
-
-        # Operation is completed
-        assert op.completed
-        assert op.error is None
-
-        # Stage is still not blocked
-        assert not stage.blocked
-
-    @pytest.mark.it(
-        "Puts the stage in a blocking state and sends the operation down the pipeline, if the pipeline is not currently connected"
-    )
-    def test_not_connected(self, mocker, stage, op, pipeline_connected_mock):
-        pipeline_connected_mock.return_value = False
-        assert not stage.nucleus.connected
-
-        # Stage is not blocked
-        assert not stage.blocked
-
-        # Run the operation
-        stage.run_op(op)
-
-        # Stage is now blocked
-        assert stage.blocked
-
-        # Operation was passed down
-        assert stage.send_op_down.call_count == 1
-        assert stage.send_op_down.call_args == mocker.call(op)
-
-        # Operation is not yet completed
-        assert not op.completed
-
-
-@pytest.mark.describe(
-    "ConnectionLockStage - .run_op() -- Called with a DisconnectOperation while not in a blocking state"
-)
-class TestConnectionLockStageRunOpWithDisconnectOpWhileUnblocked(
-    ConnectionLockStageTestConfig, StageRunOpTestBase
-):
-    @pytest.fixture
-    def op(self, mocker):
-        return pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
-
-    @pytest.mark.it("Completes the operation immediately if the pipeline is already disconnected")
-    def test_already_disconnected(self, stage, op):
-        stage.nucleus.connection_state = ConnectionState.DISCONNECTED
-        assert not stage.nucleus.connected
-
-        # Run the operation
-        stage.run_op(op)
-
-        # Operation is completed
-        assert op.completed
-        assert op.error is None
-
-        # Stage is still not blocked
-        assert not stage.blocked
-
-    @pytest.mark.it(
-        "Puts the stage in a blocking state and sends the operation down the pipeline, if the pipeline is currently connected"
-    )
-    def test_connected(self, mocker, stage, op):
-        stage.nucleus.connection_state = ConnectionState.CONNECTED
-        assert stage.nucleus.connected
-
-        # Stage is not blocked
-        assert not stage.blocked
-
-        # Run the operation
-        stage.run_op(op)
-
-        # Stage is now blocked
-        assert stage.blocked
-
-        # Operation was passed down
-        assert stage.send_op_down.call_count == 1
-        assert stage.send_op_down.call_args == mocker.call(op)
-
-        # Operation is not yet completed
-        assert not op.completed
-
-
-@pytest.mark.describe(
-    "ConnectionLockStage - .run_op() -- Called with a ReauthorizeConnectionOperation while not in a blocking state"
-)
-class TestConnectionLockStageRunOpWithReconnectOpWhileUnblocked(
-    ConnectionLockStageTestConfig, StageRunOpTestBase
-):
-    @pytest.fixture
-    def op(self, mocker):
-        return pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
-
-    @pytest.mark.it("Puts the stage in a blocking state and sends the operation down the pipeline")
-    @pytest.mark.parametrize(
-        "connected",
-        [
-            pytest.param(True, id="Pipeline Connected"),
-            pytest.param(False, id="Pipeline Disconnected"),
-        ],
-    )
-    def test_not_connected(self, mocker, connected, stage, op, pipeline_connected_mock):
-        pipeline_connected_mock.return_value = connected
-        assert stage.nucleus.connected is connected
-
-        # Stage is not blocked
-        assert not stage.blocked
-
-        # Run the operation
-        stage.run_op(op)
-
-        # Stage is now blocked
-        assert stage.blocked
-
-        # Operation was passed down
-        assert stage.send_op_down.call_count == 1
-        assert stage.send_op_down.call_args == mocker.call(op)
-
-        # Operation is not yet completed
-        assert not op.completed
-
-
-@pytest.mark.describe(
-    "ConnectionLockStage - .run_op() -- Called with an arbitrary other operation while not in a blocking state"
-)
-class TestConnectionLockStageRunOpWithArbitraryOpWhileUnblocked(
-    ConnectionLockStageTestConfig, StageRunOpTestBase
-):
-    @pytest.fixture
-    def op(self, arbitrary_op):
-        return arbitrary_op
-
-    @pytest.mark.it("Sends the operation down the pipeline")
-    @pytest.mark.parametrize(
-        "connected",
-        [
-            pytest.param(True, id="Pipeline Connected"),
-            pytest.param(False, id="Pipeline Disconnected"),
-        ],
-    )
-    def test_sends_down(self, mocker, connected, stage, op, pipeline_connected_mock):
-        pipeline_connected_mock.return_value = connected
-        assert stage.nucleus.connected is connected
-
-        stage.run_op(op)
-
-        assert stage.send_op_down.call_count == 1
-        assert stage.send_op_down.call_args == mocker.call(op)
-
-
-@pytest.mark.describe("ConnectionLockStage - .run_op() -- Called while in a blocking state")
-class TestConnectionLockStageRunOpWhileBlocked(ConnectionLockStageTestConfig, StageRunOpTestBase):
-    @pytest.fixture
-    def blocking_op(self, mocker):
-        return pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
-
-    @pytest.fixture
-    def stage(self, mocker, nucleus, init_kwargs, blocking_op, pipeline_connected_mock):
-        stage = pipeline_stages_base.ConnectionLockStage(**init_kwargs)
-        stage.nucleus = nucleus
-        stage.send_op_down = mocker.MagicMock()
-        stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "report_background_exception")
-        mocker.spy(stage, "run_op")
-        assert not stage.blocked
-        # Set Pipeline to not connected so that operation will block
-        pipeline_connected_mock.return_value = False
-        assert not stage.nucleus.connected
-
-        # Block the stage by running a blocking operation
-        stage.run_op(blocking_op)
-        assert stage.blocked
-
-        # Reset the mock for ease of testing
-        stage.send_op_down.reset_mock()
-        stage.send_event_up.reset_mock()
-        stage.report_background_exception.reset_mock()
-        stage.run_op.reset_mock()
-        return stage
-
-    @pytest.fixture(params=(connection_ops + [ArbitraryOperation]))
-    def op(self, mocker, request):
-        conn_op_class = request.param
-        op = conn_op_class(callback=mocker.MagicMock())
-        return op
-
-    @pytest.mark.it(
-        "Adds the operation to the queue, pending the completion of the operation on which the stage is blocked"
-    )
-    def test_adds_to_queue(self, mocker, stage, op):
-        assert stage.queue.empty()
-        stage.run_op(op)
-
-        # Operation is in queue
-        assert not stage.queue.empty()
-        assert stage.queue.qsize() == 1
-        assert stage.queue.get(block=False) is op
-
-        # Operation was not passed down
-        assert stage.send_op_down.call_count == 0
-
-        # Operation has not been completed
-        assert not op.completed
-
-    @pytest.mark.it(
-        "Adds the operation to the queue, even if the operation's desired pipeline connection state already has been reached"
-    )
-    @pytest.mark.parametrize(
-        "op",
-        [pipeline_ops_base.ConnectOperation, pipeline_ops_base.DisconnectOperation],
-        indirect=True,
-    )
-    def test_blocks_ops_ready_for_completion(self, mocker, stage, op, pipeline_connected_mock):
-        # Set the pipeline connection state to be the one desired by the operation.
-        # If the stage were unblocked, this would lead to immediate completion of the op.
-        if isinstance(op, pipeline_ops_base.ConnectOperation):
-            pipeline_connected_mock.return_value = True
-            assert stage.nucleus.connected
-        else:
-            pipeline_connected_mock.return_value = False
-            assert not stage.nucleus.connected
-
-        assert stage.queue.empty()
-
-        stage.run_op(op)
-
-        assert not op.completed
-        assert stage.queue.qsize() == 1
-        assert stage.send_op_down.call_count == 0
-
-    @pytest.mark.it(
-        "Can support multiple pending operations if called multiple times during the blocking state"
-    )
-    def test_multiple_ops_added_to_queue(self, mocker, stage):
-        assert stage.queue.empty()
-
-        op1 = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
-        op2 = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
-        op3 = pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
-        op4 = ArbitraryOperation(callback=mocker.MagicMock())
-
-        stage.run_op(op1)
-        stage.run_op(op2)
-        stage.run_op(op3)
-        stage.run_op(op4)
-
-        # Operations have all been added to the queue
-        assert not stage.queue.empty()
-        assert stage.queue.qsize() == 4
-
-        # No Operations were passed down
-        assert stage.send_op_down.call_count == 0
-
-        # No Operations have been completed
-        assert not op1.completed
-        assert not op2.completed
-        assert not op3.completed
-        assert not op4.completed
-
-
-class ConnectionLockStageBlockingOpCompletedTestConfig(ConnectionLockStageTestConfig):
-    @pytest.fixture(params=connection_ops)
-    def blocking_op(self, mocker, request):
-        op_cls = request.param
-        return op_cls(callback=mocker.MagicMock())
-
-    @pytest.fixture
-    def pending_ops(self, mocker):
-        op1 = ArbitraryOperation(callback=mocker.MagicMock())
-        op2 = ArbitraryOperation(callback=mocker.MagicMock())
-        op3 = ArbitraryOperation(callback=mocker.MagicMock())
-        pending_ops = [op1, op2, op3]
-        return pending_ops
-
-    @pytest.fixture
-    def blocked_stage(
-        self, mocker, init_kwargs, nucleus, blocking_op, pending_ops, pipeline_connected_mock
-    ):
-        stage = pipeline_stages_base.ConnectionLockStage(**init_kwargs)
-        stage.nucleus = nucleus
-        stage.send_op_down = mocker.MagicMock()
-        stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "report_background_exception")
-        mocker.spy(stage, "run_op")
-        assert not stage.blocked
-
-        # Set the pipeline connection state to ensure op will block
-        if isinstance(blocking_op, pipeline_ops_base.ConnectOperation):
-            pipeline_connected_mock.return_value = False
-            assert not stage.nucleus.connected
-        else:
-            # NOTE: have to use direct state here because of how the stage works
-            stage.nucleus.connection_state = ConnectionState.CONNECTED
-            assert stage.nucleus.connected
-
-        # Block the stage by running the blocking operation
-        stage.run_op(blocking_op)
-        assert stage.blocked
-
-        # Add pending operations
-        for op in pending_ops:
-            stage.run_op(op)
-
-        # All pending ops should be queued
-        assert stage.queue.qsize() == len(pending_ops)
-
-        # Reset the mock for ease of testing
-        stage.send_op_down.reset_mock()
-        stage.run_op.reset_mock()
-        return stage
-
-
-@pytest.mark.describe(
-    "ConnectionLockStage - OCCURRENCE: Operation blocking ConnectionLockStage is completed successfully"
-)
-class TestConnectionLockStageBlockingOpCompletedNoError(
-    ConnectionLockStageBlockingOpCompletedTestConfig
-):
-    @pytest.mark.it("Re-runs the pending operations in FIFO order")
-    def test_blocking_op_completes_successfully(
-        self, mocker, blocked_stage, pending_ops, blocking_op
-    ):
-        stage = blocked_stage
-        # .run_op() has not yet been called
-        assert stage.run_op.call_count == 0
-
-        # Pending ops are queued in the stage
-        assert stage.queue.qsize() == len(pending_ops)
-
-        # Complete blocking op successfully
-        blocking_op.complete()
-
-        # .run_op() was called for every pending operation, in FIFO order
-        assert stage.run_op.call_count == len(pending_ops)
-        assert stage.run_op.call_args_list == [mocker.call(op) for op in pending_ops]
-
-        # Note that this is only true because we are using arbitrary ops. Depending on what occurs during
-        # the .run_op() calls, this could end up having items, but that case is covered by a different test
-        assert stage.queue.qsize() == 0
-
-    @pytest.mark.it("Unblocks the ConnectionLockStage prior to re-running any pending operations")
-    def test_unblocks_before_rerun(self, mocker, blocked_stage, blocking_op, pending_ops):
-        stage = blocked_stage
-        assert stage.blocked
-
-        def run_op_override(op):
-            # Because the .run_op() invocation is called during operation completion,
-            # any exceptions, including AssertionErrors will go to the background exception handler
-
-            # Verify that the stage is not blocked during the call to .run_op()
-            assert not stage.blocked
-
-        stage.run_op = mocker.MagicMock(side_effect=run_op_override)
-
-        blocking_op.complete()
-
-        # Stage is still unblocked by the end of the blocking op completion
-        assert not stage.blocked
-
-        # Verify that the mock .run_op() was indeed called
-        assert stage.run_op.call_count == len(pending_ops)
-
-    @pytest.mark.it(
-        "Re-queues subsequent operations, retaining their original order, if one of the re-run operations returns the ConnectionLockStage to a blocking state"
-    )
-    def test_unblocked_op_changes_block_state(self, mocker, stage, pipeline_connected_mock):
-        op1 = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
-        op2 = ArbitraryOperation(callback=mocker.MagicMock())
-        op3 = pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
-        op4 = ArbitraryOperation(callback=mocker.MagicMock())
-        op5 = ArbitraryOperation(callback=mocker.MagicMock())
-
-        # Block the stage on op1
-        pipeline_connected_mock.return_value = False
-        assert not stage.nucleus.connected
-        assert not stage.blocked
-        stage.run_op(op1)
-        assert stage.blocked
-        assert stage.queue.qsize() == 0
-
-        # Run the rest of the ops, which will be added to the queue
-        stage.run_op(op2)
-        stage.run_op(op3)
-        stage.run_op(op4)
-        stage.run_op(op5)
-
-        # op1 is the only op that has been passed down so far
-        assert stage.send_op_down.call_count == 1
-        assert stage.send_op_down.call_args == mocker.call(op1)
-        assert stage.queue.qsize() == 4
-
-        # Complete op1
-        op1.complete()
-
-        # Manually set pipeline to be connected (this doesn't happen naturally due to the scope of this test)
-        pipeline_connected_mock.return_value = True
-        assert stage.nucleus.connected
-
-        # op2 and op3 have now been passed down, but no others
-        assert stage.send_op_down.call_count == 3
-        assert stage.send_op_down.call_args_list[1] == mocker.call(op2)
-        assert stage.send_op_down.call_args_list[2] == mocker.call(op3)
-        assert stage.queue.qsize() == 2
-
-        # Complete op3
-        op3.complete()
-
-        # op4 and op5 are now also passed down
-        assert stage.send_op_down.call_count == 5
-        assert stage.send_op_down.call_args_list[3] == mocker.call(op4)
-        assert stage.send_op_down.call_args_list[4] == mocker.call(op5)
-        assert stage.queue.qsize() == 0
-
-
-@pytest.mark.describe(
-    "ConnectionLockStage - OCCURRENCE: Operation blocking ConnectionLockStage is completed with error"
-)
-class TestConnectionLockStageBlockingOpCompletedWithError(
-    ConnectionLockStageBlockingOpCompletedTestConfig
-):
-    # CT-TODO: Show that completion occurs in FIFO order
-    @pytest.mark.it("Completes all pending operations with the error from the blocking operation")
-    def test_blocking_op_completes_with_error(
-        self, blocked_stage, pending_ops, blocking_op, arbitrary_exception
-    ):
-        stage = blocked_stage
-
-        # Pending ops are not yet completed
-        for op in pending_ops:
-            assert not op.completed
-
-        # Pending ops are queued in the stage
-        assert stage.queue.qsize() == len(pending_ops)
-
-        # Complete blocking op with error
-        blocking_op.complete(error=arbitrary_exception)
-
-        # Pending ops are now completed with error from blocking op
-        for op in pending_ops:
-            assert op.completed
-            assert op.error is arbitrary_exception
-
-        # No more pending ops in stage queue
-        assert stage.queue.empty()
-
-    @pytest.mark.it("Unblocks the ConnectionLockStage prior to completing any pending operations")
-    def test_unblocks_before_complete(
-        self, mocker, blocked_stage, pending_ops, blocking_op, arbitrary_exception
-    ):
-        stage = blocked_stage
-        assert stage.blocked
-
-        def complete_override(error=None):
-            # Because this call to .complete() is called during another op's completion,
-            # any exceptions, including AssertionErrors will go to the background exception handler
-
-            # Verify that the stage is not blocked during the call to .complete()
-            assert not stage.blocked
-
-        for op in pending_ops:
-            op.complete = mocker.MagicMock(side_effect=complete_override)
-
-        # Complete the blocking op with error
-        blocking_op.complete(error=arbitrary_exception)
-
-        # Stage is still unblocked at the end of the blocking op completion
-        assert not stage.blocked
-
-        # Verify that the mock completion was called for the pending ops
-        for op in pending_ops:
-            assert op.complete.call_count == 1
-
-
 #########################################
 # COORDINATE REQUEST AND RESPONSE STAGE #
 #########################################
@@ -3250,14 +2710,17 @@ class TestConnectionStateStageRunOpWithConnectOperation(
         assert stage.send_op_down.call_count == 0
 
     @pytest.mark.it(
-        "Sends the operation down the pipeline without changing the state if the pipeline is already in a CONNECTED state"
+        "Completes the operation without changing the state if the pipeline is already in a CONNECTED state"
     )
-    def test_connected_state_change(self, mocker, stage, op):
+    def test_connected_state_change(self, stage, op):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
+        assert not op.completed
+
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.CONNECTED
-        assert stage.send_op_down.call_count == 1
-        assert stage.send_op_down.call_args == mocker.call(op)
+
+        assert op.completed
+        assert stage.nucleus.connection_state is ConnectionState.CONNECTED
+        assert stage.send_op_down.call_count == 0
 
     @pytest.mark.it(
         "Changes the state to CONNECTING and sends the operation down the pipeline if the pipeline is in a DISCONNECTED state"
@@ -3265,58 +2728,29 @@ class TestConnectionStateStageRunOpWithConnectOperation(
     def test_disconnected_state_change(self, mocker, stage, op):
         stage.nucleus.connection_state = ConnectionState.DISCONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.CONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.CONNECTING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
     @pytest.mark.it(
         "Sets the state to DISCONNECTED if the operation sent down the pipeline completes with error"
     )
-    @pytest.mark.parametrize(
-        "original_state, modified_state",
-        [
-            pytest.param(
-                ConnectionState.CONNECTED, ConnectionState.CONNECTED, id="CONNECTED->CONNECTED"
-            ),
-            pytest.param(
-                ConnectionState.DISCONNECTED,
-                ConnectionState.CONNECTING,
-                id="DISCONNECTED->CONNECTING",
-            ),
-        ],
-    )
-    def test_op_completes_error(
-        self, stage, op, original_state, modified_state, arbitrary_exception
-    ):
-        stage.nucleus.connection_state = original_state
+    def test_op_completes_error(self, stage, op, arbitrary_exception):
+        stage.nucleus.connection_state = ConnectionState.DISCONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == modified_state
+        assert stage.nucleus.connection_state is ConnectionState.CONNECTING
 
         op.complete(arbitrary_exception)
 
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTED
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTED
 
     @pytest.mark.it(
         "Does not change the state if the operation sent down the pipeline completes successfully"
     )
-    @pytest.mark.parametrize(
-        "original_state, modified_state",
-        [
-            pytest.param(
-                ConnectionState.CONNECTED, ConnectionState.CONNECTED, id="CONNECTED->CONNECTED"
-            ),
-            pytest.param(
-                ConnectionState.DISCONNECTED,
-                ConnectionState.CONNECTING,
-                id="DISCONNECTED->CONNECTING",
-            ),
-        ],
-    )
-    def test_op_completes_success(self, stage, op, original_state, modified_state):
-        stage.nucleus.connection_state = original_state
+    def test_op_completes_success(self, stage, op):
+        stage.nucleus.connection_state = ConnectionState.DISCONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == modified_state
-
+        assert stage.nucleus.connection_state is ConnectionState.CONNECTING
         op.complete()
 
         # NOTE: This is a very weird test in that this would never happen like this "in the wild"
@@ -3328,7 +2762,7 @@ class TestConnectionStateStageRunOpWithConnectOperation(
         # to show this, we will NOT emulate the state change that occurs from the event. Just
         # remember that in practice, the state would not actually still be the modified state, but
         # instead the desired goal state
-        assert stage.nucleus.connection_state == modified_state
+        assert stage.nucleus.connection_state is ConnectionState.CONNECTING
 
     @pytest.mark.it(
         "Re-runs all of the ops in the `waiting_ops` queue (if any) upon completion of the op after it is sent down"
@@ -3360,7 +2794,7 @@ class TestConnectionStateStageRunOpWithConnectOperation(
     ):
         stage.nucleus.connection_state = ConnectionState.DISCONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.CONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.CONNECTING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
@@ -3439,14 +2873,17 @@ class TestConnectionStateStageRunOpWithDisconnectOperation(
         assert timer_mock.cancel.call_count == 1
 
     @pytest.mark.it(
-        "Sends the operation down the pipeline without changing the state if the pipeline is already in a DISCONNECTED state"
+        "Completes the operation without changing the state if the pipeline is already in a DISCONNECTED state"
     )
-    def test_connected_state_change(self, mocker, stage, op):
+    def test_connected_state_change(self, stage, op):
+        assert not op.completed
         stage.nucleus.connection_state = ConnectionState.DISCONNECTED
+
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTED
-        assert stage.send_op_down.call_count == 1
-        assert stage.send_op_down.call_args == mocker.call(op)
+
+        assert op.completed
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTED
+        assert stage.send_op_down.call_count == 0
 
     @pytest.mark.it(
         "Changes the state to DISCONNECTING and sends the operation down the pipeline if the pipeline is in a CONNECTED state"
@@ -3454,61 +2891,29 @@ class TestConnectionStateStageRunOpWithDisconnectOperation(
     def test_disconnected_state_change(self, mocker, stage, op):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
     @pytest.mark.it(
         "Sets the state to DISCONNECTED if the operation sent down the pipeline completes with error"
     )
-    @pytest.mark.parametrize(
-        "original_state, modified_state",
-        [
-            pytest.param(
-                ConnectionState.DISCONNECTED,
-                ConnectionState.DISCONNECTED,
-                id="DISCONNECTED->DISCONNECTED",
-            ),
-            pytest.param(
-                ConnectionState.CONNECTED,
-                ConnectionState.DISCONNECTING,
-                id="CONNECTED->DISCONNECTING",
-            ),
-        ],
-    )
-    def test_op_completes_error(
-        self, stage, op, original_state, modified_state, arbitrary_exception
-    ):
-        stage.nucleus.connection_state = original_state
+    def test_op_completes_error(self, stage, op, arbitrary_exception):
+        stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == modified_state
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTING
 
         op.complete(arbitrary_exception)
 
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTED
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTED
 
     @pytest.mark.it(
         "Does not change the state if the operation sent down the pipeline completes successfully"
     )
-    @pytest.mark.parametrize(
-        "original_state, modified_state",
-        [
-            pytest.param(
-                ConnectionState.DISCONNECTED,
-                ConnectionState.DISCONNECTED,
-                id="DISCONNECTED->DISCONNECTED",
-            ),
-            pytest.param(
-                ConnectionState.CONNECTED,
-                ConnectionState.DISCONNECTING,
-                id="CONNECTED->DISCONNECTING",
-            ),
-        ],
-    )
-    def test_op_completes_success(self, stage, op, original_state, modified_state):
-        stage.nucleus.connection_state = original_state
+    def test_op_completes_success(self, stage, op):
+        stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == modified_state
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTING
 
         op.complete()
 
@@ -3521,7 +2926,7 @@ class TestConnectionStateStageRunOpWithDisconnectOperation(
         # to show this, we will NOT emulate the state change that occurs from the event. Just
         # remember that in practice, the state would not actually still be the modified state, but
         # instead the desired goal state
-        assert stage.nucleus.connection_state == modified_state
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTING
 
     @pytest.mark.it(
         "Re-runs all the waiting ops in the `waiting_ops` queue (if any) upon completion of the op after it is sent down"
@@ -3553,7 +2958,7 @@ class TestConnectionStateStageRunOpWithDisconnectOperation(
     ):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTING
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
@@ -3619,7 +3024,7 @@ class TestConnectionStateStageRunOpWithReauthorizeConnectionOperation(
     def test_connected_state_change(self, mocker, stage, op):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.REAUTHORIZING
+        assert stage.nucleus.connection_state is ConnectionState.REAUTHORIZING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
@@ -3629,7 +3034,7 @@ class TestConnectionStateStageRunOpWithReauthorizeConnectionOperation(
     def test_disconnected_state_change(self, mocker, stage, op):
         stage.nucleus.connection_state = ConnectionState.DISCONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.REAUTHORIZING
+        assert stage.nucleus.connection_state is ConnectionState.REAUTHORIZING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
@@ -3660,7 +3065,7 @@ class TestConnectionStateStageRunOpWithReauthorizeConnectionOperation(
 
         op.complete(arbitrary_exception)
 
-        assert stage.nucleus.connection_state == ConnectionState.DISCONNECTED
+        assert stage.nucleus.connection_state is ConnectionState.DISCONNECTED
 
     @pytest.mark.it(
         "Does not change the state if the operation sent down the pipeline completes successfully"
@@ -3728,7 +3133,7 @@ class TestConnectionStateStageRunOpWithReauthorizeConnectionOperation(
     ):
         stage.nucleus.connection_state = ConnectionState.CONNECTED
         stage.run_op(op)
-        assert stage.nucleus.connection_state == ConnectionState.REAUTHORIZING
+        assert stage.nucleus.connection_state is ConnectionState.REAUTHORIZING
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
@@ -3764,15 +3169,36 @@ class TestConnectionStateStageRunOpWithShutdownPipelineOperation(
     def op(self, mocker):
         return pipeline_ops_base.ShutdownPipelineOperation(callback=mocker.MagicMock())
 
-    @pytest.mark.it("Clears any reconnection timer that may exist")
+    @pytest.mark.it(
+        "Adds the operation to the `waiting_ops` queue and does nothing else if the pipeline connection is in an intermediate state"
+    )
     @pytest.mark.parametrize(
         "state",
         [
             ConnectionState.CONNECTING,
-            ConnectionState.CONNECTED,
             ConnectionState.DISCONNECTING,
-            ConnectionState.DISCONNECTED,
             ConnectionState.REAUTHORIZING,
+        ],
+    )
+    def test_intermediate_state(self, stage, op, state):
+        stage.nucleus.connection_state = state
+        assert stage.waiting_ops.empty()
+
+        stage.run_op(op)
+
+        assert not stage.waiting_ops.empty()
+        assert stage.waiting_ops.qsize() == 1
+        assert stage.waiting_ops.get() is op
+        assert stage.send_op_down.call_count == 0
+
+    @pytest.mark.it(
+        "Clears any reconnection timer that may exist if the pipeline connection is in a stable state"
+    )
+    @pytest.mark.parametrize(
+        "state",
+        [
+            ConnectionState.CONNECTED,
+            ConnectionState.DISCONNECTED,
         ],
     )
     def test_timer_clear(self, mocker, op, stage, state):
@@ -3785,15 +3211,14 @@ class TestConnectionStateStageRunOpWithShutdownPipelineOperation(
         assert timer_mock.cancel.call_count == 1
         assert stage.reconnect_timer is None
 
-    @pytest.mark.it("Cancels any operations in the `waiting_ops` queue")
+    @pytest.mark.it(
+        "Cancels any operations in the `waiting_ops` queue if the pipeline connection is in a stable state"
+    )
     @pytest.mark.parametrize(
         "state",
         [
-            ConnectionState.CONNECTING,
             ConnectionState.CONNECTED,
-            ConnectionState.DISCONNECTING,
             ConnectionState.DISCONNECTED,
-            ConnectionState.REAUTHORIZING,
         ],
     )
     def test_waiting_ops_cancellation(self, mocker, op, stage, state):
@@ -3815,15 +3240,14 @@ class TestConnectionStateStageRunOpWithShutdownPipelineOperation(
         assert waiting_op3.completed
         assert isinstance(waiting_op3.error, pipeline_exceptions.OperationCancelled)
 
-    @pytest.mark.it("Sends the operation down the pipeline without changing the state")
+    @pytest.mark.it(
+        "Sends the operation down the pipeline without changing the state if the pipeline connection is in a stable state"
+    )
     @pytest.mark.parametrize(
         "state",
         [
-            ConnectionState.CONNECTING,
             ConnectionState.CONNECTED,
-            ConnectionState.DISCONNECTING,
             ConnectionState.DISCONNECTED,
-            ConnectionState.REAUTHORIZING,
         ],
     )
     def test_sends_op_down(self, mocker, op, stage, state):
@@ -3844,18 +3268,17 @@ class TestConnectionStateStageRunOpWithArbitraryOperation(
     def op(self, arbitrary_op):
         return arbitrary_op
 
-    @pytest.mark.it("Sends the operation down the pipeline without changing the state")
+    @pytest.mark.it(
+        "Sends the operation down the pipeline without changing the state if the pipeline is in a stable state"
+    )
     @pytest.mark.parametrize(
         "state",
         [
-            ConnectionState.CONNECTING,
             ConnectionState.CONNECTED,
-            ConnectionState.DISCONNECTING,
             ConnectionState.DISCONNECTED,
-            ConnectionState.REAUTHORIZING,
         ],
     )
-    def test_sends_op_down(self, mocker, op, stage, state):
+    def test_stable_state(self, mocker, op, stage, state):
         stage.nucleus.connection_state = state
 
         stage.run_op(op)
@@ -3863,6 +3286,24 @@ class TestConnectionStateStageRunOpWithArbitraryOperation(
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
         assert stage.nucleus.connection_state is state
+
+    @pytest.mark.it(
+        "Adds the operation to the `waiting_ops` queue and does nothing else if the pipeline is in an intermediate state"
+    )
+    @pytest.mark.parametrize(
+        "state",
+        [ConnectionState.CONNECTING, ConnectionState.DISCONNECTING, ConnectionState.REAUTHORIZING],
+    )
+    def test_intermediate_state(self, op, stage, state):
+        stage.nucleus.connection_state = state
+        assert stage.waiting_ops.empty()
+
+        stage.run_op(op)
+
+        assert not stage.waiting_ops.empty()
+        assert stage.waiting_ops.qsize() == 1
+        assert stage.waiting_ops.get() is op
+        assert stage.send_op_down.call_count == 0
 
 
 @pytest.mark.describe(
