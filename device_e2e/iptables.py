@@ -44,9 +44,9 @@ def run_shell_command(cmd):
     try:
         return subprocess.check_output(cmd.split(" ")).decode("utf-8").splitlines()
     except subprocess.CalledProcessError as e:
-        logger.warning("Error spawning {}".format(e.cmd))
-        logger.warning("Process returned {}".format(e.returncode))
-        logger.warning("process output: {}".format(e.output))
+        logger.error("Error spawning {}".format(e.cmd))
+        logger.error("Process returned {}".format(e.returncode))
+        logger.error("process output: {}".format(e.output))
         raise
 
 

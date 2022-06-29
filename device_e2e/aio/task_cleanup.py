@@ -25,12 +25,12 @@ async def cleanup_tasks(task_list):
             await task_result
             tasks_left -= 1
         except asyncio.TimeoutError:
-            logger.warning(
+            logger.error(
                 "Task cleanup timeout with {} tasks remaining incomplete".format(tasks_left)
             )
             raise
         except Exception as e:
-            logger.debug("Cleaning up task that failed with [{}]".format(str(e) or type(e)))
+            logger.error("Cleaning up task that failed with [{}]".format(str(e) or type(e)))
             tasks_left -= 1
 
     logger.info("-------------------------")
