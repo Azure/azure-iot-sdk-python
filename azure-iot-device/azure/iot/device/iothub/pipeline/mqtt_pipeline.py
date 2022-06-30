@@ -121,28 +121,28 @@ class MQTTPipeline(object):
                 if self.on_c2d_message_received:
                     self.on_c2d_message_received(event.message)
                 else:
-                    logger.error("C2D message event received with no handler.  dropping.")
+                    logger.debug("C2D message event received with no handler.  dropping.")
 
             elif isinstance(event, pipeline_events_iothub.InputMessageEvent):
                 if self.on_input_message_received:
                     self.on_input_message_received(event.message)
                 else:
-                    logger.error("input message event received with no handler.  dropping.")
+                    logger.debug("input message event received with no handler.  dropping.")
 
             elif isinstance(event, pipeline_events_iothub.MethodRequestEvent):
                 if self.on_method_request_received:
                     self.on_method_request_received(event.method_request)
                 else:
-                    logger.error("Method request event received with no handler. Dropping.")
+                    logger.debug("Method request event received with no handler. Dropping.")
 
             elif isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
                 if self.on_twin_patch_received:
                     self.on_twin_patch_received(event.patch)
                 else:
-                    logger.error("Twin patch event received with no handler. Dropping.")
+                    logger.debug("Twin patch event received with no handler. Dropping.")
 
             else:
-                logger.error("Dropping unknown pipeline event {}".format(event.name))
+                logger.debug("Dropping unknown pipeline event {}".format(event.name))
 
         def _on_connected():
             if self.on_connected:
@@ -515,7 +515,9 @@ class MQTTPipeline(object):
 
         def on_complete(op, error):
             if error:
-                logger.error("Subscribe for {} failed.  Not enabling feature".format(feature_name))
+                logger.warning(
+                    "Subscribe for {} failed.  Not enabling feature".format(feature_name)
+                )
             else:
                 self.feature_enabled[feature_name] = True
             callback(error=error)
