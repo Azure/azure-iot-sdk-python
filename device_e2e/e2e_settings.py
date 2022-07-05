@@ -38,6 +38,9 @@ def get_secrets():
         IOTHUB_CONNECTION_STRING = secrets.get("iothubConnectionString", None)
         EVENTHUB_CONNECTION_STRING = secrets.get("eventhubConnectionString", None)
         EVENTHUB_CONSUMER_GROUP = secrets.get("eventhubConsumerGroup", None)
+    elif "IOTHUB_CONNECTION_STRING" in os.environ:
+        IOTHUB_CONNECTION_STRING = os.environ["IOTHUB_CONNECTION_STRING"]
+        EVENTHUB_CONNECTION_STRING = os.environ.get("EVENTHUB_CONNECTION_STRING")
     else:
         IOTHUB_CONNECTION_STRING = os.environ["IOTHUB_E2E_IOTHUB_CONNECTION_STRING"]
         EVENTHUB_CONNECTION_STRING = os.environ["IOTHUB_E2E_EVENTHUB_CONNECTION_STRING"]

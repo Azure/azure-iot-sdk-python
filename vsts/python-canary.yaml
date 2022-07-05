@@ -49,9 +49,8 @@ jobs:
         pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" 
       displayName: 'E2E Device Client MQTT Connection String'
       env:
-        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-EVENTHUB-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: e2e-nightly-stress-consumer-group
+        IOTHUB_CONNECTION_STRING: $(IOTHUB-CONNECTION-STRING)
+        EVENTHUB_CONNECTION_STRING: $(EVENTHUB-CONNECTION-STRING)
         PYTHONUNBUFFERED: True
 
     - task: PublishTestResults@2
