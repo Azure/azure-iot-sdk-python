@@ -17,14 +17,14 @@ logging.basicConfig(level=logging.DEBUG)
 
 fake_request_id = "Request1234"
 fake_operation_id = "Operation4567"
-fake_status = "Flying"
-fake_device_id = "MyNimbus2000"
-fake_assigned_hub = "Dumbledore'sArmy"
-fake_sub_status = "FlyingOnHippogriff"
+fake_status = "FakeStatus"
+fake_device_id = "MyDevice"
+fake_assigned_hub = "MyIoTHub"
+fake_sub_status = "FakeSubStatus"
 fake_created_dttm = datetime.datetime(2020, 5, 17)
 fake_last_update_dttm = datetime.datetime(2020, 10, 17)
-fake_etag = "HighQualityFlyingBroom"
-fake_payload = "petrificus totalus"
+fake_etag = "SomeEtag"
+fake_payload = "this is a fake payload"
 
 
 @pytest.mark.describe("RegistrationResult")
@@ -56,10 +56,10 @@ class TestRegistrationResult(object):
     @pytest.mark.parametrize(
         "input_setter_code",
         [
-            pytest.param('registration_result.operation_id = "WhompingWillow"', id="Operation Id"),
-            pytest.param('registration_result.status = "Apparating"', id="Status"),
+            pytest.param('registration_result.operation_id = "NewOperationId"', id="Operation Id"),
+            pytest.param('registration_result.status = "NewStatus"', id="Status"),
             pytest.param(
-                'registration_result.registration_state = "FakeRegistrationState"',
+                'registration_result.registration_state = "NewRegistrationState"',
                 id="Registration State",
             ),
         ],
@@ -73,10 +73,10 @@ class TestRegistrationResult(object):
     @pytest.mark.parametrize(
         "input_setter_code",
         [
-            pytest.param('registration_state.device_id = "Thunderbolt"', id="Device Id"),
-            pytest.param('registration_state.assigned_hub = "MinistryOfMagic"', id="Assigned Hub"),
-            pytest.param('registration_state.sub_status = "Apparating"', id="Substatus"),
-            pytest.param('registration_state.etag = "QuidditchWorldCupWinning"', id="Etag"),
+            pytest.param('registration_state.device_id = "NewDeviceId"', id="Device Id"),
+            pytest.param('registration_state.assigned_hub = "NewHub"', id="Assigned Hub"),
+            pytest.param('registration_state.sub_status = "NewSubStatus"', id="Substatus"),
+            pytest.param('registration_state.etag = "NewEtag"', id="Etag"),
             pytest.param(
                 "registration_state.created_date_time = datetime.datetime(3000, 10, 17)",
                 id="Create Date Time",

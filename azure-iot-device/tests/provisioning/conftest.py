@@ -12,9 +12,9 @@ from .shared_client_fixtures import (  # noqa: F401
 )
 
 
-fake_status = "flying"
-fake_sub_status = "FlyingOnHippogriff"
-fake_operation_id = "quidditch_world_cup"
+fake_status = "FakeStatus"
+fake_sub_status = "FakeSubStatus"
+fake_operation_id = "fake_operation_id"
 fake_request_id = "request_1234"
-fake_device_id = "MyNimbus2000"
-fake_assigned_hub = "Dumbledore'sArmy"
+fake_device_id = "MyDevice"
+fake_assigned_hub = "MyIoTHub"

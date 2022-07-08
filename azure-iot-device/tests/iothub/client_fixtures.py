@@ -14,15 +14,15 @@ from azure.iot.device.common.models.x509 import X509
 """---Constants---"""
 
 shared_access_key = "Zm9vYmFy"
-hostname = "beauxbatons.academy-net"
-device_id = "MyPensieve"
-module_id = "Divination"
-gateway_hostname = "EnchantedCeiling"
+hostname = "hostname.azure-net"
+device_id = "MyDevice"
+module_id = "MyModule"
+gateway_hostname = "MyGatewayHostname"
 signature = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
 expiry = str(int(time.time()) + 3600)
-fake_x509_cert_value = "fantastic_beasts"
-fake_x509_cert_key = "where_to_find_them"
-fake_pass_phrase = "alohomora"
+fake_x509_cert_value = "fake_certificate_value"
+fake_x509_cert_key = "fake_certificate_key"
+fake_pass_phrase = "fake_pass_phrase"
 
 
 """----Shared model fixtures----"""
@@ -30,7 +30,7 @@ fake_pass_phrase = "alohomora"
 
 @pytest.fixture
 def message():
-    return Message("Wingardium Leviosa")
+    return Message("Message Payload")
 
 
 @pytest.fixture
