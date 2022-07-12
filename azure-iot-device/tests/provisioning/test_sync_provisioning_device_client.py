@@ -311,7 +311,7 @@ class TestClientProvisioningPayload(object):
     @pytest.mark.parametrize(
         "payload_input",
         [
-            pytest.param("Hello Hogwarts", id="String input"),
+            pytest.param("Hello World", id="String input"),
             pytest.param(222, id="Integer input"),
             pytest.param(object(), id="Object input"),
             pytest.param(None, id="None input"),
@@ -330,7 +330,7 @@ class TestClientProvisioningPayload(object):
     @pytest.mark.parametrize(
         "payload_input",
         [
-            pytest.param("Hello Hogwarts", id="String input"),
+            pytest.param("Hello World", id="String input"),
             pytest.param(222, id="Integer input"),
             pytest.param(object(), id="Object input"),
             pytest.param(None, id="None input"),
