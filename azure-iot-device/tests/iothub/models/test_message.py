@@ -11,14 +11,13 @@ from azure.iot.device import constant
 
 logging.basicConfig(level=logging.DEBUG)
 
+data_str = "Some string of data"
+data_int = 987
+data_obj = Message(data_str)
+
 
 @pytest.mark.describe("Message")
 class TestMessage(object):
-
-    data_str = "After all this time? Always"
-    data_int = 987
-    data_obj = Message(data_str)
-
     @pytest.mark.it("Instantiates from data type")
     @pytest.mark.parametrize(
         "data", [data_str, data_int, data_obj], ids=["String", "Integer", "Message"]
@@ -29,17 +28,15 @@ class TestMessage(object):
 
     @pytest.mark.it("Instantiates with optional provided message id")
     def test_instantiates_with_optional_message_id(self):
-        s = "After all this time? Always"
         message_id = "Postage12323"
-        msg = Message(s, message_id)
+        msg = Message("some message", message_id)
         assert msg.message_id == message_id
 
     @pytest.mark.it("Instantiates with optional provided content type and content encoding")
     def test_instantiates_with_optional_contenttype_encoding(self):
-        s = "After all this time? Always"
         ctype = "application/json"
         encoding = "utf-16"
-        msg = Message(s, None, encoding, ctype)
+        msg = Message("some message", None, encoding, ctype)
         assert msg.content_encoding == encoding
         assert msg.content_type == ctype
 
@@ -102,10 +99,9 @@ class TestMessage(object):
 
     @pytest.mark.it("Can be set as a security message via API")
     def test_setting_message_as_security_message(self):
-        s = "After all this time? Always"
         ctype = "application/json"
         encoding = "utf-16"
-        msg = Message(s, None, encoding, ctype)
+        msg = Message("some message", None, encoding, ctype)
         assert msg.iothub_interface_id is None
         msg.set_as_security_message()
         assert msg.iothub_interface_id == constant.SECURITY_MESSAGE_INTERFACE_ID
