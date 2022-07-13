@@ -8,15 +8,12 @@ import urllib
 import time
 import unittest.mock as mock
 from azure.iot.device.common import handle_exceptions
+from azure.iot.device.common.pipeline.pipeline_exceptions import OperationTimeout
 from azure.iot.device.common.pipeline.pipeline_nucleus import ConnectionState
 from azure.iot.device.common.auth.sastoken import RenewableSasToken, NonRenewableSasToken
 from azure.iot.device.common.models import X509
 from azure.iot.device.iothub.pipeline import MQTTPipeline, IoTHubPipelineConfig
 from azure.iot.device.iothub.models import Message
-
-
-# # Need this so transport handlers can be called without a time.sleep()
-# pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 # Fixture Constants #
 DEVICE_CLIENT = "Device Client"
@@ -200,6 +197,7 @@ def pipeline(pipeline_config):
 
 
 class TestManualConnect:
+    @pytest.mark.integration_test
     def test_manual_connect_while_disconnected(self, pipeline, mock_transport):
         assert mock_transport.connect.call_count == 0
         assert not pipeline.connected
@@ -218,6 +216,7 @@ class TestManualConnect:
         assert cb_mock.completed_successfully()
         assert pipeline.connected
 
+    @pytest.mark.integration_test
     def test_manual_connect_while_connected(self, pipeline, mock_transport):
         connect_pipeline(pipeline, mock_transport)
         assert mock_transport.connect.call_count == 1
@@ -232,6 +231,7 @@ class TestManualConnect:
         assert mock_cb.completed_successfully()
         assert pipeline.connected
 
+    @pytest.mark.integration_test
     def test_transport_raises_exception_while_connecting(
         self, pipeline, mock_transport, arbitrary_exception
     ):
@@ -249,6 +249,7 @@ class TestManualConnect:
         assert mock_cb.completed_with_error(arbitrary_exception)
         assert not pipeline.connected
 
+    @pytest.mark.integration_test
     def test_transport_connection_failure_rejected(
         self, pipeline, mock_transport, arbitrary_exception
     ):
@@ -268,12 +269,26 @@ class TestManualConnect:
         assert mock_cb.completed_with_error(arbitrary_exception)
         assert not pipeline.connected
 
-    @pytest.mark.skip("Long running")
+    @pytest.mark.slow_integration_test
     def test_hanging_connect(self, pipeline, mock_transport):
-        pass
+        assert mock_transport.connect.call_count == 0
+        assert not pipeline.connected
+        # Connect
+        mock_cb = CallbackMock()
+        pipeline.connect(mock_cb)
+        # Connection process has begun
+        assert mock_transport.connect.call_count == 1
+        assert not mock_cb.completed()
+        assert not pipeline.connected
+        # Wait for timeout (60 seconds)
+        time.sleep(61)
+        # Failure should be indicated by callback
+        assert mock_cb.completed_with_error(OperationTimeout)
+        assert not pipeline.connected
 
 
 class TestManualDisconnect:
+    @pytest.mark.integration_test
     def test_manual_disconnect_while_connected(self, pipeline, mock_transport):
         connect_pipeline(pipeline, mock_transport)
         assert mock_transport.disconnect.call_count == 0
@@ -296,6 +311,7 @@ class TestManualDisconnect:
         assert not pipeline.connected
         assert pipeline._nucleus.connection_state == ConnectionState.DISCONNECTED
 
+    @pytest.mark.integration_test
     def test_manual_disconnect_while_disconnected(self, pipeline, mock_transport):
         assert mock_transport.disconnect.call_count == 0
         assert not pipeline.connected
@@ -312,6 +328,7 @@ class TestManualDisconnect:
 
 
 class TestQueuedPipelineOperations:
+    @pytest.mark.integration_test
     def test_multiple_connects_queued(self, pipeline, mock_transport):
         assert mock_transport.connect.call_count == 0
         assert not pipeline.connected
@@ -348,6 +365,7 @@ class TestQueuedPipelineOperations:
         assert mock_cb2.completed_successfully()
         assert mock_cb3.completed_successfully()
 
+    @pytest.mark.integration_test
     def test_multiple_disconnects_queued(self, pipeline, mock_transport):
         connect_pipeline(pipeline, mock_transport)
         assert mock_transport.disconnect.call_count == 0
@@ -385,6 +403,7 @@ class TestQueuedPipelineOperations:
         assert mock_cb2.completed_successfully()
         assert mock_cb3.completed_successfully()
 
+    @pytest.mark.integration_test
     def test_alternating_connects_and_disconnects_queued(self, pipeline, mock_transport):
         """CONNECT DISCONNECT CONNECT DISCONNECT"""
         assert mock_transport.connect.call_count == 0
@@ -449,7 +468,7 @@ class TestQueuedPipelineOperations:
         # Connection process has been completed
         assert mock_transport.connect.call_count == 2
         assert c2_cb_mock.completed_successfully()
-        # Disonnect 2 has begun process
+        # Disconnect 2 has begun process
         assert mock_transport.disconnect.call_count == 2
         assert pipeline._nucleus.connection_state == ConnectionState.DISCONNECTING
         assert not d2_cb_mock.completed()
@@ -463,6 +482,7 @@ class TestQueuedPipelineOperations:
         assert d2_cb_mock.completed_successfully()
         assert pipeline._nucleus.connection_state == ConnectionState.DISCONNECTED
 
+    @pytest.mark.integration_test
     def test_mixed_connects_and_disconnects_queued(self, pipeline, mock_transport):
         """CONNECT CONNECT DISCONNECT DISCONNECT CONNECT"""
         assert mock_transport.connect.call_count == 0
@@ -544,6 +564,7 @@ class TestUnexpectedTransportBehavior:
     in practice, could
     """
 
+    @pytest.mark.integration_test
     def test_transport_connection_failure_unexpected(
         self, pipeline, mock_transport, arbitrary_exception
     ):
