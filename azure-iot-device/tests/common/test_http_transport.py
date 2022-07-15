@@ -148,7 +148,7 @@ class TestInstantiation(object):
 
     @pytest.mark.it("Configures TLS/SSL context with client-provided-certificate-chain like x509")
     def test_configures_tls_context_with_client_provided_certificate_chain(self, mocker):
-        fake_client_cert = X509("fantastic_beasts", "where_to_find_them", "alohomora")
+        fake_client_cert = X509("fake_cert_file", "fake_key_file", "fake pass phrase")
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = mock_ssl_context_constructor.return_value
 

@@ -33,9 +33,9 @@ fake_gateway_hostname = "__fake_gateway_hostname__"
 fake_server_verification_cert = "__fake_server_verification_cert__"
 fake_sas_token = "__fake_sas_token__"
 fake_symmetric_key = "Zm9vYmFy"
-fake_x509_cert_file = "fantastic_beasts"
-fake_x509_cert_key_file = "where_to_find_them"
-fake_pass_phrase = "alohomora"
+fake_x509_cert_file = "fake_certificate_file"
+fake_x509_cert_key_file = "fake_certificate_key_file"
+fake_pass_phrase = "fake_pass_phrase"
 
 
 ###################

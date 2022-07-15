@@ -33,7 +33,7 @@ model_id = "dtmi:com:example:TemperatureController;2"
 device_information_component_name = "deviceInformation"
 thermostat_1_component_name = "thermostat1"
 thermostat_2_component_name = "thermostat2"
-serial_number = "alohomora"
+serial_number = "some_serial_number"
 #####################################################
 # COMMAND HANDLERS : User will define these handlers
 # depending on what commands the component defines

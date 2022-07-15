@@ -30,9 +30,7 @@ feature = dps_constants.REGISTER
 
 
 def mock_x509():
-    return X509(
-        cert_file="fantastic_beasts", key_file="where_to_find_them", pass_phrase="alohomora"
-    )
+    return X509(cert_file="fake_cert_file", key_file="fake_key_file", pass_phrase="some_password")
 
 
 @pytest.fixture
@@ -40,7 +38,7 @@ def pipeline_configuration(mocker):
     mock_config = mocker.MagicMock()
     mock_config.sastoken.ttl = 1232  # set for compat
     mock_config.sastoken.expiry_time = 1232131  # set for compat
-    mock_config.registration_id = "MyPensieve"
+    mock_config.registration_id = "MyRegistration"
     return mock_config
 
 

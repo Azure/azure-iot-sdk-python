@@ -21,13 +21,13 @@ import weakref
 
 logging.basicConfig(level=logging.DEBUG)
 
-fake_hostname = "beauxbatons.academy-net"
-fake_device_id = "MyFirebolt"
-fake_password = "Fortuna Major"
+fake_hostname = "fake.hostname"
+fake_device_id = "MyDevice"
+fake_password = "fake_password"
 fake_username = fake_hostname + "/" + fake_device_id
 new_fake_password = "new fake password"
 fake_topic = "fake_topic"
-fake_payload = "Tarantallegra"
+fake_payload = "some payload"
 fake_cipher = "DHE-RSA-AES128-SHA"
 fake_qos = 1
 fake_mid = 52
@@ -330,7 +330,7 @@ class TestInstantiation(object):
     ):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = mock_ssl_context_constructor.return_value
-        fake_client_cert = X509("fantastic_beasts", "where_to_find_them", "alohomora")
+        fake_client_cert = X509("fake_cert_file", "fake_key_file", "fake pass phrase")
 
         MQTTTransport(
             client_id=fake_device_id,
