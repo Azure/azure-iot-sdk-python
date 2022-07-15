@@ -78,14 +78,22 @@ class EnsureDesiredPropertiesStage(PipelineStage):
         """
 
         self.pending_get_request = None
-        if error:
-            # If the GetTwinOperation failed, we blindly try again.  We run the risk of
-            # repeating this forever and might need to add logic to "give up" after some
-            # number of failures, but we don't have any real reason to add that just yet.
-
+        if error and self.nucleus.connected:
+            # If the GetTwinOperation failed and the client is connected, we blindly try again as
+            # long as we are connected. We run the risk of repeating this forever and might need
+            # to add logic to "give up" after some number of failures, but we don't have any real
+            # reason to add that yet.
             logger.debug("{}: Twin GET failed with error {}.  Resubmitting.".format(self, error))
             self._ensure_get_op()
+        elif error and not self.nucleus.connected:
+            # If the GetTwinOperation failed and the client is in any state but connected,
+            # (e.g. connecting, disconnecting, etc.) we consider the operation completed.
+            logger.debug(
+                "{}: Twin GET failed with error {}. Giving up, as pipeline is not connected."
+            )
         else:
+            # If the GetTwinOperation is successful, we compare the $version values and create
+            # an artificial patch if the versions do not match.
             logger.debug("{} Twin GET response received.  Checking versions".format(self))
             new_version = op.twin["desired"]["$version"]
             logger.debug(

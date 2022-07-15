@@ -513,9 +513,9 @@ class TestEnsureDesiredPropertiesStageWhenArbitraryEventReceivedWithEnsureDesire
 
 
 @pytest.mark.describe(
-    "EnsureDesiredPropertiesStage - OCCURRENCE: GetTwinOperation that was sent down by this stage completes (ensure_desired_properties enabled)"
+    "EnsureDesiredPropertiesStage - OCCURRENCE: GetTwinOperation that was sent down by this stage completes and pipeline is connected"
 )
-class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
+class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletesConnected(
     EnsureDesiredPropertiesStageTestConfig
 ):
     @pytest.fixture
@@ -550,15 +550,20 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         return {"desired": {"$version": new_version}, "reported": {}}
 
     @pytest.mark.it("Does not send a new GetTwinOperation if the op completes with success")
-    def test_does_not_send_new_get_twin_operation_on_success(self, stage, get_twin_op, new_twin):
-
+    def test_does_not_send_new_get_twin_operation_on_success(
+        self, stage, get_twin_op, new_twin, pipeline_connected_mock
+    ):
+        pipeline_connected_mock.return_value = True
         get_twin_op.twin = new_twin
         get_twin_op.complete()
 
         assert stage.send_op_down.call_count == 0
 
     @pytest.mark.it("Sets `pending_get_request` to None if the op completes with success")
-    def test_sets_pending_request_to_none_on_success(self, mocker, stage, get_twin_op, new_twin):
+    def test_sets_pending_request_to_none_on_success(
+        self, mocker, stage, get_twin_op, new_twin, pipeline_connected_mock
+    ):
+        pipeline_connected_mock.return_value = True
         stage.pending_get_request = mocker.MagicMock()
 
         get_twin_op.twin = new_twin
@@ -567,10 +572,11 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         assert stage.pending_get_request is None
 
     @pytest.mark.it("Sends a new GetTwinOperation if the op completes with an error")
-    def test_sends_new_get_twin_operation_on_failure(self, stage, get_twin_op, arbitrary_exception):
-
+    def test_sends_new_get_twin_operation_on_failure(
+        self, stage, get_twin_op, arbitrary_exception, pipeline_connected_mock
+    ):
+        pipeline_connected_mock.return_value = True
         assert stage.send_op_down.call_count == 0
-
         get_twin_op.complete(error=arbitrary_exception)
 
         assert stage.send_op_down.call_count == 1
@@ -580,8 +586,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         "Sets `pending_get_request` to the new GetTwinOperation if the op completes with an error"
     )
     def test_sets_pending_request_to_none_on_failure(
-        self, mocker, stage, get_twin_op, arbitrary_exception
+        self, mocker, stage, get_twin_op, arbitrary_exception, pipeline_connected_mock
     ):
+        pipeline_connected_mock.return_value = True
         old_get_request = mocker.MagicMock()
         stage.pending_get_request = old_get_request
 
@@ -593,7 +600,10 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
     @pytest.mark.it(
         "Does not send a `TwinDesiredPropertiesPatchEvent` if the op completes with an error"
     )
-    def test_doesnt_send_patch_event_if_error(self, stage, get_twin_op, arbitrary_exception):
+    def test_doesnt_send_patch_event_if_error(
+        self, stage, get_twin_op, arbitrary_exception, pipeline_connected_mock
+    ):
+        pipeline_connected_mock.return_value = True
         get_twin_op.complete(arbitrary_exception)
 
         assert stage.send_event_up.call_count == 0
@@ -602,8 +612,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         "Sends a `TwinDesiredPropertiesPatchEvent` if the desired properties '$version' doesn't match the `last_version_seen`"
     )
     def test_sends_patch_event_if_different_version(
-        self, mocker, stage, get_twin_op, new_twin, new_version
+        self, mocker, stage, get_twin_op, new_twin, new_version, pipeline_connected_mock
     ):
+        pipeline_connected_mock.return_value = True
         stage.last_version_seen = mocker.MagicMock()
 
         get_twin_op.twin = new_twin
@@ -619,8 +630,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         "Does not send a `TwinDesiredPropertiesPatchEvent` if the desired properties '$version'  matches the `last_version_seen`"
     )
     def test_doesnt_send_patch_event_if_same_version(
-        self, stage, get_twin_op, new_twin, new_version
+        self, stage, get_twin_op, new_twin, new_version, pipeline_connected_mock
     ):
+        pipeline_connected_mock.return_value = True
         stage.last_version_seen = new_version
 
         get_twin_op.twin = new_twin
@@ -632,8 +644,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         "Does not change the `last_version_seen` attribute if the op completes with an error"
     )
     def test_doesnt_change_last_version_seen_if_error(
-        self, mocker, stage, get_twin_op, arbitrary_exception
+        self, mocker, stage, get_twin_op, arbitrary_exception, pipeline_connected_mock
     ):
+        pipeline_connected_mock.return_value = True
         old_version = mocker.MagicMock()
         stage.last_version_seen = old_version
 
@@ -645,8 +658,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         "Sets the `last_version_seen` attribute to the new version if the desired properties '$version' doesn't match the `last_version_seen`"
     )
     def test_changes_last_version_seen_if_different_version(
-        self, mocker, stage, get_twin_op, new_twin, new_version
+        self, mocker, stage, get_twin_op, new_twin, new_version, pipeline_connected_mock
     ):
+        pipeline_connected_mock.return_value = True
         stage.last_version_seen = mocker.MagicMock()
 
         get_twin_op.twin = new_twin
@@ -658,14 +672,95 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         "Does not change the `last_version_seen` attribute if the desired properties '$version' matches the `last_version_seen`"
     )
     def test_does_not_change_last_version_seen_if_same_version(
-        self, stage, get_twin_op, new_twin, new_version
+        self, stage, get_twin_op, new_twin, new_version, pipeline_connected_mock
     ):
+        pipeline_connected_mock.return_value = True
         stage.last_version_seen = new_version
 
         get_twin_op.twin = new_twin
         get_twin_op.complete()
 
         assert stage.last_version_seen == new_version
+
+
+@pytest.mark.describe(
+    "EnsureDesiredPropertiesStage - OCCURRENCE: GetTwinOperation that was sent down by this stage completes and pipeline is NOT connected"
+)
+class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletesNotConnected(
+    EnsureDesiredPropertiesStageTestConfig
+):
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs, nucleus):
+        stage = cls_type(**init_kwargs)
+        stage.nucleus = nucleus
+        stage.nucleus.pipeline_configuration.ensure_desired_properties = True
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
+        return stage
+
+    @pytest.fixture
+    def get_twin_op(self, stage):
+        stage.last_version_seen = -1
+        stage.handle_pipeline_event(pipeline_events_base.ConnectedEvent())
+
+        get_twin_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(get_twin_op, pipeline_ops_iothub.GetTwinOperation)
+
+        stage.send_op_down.reset_mock()
+        stage.send_event_up.reset_mock()
+
+        return get_twin_op
+
+    @pytest.fixture
+    def new_version(self):
+        return 1234
+
+    @pytest.fixture
+    def new_twin(self, new_version):
+        return {"desired": {"$version": new_version}, "reported": {}}
+
+    @pytest.mark.it("Does not send a new GetTwinOperation if the op completes with success")
+    def test_does_not_send_new_get_twin_operation_on_success(
+        self, stage, get_twin_op, new_twin, pipeline_connected_mock
+    ):
+        pipeline_connected_mock.return_value = False
+        get_twin_op.twin = new_twin
+        get_twin_op.complete()
+
+        assert stage.send_op_down.call_count == 0
+
+    @pytest.mark.it("Sets `pending_get_request` to None if the op completes with success")
+    def test_sets_pending_request_to_none_on_success(
+        self, mocker, stage, get_twin_op, new_twin, pipeline_connected_mock
+    ):
+        pipeline_connected_mock.return_value = False
+        stage.pending_get_request = mocker.MagicMock()
+
+        get_twin_op.twin = new_twin
+        get_twin_op.complete()
+
+        assert stage.pending_get_request is None
+
+    @pytest.mark.it("Does not send a new GetTwinOperation if the op completes with an error")
+    def test_doesnt_send_new_get_twin_operation_on_failure(
+        self, stage, get_twin_op, arbitrary_exception, pipeline_connected_mock
+    ):
+        pipeline_connected_mock.return_value = False
+        assert stage.send_op_down.call_count == 0
+        get_twin_op.complete(error=arbitrary_exception)
+        assert stage.send_op_down.call_count == 0
+
+    @pytest.mark.it(
+        "Does not send a `TwinDesiredPropertiesPatchEvent` if the op completes with an error"
+    )
+    def test_doesnt_send_patch_event_if_error(
+        self, stage, get_twin_op, arbitrary_exception, pipeline_connected_mock
+    ):
+        pipeline_connected_mock.return_value = False
+        get_twin_op.complete(arbitrary_exception)
+
+        assert stage.send_event_up.call_count == 0
 
 
 ###############################
