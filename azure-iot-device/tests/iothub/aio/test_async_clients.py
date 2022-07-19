@@ -6,6 +6,7 @@
 
 import logging
 import pytest
+import pytest_asyncio
 import asyncio
 import time
 import urllib
@@ -1252,7 +1253,7 @@ class IoTHubDeviceClientTestsConfig(object):
     def client_class(self):
         return IoTHubDeviceClient
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def client(self, mqtt_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
@@ -1774,7 +1775,7 @@ class IoTHubModuleClientTestsConfig(object):
     def client_class(self):
         return IoTHubModuleClient
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def client(self, mqtt_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
