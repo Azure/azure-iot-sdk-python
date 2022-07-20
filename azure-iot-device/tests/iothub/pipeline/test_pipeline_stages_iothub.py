@@ -702,10 +702,12 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletesNotConnected(
     @pytest.fixture
     def get_twin_op(self, stage):
         stage.last_version_seen = -1
+        assert stage.send_op_down.call_count == 0
         stage.handle_pipeline_event(pipeline_events_base.ConnectedEvent())
 
         get_twin_op = stage.send_op_down.call_args[0][0]
         assert isinstance(get_twin_op, pipeline_ops_iothub.GetTwinOperation)
+        assert stage.send_op_down.call_count == 1
 
         stage.send_op_down.reset_mock()
         stage.send_event_up.reset_mock()
