@@ -18,9 +18,9 @@ from azure.iot.device.common.pipeline.config import DEFAULT_KEEPALIVE
 logging.basicConfig(level=logging.DEBUG)
 
 
-fake_provisioning_host = "hogwarts.com"
-fake_registration_id = "MyPensieve"
-fake_id_scope = "Enchanted0000Ceiling7898"
+fake_provisioning_host = "hostname.com"
+fake_registration_id = "MyRegId"
+fake_id_scope = "Some0000Scope7898"
 fake_symmetric_key = "Zm9vYmFy"
 
 

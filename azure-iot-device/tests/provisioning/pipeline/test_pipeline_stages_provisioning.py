@@ -25,25 +25,25 @@ this_module = sys.modules[__name__]
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 
-fake_device_id = "elder_wand"
-fake_registration_id = "registered_remembrall"
-fake_provisioning_host = "hogwarts.com"
-fake_id_scope = "weasley_wizard_wheezes"
+fake_device_id = "fake_device"
+fake_registration_id = "fake_registration_id"
+fake_provisioning_host = "hostname.com"
+fake_id_scope = "fake_id_scope"
 fake_ca_cert = "fake_ca_cert"
-fake_sas_token = "horcrux_token"
+fake_sas_token = "fake_sas_token"
 fake_request_id = "Request1234"
 fake_operation_id = "Operation4567"
-fake_status = "Flying"
-fake_assigned_hub = "Dumbledore'sArmy"
-fake_sub_status = "FlyingOnHippogriff"
+fake_status = "fake_status"
+fake_assigned_hub = "MyIoTHub"
+fake_sub_status = "fake_sub_status"
 fake_created_dttm = datetime.datetime(2020, 5, 17)
 fake_last_update_dttm = datetime.datetime(2020, 10, 17)
-fake_etag = "HighQualityFlyingBroom"
-fake_payload = "petrificus totalus"
+fake_etag = "SomeEtag"
+fake_payload = "this is a fake payload"
 fake_symmetric_key = "Zm9vYmFy"
-fake_x509_cert_file = "fantastic_beasts"
-fake_x509_cert_key_file = "where_to_find_them"
-fake_pass_phrase = "alohomora"
+fake_x509_cert_file = "fake_cert_file"
+fake_x509_cert_key_file = "fake_cert_key_file"
+fake_pass_phrase = "fake_pass_phrase"
 
 
 class FakeRegistrationResult(object):
@@ -358,7 +358,7 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
     def test_request_and_response_op_completed_success_with_unknown_status(
         self, stage, request_payload, send_registration_op, request_and_response_op
     ):
-        registration_result = create_registration_result(request_payload, "quidditching")
+        registration_result = create_registration_result(request_payload, "some_status")
 
         assert not send_registration_op.completed
         assert not request_and_response_op.completed
@@ -476,7 +476,7 @@ class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
 
         next_op.status_code = 430
         next_op.retry_after = "1"
-        registration_result = create_registration_result(request_payload, "flying")
+        registration_result = create_registration_result(request_payload, "some_status")
         next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 
@@ -827,7 +827,7 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
     def test_request_and_response_op_completed_success_with_unknown_status(
         self, stage, send_query_op, request_and_response_op
     ):
-        registration_result = create_registration_result(" ", "quidditching")
+        registration_result = create_registration_result(" ", "some_status")
 
         assert not send_query_op.completed
         assert not request_and_response_op.completed
@@ -884,7 +884,7 @@ class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
 
         next_op.status_code = 430
         next_op.retry_after = "1"
-        registration_result = create_registration_result(" ", "flying")
+        registration_result = create_registration_result(" ", "some_status")
         next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 
