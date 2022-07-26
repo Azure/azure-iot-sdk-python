@@ -3855,6 +3855,7 @@ class TestConnectionStateStageOCCURRENCEReconnectionCompletes(ConnectionStateSta
             pytest.param(
                 transport_exceptions.ConnectionDroppedError(), id="ConnectionDroppedError"
             ),
+            pytest.param(transport_exceptions.TlsExchangeAuthError(), id="TlsExchangeAuthError"),
         ],
     )
     def test_transient_error_completion(self, mocker, stage, reconnect_op, mock_timer, error):
