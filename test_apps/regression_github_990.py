@@ -40,7 +40,9 @@ def workaround_github_990():
         stage.transient_connect_errors.append(err)
 
 
-def hack_paho_to_disconnect_after_publish(device_client, log_func=print):
+def hack_paho_to_disconnect_after_publish(
+    device_client, exception_to_raise_on_reconnect, log_func=print
+):
     paho = logging_hook.get_paho_from_device_client(device_client)
 
     old_sock_send = paho._sock_send
@@ -105,11 +107,13 @@ def hack_paho_to_disconnect_after_publish(device_client, log_func=print):
     def new_reconnect(*args, **kwargs):
         nonlocal raise_on_next_reconnect
         if raise_on_next_reconnect:
-            log_func("----------- RECONNECT CALLED. raising TlsExchangeAuthError")
+            log_func(
+                "----------- RECONNECT CALLED. raising {}".format(
+                    type(exception_to_raise_on_reconnect)
+                )
+            )
             raise_on_next_reconnect = False
-            err = ssl.SSLError()
-            err.strerror = "CERTIFICATE_VERIFY_FAILED"
-            raise err
+            raise exception_to_raise_on_reconnect
         return old_reconnect(*args, **kwargs)
 
     paho._sock_send = new_sock_send
@@ -119,26 +123,123 @@ def hack_paho_to_disconnect_after_publish(device_client, log_func=print):
     paho.reconnect = new_reconnect
 
 
+async def run_test(
+    connection_retry, auto_connect, send_should_succeed, exception_to_raise_on_reconnect
+):
+    try:
+        print("*" * 80)
+        print()
+        print(
+            "Running test with connection_retry={}, auto_connect={}, and exception_to_raies_on_reconnect={}".format(
+                connection_retry, auto_connect, type(exception_to_raise_on_reconnect)
+            )
+        )
+        print()
+        print("*" * 80)
+
+        # Create instance of the device client using the connection string
+        device_client = IoTHubDeviceClient.create_from_connection_string(
+            test_env.DEVICE_CONNECTION_STRING,
+            keep_alive=10,
+            connection_retry=connection_retry,
+            auto_connect=auto_connect,
+        )
+        logging_hook.hook_device_client(device_client)
+
+        hack_paho_to_disconnect_after_publish(device_client, exception_to_raise_on_reconnect)
+
+        # Connect the device client.
+        await device_client.connect()
+
+        try:
+            print("Sending message...")
+            await device_client.send_message("This is a message that is being sent")
+            print("Message successfully sent!")
+            assert send_should_succeed
+        except Exception as e:
+            if send_should_succeed:
+                raise
+            else:
+                print("send_message failed as expected.")
+                print("raised: {}".format(str(e) or type(e)))
+
+        print("Shutting down")
+        await device_client.shutdown()
+
+    except Exception:
+        print("FAILED " * 10)
+        print(
+            "FAILED with connection_retry={}, auto_connect={}, and exception_to_raies_on_reconnect={}".format(
+                connection_retry, auto_connect, type(exception_to_raise_on_reconnect)
+            )
+        )
+        raise
+
+
 async def main():
-    # workaround_github_990()
+    workaround_github_990()
 
-    # Create instance of the device client using the connection string
-    device_client = IoTHubDeviceClient.create_from_connection_string(
-        test_env.DEVICE_CONNECTION_STRING, keep_alive=10
+    # test with retryable errors. If connection_retry is True, it should re-connect and
+    # send_message should succeed
+    tls_auth_error = ssl.SSLError()
+    tls_auth_error.strerror = "CERTIFICATE_VERIFY_FAILED"
+
+    """
+    await run_test(
+        connection_retry=True,
+        auto_connect=True,
+        send_should_succeed=True,
+        exception_to_raise_on_reconnect=tls_auth_error,
     )
-    logging_hook.hook_device_client(device_client)
+    await run_test(
+        connection_retry=True,
+        auto_connect=False,
+        send_should_succeed=True,
+        exception_to_raise_on_reconnect=tls_auth_error,
+    )
+    await run_test(
+        connection_retry=False,
+        auto_connect=True,
+        send_should_succeed=False,
+        exception_to_raise_on_reconnect=tls_auth_error,
+    )
+    await run_test(
+        connection_retry=False,
+        auto_connect=False,
+        send_should_succeed=False,
+        exception_to_raise_on_reconnect=tls_auth_error,
+    )
+    """
 
-    hack_paho_to_disconnect_after_publish(device_client)
+    # test with non-retryable (fatal) error.  In all cases, send_message should fail.
+    fatal_error = Exception("Fatal exception")
 
-    # Connect the device client.
-    await device_client.connect()
-
-    print("Sending message...")
-    await device_client.send_message("This is a message that is being sent")
-    print("Message successfully sent!")
-
-    print("Shutting down")
-    await device_client.shutdown()
+    await run_test(
+        connection_retry=True,
+        auto_connect=True,
+        send_should_succeed=False,
+        exception_to_raise_on_reconnect=fatal_error,
+    )
+    """
+    await run_test(
+        connection_retry=True,
+        auto_connect=False,
+        send_should_succeed=False,
+        exception_to_raise_on_reconnect=fatal_error,
+    )
+    await run_test(
+        connection_retry=True,
+        auto_connect=True,
+        send_should_succeed=False,
+        exception_to_raise_on_reconnect=fatal_error,
+    )
+    await run_test(
+        connection_retry=False,
+        auto_connect=False,
+        send_should_succeed=False,
+        exception_to_raise_on_reconnect=fatal_error,
+    )
+    """
 
 
 if __name__ == "__main__":
