@@ -220,16 +220,16 @@ class PipelineStage(abc.ABC):
     @pipeline_thread.runs_on_pipeline_thread
     def report_background_exception(self, e):
         """
-        Send an exception up the pipeline that ocurred in the background.
+        Send an exception up the pipeline that occurred in the background.
         These would typically be in response to unsolicited actions, such as receiving data or
-        timer-based operations, which cannot be raised to the user because they ocurred on a
+        timer-based operations, which cannot be raised to the user because they occurred on a
         non-application thread.
 
         Note that this function leverages pipeline event flow, which means that any background
         exceptions in the core event flow itself become problematic (it's a good thing it's well
         tested then!)
 
-        :param Exception e: The exception that ocurred in the background
+        :param Exception e: The exception that occurred in the background
         """
         event = pipeline_events_base.BackgroundExceptionEvent(e)
         self.send_event_up(event)
@@ -953,6 +953,7 @@ class ConnectionStateStage(PipelineStage):
         pipeline_exceptions.OperationError,
         transport_exceptions.ConnectionFailedError,
         transport_exceptions.ConnectionDroppedError,
+        transport_exceptions.TlsExchangeAuthError,
     ]
 
     def __init__(self):
@@ -1263,7 +1264,7 @@ class ConnectionStateStage(PipelineStage):
                     )
                     this.nucleus.connection_state = ConnectionState.DISCONNECTED
 
-                    # report background exception to indicate this failure ocurred
+                    # report background exception to indicate this failure occurred
                     this.report_background_exception(error)
 
                     # Determine if should try reconnect again
