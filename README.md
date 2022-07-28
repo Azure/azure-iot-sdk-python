@@ -9,7 +9,9 @@
 This repository contains code for the Azure IoT SDKs for Python.  This enables python developers to easily create IoT device solutions that seamlessly
 connect to the Azure IoT Hub ecosystem.
 
-*If you're looking for the v1.x.x client library, it is now preserved in the [v1-deprecated](https://github.com/Azure/azure-iot-sdk-python/tree/v1-deprecated) branch.*
+* *If you're looking for the azure-iot-hub library, it is now located in the [azure-iot-hub-python](https://github.com/Azure/azure-iot-hub-python) repository*
+
+* *If you're looking for the v1.x.x client library, it is now preserved in the [v1-deprecated](https://github.com/Azure/azure-iot-sdk-python/tree/v1-deprecated) branch.*
 
 ## Azure IoT SDK for Python
 
@@ -17,9 +19,6 @@ This repository contains the following libraries:
 
 * [Azure IoT Device library](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-device/README.md). 
     * [API Reference](https://docs.microsoft.com/en-us/python/api/azure-iot-device)
-
-* [Azure IoT Hub Service library](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-hub/README.md)
-     * [API Reference](https://docs.microsoft.com/en-us/python/api/azure-iot-hub)
 
 
 ## Critical Upcoming Changes Notice
@@ -46,14 +45,11 @@ Pip installs are provided for all of the SDK libraries in this repo:
 
 [Device Client libraries](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-device#installation)
 
-[IoTHub Service library](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-hub/README.md#installation)
-
 ## Using the libraries
 Want to start off on the right foot? Be sure to learn about [**common pitfalls**](https://github.com/Azure/azure-iot-sdk-python/wiki/pitfalls) of using this Python SDK before starting a project.  
 
 You can also view samples in each library:
 - [Device Client Samples](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-device/samples) cover device and Edge module scenarios.
-- [IoTHub Service Samples](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-hub/samples) cover IoT Hub service side scenarios.
 
 
 ## Features
@@ -103,20 +99,6 @@ This SDK only supports the **MQTT protocol**.
 | X.509 Enrollment Group      | :heavy_check_mark: | Provisioning via [X.509 leaf certificate](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-security#leaf-certificate)).  Please review the [samples](azure-iot-device/samples/async-hub-scenarios/provision_x509.py) folder on how to create a device client.                                                                                                                  |
 | Symmetric Key Enrollment    | :heavy_check_mark: | Provisioning via [Symmetric key attestation](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-symmetric-key-attestation)).  Please review the [samples](azure-iot-device/samples/async-hub-scenarios/provision_symmetric_key.py) folder on how to create a device client.                                                                                                               |
 
-### IoTHub Service Library ([azure-iot-hub](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-hub/azure/iot/hub/iothub_registry_manager.py))
-
-#### Registry Manager
-
-| Features                                                                                                      | Status                   | Description                                        |
-|---------------------------------------------------------------------------------------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| [Identity registry (CRUD)](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry) | :heavy_check_mark:       | Use your backend app to perform CRUD operation for individual device or in bulk.                                                   |
-| [Cloud-to-device messaging](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-messages-c2d)     | :heavy_check_mark: | Use your backend app to send cloud-to-device messages, and set up cloud-to-device message receivers.                               |
-| [Direct Methods operations](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-direct-methods)   | :heavy_check_mark: | Use your backend app to invoke direct method on device.  |
-| [Device Twins operations](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-device-twins)       | :heavy_check_mark: | Use your backend app to perform device twin operations.  *Twin reported property update callback and replace twin are in progress. |
-| [Query](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-query-language)                       | :heavy_check_mark: | Use your backend app to perform query for information.       |
-| [Jobs](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs)                                  | :heavy_multiplication_x: | Use your backend app to perform job operation. |
-
-
 # Releases
 
 The Pythond SDK offers releases for new features, critical bug fixes, and Long Term Support (LTS). Versioning follows [semantic versioning](https://semver.org/), `x.y.z.` or `major.minor.patch`. Any time the version is updated, it will be tagged `x.y.z`.
@@ -124,31 +106,6 @@ The Pythond SDK offers releases for new features, critical bug fixes, and Long T
 ## New Features and Critical Bug Fixes
 
 New features and critical bug fixes (including security updates) will be released on the main branch. These releases will be tagged using the date formatted `yyyy-mm-dd`. A feature release will bump the `minor` version and reset the `patch` version to 0. A critical bug fix will bump the `patch` version only.
-
-## Long Term Support (LTS)
-
-The project offers a Long Term Support (LTS) version to allow users that do not need the latest features to be shielded from unwanted changes.
-
-LTS branches receive all bug fixes that fall in one of these categories:
-
-- security bugfixes
-- critical bugfixes (crashes, memory leaks, etc.)
-
-No new features or improvements will be picked up in an LTS branch.
-
-LTS branches are named `lts_mm_yyyy`, where *mm* and *yyyy* are the month and year when the branch was created. An example of such a branch is `lts_07_2017`.
-
-### LTS Schedule<sup>1</sup>
-
-*The first LTS version of the Python SDK is scheduled to be available in early 2022*
-
-Below is a table showing the mapping of the LTS branches to the packages released.
-
-  | PIP Package | GitHub Branch | LTS Tag | LTS Start Date | Maintenance End Date |
-  | :-----: | :-----------: | :-----: | :------------: | :------------------: |
-  | N/A     |               |         |                |                      |  
-
-<sup>1</sup> All scheduled dates are subject to change by the Azure IoT SDK team.
 
 ## Contributing
 
