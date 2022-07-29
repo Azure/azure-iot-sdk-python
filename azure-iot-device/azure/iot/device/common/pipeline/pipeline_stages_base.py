@@ -953,6 +953,7 @@ class ConnectionStateStage(PipelineStage):
         pipeline_exceptions.OperationError,
         transport_exceptions.ConnectionFailedError,
         transport_exceptions.ConnectionDroppedError,
+        transport_exceptions.TlsExchangeAuthError,
     ]
 
     def __init__(self):
