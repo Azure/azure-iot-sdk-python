@@ -26,7 +26,7 @@ jobs:
     displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
 
   - script: |
-      cd $(Build.SourcesDirectory)/tests/e2e/azure_provisioning_e2e/tests
+      cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e/tests
       pytest test_*.py --junitxml=junit/dps-e2e-test-results.xml
     displayName: 'Run Specified E2E Test with env variables'
 
