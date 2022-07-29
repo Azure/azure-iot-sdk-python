@@ -52,7 +52,7 @@ jobs:
   - script: 'python scripts/env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
 
-  - script: 'python scripts/test_packages.py'
+  - script: 'pytest tests --junitxml=junit/azure-iot-device-test-results.xml --cov=azure --cov-report=xml:coverage.xml --cov-report=html:coverage --cov-append'
     displayName: pytest
 
   - task: PublishTestResults@2
