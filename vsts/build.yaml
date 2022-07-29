@@ -86,7 +86,7 @@ jobs:
   - script: |
       pip install wheel
       python scripts/build_packages.py
-    displayName: Build source and wheel distribution for devicesdk
+    displayName: Build source and wheel distribution
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish artifact dist'
