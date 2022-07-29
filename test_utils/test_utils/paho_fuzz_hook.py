@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import logging_hook
+from . import logging_hook
 import random
 import functools
 
@@ -15,7 +15,7 @@ import functools
     def _sock_close(self):
 """
 
-# List of Paho functions to calls and returns or.
+# List of Paho functions to add logging to
 paho_functions_to_hook = {
     # "_sock_send": False,
     # "_sock_recv": False,
@@ -50,7 +50,8 @@ def add_paho_logging_hook(device_client, log_func=print):
 def add_hook_drop_outgoing_until_reconnect(device_client, failure_probability, log_func=print):
     """
     Add a hook to randomly drop all outgoing messages until reconnect based on some failure
-    probability.
+    probability. This is used to simulate a "connection drop" scenario where packets just stop
+    being sent and the only way to recover is to close the socket and open a new one.
     """
 
     paho = logging_hook.get_paho_from_device_client(device_client)
@@ -61,6 +62,10 @@ def add_hook_drop_outgoing_until_reconnect(device_client, failure_probability, l
 
     @functools.wraps(old_sock_send)
     def new_sock_send(buf):
+        """
+        Inside `sock_send`, we randomly decide to stop sending packets.  Once we stop sending,
+        we drop all outgoing packets until `failed` gets set back to `True`
+        """
         nonlocal failed
         if not failed and random.random() < failure_probability:
             log_func("-----------SOCKET FAILURE. All outgoing packets will be dropped")
@@ -76,6 +81,10 @@ def add_hook_drop_outgoing_until_reconnect(device_client, failure_probability, l
 
     @functools.wraps(old_sock_close)
     def new_sock_close():
+        """
+        Inside `sock_close`, we reset the `failed` variable to `False` to simulate the connection
+        being "fixed" after the socket is re-opened
+        """
         nonlocal failed
         if failed:
             log_func("-----------RESTORING SOCKET behavior")
@@ -89,7 +98,8 @@ def add_hook_drop_outgoing_until_reconnect(device_client, failure_probability, l
 def add_hook_drop_individual_outgoing(device_client, failure_probability, log_func=print):
     """
     Add a hook to randomly drop individual outgoing messages until reconnect based on some
-    failure probability.
+    probability. This is used to simulate a "unreliable network" scenario where individual
+    outgoing packets get dropped, but other packets continue to flow.
     """
     paho = logging_hook.get_paho_from_device_client(device_client)
 
@@ -97,6 +107,9 @@ def add_hook_drop_individual_outgoing(device_client, failure_probability, log_fu
 
     @functools.wraps(old_sock_send)
     def new_sock_send(buf):
+        """
+        Inside `sock_send` we randomly drop individual outgoing packets.
+        """
         if random.random() < failure_probability:
             log_func("-----------DROPPING {} bytes".format(len(buf)))
             return len(buf)
@@ -111,7 +124,8 @@ def add_hook_drop_individual_outgoing(device_client, failure_probability, log_fu
 def add_hook_drop_incoming_until_reconnect(device_client, failure_probability, log_func=print):
     """
     Add a hook to randomly drop all incoming messages until reconnect based on some failure
-    probability.
+    probability. This is used to simulate a "connection drop" scenario where packets just stop
+    being sent and the only way to recover is to close the socket and open a new one.
     """
     paho = logging_hook.get_paho_from_device_client(device_client)
 
@@ -121,6 +135,15 @@ def add_hook_drop_incoming_until_reconnect(device_client, failure_probability, l
 
     @functools.wraps(old_sock_recv)
     def new_sock_recv(buffsize):
+        """
+        Inside `sock_recv`, we randomly decide to stop receiving packets.  Once we stop receiving,
+        we drop all incoming bytes until `failed` gets set back to `True`
+
+        Note: `sock_send` gets called on a packet-by-packet basis, sending hundreds of bytes
+        per call, and `sock_recv` gets called on a byte-by-byte basis, receiving a single byte
+        at a time, the `failure_probability` value passed to this function needs to be much
+        smaller than the `failure_probability` that might be used when fuzzing `sock_send`.
+        """
         nonlocal failed
         if not failed and random.random() < failure_probability:
             log_func("-----------SOCKET FAILURE. All incoming packets will be dropped")
@@ -137,6 +160,10 @@ def add_hook_drop_incoming_until_reconnect(device_client, failure_probability, l
 
     @functools.wraps(old_sock_close)
     def new_sock_close():
+        """
+        Inside `sock_close`, we reset the `failed` variable to `False` to simulate the connection
+        being "fixed" after the socket is re-opened
+        """
         nonlocal failed
         if failed:
             log_func("-----------RESTORING SOCKET behavior")
@@ -147,11 +174,13 @@ def add_hook_drop_incoming_until_reconnect(device_client, failure_probability, l
     paho._sock_close = new_sock_close
 
 
-def add_hook_flush_incoming_packet_queue(device_client, failure_probability, log_func=print):
+def add_hook_drop_individual_incoming(device_client, failure_probability, log_func=print):
     """
     Add a hook to randomly drop individual incoming messages until reconnect based on some
-    failure probability. Since we don't know what an "individual message" is when we're
-    receiving, we just flush the incoming byte queue and assume that is good enough.
+    failure probability. This is used to simulate a "unreliable network" scenario where individual
+    outgoing packets get dropped, but other packets continue to flow.  Since we don't know what
+    an "individual message" is when we're receiving, we just flush the incoming byte queue and
+    assume that is good enough.
     """
     paho = logging_hook.get_paho_from_device_client(device_client)
 
@@ -159,6 +188,11 @@ def add_hook_flush_incoming_packet_queue(device_client, failure_probability, log
 
     @functools.wraps(old_sock_recv)
     def new_sock_recv(buffsize):
+        """
+        Inside `sock_recv` we randomly flush the incoming packet queue to simulate dropping of
+        a single packet, (or a small number of incoming packets depending on how quickly the
+        incoming queue is handled).
+        """
         if random.random() < failure_probability:
             buf = old_sock_recv(2048)
             log_func("---------- DROPPED {} bytes".format(len(buf)))
@@ -173,7 +207,8 @@ def add_hook_flush_incoming_packet_queue(device_client, failure_probability, log
 
 def add_hook_raise_send_exception(device_client, failure_probability, log_func=print):
     """
-    Add a hook to randomly raise an exception when sending based on some failure probability.
+    Add a hook to randomly raise an exception when sending based on some failure probability. This
+    is used to simulate an exception inside Paho when sending.
     """
     paho = logging_hook.get_paho_from_device_client(device_client)
 
@@ -194,7 +229,8 @@ def add_hook_raise_send_exception(device_client, failure_probability, log_func=p
 
 def add_hook_raise_receive_exception(device_client, failure_probability, log_func=print):
     """
-    Add a hook to randomly raise an exception when receiving based on some failure probability.
+    Add a hook to randomly raise an exception when receiving based on some failure probability. This
+    is used to simulate an exception inside Paho when receiving.
     """
     paho = logging_hook.get_paho_from_device_client(device_client)
 

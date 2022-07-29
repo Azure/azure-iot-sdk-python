@@ -3,13 +3,12 @@
 # license information.
 import pytest
 import asyncio
-import e2e_settings
+from test_utils import test_env, ServiceHelper
 import logging
 import datetime
 import json
 import retry_async
 from utils import create_client_object
-from service_helper import ServiceHelper
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
 
 logger = logging.getLogger(__name__)
@@ -71,7 +70,7 @@ async def brand_new_client(device_identity, client_kwargs, service_helper, devic
     # Keep this here.  It is useful to see this info inside the inside devops pipeline test failures.
     logger.info(
         "Connecting device_id={}, module_id={}, to hub={} at {} (UTC)".format(
-            device_id, module_id, e2e_settings.IOTHUB_HOSTNAME, datetime.datetime.utcnow()
+            device_id, module_id, test_env.IOTHUB_HOSTNAME, datetime.datetime.utcnow()
         )
     )
 
@@ -103,7 +102,13 @@ async def client(brand_new_client):
 
 @pytest.fixture(scope="module")
 async def service_helper(event_loop, executor):
-    service_helper = ServiceHelper(event_loop, executor)
+    service_helper = ServiceHelper(
+        iothub_connection_string=test_env.IOTHUB_CONNECTION_STRING,
+        eventhub_connection_string=test_env.EVENTHUB_CONNECTION_STRING,
+        eventhub_consumer_group=test_env.EVENTHUB_CONSUMER_GROUP,
+        event_loop=event_loop,
+        executor=executor,
+    )
     await asyncio.sleep(3)
     yield service_helper
 

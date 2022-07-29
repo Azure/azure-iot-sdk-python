@@ -8,6 +8,7 @@ import inspect
 import threading
 
 
+# List of Paho functions to add logging to
 paho_functions_to_hook = {
     "connect": True,
     "disconnect": True,
@@ -31,6 +32,7 @@ paho_functions_to_hook = {
 }
 
 
+# List of device/module client functions to add logging to
 device_client_functions_to_hook = {
     "shutdown": True,
     "connect": True,
@@ -44,8 +46,11 @@ device_client_functions_to_hook = {
 }
 
 
+# lock for synchronizing mulththreaded access to call_index and indent_count
 global_lock = threading.Lock()
+# running count of calls that are being logged.  Included with the log output so readers can match calls and returns
 call_index = 0
+# count of indent levels for calls. Used to indent logs so calls and returns can be visualy matched.
 indent_count = 0
 
 

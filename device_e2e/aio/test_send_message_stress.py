@@ -9,7 +9,7 @@ import time
 import parametrize
 import task_cleanup
 from iptables import all_disconnect_types
-from utils import get_random_message
+from test_utils import get_random_message
 from retry_async import retry_exponential_backoff_with_jitter
 
 logger = logging.getLogger(__name__)

@@ -6,12 +6,10 @@
 
 import asyncio
 import logging
-import test_env
-import paho_fuzz_hook
-import random_content
 import argparse
 from azure.iot.device.aio import IoTHubDeviceClient
-from service_helper import ServiceHelper
+from test_utils import test_env, paho_fuzz_hook, random_content
+from test_utils.service_helper import ServiceHelper
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("e2e").setLevel(level=logging.INFO)
@@ -39,7 +37,7 @@ async def wait_for_messages(service_helper, message_ids):
 drop_outgoing_packets_until_reconnect = 1
 drop_individual_outgoing_packets = 2
 drop_incoming_packets_until_reconnect = 3
-flush_incoming_packet_queue = 4
+drop_individual_incoming_packets = 4
 raise_send_exception = 5
 raise_receive_exception = 6
 
@@ -47,7 +45,7 @@ fuzz_type_help = """
 drop_outgoing_packets_until_reconnect = 1
 drop_individual_outgoing_packets = 2
 drop_incoming_packets_until_reconnect = 3
-flush_incoming_packet_queue = 4
+drop_individual_incoming_packets = 4
 raise_send_exception = 5
 raise_receive_exception = 6
 """
@@ -63,22 +61,6 @@ async def main(fuzz_type):
         eventhub_consumer_group=test_env.EVENTHUB_CONSUMER_GROUP,
     )
 
-    if fuzz_type == drop_outgoing_packets_until_reconnect:
-        paho_fuzz_hook.add_hook_drop_outgoing_until_reconnect(device_client, 0.05)
-    elif fuzz_type == drop_individual_outgoing_packets:
-        paho_fuzz_hook.add_hook_drop_individual_outgoing(device_client, 0.05)
-    elif fuzz_type == drop_incoming_packets_until_reconnect:
-        # probability for incoming is calculated on every byte, so it needs to be much lower
-        paho_fuzz_hook.add_hook_drop_incoming_until_reconnect(device_client, 0.001)
-    elif fuzz_type == flush_incoming_packet_queue:
-        paho_fuzz_hook.add_hook_flush_incoming_packet_queue(device_client, 0.05)
-    elif fuzz_type == raise_send_exception:
-        paho_fuzz_hook.add_hook_raise_send_exception(device_client, 0.05)
-    elif fuzz_type == raise_receive_exception:
-        paho_fuzz_hook.add_hook_raise_receive_exception(device_client, 0.05)
-    else:
-        assert False
-
     paho_fuzz_hook.add_paho_logging_hook(device_client)
 
     try:
@@ -86,6 +68,23 @@ async def main(fuzz_type):
         # Connect the device client.
         print("connecting")
         await device_client.connect()
+
+        # Start fuzzing after the client is connected
+        if fuzz_type == drop_outgoing_packets_until_reconnect:
+            paho_fuzz_hook.add_hook_drop_outgoing_until_reconnect(device_client, 0.05)
+        elif fuzz_type == drop_individual_outgoing_packets:
+            paho_fuzz_hook.add_hook_drop_individual_outgoing(device_client, 0.05)
+        elif fuzz_type == drop_incoming_packets_until_reconnect:
+            # probability for incoming is calculated on every byte, so it needs to be much lower
+            paho_fuzz_hook.add_hook_drop_incoming_until_reconnect(device_client, 0.001)
+        elif fuzz_type == drop_individual_incoming_packets:
+            paho_fuzz_hook.add_hook_drop_individual_incoming(device_client, 0.05)
+        elif fuzz_type == raise_send_exception:
+            paho_fuzz_hook.add_hook_raise_send_exception(device_client, 0.05)
+        elif fuzz_type == raise_receive_exception:
+            paho_fuzz_hook.add_hook_raise_receive_exception(device_client, 0.05)
+        else:
+            assert False
 
         # TOOD: can we add device_id and module_id attributes on the client?
         service_helper.set_identity(

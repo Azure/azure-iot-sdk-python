@@ -3,11 +3,10 @@
 # license information.
 import pytest
 import time
-import e2e_settings
+from test_utils import test_env, ServiceHelperSync
 import logging
 import datetime
 from utils import create_client_object
-from service_helper_sync import ServiceHelperSync
 from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ def brand_new_client(device_identity, client_kwargs, service_helper, device_id, 
     # Keep this here.  It is useful to see this info inside the inside devops pipeline test failures.
     logger.info(
         "Connecting device_id={}, module_id={}, to hub={} at {} (UTC)".format(
-            device_id, module_id, e2e_settings.IOTHUB_HOSTNAME, datetime.datetime.utcnow()
+            device_id, module_id, test_env.IOTHUB_HOSTNAME, datetime.datetime.utcnow()
         )
     )
 
@@ -53,7 +52,11 @@ def client(brand_new_client):
 
 @pytest.fixture(scope="module")
 def service_helper():
-    service_helper = ServiceHelperSync()
+    service_helper = ServiceHelperSync(
+        iothub_connection_string=test_env.IOTHUB_CONNECTION_STRING,
+        eventhub_connection_string=test_env.EVENTHUB_CONNECTION_STRING,
+        eventhub_consumer_group=test_env.EVENTHUB_CONSUMER_GROUP,
+    )
     time.sleep(3)
     yield service_helper
 

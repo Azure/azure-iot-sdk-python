@@ -9,8 +9,8 @@ import device_identity_helper
 import const
 import leak_tracker as leak_tracker_module
 import iptables
-import e2e_settings
-from utils import get_random_message, get_random_dict, is_windows
+from test_utils import test_env, get_random_message, get_random_dict
+from utils import is_windows
 
 from drop_fixtures import dropper  # noqa: F401
 from client_fixtures import (  # noqa: F401
@@ -186,7 +186,7 @@ def pytest_runtest_setup(item):
     """
 
     # reconnect in case a previously interrupted test run left our network disconnected
-    iptables.reconnect_all(test_config.config.transport, e2e_settings.IOTHUB_HOSTNAME)
+    iptables.reconnect_all(test_config.config.transport, test_env.IOTHUB_HOSTNAME)
 
     # tests that use iptables need to be skipped on Windows
     if is_windows():

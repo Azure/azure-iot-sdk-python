@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
-from service_helper_sync import ServiceHelperSync
+from .service_helper_sync import ServiceHelperSync
 import asyncio
 import concurrent.futures
 

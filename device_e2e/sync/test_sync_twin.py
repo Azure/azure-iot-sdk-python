@@ -6,7 +6,7 @@ import logging
 import time
 import const
 import queue
-from utils import get_random_dict
+from test_utils import get_random_dict
 from azure.iot.device.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
