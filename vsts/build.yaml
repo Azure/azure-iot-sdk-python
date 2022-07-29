@@ -18,7 +18,7 @@ jobs:
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
   
-  - script: 'python env_setup.py --no_dev'
+  - script: 'python scripts/env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
 
   - script: 'flake8 .'
@@ -49,10 +49,10 @@ jobs:
   - script: 'python -m pip install --upgrade pip'
     displayName: 'Update pip'
 
-  - script: 'python env_setup.py --no_dev'
+  - script: 'python scripts/env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
 
-  - script: 'python test_packages.py'
+  - script: 'python scripts/test_packages.py'
     displayName: pytest
 
   - task: PublishTestResults@2
@@ -85,7 +85,7 @@ jobs:
 
   - script: |
       pip install wheel
-      python build_packages.py
+      python scripts/build_packages.py
     displayName: Build source and wheel distribution for devicesdk
 
   - task: PublishBuildArtifacts@1

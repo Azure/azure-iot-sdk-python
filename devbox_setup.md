@@ -10,7 +10,7 @@ pip install azure-iot-device
 ```
 
 ## IoT Device SDK developer
-If you are going to be modifying the codebase (likely because you are working as a developer on the Microsoft Azure IoT Device SDK for Python) you will need a few extras. Thankfully, you can prepare your development environment simply by running the `env_setup.py` script in the repository root. This will install not only relevant development and test dependencies, but also an editable install of the source code, which can then have any code changes immediately reflected in the install.
+If you are going to be modifying the codebase (likely because you are working as a developer on the Microsoft Azure IoT Device SDK for Python) you will need a few extras. Thankfully, you can prepare your development environment simply by running the `env_setup.py` script in the `scripts` folder. This will install not only relevant development and test dependencies, but also an editable install of the source code, which can then have any code changes immediately reflected in the install.
 
 It is recommended to use [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/en/latest/install.html) for Unix-based platforms or [virutalenvwrapper-win](https://github.com/davidmarble/virtualenvwrapper-win) for Windows, in order to easily manage custom environments and switch Python versions, however this is optional.
 
