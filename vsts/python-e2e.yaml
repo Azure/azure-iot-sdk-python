@@ -20,7 +20,7 @@ jobs:
       displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
     - script: |
-        cd $(Build.SourcesDirectory)tests/e2e/device_e2e
+        cd $(Build.SourcesDirectory)/tests/e2e/iothub
         pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
       displayName: 'E2E Device Client MQTT Connection String'
       env:
@@ -52,7 +52,7 @@ jobs:
       displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
     - script: |
-        cd $(Build.SourcesDirectory)tests/e2e/device_e2e
+        cd $(Build.SourcesDirectory)/tests/e2e/iothub
         pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
       displayName: 'E2E Device Client MQTT Connection String'
       env:
