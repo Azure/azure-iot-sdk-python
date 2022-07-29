@@ -130,7 +130,7 @@ def test_device_register_with_no_device_id_for_a_x509_individual_enrollment(prot
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment(
-    protocol
+    protocol,
 ):
     group_id = "e2e-intermediate-hogwarts" + str(uuid.uuid4())
     common_device_id = device_common_name
@@ -194,7 +194,7 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment(
-    protocol
+    protocol,
 ):
     group_id = "e2e-ca-beauxbatons" + str(uuid.uuid4())
     common_device_id = device_common_name

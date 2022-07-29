@@ -81,7 +81,9 @@ class TestConnectDisconnect(object):
         # wait for handle_on_connection_state_change to reconnect
         await reconnected_event.wait()
 
-        logger.info("reconnect_event.wait() returned.  client.connected={}".format(client.connected))
+        logger.info(
+            "reconnect_event.wait() returned.  client.connected={}".format(client.connected)
+        )
 
         # This assert fails because of initial and secondary disconnects
         assert client.connected

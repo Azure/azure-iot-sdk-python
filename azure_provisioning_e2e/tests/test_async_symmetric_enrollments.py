@@ -34,7 +34,7 @@ linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRI
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment(
-    protocol
+    protocol,
 ):
     try:
         individual_enrollment_record = create_individual_enrollment(
