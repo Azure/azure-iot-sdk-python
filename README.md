@@ -26,7 +26,9 @@ Python 3.6 or higher is required in order to use the library
 ## Using the library
 API documentation for this package is available via [**Microsoft Docs**](https://docs.microsoft.com/python/api/azure-iot-device/azure.iot.device?view=azure-python).
 
-You can also view [**samples**](https://github.com/Azure/azure-iot-sdk-python/tree/main/samples) to see examples of basic client usage.
+See our [**quickstart guide**](https://github.com/Azure/azure-iot-sdk-python/tree/main/samples/README.md) for step by step instructions for setting up and using an IoTHub with devices. 
+
+You can also view the [**samples repository**](https://github.com/Azure/azure-iot-sdk-python/tree/main/samples) to see additional examples of basic client usage.
 
 Want to start off on the right foot? Be sure to learn about [**common pitfalls**](https://github.com/Azure/azure-iot-sdk-python/wiki/pitfalls) of using this Python SDK before starting a project.  
 
