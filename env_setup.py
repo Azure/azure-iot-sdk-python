@@ -58,3 +58,4 @@ if __name__ == "__main__":
         pip_command("install -U -r requirements_dev.txt")
         print("Installing pre-commit")
         check_call("pre-commit install", shell=True)
+        pip_command("install -e test_utils")
