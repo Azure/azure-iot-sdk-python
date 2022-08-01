@@ -11,11 +11,9 @@ resources:
   - repository: e2e_fx
     type: github
     name: Azure/iot-sdks-e2e-fx
-    # ref: refs/heads/master
-    ref: refs/heads/ct-python-structure
+    ref: refs/heads/master
     endpoint: 'GitHub OAuth - az-iot-builder-01'
 
 jobs:
 - template: vsts/templates/jobs-gate-pythonv2.yaml@e2e_fx
 
-  
