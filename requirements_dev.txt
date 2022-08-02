@@ -1,4 +1,5 @@
 py
+setuptools>=40.1.0
 wheel>=0.32.1
 black
 pre-commit

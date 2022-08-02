@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 import re
 
 # azure v0.x is not compatible with this package
@@ -28,7 +28,7 @@ with open("README.md", "r") as fh:
     _long_description = fh.read()
 
 
-filename = "azure/iot/device/constant.py"
+filename = "azure-iot-device/azure/iot/device/constant.py"
 version = None
 
 with open(filename, "r") as fh:
@@ -87,26 +87,7 @@ setup(
         "PySocks",
     ],
     python_requires=">=3.6, <4",
-    packages=find_packages(
-        exclude=[
-            "doc",
-            "doc.*",
-            "pip_alias",
-            "pip_alias.*",
-            "samples",
-            "samples.*",
-            "scripts",
-            "scripts.*",
-            "sdklab",
-            "sdklab.*",
-            "tests",
-            "tests.*",
-            "vsts",
-            "vsts.*",
-            # Exclude packages that will be covered by PEP420
-            "azure",
-            "azure.iot",
-        ]
-    ),
+    packages=find_namespace_packages(where="azure-iot-device"),
+    package_dir={"": "azure-iot-device"},
     zip_safe=False,
 )
