@@ -19,7 +19,7 @@ import logging
 import os
 import uuid
 
-from scripts.create_x509_chain_crypto import (
+from .....scripts.create_x509_chain_crypto import (
     before_cert_creation_from_pipeline,
     call_intermediate_cert_and_device_cert_creation_from_pipeline,
     delete_directories_certs_created_from_pipeline,
