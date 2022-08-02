@@ -27,7 +27,7 @@ jobs:
 
   - script: |
       cd $(Build.SourcesDirectory)
-      pytest tests/e2e/provisioning_e2e/tests/test_*.py --junitxml=junit/dps-e2e-test-results.xml
+      pytest tests/e2e/provisioning_e2e/tests --junitxml=junit/dps-e2e-test-results.xml
     displayName: 'Run Specified E2E Test with env variables'
 
     env:
