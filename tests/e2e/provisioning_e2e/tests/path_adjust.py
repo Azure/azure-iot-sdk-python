@@ -4,16 +4,14 @@
 # license information.
 # --------------------------------------------------------------------------
 import sys
+import os
 from os.path import dirname as dir
 
 print("ADJUSTING PATH...")
 
-root = dir(dir(sys.path[0]))
-scripts = root + "\\scripts"
-print(scripts)
-sys.path.append(scripts)
-# print("PATH: {}".format(sys.path))
-
-# print("Attempting to import scripts...")
-# #import scripts
-# import create_x509_chain_crypto
+root_path = dir(dir(sys.path[0]))
+script_path = os.path.join(root_path, "scripts")
+print(script_path)
+if script_path not in sys.path:
+    sys.path.append(script_path)
+print("PATH: {}".format(sys.path))
