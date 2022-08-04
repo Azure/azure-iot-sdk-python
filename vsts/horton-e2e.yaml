@@ -17,4 +17,3 @@ resources:
 jobs:
 - template: vsts/templates/jobs-gate-pythonv2.yaml@e2e_fx
 
-  

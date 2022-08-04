@@ -5,9 +5,6 @@
 # --------------------------------------------------------------------------
 """Prepare development environment
 """
-
-import glob
-import os
 import sys
 import argparse
 from subprocess import check_call, CalledProcessError
@@ -35,16 +32,13 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    packages = [os.path.dirname(p) for p in glob.glob("azure*/setup.py")]
-
     # Make sure pip is on the latest version
     pip_command("install --upgrade pip")
 
-    # Install packages
-    for package_name in packages:
-        # Use an eager upgrade strategy to make sure we have all the latest dependencies.
-        # This way we will be running into any dependency-related bugs before customers do.
-        pip_command("install -U --upgrade-strategy eager -e {}".format(package_name))
+    # Install package
+    # Use an eager upgrade strategy to make sure we have all the latest dependencies.
+    # This way we will be running into any dependency-related bugs before customers do.
+    pip_command("install -U --upgrade-strategy eager -e .")
 
     # Because we're just installing development environment libraries beyond this point, no need to
     # be eager in upgrading, as these dependencies are not customer facing.

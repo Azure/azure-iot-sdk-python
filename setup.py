@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 import re
 
 # azure v0.x is not compatible with this package
@@ -28,7 +28,7 @@ with open("README.md", "r") as fh:
     _long_description = fh.read()
 
 
-filename = "azure/iot/device/constant.py"
+filename = "azure-iot-device/azure/iot/device/constant.py"
 version = None
 
 with open(filename, "r") as fh:
@@ -53,7 +53,7 @@ setup(
     description="Microsoft Azure IoT Device Library",
     license="MIT License",
     license_files=("LICENSE",),
-    url="https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-device",
+    url="https://github.com/Azure/azure-iot-sdk-python/",
     author="Microsoft Corporation",
     author_email="opensource@microsoft.com",
     long_description=_long_description,
@@ -86,17 +86,8 @@ setup(
         "janus",
         "PySocks",
     ],
-    python_requires="!=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5, <4",
-    packages=find_packages(
-        exclude=[
-            "tests",
-            "tests.*",
-            "samples",
-            "samples.*",
-            # Exclude packages that will be covered by PEP420
-            "azure",
-            "azure.iot",
-        ]
-    ),
+    python_requires=">=3.6, <4",
+    packages=find_namespace_packages(where="azure-iot-device"),
+    package_dir={"": "azure-iot-device"},
     zip_safe=False,
 )

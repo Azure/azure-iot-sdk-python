@@ -18,7 +18,7 @@ jobs:
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
   
-  - script: 'python env_setup.py --no_dev'
+  - script: 'python scripts/env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
 
   - script: 'flake8 .'
@@ -49,10 +49,10 @@ jobs:
   - script: 'python -m pip install --upgrade pip'
     displayName: 'Update pip'
 
-  - script: 'python env_setup.py --no_dev'
+  - script: 'python scripts/env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
 
-  - script: 'python test_packages.py'
+  - script: 'pytest tests --junitxml=junit/azure-iot-device-test-results.xml --cov=azure --cov-report=xml:coverage.xml --cov-report=html:coverage --cov-append'
     displayName: pytest
 
   - task: PublishTestResults@2
@@ -85,8 +85,8 @@ jobs:
 
   - script: |
       pip install wheel
-      python build_packages.py
-    displayName: Build source and wheel distribution for devicesdk
+      python scripts/build_packages.py
+    displayName: Build source and wheel distribution
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish artifact dist'
