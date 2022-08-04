@@ -13,7 +13,7 @@ jobs:
       versionSpec: '3.7'
       architecture: 'x64'
 
-  - script: 'python env_setup.py --no_dev'
+  - script: 'python scripts/env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
   - script: 'python -m pip install cryptography'
@@ -26,8 +26,8 @@ jobs:
     displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
 
   - script: |
-      cd $(Build.SourcesDirectory)/azure_provisioning_e2e/tests
-      pytest test_*.py --junitxml=junit/dps-e2e-test-results.xml
+      cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
+      pytest --junitxml=junit/dps-e2e-test-results.xml
     displayName: 'Run Specified E2E Test with env variables'
 
     env:
