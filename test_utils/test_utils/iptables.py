@@ -40,13 +40,13 @@ def run_shell_command(cmd):
     """
     Run a shell command and raise an exception on error
     """
-    print("running [{}]".format(cmd))
+    logger.info("running [{}]".format(cmd))
     try:
         return subprocess.check_output(cmd.split(" ")).decode("utf-8").splitlines()
     except subprocess.CalledProcessError as e:
-        print("Error spawning {}".format(e.cmd))
-        print("Process returned {}".format(e.returncode))
-        print("process output: {}".format(e.output))
+        logger.error("Error spawning {}".format(e.cmd))
+        logger.error("Process returned {}".format(e.returncode))
+        logger.error("process output: {}".format(e.output))
         raise
 
 
