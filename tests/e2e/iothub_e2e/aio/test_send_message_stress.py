@@ -8,8 +8,8 @@ import json
 import time
 import parametrize
 import task_cleanup
-from iptables import all_disconnect_types
 from test_utils import get_random_message
+from test_utils.iptables import all_disconnect_types
 from retry_async import retry_exponential_backoff_with_jitter
 
 logger = logging.getLogger(__name__)

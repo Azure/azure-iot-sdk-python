@@ -4,7 +4,7 @@
 import logging
 import subprocess
 import socket
-from utils import is_windows
+import sys
 
 logger = logging.getLogger("e2e.{}".format(__name__))
 
@@ -40,13 +40,13 @@ def run_shell_command(cmd):
     """
     Run a shell command and raise an exception on error
     """
-    logger.info("running [{}]".format(cmd))
+    print("running [{}]".format(cmd))
     try:
         return subprocess.check_output(cmd.split(" ")).decode("utf-8").splitlines()
     except subprocess.CalledProcessError as e:
-        logger.error("Error spawning {}".format(e.cmd))
-        logger.error("Process returned {}".format(e.returncode))
-        logger.error("process output: {}".format(e.output))
+        print("Error spawning {}".format(e.cmd))
+        print("Process returned {}".format(e.returncode))
+        print("process output: {}".format(e.output))
         raise
 
 
@@ -84,7 +84,7 @@ def reconnect_all(transport, host):
     Reconnect all disconnects for this host and transport.  Effectively, clean up
     anything that this module may have done.
     """
-    if not is_windows():
+    if not sys.platform.startswith("win"):
         ip = get_ip(host)
         port = transport_to_port(transport)
         for disconnect_type in all_disconnect_types:

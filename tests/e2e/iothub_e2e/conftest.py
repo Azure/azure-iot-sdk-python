@@ -7,9 +7,8 @@ import concurrent.futures
 import test_config
 import device_identity_helper
 import const
-import leak_tracker as leak_tracker_module
-import iptables
-from test_utils import test_env, get_random_message, get_random_dict
+import test_utils.leak_tracker as leak_tracker_module
+from test_utils import test_env, get_random_message, get_random_dict, iptables
 from utils import is_windows
 
 from drop_fixtures import dropper  # noqa: F401
