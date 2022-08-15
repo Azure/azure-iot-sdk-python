@@ -6,7 +6,8 @@
 from setuptools import setup
 
 setup(
-    name="test_utils",
+    name="dev_utils",
+    description="Internal development utilities for Azure IoT. NOT FOR DISTRIBUTION.",
     version="0.0.0a1",  # Alpha Release
     license="MIT License",
 )

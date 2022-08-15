@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from . import logging_hook
+from dev_utils import logging_hook
 import random
 import functools
 
@@ -16,7 +16,7 @@ import functools
 """
 
 # List of Paho functions to add logging to
-paho_functions_to_hook = {
+PAHO_FUNCTIONS_TO_HOOK = {
     # "_sock_send": False,
     # "_sock_recv": False,
     # "_sock_close": False,
@@ -30,20 +30,24 @@ paho_functions_to_hook = {
 }
 
 
+class MyFakeException(Exception):
+    pass
+
+
 def add_paho_logging_hook(device_client, log_func=print):
     """
-    Add logging hooks to all the Paho functions listed in the `paho_functions_to_hook`
+    Add logging hooks to all the Paho functions listed in the `PAHO_FUNCTIONS_TO_HOOK`
     list
     """
     paho = logging_hook.get_paho_from_device_client(device_client)
 
-    for name in paho_functions_to_hook:
+    for name in PAHO_FUNCTIONS_TO_HOOK:
         logging_hook.add_logging_hook(
             obj=paho,
             func_name=name,
             log_func=log_func,
             module_name="Paho",
-            log_args=paho_functions_to_hook[name],
+            log_args=PAHO_FUNCTIONS_TO_HOOK[name],
         )
 
 
@@ -218,7 +222,7 @@ def add_hook_raise_send_exception(device_client, failure_probability, log_func=p
     def new_sock_send(buf):
         if random.random() < failure_probability:
             log_func("---------- RAISING EXCEPTION")
-            raise Exception("Forced Send Failure")
+            raise MyFakeException("Forced Send Failure")
         else:
             count = old_sock_send(buf)
             log_func("---------- SENT {} bytes".format(count))
@@ -240,7 +244,7 @@ def add_hook_raise_receive_exception(device_client, failure_probability, log_fun
     def new_sock_recv(buffsize):
         if random.random() < failure_probability:
             log_func("---------- RAISING EXCEPTION")
-            raise Exception("Forced Receive Failure")
+            raise MyFakeException("Forced Receive Failure")
         else:
             buf = old_sock_recv(buffsize)
             log_func("---------- RECEIVED {} bytes".format(len(buf)))

@@ -9,7 +9,7 @@ import threading
 
 
 # List of Paho functions to add logging to
-paho_functions_to_hook = {
+PAHO_FUNCTIONS_TO_HOOK = {
     "connect": True,
     "disconnect": True,
     "enable_logger": True,
@@ -33,7 +33,7 @@ paho_functions_to_hook = {
 
 
 # List of device/module client functions to add logging to
-device_client_functions_to_hook = {
+DEVICE_CLIENT_FUNCTIONS_TO_HOOK = {
     "shutdown": True,
     "connect": True,
     "disconnect": True,
@@ -56,7 +56,7 @@ indent_count = 0
 
 def _get_next_call_index():
     """
-    Get an index for function calls where each funciton call gets a new index #. This can be used
+    Get an index for function calls where each function call gets a new index #. This can be used
     to correlate calls with return.
     """
     global global_lock, call_index
@@ -186,20 +186,20 @@ def hook_device_client(device_client, log_func=print):
     """
     paho = get_paho_from_device_client(device_client)
 
-    for name in paho_functions_to_hook:
+    for name in PAHO_FUNCTIONS_TO_HOOK:
         add_logging_hook(
             obj=paho,
             func_name=name,
             log_func=log_func,
             module_name="Paho",
-            log_args=paho_functions_to_hook[name],
+            log_args=PAHO_FUNCTIONS_TO_HOOK[name],
         )
 
-    for name in device_client_functions_to_hook:
+    for name in DEVICE_CLIENT_FUNCTIONS_TO_HOOK:
         add_logging_hook(
             obj=device_client,
             func_name=name,
             log_func=log_func,
             module_name="device_client",
-            log_args=device_client_functions_to_hook[name],
+            log_args=DEVICE_CLIENT_FUNCTIONS_TO_HOOK[name],
         )

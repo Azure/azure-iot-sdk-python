@@ -7,12 +7,26 @@
 import asyncio
 import logging
 import argparse
+import paho_fuzz_hook
 from azure.iot.device.aio import IoTHubDeviceClient
-from test_utils import test_env, paho_fuzz_hook, random_content
-from test_utils.service_helper import ServiceHelper
+from dev_utils import test_env, random_content
+from dev_utils.service_helper import ServiceHelper
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("e2e").setLevel(level=logging.INFO)
+
+"""
+This tool does limited "fuzzing" of the client library by by injecting various
+failures into the sockets that Paho uses. The set of failures is limited and are
+described in the `fuzz_type_help` string below. Some of these "failures" are
+problems that might occur at the network level, such as lost packets and dropped
+connections, and other "failures" are exceptions that are raised from lower components.
+
+Calling this "fuzzing" is a misnomer. While this code "injects random failures" into
+the transport, that set of random failures are based on scenarios that we except might happen.
+The fact that we're guessing the types of failures that might happen limits the scope
+of testing, but it still provides value.
+"""
 
 
 async def queue_send_messages(device_client, messages_to_send=60):
@@ -42,12 +56,33 @@ raise_send_exception = 5
 raise_receive_exception = 6
 
 fuzz_type_help = """
-drop_outgoing_packets_until_reconnect = 1
-drop_individual_outgoing_packets = 2
-drop_incoming_packets_until_reconnect = 3
-drop_individual_incoming_packets = 4
-raise_send_exception = 5
-raise_receive_exception = 6
+1: drop_outgoing_packets_until_reconnect
+   Simlulates failures where the transport connection drops all outgoing packets
+   until the network socket is closed and re-opened. This simulates a
+   "boken output pipe".
+
+2: drop_individual_outgoing_packets
+   Simulates loss of individual outgoing packets. This simulates scenarios
+   where individual outgoing messages are lost, but the connection isn't
+   necessarily "boken".
+
+3: drop_incoming_packets_until_reconnect
+   Simulates failures where the transport connection drops all incoming packets
+   until the network socket is closed and re-opened. This simulates a
+   "broken input pipe".
+
+4: drop_individual_incoming_packets
+   Simulates the loss of individual incoming packets. This simualates scendarios
+   where individual incoming messages are lost, but the connection isn't necessarily
+   "broken"
+
+5: raise_send_exception
+   Simulates a failure where the call into the transport socket `send` function raises
+   an exception. This simulates low-level socket failures on the outgoing socket.
+
+6: raise_receive_exception
+   Simulates a failure where the call into the transport socket `recv` function raises
+   an exception. This simulates low-level socket failures on the incoming socket.
 """
 
 

@@ -2,7 +2,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 import uuid
-from test_utils import test_env
+from dev_utils import test_env
 import time
 from azure.iot.hub import IoTHubRegistryManager
 from base64 import b64encode, b64decode

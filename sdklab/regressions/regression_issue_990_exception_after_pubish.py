@@ -8,7 +8,7 @@ import asyncio
 import logging
 import functools
 import ssl
-from test_utils import test_env, logging_hook
+from dev_utils import test_env, logging_hook
 from azure.iot.device.aio import IoTHubDeviceClient
 import azure.iot.device.common
 
@@ -37,6 +37,10 @@ In the interest of completeness, this test was expanded to 8 different scenarios
 
 `send_message` is not expected to succeed in all of these scenarios. The `send_should_succeed` flag is used to make sure it succeeds or fails appropriately.
 """
+
+
+class MyFakeException(Exception):
+    pass
 
 
 def workaround_github_990():
@@ -251,7 +255,7 @@ async def main():
     # Test with non-retryable (fatal) error.  In all cases, send_message should fail.
     # These scenarios are currently broken.
     """
-    fatal_error = Exception("Fatal exception")
+    fatal_error = MyFakeException("Fatal exception")
 
     await run_test(
         connection_retry=True,

@@ -5,7 +5,7 @@ import pytest
 import logging
 import asyncio
 import parametrize
-from test_utils import get_random_dict
+from dev_utils import get_random_dict
 from azure.iot.device.iothub import MethodResponse
 
 logger = logging.getLogger(__name__)

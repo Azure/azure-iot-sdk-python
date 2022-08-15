@@ -6,10 +6,30 @@
 
 import asyncio
 import logging
-from test_utils import test_env
+from dev_utils import test_env
 from azure.iot.device.aio import IoTHubDeviceClient
 
 logging.basicConfig(level=logging.WARNING)
+
+"""
+This code checks to make sure the bug fixed by GitHub PR #1023 was fixed.
+
+Order of events for the bug repro:
+
+1. Customer code creates a client object and registers for twin change events.
+2. When reconnecting, the device client code would issue a twin "GET" packet to the service.
+   This is done to ensure the client has a current version of the twin, which may have been
+   updated while the client was disconnected.
+3. If `shutdown` is called _immediately_ after `connect`, the "GET" operation fails. This
+   is expected because there was no response.
+4. The EnsureDesiredPropertyStage code responds to the GET operation failure by submitting a
+   new GET operation.
+5. Because the client is shutting down, this second GET operation also fails.  Go to step 4.
+
+Final result (before this fix):
+
+Multiple GET calls and an access violation.
+"""
 
 
 async def main():

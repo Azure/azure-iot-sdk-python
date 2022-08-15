@@ -7,8 +7,8 @@
 import asyncio
 import logging
 from azure.iot.device.aio import IoTHubDeviceClient
-from test_utils import test_env, random_content
-from test_utils.service_helper import ServiceHelper
+from dev_utils import test_env, random_content
+from dev_utils.service_helper import ServiceHelper
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("e2e").setLevel(level=logging.INFO)

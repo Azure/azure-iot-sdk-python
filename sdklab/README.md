@@ -31,7 +31,7 @@ It has a README that describes how it can be used, and it does not follow the "s
 
 ## `./fuzzing/fuzz_send_message.py`
 
-This tool exercises the `send_message` method with different faults injected into Paho at different times. Documentation on what faults are injected can be found in `../test_utils/test_utils/paho_fuzz_hook.py`.
+This tool exercises the `send_message` method with different faults injected into Paho at different times. Documentation on what faults are injected can be found in `../dev_utils/dev_utils/paho_fuzz_hook.py`.
 
 ## `./regressions/regression_pr1023_infinite_get_twin.py`
 

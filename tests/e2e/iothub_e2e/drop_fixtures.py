@@ -2,9 +2,8 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 import pytest
-from test_utils import iptables
 import logging
-from test_utils import test_env
+from dev_utils import iptables, test_env
 
 logger = logging.getLogger(__name__)
 

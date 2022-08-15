@@ -5,7 +5,7 @@ import asyncio
 import pytest
 import logging
 import json
-from test_utils import get_random_dict
+from dev_utils import get_random_dict
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
