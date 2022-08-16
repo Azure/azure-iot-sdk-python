@@ -23,7 +23,7 @@ This app simulates was a bug that was reported where a websockets connection was
 Order of events for this bug repro:
 1. Customer calls `send_message`
 2. After `PUBLISH` and before `PUBACK`, transport disconnects with `rc=1`
-3. On reconnnect, `transport.connect` raised `TlsExchangeAuthError(None,)` caused by SSLError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed (_ssl.c:852)')`
+3. On reconnect, `transport.connect` raised `TlsExchangeAuthError(None,)` caused by SSLError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed (_ssl.c:852)')`
 4. `TlsExchangeAuthError` is not transient, so `reconnect` fails. Since the reconnect is not user-initiated, no error is returned to the caller.
 5. `PUBACK` never received, so `send_message` never completes.
 
@@ -170,7 +170,7 @@ async def run_test(
         print("*" * 80)
         print()
         print(
-            "Running test with connection_retry={}, auto_connect={}, and exception_to_raies_on_reconnect={}".format(
+            "Running test with connection_retry={}, auto_connect={}, and exception_to_raise_on_reconnect={}".format(
                 connection_retry, auto_connect, type(exception_to_raise_on_reconnect)
             )
         )
@@ -209,7 +209,7 @@ async def run_test(
     except Exception:
         print("FAILED " * 10)
         print(
-            "FAILED with connection_retry={}, auto_connect={}, and exception_to_raies_on_reconnect={}".format(
+            "FAILED with connection_retry={}, auto_connect={}, and exception_to_raise_on_reconnect={}".format(
                 connection_retry, auto_connect, type(exception_to_raise_on_reconnect)
             )
         )

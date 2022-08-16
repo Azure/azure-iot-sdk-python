@@ -46,11 +46,11 @@ DEVICE_CLIENT_FUNCTIONS_TO_HOOK = {
 }
 
 
-# lock for synchronizing mulththreaded access to call_index and indent_count
+# lock for synchronizing multithreaded access to call_index and indent_count
 global_lock = threading.Lock()
 # running count of calls that are being logged.  Included with the log output so readers can match calls and returns
 call_index = 0
-# count of indent levels for calls. Used to indent logs so calls and returns can be visualy matched.
+# count of indent levels for calls. Used to indent logs so calls and returns can be visually matched.
 indent_count = 0
 
 

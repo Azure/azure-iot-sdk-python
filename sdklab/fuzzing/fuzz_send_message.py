@@ -57,14 +57,14 @@ raise_receive_exception = 6
 
 fuzz_type_help = """
 1: drop_outgoing_packets_until_reconnect
-   Simlulates failures where the transport connection drops all outgoing packets
+   Simulates failures where the transport connection drops all outgoing packets
    until the network socket is closed and re-opened. This simulates a
-   "boken output pipe".
+   "broken output pipe".
 
 2: drop_individual_outgoing_packets
    Simulates loss of individual outgoing packets. This simulates scenarios
    where individual outgoing messages are lost, but the connection isn't
-   necessarily "boken".
+   necessarily "broken".
 
 3: drop_incoming_packets_until_reconnect
    Simulates failures where the transport connection drops all incoming packets
@@ -72,7 +72,7 @@ fuzz_type_help = """
    "broken input pipe".
 
 4: drop_individual_incoming_packets
-   Simulates the loss of individual incoming packets. This simualates scendarios
+   Simulates the loss of individual incoming packets. This simulates scenarios
    where individual incoming messages are lost, but the connection isn't necessarily
    "broken"
 

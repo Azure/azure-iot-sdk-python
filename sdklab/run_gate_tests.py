@@ -37,7 +37,7 @@ def run_test_app(relative_app_name, timeout):
 if __name__ == "__main__":
     run_test_app("./simple_stress/simple_send_message_bulk.py", timeout=600)
     run_test_app("./regressions/regression_pr_1023_infinite_get_twin.py", timeout=600)
-    run_test_app("./regressions/regression_issue_990_exception_after_pubish.py", timeout=600)
+    run_test_app("./regressions/regression_issue_990_exception_after_publish.py", timeout=600)
     run_test_app("./fuzzing/fuzz_send_message.py 1", timeout=600)
     run_test_app("./fuzzing/fuzz_send_message.py 3", timeout=600)
 
