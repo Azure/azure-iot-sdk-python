@@ -168,7 +168,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         elif feature == pipeline_constant.TWIN_PATCHES:
             return mqtt_topic_iothub.get_twin_patch_topic_for_subscribe()
         else:
-            logger.error("Cannot retrieve MQTT topic for subscription to invalid feature")
+            logger.warning("Cannot retrieve MQTT topic for subscription to invalid feature")
             raise pipeline_exceptions.OperationError(
                 "Trying to enable/disable invalid feature - {}".format(feature)
             )

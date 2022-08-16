@@ -256,7 +256,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._handler_manager.stop(receiver_handlers_only=True)
         logger.debug("Successfully stopped handlers")
 
-        # Disconnect again to ensure disconnection has ocurred due to the issue mentioned above
+        # Disconnect again to ensure disconnection has occurred due to the issue mentioned above
         logger.debug("Executing secondary disconnect...")
         disconnect_async = async_adapter.emulate_async(self._mqtt_pipeline.disconnect)
         callback = async_adapter.AwaitableCallback()

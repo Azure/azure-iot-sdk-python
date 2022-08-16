@@ -182,20 +182,22 @@ class MQTTTransport(object):
                             _create_error_from_connack_rc_code(rc)
                         )
                     except Exception:
-                        logger.error("Unexpected error calling on_mqtt_connection_failure_handler")
-                        logger.error(traceback.format_exc())
+                        logger.warning(
+                            "Unexpected error calling on_mqtt_connection_failure_handler"
+                        )
+                        logger.warning(traceback.format_exc())
                 else:
-                    logger.error(
+                    logger.warning(
                         "connection failed, but no on_mqtt_connection_failure_handler handler callback provided"
                     )
             elif this.on_mqtt_connected_handler:
                 try:
                     this.on_mqtt_connected_handler()
                 except Exception:
-                    logger.error("Unexpected error calling on_mqtt_connected_handler")
-                    logger.error(traceback.format_exc())
+                    logger.warning("Unexpected error calling on_mqtt_connected_handler")
+                    logger.warning(traceback.format_exc())
             else:
-                logger.error("No event handler callback set for on_mqtt_connected_handler")
+                logger.debug("No event handler callback set for on_mqtt_connected_handler")
 
         def on_disconnect(client, userdata, rc):
             this = self_weakref()
@@ -220,10 +222,10 @@ class MQTTTransport(object):
                     try:
                         this.on_mqtt_disconnected_handler(cause)
                     except Exception:
-                        logger.error("Unexpected error calling on_mqtt_disconnected_handler")
-                        logger.error(traceback.format_exc())
+                        logger.warning("Unexpected error calling on_mqtt_disconnected_handler")
+                        logger.warning(traceback.format_exc())
                 else:
-                    logger.error("No event handler callback set for on_mqtt_disconnected_handler")
+                    logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
 
         def on_subscribe(client, userdata, mid, granted_qos):
             this = self_weakref()
@@ -254,10 +256,10 @@ class MQTTTransport(object):
                 try:
                     this.on_mqtt_message_received_handler(mqtt_message.topic, mqtt_message.payload)
                 except Exception:
-                    logger.error("Unexpected error calling on_mqtt_message_received_handler")
-                    logger.error(traceback.format_exc())
+                    logger.warning("Unexpected error calling on_mqtt_message_received_handler")
+                    logger.warning(traceback.format_exc())
             else:
-                logger.error(
+                logger.debug(
                     "No event handler callback set for on_mqtt_message_received_handler - DROPPING MESSAGE"
                 )
 
@@ -601,8 +603,8 @@ class OperationManager(object):
                 try:
                     callback()
                 except Exception:
-                    logger.error("Unexpected error calling callback for MID: {}".format(mid))
-                    logger.error(traceback.format_exc())
+                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug(traceback.format_exc())
             else:
                 # Not entirely unexpected because of QOS=1
                 logger.debug("No callback for MID: {}".format(mid))
@@ -644,8 +646,8 @@ class OperationManager(object):
                 try:
                     callback()
                 except Exception:
-                    logger.error("Unexpected error calling callback for MID: {}".format(mid))
-                    logger.error(traceback.format_exc())
+                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug(traceback.format_exc())
             else:
                 # fully expected.  QOS=1 means we might get 2 PUBACKs
                 logger.debug("No callback set for MID: {}".format(mid))
@@ -674,7 +676,7 @@ class OperationManager(object):
                 try:
                     callback(cancelled=True)
                 except Exception:
-                    logger.error("Unexpected error calling callback for MID: {}".format(mid))
-                    logger.error(traceback.format_exc())
+                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug(traceback.format_exc())
             else:
                 logger.debug("Cancelling {} - No callback set for MID".format(mid))

@@ -2,43 +2,43 @@
   "tool": "Credential Scanner",
   "suppressions": [
     {
-     "file": "\\azure_provisioning_e2e\\tests\\test_async_certificate_enrollments.py",
+     "file": "\\tests\\e2e\\provisioning_e2e\\tests\\test_async_certificate_enrollments.py",
       "_justification": "Test containing fake passwords and keys"
     },
     {
-     "file": "\\azure_provisioning_e2e\\tests\\test_sync_certificate_enrollments.py",
+     "file": "\\tests\\e2e\\provisioning_e2e\\tests\\test_sync_certificate_enrollments.py",
       "_justification": "Test containing fake passwords and keys"
     },
     {
-      "file": "\\azure-iot-device\\tests\\common\\auth\\test_signing_mechanism.py",
+      "file": "\\tests\\common\\auth\\test_signing_mechanism.py",
       "_justification": "Test containing fake keys"
     },
     {
-      "file": "\\azure-iot-device\\tests\\common\\auth\\test_sastoken.py",
+      "file": "\\tests\\common\\auth\\test_sastoken.py",
       "_justification": "Test containing fake signed data"
     },
     {
-      "file": "\\azure-iot-device\\tests\\common\\test_mqtt_transport.py",
+      "file": "\\tests\\common\\test_mqtt_transport.py",
       "_justification": "Test containing fake passwords"
     },
     {
-      "file": "\\azure-iot-device\\tests\\common\\test_http_transport.py",
+      "file": "\\tests\\common\\test_http_transport.py",
       "_justification": "Test containing fake passwords"
     },
     {
-      "file": "\\azure-iot-device\\tests\\iothub\\shared_client_tests.py",
+      "file": "\\tests\\iothub\\shared_client_tests.py",
       "_justification": "Test containing fake signed data"
     },
     {
-      "file": "\\azure-iot-device\\tests\\iothub\\client_fixtures.py",
+      "file": "\\tests\\iothub\\client_fixtures.py",
       "_justification": "Test containing fake keys and fake signed data"
     },
     {
-      "file": "\\azure-iot-device\\tests\\iothub\\test_sync_clients.py",
+      "file": "\\tests\\iothub\\test_sync_clients.py",
       "_justification": "Test containing fake signed data"
     },
     {
-      "file": "\\azure-iot-device\\tests\\iothub\\aio\\test_async_clients.py",
+      "file": "\\tests\\iothub\\aio\\test_async_clients.py",
       "_justification": "Test containing fake signed data"
     }
   ]

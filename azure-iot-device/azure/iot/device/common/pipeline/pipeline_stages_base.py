@@ -149,16 +149,16 @@ class PipelineStage(abc.ABC):
         except Exception as e:
             # Do not use exc_info parameter on logger.* calls. This causes pytest to save the
             # traceback which saves stack frames which shows up as a leak
-            logger.error(
+            logger.warning(
                 msg="{}: Unexpected error in ._handle_pipeline_event() call: {}".format(self, e)
             )
             if self.previous:
-                logger.error("{}: Raising background exception")
+                logger.warning("{}: Raising background exception")
                 self.report_background_exception(e)
             else:
                 # Nothing else we can do but log this. There exists no stage we can send the
                 # exception to, and raising would send the error back down the pipeline.
-                logger.error(
+                logger.warning(
                     "{}: Cannot report a background exception because there is no previous stage!"
                 )
 
@@ -187,7 +187,7 @@ class PipelineStage(abc.ABC):
             self.next.run_op(op)
         else:
             # This shouldn't happen if the pipeline was created correctly
-            logger.error(
+            logger.warning(
                 "{}({}): no next stage.cannot send op down. completing with error".format(
                     self.name, op.name
                 )
@@ -220,16 +220,16 @@ class PipelineStage(abc.ABC):
     @pipeline_thread.runs_on_pipeline_thread
     def report_background_exception(self, e):
         """
-        Send an exception up the pipeline that ocurred in the background.
+        Send an exception up the pipeline that occurred in the background.
         These would typically be in response to unsolicited actions, such as receiving data or
-        timer-based operations, which cannot be raised to the user because they ocurred on a
+        timer-based operations, which cannot be raised to the user because they occurred on a
         non-application thread.
 
         Note that this function leverages pipeline event flow, which means that any background
         exceptions in the core event flow itself become problematic (it's a good thing it's well
         tested then!)
 
-        :param Exception e: The exception that ocurred in the background
+        :param Exception e: The exception that occurred in the background
         """
         event = pipeline_events_base.BackgroundExceptionEvent(e)
         self.send_event_up(event)
@@ -344,7 +344,7 @@ class PipelineRootStage(PipelineStage):
                 )
             else:
                 # unexpected condition: we should be handling all pipeline events
-                logger.error("incoming {} event with no handler.  dropping.".format(event.name))
+                logger.debug("incoming {} event with no handler.  dropping.".format(event.name))
 
 
 # NOTE: This stage could be a candidate for being refactored into some kind of other
@@ -953,6 +953,7 @@ class ConnectionStateStage(PipelineStage):
         pipeline_exceptions.OperationError,
         transport_exceptions.ConnectionFailedError,
         transport_exceptions.ConnectionDroppedError,
+        transport_exceptions.TlsExchangeAuthError,
     ]
 
     def __init__(self):
@@ -1263,7 +1264,7 @@ class ConnectionStateStage(PipelineStage):
                     )
                     this.nucleus.connection_state = ConnectionState.DISCONNECTED
 
-                    # report background exception to indicate this failure ocurred
+                    # report background exception to indicate this failure occurred
                     this.report_background_exception(error)
 
                     # Determine if should try reconnect again

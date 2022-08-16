@@ -45,11 +45,11 @@ jobs:
         versionSpec: $(pv)
         architecture: 'x64'
 
-    - script: 'python env_setup.py --no_dev'
+    - script: 'python scripts/env_setup.py --no_dev'
       displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
     - script: |
-        cd $(Build.SourcesDirectory)/device_e2e
+        cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
         # "not x" means "include all tests that don't have the tag named 'x'", which is everything.
         pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" -m "not x"
       displayName: 'E2E Device Client MQTT Connection String'
