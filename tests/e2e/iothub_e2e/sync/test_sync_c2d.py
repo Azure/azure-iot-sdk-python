@@ -5,7 +5,7 @@ import pytest
 import logging
 import json
 import threading
-from utils import get_random_dict
+from dev_utils import get_random_dict
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)

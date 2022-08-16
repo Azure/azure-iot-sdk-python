@@ -2,7 +2,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 import uuid
-import e2e_settings
+from dev_utils import test_env
 import time
 from azure.iot.hub import IoTHubRegistryManager
 from base64 import b64encode, b64decode
@@ -54,14 +54,14 @@ def create_device_with_symmetric_key():
     desc.device_id = "00e2etest-delete-me-python-key-" + str(uuid.uuid4())
 
     registry_manager = IoTHubRegistryManager.from_connection_string(
-        e2e_settings.IOTHUB_CONNECTION_STRING
+        test_env.IOTHUB_CONNECTION_STRING
     )
     dev = registry_manager.create_device_with_sas(desc.device_id, None, None, "enabled")
 
     desc.primary_key = dev.authentication.symmetric_key.primary_key
     desc.connection_string = (
         "HostName="
-        + e2e_settings.IOTHUB_HOSTNAME
+        + test_env.IOTHUB_HOSTNAME
         + ";DeviceId="
         + desc.device_id
         + ";SharedAccessKey="
@@ -76,13 +76,13 @@ def create_device_with_sas():
     desc.device_id = "00e2etest-delete-me-python-sas-" + str(uuid.uuid4())
 
     registry_manager = IoTHubRegistryManager.from_connection_string(
-        e2e_settings.IOTHUB_CONNECTION_STRING
+        test_env.IOTHUB_CONNECTION_STRING
     )
     dev = registry_manager.create_device_with_sas(desc.device_id, None, None, "enabled")
 
     desc.primary_key = dev.authentication.symmetric_key.primary_key
 
-    uri = "{}/devices/{}".format(e2e_settings.IOTHUB_HOSTNAME, desc.device_id)
+    uri = "{}/devices/{}".format(test_env.IOTHUB_HOSTNAME, desc.device_id)
     expiry = time.time() + 3600
     desc.sas_token = generate_sas_token(uri, desc.primary_key, None, expiry)
 
@@ -100,6 +100,6 @@ def create_device_with_x509_ca_signed_cert():
 
 def delete_device(device_id):
     registry_manager = IoTHubRegistryManager.from_connection_string(
-        e2e_settings.IOTHUB_CONNECTION_STRING
+        test_env.IOTHUB_CONNECTION_STRING
     )
     registry_manager.delete_device(device_id)

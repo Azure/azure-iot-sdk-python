@@ -5,7 +5,7 @@ import asyncio
 import pytest
 import logging
 import const
-from utils import get_random_dict
+from dev_utils import get_random_dict
 from azure.iot.device.exceptions import ClientError
 
 logger = logging.getLogger(__name__)

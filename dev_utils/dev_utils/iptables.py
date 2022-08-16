@@ -4,7 +4,7 @@
 import logging
 import subprocess
 import socket
-from utils import is_windows
+import sys
 
 logger = logging.getLogger("e2e.{}".format(__name__))
 
@@ -84,7 +84,7 @@ def reconnect_all(transport, host):
     Reconnect all disconnects for this host and transport.  Effectively, clean up
     anything that this module may have done.
     """
-    if not is_windows():
+    if not sys.platform.startswith("win"):
         ip = get_ip(host)
         port = transport_to_port(transport)
         for disconnect_type in all_disconnect_types:

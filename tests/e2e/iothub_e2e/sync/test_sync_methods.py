@@ -4,7 +4,7 @@
 import pytest
 import logging
 import time
-from utils import get_random_dict
+from dev_utils import get_random_dict
 import parametrize
 from azure.iot.device.iothub import MethodResponse
 

@@ -11,19 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.protocol.models import Twin, TwinProperties, CloudToDeviceMethod
 from azure.eventhub import EventHubConsumerClient
-import e2e_settings
 
 logger = logging.getLogger("e2e.{}".format(__name__))
-
-iothub_connection_string = e2e_settings.IOTHUB_CONNECTION_STRING
-iothub_name = e2e_settings.IOTHUB_NAME
-eventhub_connection_string = e2e_settings.EVENTHUB_CONNECTION_STRING
-eventhub_consumer_group = e2e_settings.EVENTHUB_CONSUMER_GROUP
-
-assert iothub_connection_string
-assert iothub_name
-assert eventhub_connection_string
-assert eventhub_consumer_group
 
 
 def convert_binary_dict_to_string_dict(src):
@@ -75,9 +64,20 @@ class EventhubEvent(object):
         self.system_properties = None
         self.properties = None
 
+    @property
+    def message_id(self):
+        # if message_id is missing, make one with a random guid. Do this because incoming_eventhub_events
+        # is a dict indexed on message_id
+        return self.system_properties.get("message-id", "no-message-id-{}".format(uuid.uuid4()))
+
 
 class ServiceHelperSync(object):
-    def __init__(self):
+    def __init__(
+        self,
+        iothub_connection_string,
+        eventhub_connection_string,
+        eventhub_consumer_group,
+    ):
         self._executor = ThreadPoolExecutor()
 
         self._registry_manager = IoTHubRegistryManager(iothub_connection_string)
@@ -224,9 +224,7 @@ class ServiceHelperSync(object):
             return message
 
     def _store_eventhub_arrival(self, converted_event):
-        message_id = converted_event.system_properties.get(
-            "message-id", "no-message-id-{}".format(uuid.uuid4())
-        )
+        message_id = converted_event.message_id
         if message_id:
             with self.cv:
                 self.incoming_eventhub_events[message_id] = converted_event

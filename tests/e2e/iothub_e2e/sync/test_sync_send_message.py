@@ -5,7 +5,7 @@ import pytest
 import logging
 import json
 import time
-import utils
+import dev_utils
 from azure.iot.device.exceptions import OperationCancelled, ClientError
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class TestSendMessage(object):
     def test_sync_sends_json_string(self, client, service_helper, leak_tracker):
         leak_tracker.set_initial_object_list()
 
-        message = json.dumps(utils.get_random_dict())
+        message = json.dumps(dev_utils.get_random_dict())
 
         client.send_message(message)
 
@@ -74,7 +74,7 @@ class TestSendMessage(object):
     def test_sync_sends_random_string(self, client, service_helper, leak_tracker):
         leak_tracker.set_initial_object_list()
 
-        message = utils.get_random_string(16)
+        message = dev_utils.get_random_string(16)
 
         client.send_message(message)
 
