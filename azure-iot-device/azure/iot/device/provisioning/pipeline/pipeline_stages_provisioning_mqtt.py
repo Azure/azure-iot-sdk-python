@@ -49,7 +49,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                 query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),
             )
 
-            # Dynamically attach the derived MQTT values to the InitalizePipelineOperation
+            # Dynamically attach the derived MQTT values to the InitializePipelineOperation
             # to be used later down the pipeline
             op.username = username
             op.client_id = client_id

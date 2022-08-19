@@ -64,7 +64,7 @@ This directory contains samples showing how to use the various features of the M
 
 
     async def main():
-        # Fetch the connection string from an enviornment variable
+        # Fetch the connection string from an environment variable
         conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 
         # Create instance of the device client using the authentication provider
