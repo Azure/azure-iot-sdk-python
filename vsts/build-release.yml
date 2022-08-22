@@ -35,7 +35,6 @@ steps:
     dist: $(System.ArtifactsDirectory)\dist
     sources: $(Build.SourcesDirectory)
     device_version_part: $(azure-iot-device-version-part)
-    hub_version_part: $(azure-iot-hub-version-part)
   displayName: 'build release artifacts'
 
 - task: PowerShell@2
