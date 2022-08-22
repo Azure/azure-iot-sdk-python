@@ -89,7 +89,7 @@ def extract_properties_from_dps_response_topic(topic):
     properties = topic_parts[2]
 
     # NOTE: we cannot use urllib.parse.parse_qs because it always decodes '+' as ' ',
-    # and the behavior cannot be overriden. Must parse key/value pairs manually.
+    # and the behavior cannot be overridden. Must parse key/value pairs manually.
 
     if properties:
         key_value_pairs = properties.split("&")

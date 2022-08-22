@@ -76,7 +76,7 @@ class MQTTPipeline(object):
             .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage())
             #
             # AutoConnectStage comes here because only MQTT ops have the need_connection flag set
-            # and this is the first place in the pipeline wherer we can guaranetee that all network
+            # and this is the first place in the pipeline where we can guarantee that all network
             # ops are MQTT ops.
             #
             .append_stage(pipeline_stages_base.AutoConnectStage())
