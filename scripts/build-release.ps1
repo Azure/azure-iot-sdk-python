@@ -25,7 +25,7 @@ function Build {
     $sourceFiles = $env:sources  # sdk repo top folder
     $dist = $env:dist  # release artifacts top folder
 
-    package = [PSCustomObject]@{
+    $package = [PSCustomObject]@{
         File = "azure-iot-device\azure\iot\device\constant.py"
         Version = $env:device_version_part
     }
