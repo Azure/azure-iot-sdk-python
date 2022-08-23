@@ -10,7 +10,7 @@ import uuid
 import time
 
 
-class Wizard(object):
+class Fruit(object):
     def __init__(self, first_name, last_name, dict_of_stuff):
         self.first_name = first_name
         self.last_name = last_name
@@ -29,10 +29,10 @@ provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
     symmetric_key=symmetric_key,
 )
 
-properties = {"House": "Gryffindor", "Muggle-Born": "False"}
-wizard_a = Wizard("Harry", "Potter", properties)
+properties = {"Type": "Apple", "Sweet": "True"}
+fruit_a = Fruit("McIntosh", "Red", properties)
 
-provisioning_device_client.provisioning_payload = wizard_a
+provisioning_device_client.provisioning_payload = fruit_a
 registration_result = provisioning_device_client.register()
 # The result can be directly printed to view the important details.
 print(registration_result)
