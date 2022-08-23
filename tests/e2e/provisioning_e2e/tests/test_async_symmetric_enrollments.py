@@ -7,14 +7,15 @@
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device.aio import IoTHubDeviceClient
-from azure.iot.device import X509
+from azure.iot.device.common import X509
 from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
 from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
 import pytest
 import logging
 import os
 import uuid
-from scripts.create_x509_chain_crypto import (
+from . import path_adjust  # noqa: F401
+from create_x509_chain_crypto import (
     create_private_key,
     create_csr,
 )
@@ -95,7 +96,7 @@ async def test_device_register_with_device_id_for_a_symmetric_key_individual_enr
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individual_enrollment(
-    protocol
+    protocol,
 ):
     key_file = "key.pem"
     csr_file = "request.pem"
