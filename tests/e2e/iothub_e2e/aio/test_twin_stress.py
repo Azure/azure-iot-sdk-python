@@ -6,7 +6,7 @@ import pytest
 import logging
 import parametrize
 import const
-import utils
+import dev_utils
 from retry_async import retry_exponential_backoff_with_jitter
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ call_with_retry = retry_exponential_backoff_with_jitter
 
 
 def get_random_property_value():
-    return utils.get_random_string(100, True)
+    return dev_utils.get_random_string(100, True)
 
 
 def wrap_as_reported_property(value, key=None):
