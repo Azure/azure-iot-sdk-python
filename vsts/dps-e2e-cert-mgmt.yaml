@@ -13,7 +13,7 @@ jobs:
       versionSpec: '3.7'
       architecture: 'x64'
 
-  - script: 'python scripts/env_setup.py --no_dev:qq'
+  - script: 'python scripts/env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
   - script: 'python -m pip install cryptography'
