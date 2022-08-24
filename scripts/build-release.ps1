@@ -23,14 +23,14 @@ function Build {
     Write-Output "Python version is '$(python --version)'"
 
     $sourceFiles = $env:sources  # sdk repo top folder
-    $dist = $env:dist  # release artifacts top folder
+    $artifact_dist = $env:dist  # release artifacts top folder
 
     $package = [PSCustomObject]@{
         File = "azure-iot-device\azure\iot\device\constant.py"
         Version = $env:device_version_part
     }
 
-    New-Item $dist -Force -ItemType Directory
+    New-Item $artifact_dist -Force -ItemType Directory
     Install-Dependencies
 
 
@@ -38,7 +38,7 @@ function Build {
 
     if ($part -and $part -ne "") {
 
-        Write-Output "Increment '$part' version for '$key' "
+        Write-Output "Increment '$part' version for 'azure-iot-device' "
         
         Set-Location $sourceFiles
         Update-Version $part $package.File
@@ -48,10 +48,20 @@ function Build {
         $files = Get-ChildItem $distfld
 
         if ($files.Count -lt 1) {
-            throw "$key : expected to find release artifacts"
+            throw "azure-iot-device : expected to find release artifacts"
         }
+
+        Write-Output "Copying ($($files.Count)) package files to output folder"
+
+        foreach ($file in $files) {
+            $target = $(Join-Path $artifact_dist $file.Name)
+            Write-Output "$($file.FullName) >> $target"
+            Copy-Item $file.FullName $target
+        }
+
+
     }
     else {
-        Write-Output "Skipping '$key'"
+        Write-Output "Skipping 'azure-iot-device'"
     }
 }
