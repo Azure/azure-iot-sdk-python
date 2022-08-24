@@ -98,6 +98,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
 
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
+        # TODO Remove weird fix : not sure why the delete of the device results in connection time out
         await asyncio.sleep(10)
         device_registry_helper.try_delete_device(device_id)
     finally:
