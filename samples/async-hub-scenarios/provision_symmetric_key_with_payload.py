@@ -19,7 +19,7 @@ symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY_PAYLOAD")
 messages_to_send = 10
 
 
-class Wizard(object):
+class Fruit(object):
     def __init__(self, first_name, last_name, dict_of_stuff):
         self.first_name = first_name
         self.last_name = last_name
@@ -34,9 +34,9 @@ async def main():
         symmetric_key=symmetric_key,
     )
 
-    properties = {"House": "Gryffindor", "Muggle-Born": "False"}
-    wizard_a = Wizard("Harry", "Potter", properties)
-    provisioning_device_client.provisioning_payload = wizard_a
+    properties = {"Type": "Apple", "Sweet": "True"}
+    fruit_a = Fruit("McIntosh", "Red", properties)
+    provisioning_device_client.provisioning_payload = fruit_a
     registration_result = await provisioning_device_client.register()
 
     print("The complete registration result is")

@@ -25,59 +25,33 @@ function Build {
     $sourceFiles = $env:sources  # sdk repo top folder
     $dist = $env:dist  # release artifacts top folder
 
-    # hashtable key is package folder name in repository root
-
-    $packages = @{ } # NOTE: add any new packages to this hashtable
-
-    $packages["azure-iot-device"] = [PSCustomObject]@{
-        File = "azure\iot\device\constant.py"
+    $package = [PSCustomObject]@{
+        File = "azure-iot-device\azure\iot\device\constant.py"
         Version = $env:device_version_part
-    }
-
-    $packages["azure-iot-hub"] = [PSCustomObject]@{
-        File = "azure\iot\hub\constant.py"
-        Version = $env:hub_version_part
     }
 
     New-Item $dist -Force -ItemType Directory
     Install-Dependencies
 
-    foreach ($key in $packages.Keys) {
 
-        $part = $packages[$key].Version
+    $part = $package.Version
 
-        if ($part -and $part -ne "") {
+    if ($part -and $part -ne "") {
 
-            $packageFolder = $(Join-Path $sourceFiles $key)
+        Write-Output "Increment '$part' version for '$key' "
+        
+        Set-Location $sourceFiles
+        Update-Version $part $package.File
+        Invoke-Python
 
-            Write-Output "Increment '$part' version for '$key' "
-            Write-Output "Package folder: $packageFolder"
-            
-            $file = Join-Path $packageFolder $packages[$key].File
-            Set-Location $packageFolder
-            Update-Version $part $file
-            Invoke-Python
+        $distfld = Join-Path $sourceFiles "dist"
+        $files = Get-ChildItem $distfld
 
-            $distfld = Join-Path $packageFolder "dist"
-            $files = Get-ChildItem $distfld
-
-            if ($files.Count -lt 1) {
-                throw "$key : expected to find release artifacts"
-            }
-
-            $packagefld = Join-Path $dist $key
-            New-Item $packagefld -Force -ItemType Directory
-            Write-Output "Copying ($($files.Count)) package files to output folder"
-
-            foreach ($file in $files) {
-
-                $target = $(Join-Path $packagefld $file.Name)
-                Write-Output "$($file.FullName) >> $target"
-                Copy-Item $file.FullName $target
-            }
+        if ($files.Count -lt 1) {
+            throw "$key : expected to find release artifacts"
         }
-        else {
-            Write-Output "Skipping '$key'"
-        }
+    }
+    else {
+        Write-Output "Skipping '$key'"
     }
 }
