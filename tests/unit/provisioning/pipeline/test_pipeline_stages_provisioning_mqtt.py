@@ -21,8 +21,8 @@ from azure.iot.device.provisioning.pipeline import (
 )
 from azure.iot.device.provisioning.pipeline import constant as pipeline_constant
 from azure.iot.device import user_agent
-from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
-from tests.common.pipeline import pipeline_stage_test
+from tests.unit.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
+from tests.unit.common.pipeline import pipeline_stage_test
 
 logging.basicConfig(level=logging.DEBUG)
 this_module = sys.modules[__name__]

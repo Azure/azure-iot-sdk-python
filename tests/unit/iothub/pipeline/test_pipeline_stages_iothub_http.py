@@ -15,8 +15,8 @@ from azure.iot.device.iothub.pipeline import (
     config,
 )
 from azure.iot.device.exceptions import ServiceError
-from tests.common.pipeline.helpers import StageRunOpTestBase
-from tests.common.pipeline import pipeline_stage_test
+from tests.unit.common.pipeline.helpers import StageRunOpTestBase
+from tests.unit.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant
 from azure.iot.device import user_agent
 

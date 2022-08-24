@@ -26,7 +26,7 @@ from azure.iot.device.common.pipeline import (
 from azure.iot.device.common.pipeline.pipeline_nucleus import ConnectionState
 from .helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
 from .fixtures import ArbitraryOperation
-from tests.common.pipeline import pipeline_stage_test
+from tests.unit.common.pipeline import pipeline_stage_test
 
 
 this_module = sys.modules[__name__]
