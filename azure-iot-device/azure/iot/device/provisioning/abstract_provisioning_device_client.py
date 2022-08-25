@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def _validate_kwargs(exclude=[], **kwargs):
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
-    # TODO: add support for server_verification_cert
+
     valid_kwargs = [
         "server_verification_cert",
         "gateway_hostname",

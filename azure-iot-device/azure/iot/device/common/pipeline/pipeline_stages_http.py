@@ -25,7 +25,7 @@ class HTTPTransportStage(PipelineStage):
 
     def __init__(self):
         super().__init__()
-        # The sas_token will be set when Connetion Args are received
+        # The sas_token will be set when Connection Args are received
         self.sas_token = None
 
         # The transport will be instantiated when Connection Args are received
@@ -37,36 +37,36 @@ class HTTPTransportStage(PipelineStage):
 
             # If there is a gateway hostname, use that as the hostname for connection,
             # rather than the hostname itself
-            if self.pipeline_root.pipeline_configuration.gateway_hostname:
+            if self.nucleus.pipeline_configuration.gateway_hostname:
                 logger.debug(
                     "Gateway Hostname Present. Setting Hostname to: {}".format(
-                        self.pipeline_root.pipeline_configuration.gateway_hostname
+                        self.nucleus.pipeline_configuration.gateway_hostname
                     )
                 )
-                hostname = self.pipeline_root.pipeline_configuration.gateway_hostname
+                hostname = self.nucleus.pipeline_configuration.gateway_hostname
             else:
                 logger.debug(
                     "Gateway Hostname not present. Setting Hostname to: {}".format(
-                        self.pipeline_root.pipeline_configuration.hostname
+                        self.nucleus.pipeline_configuration.hostname
                     )
                 )
-                hostname = self.pipeline_root.pipeline_configuration.hostname
+                hostname = self.nucleus.pipeline_configuration.hostname
 
             # Create HTTP Transport
             logger.debug("{}({}): got connection args".format(self.name, op.name))
             self.transport = HTTPTransport(
                 hostname=hostname,
-                server_verification_cert=self.pipeline_root.pipeline_configuration.server_verification_cert,
-                x509_cert=self.pipeline_root.pipeline_configuration.x509,
-                cipher=self.pipeline_root.pipeline_configuration.cipher,
-                proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
+                server_verification_cert=self.nucleus.pipeline_configuration.server_verification_cert,
+                x509_cert=self.nucleus.pipeline_configuration.x509,
+                cipher=self.nucleus.pipeline_configuration.cipher,
+                proxy_options=self.nucleus.pipeline_configuration.proxy_options,
             )
 
-            self.pipeline_root.transport = self.transport
+            self.nucleus.transport = self.transport
             op.complete()
 
         elif isinstance(op, pipeline_ops_http.HTTPRequestAndResponseOperation):
-            # This will call down to the HTTP Transport with a request and also created a request callback. Because the HTTP Transport will run on the http transport thread, this call should be non-blocking to the pipline thread.
+            # This will call down to the HTTP Transport with a request and also created a request callback. Because the HTTP Transport will run on the http transport thread, this call should be non-blocking to the pipeline thread.
             logger.debug(
                 "{}({}): Generating HTTP request and setting callback before completing.".format(
                     self.name, op.name
@@ -97,10 +97,8 @@ class HTTPTransportStage(PipelineStage):
             # http_headers will affect the op.headers, which would be an unintended side effect
             # and not a good practice.
             http_headers = copy.deepcopy(op.headers)
-            if self.pipeline_root.pipeline_configuration.sastoken:
-                http_headers["Authorization"] = str(
-                    self.pipeline_root.pipeline_configuration.sastoken
-                )
+            if self.nucleus.pipeline_configuration.sastoken:
+                http_headers["Authorization"] = str(self.nucleus.pipeline_configuration.sastoken)
 
             self.transport.request(
                 method=op.method,

@@ -7,6 +7,7 @@
 import logging
 from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device.common.pipeline import (
+    pipeline_nucleus,
     pipeline_stages_base,
     pipeline_ops_base,
     pipeline_stages_mqtt,
@@ -50,13 +51,14 @@ class MQTTPipeline(object):
         self.on_method_request_received = None
         self.on_twin_patch_received = None
 
-        # Currently a single timeout stage and a single retry stage for MQTT retry only.
-        # Later, a higher level timeout and a higher level retry stage.
+        # Contains data and information shared globally within the pipeline
+        self._nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration)
+
         self._pipeline = (
             #
             # The root is always the root.  By definition, it's the first stage in the pipeline.
             #
-            pipeline_stages_base.PipelineRootStage(pipeline_configuration)
+            pipeline_stages_base.PipelineRootStage(self._nucleus)
             #
             # SasTokenStage comes near the root by default because it should be as close
             # to the top of the pipeline as possible, and does not need to be after anything.
@@ -87,25 +89,16 @@ class MQTTPipeline(object):
             .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage())
             #
             # AutoConnectStage comes here because only MQTT ops have the need_connection flag set
-            # and this is the first place in the pipeline where we can guaranetee that all network
+            # and this is the first place in the pipeline where we can guarantee that all network
             # ops are MQTT ops.
             #
             .append_stage(pipeline_stages_base.AutoConnectStage())
             #
-            # ReconnectStage needs to be after AutoConnectStage because ReconnectStage sets/clears
-            # the virtually_conencted flag and we want an automatic connection op to set this flag so
-            # we can reconnect autoconnect operations.  This is important, for example, if a
-            # send_message causes the transport to automatically connect, but that connection fails.
-            # When that happens, the ReconnectState will hold onto the ConnectOperation until it
-            # succeeds, and only then will return success to the AutoConnectStage which will
-            # allow the publish to continue.
+            # ConnectionStateStage needs to be after AutoConnectStage because the AutoConnectStage
+            # can create ConnectOperations and we (may) want to queue connection related operations
+            # in the ConnectionStateStage
             #
-            .append_stage(pipeline_stages_base.ReconnectStage())
-            #
-            # ConnectionLockStage needs to be after ReconnectStage because we want any ops that
-            # ReconnectStage creates to go through the ConnectionLockStage gate
-            #
-            .append_stage(pipeline_stages_base.ConnectionLockStage())
+            .append_stage(pipeline_stages_base.ConnectionStateStage())
             #
             # RetryStage needs to be near the end because it's retrying low-level MQTT operations.
             #
@@ -128,28 +121,28 @@ class MQTTPipeline(object):
                 if self.on_c2d_message_received:
                     self.on_c2d_message_received(event.message)
                 else:
-                    logger.error("C2D message event received with no handler.  dropping.")
+                    logger.debug("C2D message event received with no handler.  dropping.")
 
             elif isinstance(event, pipeline_events_iothub.InputMessageEvent):
                 if self.on_input_message_received:
                     self.on_input_message_received(event.message)
                 else:
-                    logger.error("input message event received with no handler.  dropping.")
+                    logger.debug("input message event received with no handler.  dropping.")
 
             elif isinstance(event, pipeline_events_iothub.MethodRequestEvent):
                 if self.on_method_request_received:
                     self.on_method_request_received(event.method_request)
                 else:
-                    logger.error("Method request event received with no handler. Dropping.")
+                    logger.debug("Method request event received with no handler. Dropping.")
 
             elif isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
                 if self.on_twin_patch_received:
                     self.on_twin_patch_received(event.patch)
                 else:
-                    logger.error("Twin patch event received with no handler. Dropping.")
+                    logger.debug("Twin patch event received with no handler. Dropping.")
 
             else:
-                logger.error("Dropping unknown pipeline event {}".format(event.name))
+                logger.debug("Dropping unknown pipeline event {}".format(event.name))
 
         def _on_connected():
             if self.on_connected:
@@ -522,7 +515,9 @@ class MQTTPipeline(object):
 
         def on_complete(op, error):
             if error:
-                logger.error("Subscribe for {} failed.  Not enabling feature".format(feature_name))
+                logger.warning(
+                    "Subscribe for {} failed.  Not enabling feature".format(feature_name)
+                )
             else:
                 self.feature_enabled[feature_name] = True
             callback(error=error)
@@ -591,11 +586,11 @@ class MQTTPipeline(object):
         Pipeline Configuration for the pipeline. Note that while a new config object cannot be
         provided (read-only), the values stored in the config object CAN be changed.
         """
-        return self._pipeline.pipeline_configuration
+        return self._nucleus.pipeline_configuration
 
     @property
     def connected(self):
         """
         Read-only property to indicate if the transport is connected or not.
         """
-        return self._pipeline.connected
+        return self._nucleus.connected

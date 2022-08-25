@@ -48,7 +48,7 @@ currently only supporting the MQTT protocol so it only requires to supply the co
 
 For x.509 device the v1 SDK required the user to supply the certificates in a call to set_options.  Moving forward in the v2
 SDK, we only require for the user to call the create function with an x.509 object containing the path to the x.509 file and
-key file with the optional pass phrase if neccessary.
+key file with the optional pass phrase if necessary.
 
 - v1
 

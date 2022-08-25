@@ -9,7 +9,7 @@ class PipelineEvent(object):
     """
     A base class for data objects representing events that travels up the pipeline.
 
-    PipelineEvent objects are used for anything that happens inside the pipeine that
+    PipelineEvent objects are used for anything that happens inside the pipeline that
     cannot be attributed to a specific operation, such as a spontaneous disconnect.
 
     PipelineEvents flow up the pipeline until they reach the client.  Every stage

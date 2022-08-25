@@ -8,7 +8,7 @@ from azure.iot.device.common.pipeline import PipelineOperation
 
 class MethodInvokeOperation(PipelineOperation):
     """
-    A PipleineOperation object which contains arguments used to send a method invoke to an IoTHub or EdgeHub server.
+    A PipelineOperation object which contains arguments used to send a method invoke to an IoTHub or EdgeHub server.
 
     This operation is in the group of EdgeHub operations because it is very specific to the EdgeHub client.
     """
@@ -34,7 +34,7 @@ class MethodInvokeOperation(PipelineOperation):
 
 class GetStorageInfoOperation(PipelineOperation):
     """
-    A PipleineOperation object which contains arguments used to get the storage information from IoT Hub.
+    A PipelineOperation object which contains arguments used to get the storage information from IoT Hub.
     """
 
     def __init__(self, blob_name, callback):
@@ -56,7 +56,7 @@ class GetStorageInfoOperation(PipelineOperation):
 
 class NotifyBlobUploadStatusOperation(PipelineOperation):
     """
-    A PipleineOperation object which contains arguments used to get the storage information from IoT Hub.
+    A PipelineOperation object which contains arguments used to get the storage information from IoT Hub.
     """
 
     def __init__(self, correlation_id, is_success, status_code, status_description, callback):
@@ -65,7 +65,7 @@ class NotifyBlobUploadStatusOperation(PipelineOperation):
 
         :param str correlation_id: Provided by IoT Hub on get_storage_info_for_blob request.
         :param bool is_success: A boolean that indicates whether the file was uploaded successfully.
-        :param int request_status_code: A numeric status code that is the status for the upload of the fiel to storage.
+        :param int request_status_code: A numeric status code that is the status for the upload of the file to storage.
         :param str status_description: A description that corresponds to the status_code.
         :param callback: The function that gets called when this operation is complete or has failed.
             The callback function must accept a PipelineOperation object which indicates the specific operation has which

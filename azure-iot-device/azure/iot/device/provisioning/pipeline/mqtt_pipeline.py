@@ -11,6 +11,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_mqtt,
     pipeline_exceptions,
+    pipeline_nucleus,
 )
 from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning,
@@ -37,11 +38,14 @@ class MQTTPipeline(object):
         self.on_message_received = None
         self._registration_id = pipeline_configuration.registration_id
 
+        # Contains data and information shared globally within the pipeline
+        self._nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration)
+
         self._pipeline = (
             #
             # The root is always the root.  By definition, it's the first stage in the pipeline.
             #
-            pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
+            pipeline_stages_base.PipelineRootStage(self._nucleus)
             #
             # SasTokenStage comes near the root by default because it should be as close
             # to the top of the pipeline as possible, and does not need to be after anything.
@@ -72,21 +76,16 @@ class MQTTPipeline(object):
             .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage())
             #
             # AutoConnectStage comes here because only MQTT ops have the need_connection flag set
-            # and this is the first place in the pipeline wherer we can guaranetee that all network
+            # and this is the first place in the pipeline where we can guarantee that all network
             # ops are MQTT ops.
             #
             .append_stage(pipeline_stages_base.AutoConnectStage())
             #
-            # ReconnectStage needs to be after AutoConnectStage because ReconnectStage sets/clears
-            # the virtually_conencted flag and we want an automatic connection op to set this flag so
-            # we can reconnect autoconnect operations.
+            # ConnectionStateStage needs to be after AutoConnectStage because the AutoConnectStage
+            # can create ConnectOperations and we (may) want to queue connection related operations
+            # in the ConnectionStateStage
             #
-            .append_stage(pipeline_stages_base.ReconnectStage())
-            #
-            # ConnectionLockStage needs to be after ReconnectStage because we want any ops that
-            # ReconnectStage creates to go through the ConnectionLockStage gate
-            #
-            .append_stage(pipeline_stages_base.ConnectionLockStage())
+            .append_stage(pipeline_stages_base.ConnectionStateStage())
             #
             # RetryStage needs to be near the end because it's retrying low-level MQTT operations.
             #
@@ -104,8 +103,8 @@ class MQTTPipeline(object):
         )
 
         def _on_pipeline_event(event):
-            # error becuse no events should
-            logger.error("Dropping unknown pipeline event {}".format(event.name))
+            # error because no events should
+            logger.debug("Dropping unknown pipeline event {}".format(event.name))
 
         def _on_connected():
             if self.on_connected:

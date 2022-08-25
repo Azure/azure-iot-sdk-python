@@ -38,18 +38,18 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
 
-            client_id = self.pipeline_root.pipeline_configuration.registration_id
+            client_id = self.nucleus.pipeline_configuration.registration_id
             query_param_seq = [
                 ("api-version", pkg_constant.PROVISIONING_API_VERSION),
                 ("ClientVersion", user_agent.get_provisioning_user_agent()),
             ]
             username = "{id_scope}/registrations/{registration_id}/{query_params}".format(
-                id_scope=self.pipeline_root.pipeline_configuration.id_scope,
-                registration_id=self.pipeline_root.pipeline_configuration.registration_id,
+                id_scope=self.nucleus.pipeline_configuration.id_scope,
+                registration_id=self.nucleus.pipeline_configuration.registration_id,
                 query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),
             )
 
-            # Dynamically attach the derived MQTT values to the InitalizePipelineOperation
+            # Dynamically attach the derived MQTT values to the InitializePipelineOperation
             # to be used later down the pipeline
             op.username = username
             op.client_id = client_id

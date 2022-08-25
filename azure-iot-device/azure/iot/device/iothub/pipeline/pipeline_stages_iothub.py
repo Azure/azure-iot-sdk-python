@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class EnsureDesiredPropertiesStage(PipelineStage):
     """
     Pipeline stage Responsible for making sure that desired properties are always kept up to date.
-    It does this by sending diwn a GetTwinOperation after a connection is reestablished, and, if
+    It does this by sending down a GetTwinOperation after a connection is reestablished, and, if
     the desired properties have changed since the last time a patch was received, it will send up
     an artificial patch event to send those updated properties to the app.
     """
@@ -34,16 +34,19 @@ class EnsureDesiredPropertiesStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        if isinstance(op, pipeline_ops_base.EnableFeatureOperation):
-            # If we're enabling twin patches, we set last_version_seen to -1
-            # as a way of enabling this functionality.  If the ConnectedEvent handler
-            # sees this -1, it will send a GetTwinOperation to refresh desired properties.
+        if self.nucleus.pipeline_configuration.ensure_desired_properties:
+            if isinstance(op, pipeline_ops_base.EnableFeatureOperation):
+                # Ensure_desired_properties enables twin patches, when true, by setting last version
+                # to -1. The ConnectedEvent handler sees this and sends a GetTwinOperation to refresh
+                # desired properties. Setting ensure_desired_properties to false causes the GetTwinOp
+                # to not be sent. The rest of the functions in this stage stem from the GetTwinOperation,
+                # so disabling ensure_desired_properties effectively disables this stage.
 
-            if op.feature_name == constant.TWIN_PATCHES:
-                logger.debug(
-                    "{}: enabling twin patches.  setting last_version_seen".format(self.name)
-                )
-                self.last_version_seen = -1
+                if op.feature_name == constant.TWIN_PATCHES:
+                    logger.debug(
+                        "{}: enabling twin patches.  setting last_version_seen".format(self.name)
+                    )
+                    self.last_version_seen = -1
         self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -75,14 +78,22 @@ class EnsureDesiredPropertiesStage(PipelineStage):
         """
 
         self.pending_get_request = None
-        if error:
-            # If the GetTwinOperation failed, we blindly try again.  We run the risk of
-            # repeating this forever and might need to add logic to "give up" after some
-            # number of failures, but we don't have any real reason to add that just yet.
-
+        if error and self.nucleus.connected:
+            # If the GetTwinOperation failed and the client is connected, we blindly try again as
+            # long as we are connected. We run the risk of repeating this forever and might need
+            # to add logic to "give up" after some number of failures, but we don't have any real
+            # reason to add that yet.
             logger.debug("{}: Twin GET failed with error {}.  Resubmitting.".format(self, error))
             self._ensure_get_op()
+        elif error and not self.nucleus.connected:
+            # If the GetTwinOperation failed and the client is in any state but connected,
+            # (e.g. connecting, disconnecting, etc.) we consider the operation completed.
+            logger.debug(
+                "{}: Twin GET failed with error {}. Giving up, as pipeline is not connected."
+            )
         else:
+            # If the GetTwinOperation is successful, we compare the $version values and create
+            # an artificial patch if the versions do not match.
             logger.debug("{} Twin GET response received.  Checking versions".format(self))
             new_version = op.twin["desired"]["$version"]
             logger.debug(
@@ -102,20 +113,21 @@ class EnsureDesiredPropertiesStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
-        if isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
-            # remember the $version when we get a patch.
-            version = event.patch["$version"]
-            logger.debug(
-                "{}: Desired patch received.  Saving $version={}".format(self.name, version)
-            )
-            self.last_version_seen = version
-        elif isinstance(event, pipeline_events_base.ConnectedEvent):
-            # If last_version_seen is truthy, that means we've seen desired property patches
-            # before (or we've enabled them at least).  If this is the case, get the twin to
-            # see if the desired props have been updated.
-            if self.last_version_seen:
-                logger.info("{}: Reconnected.  Getting twin")
-                self._ensure_get_op()
+        if self.nucleus.pipeline_configuration.ensure_desired_properties:
+            if isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
+                # remember the $version when we get a patch.
+                version = event.patch["$version"]
+                logger.debug(
+                    "{}: Desired patch received.  Saving $version={}".format(self.name, version)
+                )
+                self.last_version_seen = version
+            elif isinstance(event, pipeline_events_base.ConnectedEvent):
+                # If last_version_seen is truthy, that means we've seen desired property patches
+                # before (or we've enabled them at least).  If this is the case, get the twin to
+                # see if the desired props have been updated.
+                if self.last_version_seen:
+                    logger.info("{}: Reconnected.  Getting twin".format(self.name))
+                    self._ensure_get_op()
         self.send_event_up(event)
 
 

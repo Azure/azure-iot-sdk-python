@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def emulate_async(fn):
     """Returns a coroutine function that calls a given function with emulated asynchronous
-    behavior via use of mulithreading.
+    behavior via use of multithreading.
 
     Can be applied as a decorator.
 
@@ -59,7 +59,7 @@ class AwaitableCallback(object):
                     result = kwargs[return_arg_name]
                 else:
                     raise TypeError(
-                        "internal error: excepected argument with name '{}', did not get".format(
+                        "internal error: expected argument with name '{}', did not get".format(
                             return_arg_name
                         )
                     )
@@ -68,7 +68,7 @@ class AwaitableCallback(object):
                 result = None
 
             if exception:
-                # Do not use exc_info parameter on logger.* calls.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+                # Do not use exc_info parameter on logger.* calls.  This causes pytest to save the traceback which saves stack frames which shows up as a leak
                 logger.info("Callback completed with error {}".format(exception))
                 logger.info(traceback.format_exception_only(type(exception), exception))
                 loop.call_soon_threadsafe(self.future.set_exception, exception)

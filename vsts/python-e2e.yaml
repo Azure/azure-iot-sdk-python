@@ -16,11 +16,11 @@ jobs:
         versionSpec: $(pv)
         architecture: 'x64'
 
-    - script: 'python env_setup.py --no_dev'
+    - script: 'python scripts/env_setup.py --no_dev'
       displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
     - script: |
-        cd $(Build.SourcesDirectory)/device_e2e
+        cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
         pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
       displayName: 'E2E Device Client MQTT Connection String'
       env:
@@ -48,11 +48,11 @@ jobs:
         versionSpec: $(pv)
         architecture: 'x64'
 
-    - script: 'python env_setup.py --no_dev'
+    - script: 'python scripts/env_setup.py --no_dev'
       displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
     - script: |
-        cd $(Build.SourcesDirectory)/device_e2e
+        cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
         pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
       displayName: 'E2E Device Client MQTT Connection String'
       env:

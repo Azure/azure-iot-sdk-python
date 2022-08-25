@@ -136,7 +136,7 @@ class MQTTTransport(object):
         """
         logger.debug("creating mqtt client")
 
-        # Instaniate the client
+        # Instantiate the client
         if self._websockets:
             logger.info("Creating client for connecting using MQTT over websockets")
             mqtt_client = mqtt.Client(
@@ -182,20 +182,22 @@ class MQTTTransport(object):
                             _create_error_from_connack_rc_code(rc)
                         )
                     except Exception:
-                        logger.error("Unexpected error calling on_mqtt_connection_failure_handler")
-                        logger.error(traceback.format_exc())
+                        logger.warning(
+                            "Unexpected error calling on_mqtt_connection_failure_handler"
+                        )
+                        logger.warning(traceback.format_exc())
                 else:
-                    logger.error(
+                    logger.warning(
                         "connection failed, but no on_mqtt_connection_failure_handler handler callback provided"
                     )
             elif this.on_mqtt_connected_handler:
                 try:
                     this.on_mqtt_connected_handler()
                 except Exception:
-                    logger.error("Unexpected error calling on_mqtt_connected_handler")
-                    logger.error(traceback.format_exc())
+                    logger.warning("Unexpected error calling on_mqtt_connected_handler")
+                    logger.warning(traceback.format_exc())
             else:
-                logger.error("No event handler callback set for on_mqtt_connected_handler")
+                logger.debug("No event handler callback set for on_mqtt_connected_handler")
 
         def on_disconnect(client, userdata, rc):
             this = self_weakref()
@@ -220,10 +222,10 @@ class MQTTTransport(object):
                     try:
                         this.on_mqtt_disconnected_handler(cause)
                     except Exception:
-                        logger.error("Unexpected error calling on_mqtt_disconnected_handler")
-                        logger.error(traceback.format_exc())
+                        logger.warning("Unexpected error calling on_mqtt_disconnected_handler")
+                        logger.warning(traceback.format_exc())
                 else:
-                    logger.error("No event handler callback set for on_mqtt_disconnected_handler")
+                    logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
 
         def on_subscribe(client, userdata, mid, granted_qos):
             this = self_weakref()
@@ -254,10 +256,10 @@ class MQTTTransport(object):
                 try:
                     this.on_mqtt_message_received_handler(mqtt_message.topic, mqtt_message.payload)
                 except Exception:
-                    logger.error("Unexpected error calling on_mqtt_message_received_handler")
-                    logger.error(traceback.format_exc())
+                    logger.warning("Unexpected error calling on_mqtt_message_received_handler")
+                    logger.warning(traceback.format_exc())
             else:
-                logger.error(
+                logger.debug(
                     "No event handler callback set for on_mqtt_message_received_handler - DROPPING MESSAGE"
                 )
 
@@ -284,7 +286,7 @@ class MQTTTransport(object):
         to try reconnecting after the reconnect interval. We don't want Paho to reconnect because
         we want to control the timing of the reconnect, so we force the loop to stop.
 
-        We are relying on intimite knowledge of Paho behavior here.  If this becomes a problem,
+        We are relying on intimate knowledge of Paho behavior here.  If this becomes a problem,
         it may be necessary to write our own Paho thread and stop using thread_start()/thread_stop().
         This is certainly supported by Paho, but the thread that Paho provides works well enough
         (so far) and making our own would be more complex than is currently justified.
@@ -294,7 +296,7 @@ class MQTTTransport(object):
 
         # Note: We are calling this inside our on_disconnect() handler, so we might be inside the
         # Paho thread at this point. This is perfectly valid.  Comments in Paho's client.py
-        # loop_forever() function recomment calling disconnect() from a callback to exit the
+        # loop_forever() function re-comment calling disconnect() from a callback to exit the
         # Paho thread/loop.
 
         self._mqtt_client.disconnect()
@@ -376,7 +378,7 @@ class MQTTTransport(object):
         :raises: UnauthorizedError if there is an error authenticating.
         :raises: NoConnectionError in certain failure scenarios where a connection could not be established
         :raises: ProtocolClientError if there is some other client error.
-        :raises: TlsExchangeAuthError if there a filure with TLS certificate exchange
+        :raises: TlsExchangeAuthError if there a failure with TLS certificate exchange
         :raises: ProtocolProxyError if there is a proxy-specific error
         """
         logger.debug("connecting to mqtt broker")
@@ -434,7 +436,7 @@ class MQTTTransport(object):
         :raises: ConnectionDroppedError in unexpected cases.
         :raises: UnauthorizedError in unexpected cases.
         :raises: ConnectionFailedError in unexpected cases.
-        :raises: NoConnectionError if the client isn't actually conected.
+        :raises: NoConnectionError if the client isn't actually connected.
         """
         logger.info("disconnecting MQTT client")
         try:
@@ -475,7 +477,7 @@ class MQTTTransport(object):
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
-        :raises: NoConnectionError if the client isn't actually conected.
+        :raises: NoConnectionError if the client isn't actually connected.
         """
         logger.info("subscribing to {} with qos {}".format(topic, qos))
         try:
@@ -500,7 +502,7 @@ class MQTTTransport(object):
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
-        :raises: NoConnectionError if the client isn't actually conected.
+        :raises: NoConnectionError if the client isn't actually connected.
         """
         logger.info("unsubscribing from {}".format(topic))
         try:
@@ -534,7 +536,7 @@ class MQTTTransport(object):
         :raises: TypeError if payload is not a valid type
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
-        :raises: NoConnectionError if the client isn't actually conected.
+        :raises: NoConnectionError if the client isn't actually connected.
         """
         logger.info("publishing on {}".format(topic))
         try:
@@ -553,7 +555,7 @@ class MQTTTransport(object):
 
 
 class OperationManager(object):
-    """Tracks pending operations and thier associated callbacks until completion."""
+    """Tracks pending operations and their associated callbacks until completion."""
 
     def __init__(self):
         # Maps mid->callback for operations where a request has been sent
@@ -601,10 +603,10 @@ class OperationManager(object):
                 try:
                     callback()
                 except Exception:
-                    logger.error("Unexpected error calling callback for MID: {}".format(mid))
-                    logger.error(traceback.format_exc())
+                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug(traceback.format_exc())
             else:
-                # Not entirely unexpected becuase of QOS=1
+                # Not entirely unexpected because of QOS=1
                 logger.debug("No callback for MID: {}".format(mid))
 
     def complete_operation(self, mid):
@@ -644,8 +646,8 @@ class OperationManager(object):
                 try:
                     callback()
                 except Exception:
-                    logger.error("Unexpected error calling callback for MID: {}".format(mid))
-                    logger.error(traceback.format_exc())
+                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug(traceback.format_exc())
             else:
                 # fully expected.  QOS=1 means we might get 2 PUBACKs
                 logger.debug("No callback set for MID: {}".format(mid))
@@ -674,7 +676,7 @@ class OperationManager(object):
                 try:
                     callback(cancelled=True)
                 except Exception:
-                    logger.error("Unexpected error calling callback for MID: {}".format(mid))
-                    logger.error(traceback.format_exc())
+                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug(traceback.format_exc())
             else:
                 logger.debug("Cancelling {} - No callback set for MID".format(mid))

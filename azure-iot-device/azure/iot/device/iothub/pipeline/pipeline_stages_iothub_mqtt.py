@@ -36,20 +36,20 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
 
-            if self.pipeline_root.pipeline_configuration.module_id:
+            if self.nucleus.pipeline_configuration.module_id:
                 # Module Format
                 client_id = "{}/{}".format(
-                    self.pipeline_root.pipeline_configuration.device_id,
-                    self.pipeline_root.pipeline_configuration.module_id,
+                    self.nucleus.pipeline_configuration.device_id,
+                    self.nucleus.pipeline_configuration.module_id,
                 )
             else:
                 # Device Format
-                client_id = self.pipeline_root.pipeline_configuration.device_id
+                client_id = self.nucleus.pipeline_configuration.device_id
 
             query_param_seq = []
 
             # Apply query parameters (i.e. key1=value1&key2=value2...&keyN=valueN format)
-            custom_product_info = str(self.pipeline_root.pipeline_configuration.product_info)
+            custom_product_info = str(self.nucleus.pipeline_configuration.product_info)
             if custom_product_info.startswith(
                 pkg_constant.DIGITAL_TWIN_PREFIX
             ):  # Digital Twin Stuff
@@ -71,12 +71,12 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             # See the repo wiki article for details:
             # https://github.com/Azure/azure-iot-sdk-python/wiki/URL-Encoding-(MQTT)
             username = "{hostname}/{client_id}/?{query_params}".format(
-                hostname=self.pipeline_root.pipeline_configuration.hostname,
+                hostname=self.nucleus.pipeline_configuration.hostname,
                 client_id=client_id,
                 query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),
             )
 
-            # Dynamically attach the derived MQTT values to the InitalizePipelineOperation
+            # Dynamically attach the derived MQTT values to the InitializePipelineOperation
             # to be used later down the pipeline
             op.username = username
             op.client_id = client_id
@@ -86,10 +86,10 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         elif isinstance(op, pipeline_ops_iothub.SendD2CMessageOperation) or isinstance(
             op, pipeline_ops_iothub.SendOutputMessageOperation
         ):
-            # Convert SendTelementry and SendOutputMessageOperation operations into MQTT Publish operations
+            # Convert SendTelemetry and SendOutputMessageOperation operations into MQTT Publish operations
             telemetry_topic = mqtt_topic_iothub.get_telemetry_topic_for_publish(
-                device_id=self.pipeline_root.pipeline_configuration.device_id,
-                module_id=self.pipeline_root.pipeline_configuration.module_id,
+                device_id=self.nucleus.pipeline_configuration.device_id,
+                module_id=self.nucleus.pipeline_configuration.module_id,
             )
             topic = mqtt_topic_iothub.encode_message_properties_in_topic(
                 op.message, telemetry_topic
@@ -154,12 +154,12 @@ class IoTHubMQTTTranslationStage(PipelineStage):
     def _get_feature_subscription_topic(self, feature):
         if feature == pipeline_constant.C2D_MSG:
             return mqtt_topic_iothub.get_c2d_topic_for_subscribe(
-                self.pipeline_root.pipeline_configuration.device_id
+                self.nucleus.pipeline_configuration.device_id
             )
         elif feature == pipeline_constant.INPUT_MSG:
             return mqtt_topic_iothub.get_input_topic_for_subscribe(
-                self.pipeline_root.pipeline_configuration.device_id,
-                self.pipeline_root.pipeline_configuration.module_id,
+                self.nucleus.pipeline_configuration.device_id,
+                self.nucleus.pipeline_configuration.module_id,
             )
         elif feature == pipeline_constant.METHODS:
             return mqtt_topic_iothub.get_method_topic_for_subscribe()
@@ -168,7 +168,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         elif feature == pipeline_constant.TWIN_PATCHES:
             return mqtt_topic_iothub.get_twin_patch_topic_for_subscribe()
         else:
-            logger.error("Cannot retrieve MQTT topic for subscription to invalid feature")
+            logger.warning("Cannot retrieve MQTT topic for subscription to invalid feature")
             raise pipeline_exceptions.OperationError(
                 "Trying to enable/disable invalid feature - {}".format(feature)
             )
@@ -183,8 +183,8 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         # Is there value to the user getting the original bytestring from the wire?
         if isinstance(event, pipeline_events_mqtt.IncomingMQTTMessageEvent):
             topic = event.topic
-            device_id = self.pipeline_root.pipeline_configuration.device_id
-            module_id = self.pipeline_root.pipeline_configuration.module_id
+            device_id = self.nucleus.pipeline_configuration.device_id
+            module_id = self.nucleus.pipeline_configuration.module_id
 
             if mqtt_topic_iothub.is_c2d_topic(topic, device_id):
                 message = Message(event.payload)

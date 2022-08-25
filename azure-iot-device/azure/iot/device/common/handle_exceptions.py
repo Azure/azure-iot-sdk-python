@@ -18,15 +18,15 @@ def handle_background_exception(e):
     nobody else to catch them.
 
     This function gets called from inside an arbitrary thread context, so code that
-    runs from this function should be limited to the bare minumum.
+    runs from this function should be limited to the bare minimum.
 
     :param Error e: Exception object raised from inside a background thread
     """
 
     # @FUTURE: We should add a mechanism which allows applications to receive these
     # exceptions so they can respond accordingly
-    logger.error(msg="Exception caught in background thread.  Unable to handle.")
-    logger.error(traceback.format_exception_only(type(e), e))
+    logger.warning(msg="Exception caught in background thread.  Unable to handle.")
+    logger.warning(traceback.format_exception_only(type(e), e))
 
 
 def swallow_unraised_exception(e, log_msg=None, log_lvl="warning"):

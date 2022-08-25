@@ -33,7 +33,7 @@ class RenewableSasToken(object):
 
     def __init__(self, uri, signing_mechanism, key_name=None, ttl=3600):
         """
-        :param str uri: URI of the resouce to be accessed
+        :param str uri: URI of the resource to be accessed
         :param signing_mechanism: The signing mechanism to use in the SasToken
         :type signing_mechanism: Child classes of :class:`azure.iot.common.SigningMechanism`
         :param str key_name: Symmetric Key Name (optional)
@@ -61,7 +61,7 @@ class RenewableSasToken(object):
         self._token = self._build_token()
 
     def _build_token(self):
-        """Buid SasToken representation
+        """Build SasToken representation
 
         :returns: String representation of the token
         """

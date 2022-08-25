@@ -20,7 +20,7 @@ class ProvisioningPipelineConfig(BasePipelineConfig):
 
         :param str hostname: The hostname of the Provisioning hub instance to connect to
         :param str registration_id: The device registration identity being provisioned
-        :param str id_scope: The identity of the provisoning service being used
+        :param str id_scope: The identity of the provisioning service being used
         """
         super().__init__(hostname=hostname, **kwargs)
 

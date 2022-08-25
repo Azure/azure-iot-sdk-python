@@ -56,7 +56,7 @@ class MQTTTransportStage(PipelineStage):
             # If this block does execute, there is a bug in the codebase.
             if not error:
                 error = pipeline_exceptions.OperationCancelled(
-                    "Cancelling because new ConnectOperation or DisconnectOperationwas issued"
+                    "Cancelling because new ConnectOperation or DisconnectOperation was issued"
                 )
             self._cancel_connection_watchdog(op)
             self._pending_connection_op = None
@@ -65,7 +65,7 @@ class MQTTTransportStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _start_connection_watchdog(self, connection_op):
         """
-        Start a watchdog on the conection operation. This protects against cases where transport.connect()
+        Start a watchdog on the connection operation. This protects against cases where transport.connect()
         succeeds but the CONNACK never arrives. This is like a timeout, but it is handled at this level
         because specific cleanup needs to take place on timeout (see below), and this cleanup doesn't
         belong anywhere else since it is very specific to this stage.
@@ -87,14 +87,15 @@ class MQTTTransportStage(PipelineStage):
                     this.transport.disconnect()
                 except Exception:
                     # If we don't catch this, the pending connection op might not ever be cancelled.
-                    # Most likely, the transport isn't actually connected, but other failures are theoreticaly
-                    # possible. Either way, if disconnect fails, we should assume that we're disconencted.
+                    # Most likely, the transport isn't actually connected, but other failures are theoretically
+                    # possible. Either way, if disconnect fails, we should assume that we're disconnected.
                     logger.info(
                         "transport.disconnect raised error while disconnecting in watchdog.  Safe to ignore."
                     )
                     logger.info(traceback.format_exc())
 
-                if this.pipeline_root.connected:
+                if this.nucleus.connected:
+
                     logger.info(
                         "{}({}): Pipeline is still connected on watchdog expiration.  Sending DisconnectedEvent".format(
                             this.name, op.name
@@ -129,20 +130,20 @@ class MQTTTransportStage(PipelineStage):
 
             # If there is a gateway hostname, use that as the hostname for connection,
             # rather than the hostname itself
-            if self.pipeline_root.pipeline_configuration.gateway_hostname:
+            if self.nucleus.pipeline_configuration.gateway_hostname:
                 logger.debug(
                     "Gateway Hostname Present. Setting Hostname to: {}".format(
-                        self.pipeline_root.pipeline_configuration.gateway_hostname
+                        self.nucleus.pipeline_configuration.gateway_hostname
                     )
                 )
-                hostname = self.pipeline_root.pipeline_configuration.gateway_hostname
+                hostname = self.nucleus.pipeline_configuration.gateway_hostname
             else:
                 logger.debug(
                     "Gateway Hostname not present. Setting Hostname to: {}".format(
-                        self.pipeline_root.pipeline_configuration.hostname
+                        self.nucleus.pipeline_configuration.hostname
                     )
                 )
-                hostname = self.pipeline_root.pipeline_configuration.hostname
+                hostname = self.nucleus.pipeline_configuration.hostname
 
             # Create the Transport object, set it's handlers
             logger.debug("{}({}): got connection args".format(self.name, op.name))
@@ -150,12 +151,12 @@ class MQTTTransportStage(PipelineStage):
                 client_id=op.client_id,
                 hostname=hostname,
                 username=op.username,
-                server_verification_cert=self.pipeline_root.pipeline_configuration.server_verification_cert,
-                x509_cert=self.pipeline_root.pipeline_configuration.x509,
-                websockets=self.pipeline_root.pipeline_configuration.websockets,
-                cipher=self.pipeline_root.pipeline_configuration.cipher,
-                proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
-                keep_alive=self.pipeline_root.pipeline_configuration.keep_alive,
+                server_verification_cert=self.nucleus.pipeline_configuration.server_verification_cert,
+                x509_cert=self.nucleus.pipeline_configuration.x509,
+                websockets=self.nucleus.pipeline_configuration.websockets,
+                cipher=self.nucleus.pipeline_configuration.cipher,
+                proxy_options=self.nucleus.pipeline_configuration.proxy_options,
+                keep_alive=self.nucleus.pipeline_configuration.keep_alive,
             )
             self.transport.on_mqtt_connected_handler = self._on_mqtt_connected
             self.transport.on_mqtt_connection_failure_handler = self._on_mqtt_connection_failure
@@ -197,8 +198,8 @@ class MQTTTransportStage(PipelineStage):
             self._start_connection_watchdog(op)
             # Use SasToken as password if present. If not present (e.g. using X509),
             # then no password is required because auth is handled via other means.
-            if self.pipeline_root.pipeline_configuration.sastoken:
-                password = str(self.pipeline_root.pipeline_configuration.sastoken)
+            if self.nucleus.pipeline_configuration.sastoken:
+                password = str(self.nucleus.pipeline_configuration.sastoken)
             else:
                 password = None
             try:
@@ -444,7 +445,7 @@ class MQTTTransportStage(PipelineStage):
 
             # If there is no connection retry, cancel any transport operations waiting on response
             # so that they do not get stuck there.
-            if not self.pipeline_root.pipeline_configuration.connection_retry:
+            if not self.nucleus.pipeline_configuration.connection_retry:
                 logger.debug(
                     "{}: Connection Retry disabled - cancelling in-flight operations".format(
                         self.name
@@ -457,7 +458,7 @@ class MQTTTransportStage(PipelineStage):
                 self.transport._op_manager.cancel_all_operations()
 
             # Regardless of cause, it is now a ConnectionDroppedError. Log it and swallow it.
-            # Higher layers will see that we're disconencted and may reconnect as necessary.
+            # Higher layers will see that we're disconnected and may reconnect as necessary.
             e = transport_exceptions.ConnectionDroppedError("Unexpected disconnection")
             e.__cause__ = cause
             self.report_background_exception(e)

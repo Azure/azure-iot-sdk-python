@@ -6,6 +6,4 @@ ignore = E501,W503,E203
 exclude =
     .git,
     __pycache__,
-    ./azure-iot-provisioning-servicesdk/azure/iot/provisioning/servicesdk/protocol/models
-    ./azure-iot-hub/azure/iot/hub/protocol
-    ./azure_provisioning_e2e/iothubservice20180630/
+    tests/e2e/provisioning_e2e/iothubservice20180630/*
