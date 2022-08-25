@@ -19,6 +19,10 @@ class TestSendMessage(object):
     def test_sync_send_message_simple(self, client, random_message, service_helper, leak_tracker):
         leak_tracker.set_initial_object_list()
 
+        # Arbitrary sleep to ensure that EventHub listener is completely ready.  Only necessary
+        # on Windows machines.
+        time.sleep(5)
+
         client.send_message(random_message)
 
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
