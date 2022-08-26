@@ -6,7 +6,7 @@
 import sys
 import logging
 from azure.iot.device.iothub.pipeline import pipeline_events_iothub
-from tests.common.pipeline import pipeline_event_test
+from tests.unit.common.pipeline import pipeline_event_test
 
 logging.basicConfig(level=logging.DEBUG)
 this_module = sys.modules[__name__]
