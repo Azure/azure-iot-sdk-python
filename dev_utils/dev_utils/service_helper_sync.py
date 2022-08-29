@@ -191,7 +191,7 @@ class ServiceHelperSync(object):
                 else:
                     self.cv.wait()
 
-    def get_next_reported_patch_arrival(self, block=True, timeout=120):
+    def get_next_reported_patch_arrival(self, block=True, timeout=240):
         try:
             return self.incoming_patch_queue.get(block=block, timeout=timeout)
         except queue.Empty:
