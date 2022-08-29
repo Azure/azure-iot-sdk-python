@@ -13,10 +13,10 @@ from azure.iot.device.provisioning.pipeline import (
     pipeline_ops_provisioning,
 )
 from azure.iot.device.common.pipeline import pipeline_ops_base
-from tests.common.pipeline import pipeline_stage_test
+from tests.unit.common.pipeline import pipeline_stage_test
 from azure.iot.device.exceptions import ServiceError
 
-from tests.common.pipeline.helpers import StageRunOpTestBase
+from tests.unit.common.pipeline.helpers import StageRunOpTestBase
 from azure.iot.device import exceptions
 from azure.iot.device.provisioning.pipeline import constant
 
