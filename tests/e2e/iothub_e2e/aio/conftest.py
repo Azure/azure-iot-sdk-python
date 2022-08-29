@@ -109,9 +109,6 @@ async def service_helper(event_loop, executor):
         event_loop=event_loop,
         executor=executor,
     )
-    # eventhub listeners take a while to spin up.
-    # only needed for sync because executor is a module level fixture.
-    await asyncio.sleep(10)
     yield service_helper
 
     logger.info("----------------------------")
