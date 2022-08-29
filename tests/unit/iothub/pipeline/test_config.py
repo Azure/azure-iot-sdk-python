@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-from tests.common.pipeline.config_test import PipelineConfigInstantiationTestBase
+from tests.unit.common.pipeline.config_test import PipelineConfigInstantiationTestBase
 from azure.iot.device.iothub.pipeline.config import IoTHubPipelineConfig
 
 device_id = "my_device"

@@ -25,8 +25,8 @@ from azure.iot.device.iothub.pipeline import (
 from azure.iot.device.iothub.pipeline.exceptions import OperationError
 from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
-from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
-from tests.common.pipeline import pipeline_stage_test
+from tests.unit.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
+from tests.unit.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant, user_agent
 
 logging.basicConfig(level=logging.DEBUG)

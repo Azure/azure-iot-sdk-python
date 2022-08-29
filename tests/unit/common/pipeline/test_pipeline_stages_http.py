@@ -11,8 +11,8 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_http,
     pipeline_stages_http,
 )
-from tests.common.pipeline.helpers import StageRunOpTestBase
-from tests.common.pipeline import pipeline_stage_test
+from tests.unit.common.pipeline.helpers import StageRunOpTestBase
+from tests.unit.common.pipeline import pipeline_stage_test
 
 
 this_module = sys.modules[__name__]
