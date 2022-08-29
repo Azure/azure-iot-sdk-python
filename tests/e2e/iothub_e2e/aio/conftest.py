@@ -56,7 +56,7 @@ def pytest_sessionfinish(session, exitstatus):
             print("-----------------------------------")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def event_loop():
     loop = asyncio.get_event_loop()
     yield loop
@@ -100,7 +100,7 @@ async def client(brand_new_client):
     yield client
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 async def service_helper(event_loop, executor):
     service_helper = ServiceHelper(
         iothub_connection_string=test_env.IOTHUB_CONNECTION_STRING,
@@ -109,7 +109,6 @@ async def service_helper(event_loop, executor):
         event_loop=event_loop,
         executor=executor,
     )
-    await asyncio.sleep(3)
     yield service_helper
 
     logger.info("----------------------------")

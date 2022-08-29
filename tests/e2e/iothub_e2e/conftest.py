@@ -41,7 +41,7 @@ def transport():
     return test_config.config.transport
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def executor():
     return concurrent.futures.ThreadPoolExecutor()
 

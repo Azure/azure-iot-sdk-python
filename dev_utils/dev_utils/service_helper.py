@@ -64,7 +64,7 @@ class ServiceHelper:
             timeout,
         )
 
-    async def get_next_reported_patch_arrival(self, block=True, timeout=20):
+    async def get_next_reported_patch_arrival(self, block=True, timeout=240):
         return await self._event_loop.run_in_executor(
             self._executor,
             self._inner_object.get_next_reported_patch_arrival,

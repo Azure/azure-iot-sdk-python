@@ -50,7 +50,7 @@ def client(brand_new_client):
     yield client
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def service_helper():
     service_helper = ServiceHelperSync(
         iothub_connection_string=test_env.IOTHUB_CONNECTION_STRING,

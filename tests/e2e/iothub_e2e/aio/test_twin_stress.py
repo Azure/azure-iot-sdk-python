@@ -70,13 +70,15 @@ class TestTwinStress(object):
             received = False
             while not received:
                 received_patch = await service_helper.get_next_reported_patch_arrival()
-                if received_patch[const.REPORTED][const.TEST_CONTENT] == patch[const.TEST_CONTENT]:
+                if (
+                    const.REPORTED in received_patch
+                    and received_patch[const.REPORTED][const.TEST_CONTENT]
+                    == patch[const.TEST_CONTENT]
+                ):
                     received = True
                 else:
                     logger.info(
-                        "Wrong patch received. Expecting {}, got {}".format(
-                            received_patch[const.REPORTED], patch
-                        )
+                        "Wrong patch received. Expecting {}, got {}".format(patch, received_patch)
                     )
 
         leak_tracker.check_for_leaks()
@@ -129,20 +131,25 @@ class TestTwinStress(object):
                 received_test_content = received_patch[const.REPORTED][const.TEST_CONTENT] or {}
                 logger.info("received {}".format(received_test_content))
 
-                for key in received_test_content.keys():
-                    logger.info("Received {} = {}".format(key, received_test_content[key]))
-                    if key in props:
-                        if received_test_content[key] == props[key]:
-                            logger.info("Key {} received as expected.".format(key))
-                            # Set the value to None so we know that it's been received
-                            props[key] = None
-                            count_received += 1
-                        else:
-                            logger.info(
-                                "Ignoring unexpected value for key {}. Received = {}, expected = {}".format(
-                                    key, received_test_content[key], props[key]
+                if isinstance(received_test_content, dict):
+                    # We check to make sure received_test_content is a dict because it may be
+                    # a string left over from a previous test case.
+                    # This can happen if if the tests are running fast and the reported
+                    # property updates are being processed slowly.
+                    for key in received_test_content.keys():
+                        logger.info("Received {} = {}".format(key, received_test_content[key]))
+                        if key in props:
+                            if received_test_content[key] == props[key]:
+                                logger.info("Key {} received as expected.".format(key))
+                                # Set the value to None so we know that it's been received
+                                props[key] = None
+                                count_received += 1
+                            else:
+                                logger.info(
+                                    "Ignoring unexpected value for key {}. Received = {}, expected = {}".format(
+                                        key, received_test_content[key], props[key]
+                                    )
                                 )
-                            )
 
         leak_tracker.check_for_leaks()
 
