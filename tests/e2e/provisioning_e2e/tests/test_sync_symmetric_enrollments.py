@@ -7,7 +7,8 @@
 from azure_provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device import ProvisioningDeviceClient
 from azure.iot.device.common import X509
-from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
+
+# from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
 from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
 import pytest
 import logging
@@ -19,6 +20,8 @@ from create_x509_chain_crypto import (
     create_csr,
 )
 from azure.iot.device import IoTHubDeviceClient
+from ..provisioningservice.provisioning_service_client import ProvisioningServiceClient
+from ..provisioningservice.models.individual_enrollment import IndividualEnrollment
 
 logging.basicConfig(level=logging.DEBUG)
 
