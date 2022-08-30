@@ -10,31 +10,38 @@ jobs:
         pv: '3.9'
         transport: 'mqtt'
         imageName: 'windows-latest'
+        consumerGroup: 'cg1'
       py39_windows_mqttws:
         pv: '3.9'
         transport: 'mqttws'
         imageName: 'windows-latest'
+        consumerGroup: 'cg2'
 
       py36_linux_mqtt:
         pv: '3.6'
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
+        consumerGroup: 'cg3'
       py37_linux_mqttws:
         pv: '3.7'
         transport: 'mqttws'
         imageName: 'Ubuntu 20.04'
+        consumerGroup: 'cg4'
       py38_linux_mqtt:
         pv: '3.8'
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
+        consumerGroup: 'cg5'
       py39_linux_mqttws:
         pv: '3.9'
         transport: 'mqttws'
         imageName: 'Ubuntu 20.04'
+        consumerGroup: 'cg6'
       py310_linux_mqtt:
         pv: '3.10'
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
+        consumerGroup: 'cg7'
 
   pool:
     vmImage: $(imageName)
@@ -50,13 +57,14 @@ jobs:
 
     - script: |
         cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
+        echo "Using consumer group: ${IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP}"
         # "not x" means "include all tests that don't have the tag named 'x'", which is everything.
         pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" -m "not x"
       displayName: 'E2E Device Client MQTT Connection String'
       env:
         IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: e2e-nightly-stress-consumer-group
+        IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumerGroup)
         PYTHONUNBUFFERED: True
 
     - task: PublishTestResults@2
