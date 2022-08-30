@@ -20,14 +20,16 @@ from create_x509_chain_crypto import (
     create_csr,
 )
 from azure.iot.device import IoTHubDeviceClient
-from ..provisioningservice.provisioning_service_client import ProvisioningServiceClient
+from ..provisioningservice.protocol.provisioning_service_client import (
+    GeneratedProvisioningServiceClient,
+)
 from ..provisioningservice.models.individual_enrollment import IndividualEnrollment
 
 logging.basicConfig(level=logging.DEBUG)
 
 PROVISIONING_HOST = os.getenv("PROVISIONING_DEVICE_ENDPOINT")
 ID_SCOPE = os.getenv("PROVISIONING_DEVICE_IDSCOPE")
-service_client = ProvisioningServiceClient.create_from_connection_string(
+service_client = GeneratedProvisioningServiceClient.create_from_connection_string(
     os.getenv("PROVISIONING_SERVICE_CONNECTION_STRING")
 )
 device_registry_helper = Helper(os.getenv("IOTHUB_CONNECTION_STRING"))

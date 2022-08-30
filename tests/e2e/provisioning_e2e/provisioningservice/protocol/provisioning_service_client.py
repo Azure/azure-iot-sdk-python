@@ -7,15 +7,12 @@
 
 from msrest.service_client import SDKClient
 from msrest import Configuration, Serializer, Deserializer
-
-# from .version import VERSION
+from .version import VERSION
 from msrest.pipeline import ClientRawResponse
 from . import models
 
-VERSION = "2018-09-01-preview"
 
-
-class ProvisioningServiceClientConfiguration(Configuration):
+class GeneratedProvisioningServiceClientConfiguration(Configuration):
     """Configuration for ProvisioningServiceClient
     Note that all parameters used to create this instance are saved as instance
     attributes.
@@ -33,14 +30,14 @@ class ProvisioningServiceClientConfiguration(Configuration):
         if not base_url:
             base_url = "https://localhost"
 
-        super(ProvisioningServiceClientConfiguration, self).__init__(base_url)
+        super(GeneratedProvisioningServiceClientConfiguration, self).__init__(base_url)
 
         self.add_user_agent("provisioningserviceclient/{}".format(VERSION))
 
         self.credentials = credentials
 
 
-class ProvisioningServiceClient(SDKClient):
+class GeneratedProvisioningServiceClient(SDKClient):
     """API for service operations with the Azure IoT Hub Device Provisioning Service
 
     :ivar config: Configuration for client.
@@ -54,11 +51,13 @@ class ProvisioningServiceClient(SDKClient):
 
     def __init__(self, credentials, base_url=None):
 
-        self.config = ProvisioningServiceClientConfiguration(credentials, base_url)
-        super(ProvisioningServiceClient, self).__init__(self.config.credentials, self.config)
+        self.config = GeneratedProvisioningServiceClientConfiguration(credentials, base_url)
+        super(GeneratedProvisioningServiceClient, self).__init__(
+            self.config.credentials, self.config
+        )
 
         client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
-        self.api_version = VERSION
+        self.api_version = "2018-09-01-preview"
         self._serialize = Serializer(client_models)
         self._deserialize = Deserializer(client_models)
 
