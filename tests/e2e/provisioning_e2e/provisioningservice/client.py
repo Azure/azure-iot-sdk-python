@@ -145,25 +145,10 @@ class ProvisioningServiceClient(SDKClient):
         return cls(host_name, shared_access_key_name, shared_access_key)
 
     # def create_or_update_individual_enrollment(
-    #     self,
-    #     registration_id,
-    #     enrollment,
-    #     provisioning_model,
-    #     if_match=None,
-    #     custom_headers=None,
-    #     raw=False,
-    #     **operation_config
+    #     self, enrollment, if_match=None, custom_headers=None, raw=False, **operation_config
     # ):
     #     """
     #     Create or update an object on the Provisioning Service
-    #
-    #     :param id: The registration ID is alphanumeric, lowercase, and may
-    #      contain hyphens.
-    #     :type id: str
-    #     :param provisioning_model: The model of the object to be created/updated
-    #     :type provisioning_model: :class:`IndividualEnrollment
-    #      <provisioningserviceclient.models.IndividualEnrollment>` or :class:`EnrollmentGroup
-    #      <provisioningserviceclient.models.EnrollmentGroup>`
     #
     #     :returns: The model of the created/updated object as stored on the Provisiong Service
     #     :rtype: :class:`IndividualEnrollment
@@ -175,7 +160,7 @@ class ProvisioningServiceClient(SDKClient):
     #     """
     #     result = None
     #     url = self.create_or_update_individual_enrollment.metadata["url"]
-    #     path_format_arguments = {"id": self._serialize.url("id", registration_id, "str")}
+    #     path_format_arguments = {"id": self._serialize.url("id", enrollment.registration_id, "str")}
     #     url = self._client.format_url(url, **path_format_arguments)
     #
     #     # Construct parameters
@@ -212,7 +197,7 @@ class ProvisioningServiceClient(SDKClient):
     #
     #     return result
     #
-    #     _wrap_model(provisioning_model)  # rewrap input
+    #     _wrap_model(enrollment)  # rewrap input
     #     _wrap_model(result)
     #     return result
     #

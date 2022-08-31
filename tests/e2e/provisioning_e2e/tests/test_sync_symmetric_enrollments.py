@@ -20,16 +20,17 @@ from create_x509_chain_crypto import (
     create_csr,
 )
 from azure.iot.device import IoTHubDeviceClient
-from ..provisioningservice.protocol.provisioning_service_client import (
-    GeneratedProvisioningServiceClient,
-)
-from ..provisioningservice.models.individual_enrollment import IndividualEnrollment
+
+# from ..provisioningservice.protocol.provisioning_service_client import GeneratedProvisioningServiceClient
+from ..provisioningservice.client import ProvisioningServiceClient
+
+from ..provisioningservice.protocol.models.individual_enrollment import IndividualEnrollment
 
 logging.basicConfig(level=logging.DEBUG)
 
 PROVISIONING_HOST = os.getenv("PROVISIONING_DEVICE_ENDPOINT")
 ID_SCOPE = os.getenv("PROVISIONING_DEVICE_IDSCOPE")
-service_client = GeneratedProvisioningServiceClient.create_from_connection_string(
+service_client = ProvisioningServiceClient.create_from_connection_string(
     os.getenv("PROVISIONING_SERVICE_CONNECTION_STRING")
 )
 device_registry_helper = Helper(os.getenv("IOTHUB_CONNECTION_STRING"))
@@ -178,7 +179,7 @@ def create_individual_enrollment(registration_id, device_id=None):
         reprovision_policy=reprovision_policy,
     )
 
-    return service_client.create_or_update(individual_provisioning_model)
+    return service_client.create_or_update_individual_enrollment(individual_provisioning_model)
 
 
 def assert_device_provisioned(device_id, registration_result, client_cert=False):
