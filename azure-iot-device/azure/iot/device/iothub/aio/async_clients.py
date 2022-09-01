@@ -9,7 +9,6 @@ Azure IoTHub Device SDK for Python.
 
 import logging
 import asyncio
-import deprecation
 from azure.iot.device.common import async_adapter
 from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubClient,
@@ -355,35 +354,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent message to Hub")
 
-    @deprecation.deprecated(
-        deprecated_in="2.3.0",
-        current_version=device_constant.VERSION,
-        details="We recommend that you use the .on_method_request_received property to set a handler instead",
-    )
-    async def receive_method_request(self, method_name=None):
-        """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
-
-        If no method request is yet available, will wait until it is available.
-
-        :param str method_name: Optionally provide the name of the method to receive requests for.
-            If this parameter is not given, all methods not already being specifically targeted by
-            a different call to receive_method will be received.
-
-        :returns: MethodRequest object representing the received method request.
-        :rtype: :class:`azure.iot.device.MethodRequest`
-        """
-        self._check_receive_mode_is_api()
-
-        if not self._mqtt_pipeline.feature_enabled[constant.METHODS]:
-            await self._enable_feature(constant.METHODS)
-
-        method_inbox = self._inbox_manager.get_method_request_inbox(method_name)
-
-        logger.info("Waiting for method request...")
-        method_request = await method_inbox.get()
-        logger.info("Received method request")
-        return method_request
-
     async def send_method_response(self, method_response):
         """Send a response to a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
@@ -490,31 +460,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent twin patch")
 
-    @deprecation.deprecated(
-        deprecated_in="2.3.0",
-        current_version=device_constant.VERSION,
-        details="We recommend that you use the .on_twin_desired_properties_patch_received property to set a handler instead",
-    )
-    async def receive_twin_desired_properties_patch(self):
-        """
-        Receive a desired property patch via the Azure IoT Hub or Azure IoT Edge Hub.
-
-        If no method request is yet available, will wait until it is available.
-
-        :returns: Twin Desired Properties patch as a JSON dict
-        :rtype: dict
-        """
-        self._check_receive_mode_is_api()
-
-        if not self._mqtt_pipeline.feature_enabled[constant.TWIN_PATCHES]:
-            await self._enable_feature(constant.TWIN_PATCHES)
-        twin_patch_inbox = self._inbox_manager.get_twin_patch_inbox()
-
-        logger.info("Waiting for twin patches...")
-        patch = await twin_patch_inbox.get()
-        logger.info("twin patch received")
-        return patch
-
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """An asynchronous device client that connects to an Azure IoT Hub instance."""
@@ -530,30 +475,6 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         """
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
-
-    @deprecation.deprecated(
-        deprecated_in="2.3.0",
-        current_version=device_constant.VERSION,
-        details="We recommend that you use the .on_message_received property to set a handler instead",
-    )
-    async def receive_message(self):
-        """Receive a message that has been sent from the Azure IoT Hub.
-
-        If no message is yet available, will wait until an item is available.
-
-        :returns: Message that was sent from the Azure IoT Hub.
-        :rtype: :class:`azure.iot.device.Message`
-        """
-        self._check_receive_mode_is_api()
-
-        if not self._mqtt_pipeline.feature_enabled[constant.C2D_MSG]:
-            await self._enable_feature(constant.C2D_MSG)
-        c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
-
-        logger.info("Waiting for message from Hub...")
-        message = await c2d_inbox.get()
-        logger.info("Message received")
-        return message
 
     async def get_storage_info_for_blob(self, blob_name):
         """Sends a POST request over HTTP to an IoTHub endpoint that will return information for uploading via the Azure Storage Account linked to the IoTHub your device is connected to.
@@ -658,32 +579,6 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         await handle_result(callback)
 
         logger.info("Successfully sent message to output: " + output_name)
-
-    @deprecation.deprecated(
-        deprecated_in="2.3.0",
-        current_version=device_constant.VERSION,
-        details="We recommend that you use the .on_message_received property to set a handler instead",
-    )
-    async def receive_message_on_input(self, input_name):
-        """Receive an input message that has been sent from another Module to a specific input.
-
-        If no message is yet available, will wait until an item is available.
-
-        :param str input_name: The input name to receive a message on.
-
-        :returns: Message that was sent to the specified input.
-        :rtype: :class:`azure.iot.device.Message`
-        """
-        self._check_receive_mode_is_api()
-
-        if not self._mqtt_pipeline.feature_enabled[constant.INPUT_MSG]:
-            await self._enable_feature(constant.INPUT_MSG)
-        inbox = self._inbox_manager.get_input_message_inbox(input_name)
-
-        logger.info("Waiting for input message on: " + input_name + "...")
-        message = await inbox.get()
-        logger.info("Input message received on: " + input_name)
-        return message
 
     async def invoke_method(self, method_params, device_id, module_id=None):
         """Invoke a method from your client onto a device or module client, and receive the response to the method call.
