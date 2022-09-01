@@ -140,7 +140,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param str feature_name: The name of the pipeline feature that corresponds to the handler
         :param new_handler: The function to be set as the handler
         """
-        self._check_receive_mode_is_handler()
         # Set the handler on the handler manager
         setattr(self._handler_manager, handler_name, new_handler)
 

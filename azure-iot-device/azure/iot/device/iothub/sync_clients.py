@@ -15,7 +15,7 @@ from .abstract_clients import (
 )
 from .models import Message
 from .inbox_manager import InboxManager
-from .sync_inbox import SyncClientInbox, InboxEmpty
+from .sync_inbox import SyncClientInbox
 from . import sync_handler_manager
 from .pipeline import constant as pipeline_constant
 from .pipeline import exceptions as pipeline_exceptions
@@ -141,7 +141,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param str feature_name: The name of the pipeline feature that corresponds to the handler
         :param new_handler: The function to be set as the handler
         """
-        self._check_receive_mode_is_handler()
         # Set the handler on the handler manager
         setattr(self._handler_manager, handler_name, new_handler)
 

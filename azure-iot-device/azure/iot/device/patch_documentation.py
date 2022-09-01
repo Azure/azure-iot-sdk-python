@@ -38,24 +38,6 @@ def execute_patch_for_sync():
     )
     setattr(IoTHubDeviceClient, "patch_twin_reported_properties", patch_twin_reported_properties)
 
-    def receive_method_request(self, method_name=None, block=True, timeout=None):
-        return super(IoTHubDeviceClient, self).receive_method_request(method_name, block, timeout)
-
-    receive_method_request.__doc__ = IoTHubDeviceClient.receive_method_request.__doc__
-    setattr(IoTHubDeviceClient, "receive_method_request", receive_method_request)
-
-    def receive_twin_desired_properties_patch(self, block=True, timeout=None):
-        return super(IoTHubDeviceClient, self).receive_twin_desired_properties_patch(block, timeout)
-
-    receive_twin_desired_properties_patch.__doc__ = (
-        IoTHubDeviceClient.receive_twin_desired_properties_patch.__doc__
-    )
-    setattr(
-        IoTHubDeviceClient,
-        "receive_twin_desired_properties_patch",
-        receive_twin_desired_properties_patch,
-    )
-
     def send_message(self, message):
         return super(IoTHubDeviceClient, self).send_message(message)
 
@@ -169,24 +151,6 @@ def execute_patch_for_sync():
         IoTHubModuleClient.patch_twin_reported_properties.__doc__
     )
     setattr(IoTHubModuleClient, "patch_twin_reported_properties", patch_twin_reported_properties)
-
-    def receive_method_request(self, method_name=None, block=True, timeout=None):
-        return super(IoTHubModuleClient, self).receive_method_request(method_name, block, timeout)
-
-    receive_method_request.__doc__ = IoTHubModuleClient.receive_method_request.__doc__
-    setattr(IoTHubModuleClient, "receive_method_request", receive_method_request)
-
-    def receive_twin_desired_properties_patch(self, block=True, timeout=None):
-        return super(IoTHubModuleClient, self).receive_twin_desired_properties_patch(block, timeout)
-
-    receive_twin_desired_properties_patch.__doc__ = (
-        IoTHubModuleClient.receive_twin_desired_properties_patch.__doc__
-    )
-    setattr(
-        IoTHubModuleClient,
-        "receive_twin_desired_properties_patch",
-        receive_twin_desired_properties_patch,
-    )
 
     def send_message(self, message):
         return super(IoTHubModuleClient, self).send_message(message)

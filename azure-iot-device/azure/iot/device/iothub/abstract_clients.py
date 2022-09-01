@@ -97,12 +97,6 @@ def _extract_sas_uri_values(uri):
     return d
 
 
-# Receive Type constant defs
-RECEIVE_TYPE_NONE_SET = "none_set"  # Type of receiving has not been set
-RECEIVE_TYPE_HANDLER = "handler"  # Only use handlers for receive
-RECEIVE_TYPE_API = "api"  # Only use APIs for receive
-
-
 class AbstractIoTHubClient(abc.ABC):
     """A superclass representing a generic IoTHub client.
     This class needs to be extended for specific clients.
@@ -119,7 +113,6 @@ class AbstractIoTHubClient(abc.ABC):
 
         self._inbox_manager = None  # this will be overridden in child class
         self._handler_manager = None  # this will be overridden in child class
-        self._receive_type = RECEIVE_TYPE_NONE_SET
         self._client_lock = threading.Lock()
 
     def _on_connected(self):
@@ -163,34 +156,6 @@ class AbstractIoTHubClient(abc.ABC):
         if self._handler_manager.handling_client_events:
             event = client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, e)
             client_event_inbox.put(event)
-
-    def _check_receive_mode_is_api(self):
-        """Call this function first in EVERY receive API"""
-        with self._client_lock:
-            if self._receive_type is RECEIVE_TYPE_NONE_SET:
-                # Lock the client to ONLY use receive APIs (no handlers)
-                self._receive_type = RECEIVE_TYPE_API
-            elif self._receive_type is RECEIVE_TYPE_HANDLER:
-                raise exceptions.ClientError(
-                    "Cannot use receive APIs - receive handler(s) have already been set"
-                )
-            else:
-                pass
-
-    def _check_receive_mode_is_handler(self):
-        """Call this function first in EVERY handler setter"""
-        with self._client_lock:
-            if self._receive_type is RECEIVE_TYPE_NONE_SET:
-                # Lock the client to ONLY use receive handlers (no APIs)
-                self._receive_type = RECEIVE_TYPE_HANDLER
-                # Set the inbox manager to use unified msg receives
-                self._inbox_manager.use_unified_msg_mode = True
-            elif self._receive_type is RECEIVE_TYPE_API:
-                raise exceptions.ClientError(
-                    "Cannot set receive handlers - receive APIs have already been used"
-                )
-            else:
-                pass
 
     def _replace_user_supplied_sastoken(self, sastoken_str):
         """
@@ -413,10 +378,6 @@ class AbstractIoTHubClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def receive_method_request(self, method_name=None):
-        pass
-
-    @abc.abstractmethod
     def send_method_response(self, method_request, payload, status):
         pass
 
@@ -426,10 +387,6 @@ class AbstractIoTHubClient(abc.ABC):
 
     @abc.abstractmethod
     def patch_twin_reported_properties(self, reported_properties_patch):
-        pass
-
-    @abc.abstractmethod
-    def receive_twin_desired_properties_patch(self):
         pass
 
     @property
@@ -657,10 +614,6 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
-    def receive_message(self):
-        pass
-
-    @abc.abstractmethod
     def get_storage_info_for_blob(self, blob_name):
         pass
 
@@ -886,10 +839,6 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
     @abc.abstractmethod
     def send_message_to_output(self, message, output_name):
-        pass
-
-    @abc.abstractmethod
-    def receive_message_on_input(self, input_name):
         pass
 
     @abc.abstractmethod
