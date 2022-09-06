@@ -32,7 +32,6 @@ class BasePipelineConfig(abc.ABC):
         cipher="",
         proxy_options=None,
         keep_alive=DEFAULT_KEEPALIVE,
-        auto_connect=True,
         connection_retry=True,
         connection_retry_interval=10,
     ):
@@ -56,7 +55,6 @@ class BasePipelineConfig(abc.ABC):
         :type proxy_options: :class:`azure.iot.device.common.models.ProxyOptions`
         :param int keepalive: Maximum period in seconds between communications with the
             broker.
-        :param bool auto_connect: Indicates if automatic connects should occur
         :param bool connection_retry: Indicates if dropped connection should result in attempts to
             re-establish it
         :param int connection_retry_interval: Interval (in seconds) between connection retries
@@ -77,7 +75,6 @@ class BasePipelineConfig(abc.ABC):
         self.proxy_options = proxy_options
 
         # Pipeline
-        self.auto_connect = auto_connect
         self.connection_retry = connection_retry
         self.connection_retry_interval = self._sanitize_connection_retry_interval(
             connection_retry_interval

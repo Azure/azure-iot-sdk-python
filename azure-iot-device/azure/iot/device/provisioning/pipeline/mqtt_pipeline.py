@@ -75,15 +75,8 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage())
             #
-            # AutoConnectStage comes here because only MQTT ops have the need_connection flag set
-            # and this is the first place in the pipeline where we can guarantee that all network
-            # ops are MQTT ops.
-            #
-            .append_stage(pipeline_stages_base.AutoConnectStage())
-            #
-            # ConnectionStateStage needs to be after AutoConnectStage because the AutoConnectStage
-            # can create ConnectOperations and we (may) want to queue connection related operations
-            # in the ConnectionStateStage
+            # ConnectionStateStage needs to be after any stages that can create operations that
+            # modify the connection state, as we need to queue them in ConnectionStateStage
             #
             .append_stage(pipeline_stages_base.ConnectionStateStage())
             #
