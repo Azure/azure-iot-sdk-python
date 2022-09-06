@@ -38,24 +38,6 @@ def execute_patch_for_async():
     )
     setattr(IoTHubDeviceClient, "patch_twin_reported_properties", patch_twin_reported_properties)
 
-    def receive_method_request(self, method_name=None):
-        return super(IoTHubDeviceClient, self).receive_method_request(method_name)
-
-    receive_method_request.__doc__ = IoTHubDeviceClient.receive_method_request.__doc__
-    setattr(IoTHubDeviceClient, "receive_method_request", receive_method_request)
-
-    def receive_twin_desired_properties_patch(self):
-        return super(IoTHubDeviceClient, self).receive_twin_desired_properties_patch()
-
-    receive_twin_desired_properties_patch.__doc__ = (
-        IoTHubDeviceClient.receive_twin_desired_properties_patch.__doc__
-    )
-    setattr(
-        IoTHubDeviceClient,
-        "receive_twin_desired_properties_patch",
-        receive_twin_desired_properties_patch,
-    )
-
     async def send_message(self, message):
         return await super(IoTHubDeviceClient, self).send_message(message)
 
@@ -169,24 +151,6 @@ def execute_patch_for_async():
         IoTHubModuleClient.patch_twin_reported_properties.__doc__
     )
     setattr(IoTHubModuleClient, "patch_twin_reported_properties", patch_twin_reported_properties)
-
-    def receive_method_request(self, method_name=None):
-        return super(IoTHubModuleClient, self).receive_method_request(method_name)
-
-    receive_method_request.__doc__ = IoTHubModuleClient.receive_method_request.__doc__
-    setattr(IoTHubModuleClient, "receive_method_request", receive_method_request)
-
-    def receive_twin_desired_properties_patch(self):
-        return super(IoTHubModuleClient, self).receive_twin_desired_properties_patch()
-
-    receive_twin_desired_properties_patch.__doc__ = (
-        IoTHubModuleClient.receive_twin_desired_properties_patch.__doc__
-    )
-    setattr(
-        IoTHubModuleClient,
-        "receive_twin_desired_properties_patch",
-        receive_twin_desired_properties_patch,
-    )
 
     async def send_message(self, message):
         return await super(IoTHubModuleClient, self).send_message(message)

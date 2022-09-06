@@ -155,7 +155,7 @@ class TestStop(object):
         # NOTE: We use two handlers arbitrarily here to show this happens for all handler runners
         mock_msg_handler = ThreadsafeMock()
         mock_mth_handler = ThreadsafeMock()
-        msg_inbox = inbox_manager.get_unified_message_inbox()
+        msg_inbox = inbox_manager.get_message_inbox()
         mth_inbox = inbox_manager.get_method_request_inbox()
         for _ in range(200):  # sufficiently many items so can't complete quickly
             msg_inbox.put(mocker.MagicMock())
@@ -640,7 +640,7 @@ class TestSyncHandlerManagerPropertyOnMessageReceived(SharedReceiverHandlerPrope
 
     @pytest.fixture
     def inbox(self, inbox_manager):
-        return inbox_manager.get_unified_message_inbox()
+        return inbox_manager.get_message_inbox()
 
 
 @pytest.mark.describe("SyncHandlerManager - PROPERTY: .on_method_request_received")

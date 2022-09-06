@@ -98,7 +98,7 @@ class AbstractHandlerManager(abc.ABC):
         elif handler_name == TWIN_DP_PATCH:
             return self._inbox_manager.get_twin_patch_inbox()
         elif handler_name == MESSAGE:
-            return self._inbox_manager.get_unified_message_inbox()
+            return self._inbox_manager.get_message_inbox()
         else:
             return None
 

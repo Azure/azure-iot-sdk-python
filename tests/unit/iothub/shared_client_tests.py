@@ -17,15 +17,9 @@ from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.iothub.pipeline import IoTHubPipelineConfig
 from azure.iot.device.common.pipeline.config import DEFAULT_KEEPALIVE
-from azure.iot.device.iothub.abstract_clients import (
-    RECEIVE_TYPE_NONE_SET,
-    RECEIVE_TYPE_HANDLER,
-    RECEIVE_TYPE_API,
-)
 from azure.iot.device.iothub import edge_hsm
 from azure.iot.device.iothub import client_event
 from azure.iot.device import ProxyOptions
-from azure.iot.device import exceptions as client_exceptions
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -124,12 +118,6 @@ class SharedIoTHubClientInstantiationTests(object):
         assert (
             client._mqtt_pipeline.on_twin_patch_received == client._inbox_manager.route_twin_patch
         )
-
-    @pytest.mark.it("Sets the Receive Mode/Type for the client as yet-unchosen")
-    def test_initial_receive_mode(self, client_class, mqtt_pipeline, http_pipeline):
-        client = client_class(mqtt_pipeline, http_pipeline)
-
-        assert client._receive_type == RECEIVE_TYPE_NONE_SET
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")
@@ -724,33 +712,6 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         setattr(client, handler_name, None)
         # Feature was not disabled again
         assert mqtt_pipeline.disable_feature.call_count == 0
-
-    @pytest.mark.it(
-        "Locks the client to Handler Receive Mode if the receive mode has not yet been set"
-    )
-    def test_receive_mode_not_set(self, client, handler, handler_name):
-        assert client._receive_type is RECEIVE_TYPE_NONE_SET
-        setattr(client, handler_name, handler)
-        assert client._receive_type is RECEIVE_TYPE_HANDLER
-
-    @pytest.mark.it(
-        "Does not modify the client receive mode if it has already been set to Handler Receive Mode"
-    )
-    def test_receive_mode_set_handler(self, client, handler, handler_name):
-        client._receive_type = RECEIVE_TYPE_HANDLER
-        setattr(client, handler_name, handler)
-        assert client._receive_type is RECEIVE_TYPE_HANDLER
-
-    @pytest.mark.it(
-        "Raises a ClientError and does nothing else if the client receive mode has already been set to  API Receive Mode"
-    )
-    def test_receive_mode_set_api(self, client, handler, handler_name, mqtt_pipeline):
-        client._receive_type = RECEIVE_TYPE_API
-        # Error was raised
-        with pytest.raises(client_exceptions.ClientError):
-            setattr(client, handler_name, handler)
-        # Feature was not enabled
-        assert mqtt_pipeline.enable_feature.call_count == 0
 
 
 # NOTE: If more properties are added, this class should become a general purpose properties test class
