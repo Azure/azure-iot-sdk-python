@@ -74,6 +74,12 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         """
         logger.info("Registering with Provisioning Service...")
 
+        # Connect
+        connect_complete = EventedCallback()
+        self._pipeline.connect(callback=connect_complete)
+        result = handle_result(connect_complete)
+
+        # Enable Responses
         if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
             self._enable_responses()
 

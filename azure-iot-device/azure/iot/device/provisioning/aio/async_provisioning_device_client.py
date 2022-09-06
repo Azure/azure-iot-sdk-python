@@ -74,9 +74,17 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         """
         logger.info("Registering with Provisioning Service...")
 
+        # Connect
+        connect_async = async_adapter.emulate_async(self._pipeline.connect)
+        connect_complete = async_adapter.AwaitableCallback()
+        await connect_async(callback=connect_complete)
+        result = await handle_result(connect_complete)
+
+        # Enable Responses
         if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
             await self._enable_responses()
 
+        # Register
         register_async = async_adapter.emulate_async(self._pipeline.register)
         register_complete = async_adapter.AwaitableCallback(return_arg_name="result")
         await register_async(payload=self._provisioning_payload, callback=register_complete)
