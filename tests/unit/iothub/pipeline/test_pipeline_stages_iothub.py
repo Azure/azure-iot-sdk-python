@@ -12,9 +12,7 @@ from azure.iot.device.iothub.pipeline import (
     pipeline_ops_iothub,
     pipeline_stages_iothub,
 )
-from azure.iot.device.common.pipeline import (
-    pipeline_ops_base,
-)
+from azure.iot.device.common.pipeline import pipeline_ops_base
 from tests.unit.common.pipeline.helpers import StageRunOpTestBase
 from tests.unit.common.pipeline import pipeline_stage_test
 
