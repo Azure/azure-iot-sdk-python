@@ -83,7 +83,7 @@ def before_all_tests(request):
 async def test_device_register_with_device_id_for_a_x509_individual_enrollment(protocol):
     device_id = "e2edpsthunderbolt"
     device_index = type_to_device_indices.get("individual_with_device_id")[0]
-
+    registration_id = ""
     try:
         individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
             device_index=device_index, device_id=device_id
@@ -111,7 +111,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_no_device_id_for_a_x509_individual_enrollment(protocol):
     device_index = type_to_device_indices.get("individual_no_device_id")[0]
-
+    registration_id = ""
     try:
         individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
             device_index=device_index
