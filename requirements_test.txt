@@ -6,7 +6,6 @@ pytest-cov
 pytest-timeout
 flake8
 azure-iot-hub                                    # Only needed for iothub e2e
-azure-iothub-provisioningserviceclient >= 1.2.0  # Only needed for provisioning e2e
 azure-eventhub                                   # Only needed for iothub e2e
 psutil                                           # Only needed for iothub e2e
 msrest                                           # Only needed for provisioning e2e

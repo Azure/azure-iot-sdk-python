@@ -4,7 +4,7 @@
 
 from .utils import auth
 
-from .protocol import GeneratedProvisioningServiceClient
+# from .protocol import GeneratedProvisioningServiceClient
 from .protocol.models import (
     # IndividualEnrollment,
     # EnrollmentGroup,
@@ -15,13 +15,20 @@ from msrest.service_client import SDKClient
 from msrest import Configuration, Serializer, Deserializer
 from .protocol.version import VERSION
 
-# from msrest.pipeline import ClientRawResponse
+from msrest.pipeline import ClientRawResponse
 from .protocol import models
+import logging
 
 BULKOP_CREATE = "create"
 BULKOP_DELETE = "delete"
 BULKOP_UPDATE = "update"
 BULKOP_UPDATE_IF_MATCH_ETAG = "updateIfMatchETag"
+
+ENROLLMENTS_URL = "/enrollments/{id}/"
+ENROLLMENT_GROUPS_URL = "/enrollmentGroups/{id}"
+REGISTRATIONS_URL = "/registrations/{id}"
+
+logging.basicConfig(level=logging.DEBUG, filename="sync_enroll.log")
 
 
 def _unwrap_model(model):
@@ -102,12 +109,10 @@ class ProvisioningServiceClient(SDKClient):
         )
         base_url = "https://" + self.host_name
         self.config = GeneratedProvisioningServiceClientConfiguration(credentials, base_url)
-        super(GeneratedProvisioningServiceClient, self).__init__(
-            self.config.credentials, self.config
-        )
+        super(ProvisioningServiceClient, self).__init__(self.config.credentials, self.config)
 
         client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
-        self.api_version = "2018-09-01-preview"
+        self.api_version = VERSION  # "2018-09-01-preview"
         self._serialize = Serializer(client_models)
         self._deserialize = Deserializer(client_models)
 
@@ -144,64 +149,68 @@ class ProvisioningServiceClient(SDKClient):
 
         return cls(host_name, shared_access_key_name, shared_access_key)
 
-    # def create_or_update_individual_enrollment(
-    #     self, enrollment, if_match=None, custom_headers=None, raw=False, **operation_config
-    # ):
-    #     """
-    #     Create or update an object on the Provisioning Service
-    #
-    #     :returns: The model of the created/updated object as stored on the Provisiong Service
-    #     :rtype: :class:`IndividualEnrollment
-    #      <provisioningserviceclient.models.IndividualEnrollment>` or :class:`EnrollmentGroup
-    #      <provisioningserviceclient.models.EnrollmentGroup>`
-    #     :raises: TypeError if invalid provisioning model type or :class:`ProvisioningServiceError
-    #      <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
-    #      Provisioning Service
-    #     """
-    #     result = None
-    #     url = self.create_or_update_individual_enrollment.metadata["url"]
-    #     path_format_arguments = {"id": self._serialize.url("id", enrollment.registration_id, "str")}
-    #     url = self._client.format_url(url, **path_format_arguments)
-    #
-    #     # Construct parameters
-    #     query_parameters = {}
-    #     query_parameters["api-version"] = self._serialize.query(
-    #         "self.api_version", self.api_version, "str"
-    #     )
-    #
-    #     # Construct headers
-    #     header_parameters = {}
-    #     header_parameters["Accept"] = "application/json"
-    #     header_parameters["Content-Type"] = "application/json; charset=utf-8"
-    #     if custom_headers:
-    #         header_parameters.update(custom_headers)
-    #     if if_match is not None:
-    #         header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
-    #
-    #     # Construct body
-    #     body_content = self._serialize.body(enrollment, "IndividualEnrollment")
-    #
-    #     # Construct and send request
-    #     request = self._client.put(url, query_parameters, header_parameters, body_content)
-    #     response = self._client.send(request, stream=False, **operation_config)
-    #
-    #     if response.status_code not in [200]:
-    #         raise models.ProvisioningServiceErrorDetailsException(self._deserialize, response)
-    #
-    #     if response.status_code == 200:
-    #         result = self._deserialize("IndividualEnrollment", response)
-    #
-    #     if raw:
-    #         client_raw_response = ClientRawResponse(result, response)
-    #         return client_raw_response
-    #
-    #     return result
-    #
-    #     _wrap_model(enrollment)  # rewrap input
-    #     _wrap_model(result)
-    #     return result
-    #
-    #     create_or_update_individual_enrollment.metadata = {"url": "/enrollments/{id}"}
+    def create_or_update_individual_enrollment(
+        self, enrollment, etag=None, custom_headers=None, raw=False, **operation_config
+    ):
+        """Create or update a device enrollment record.
+        :param enrollment: The device enrollment record.
+        :type enrollment: ~protocol.models.IndividualEnrollment
+        :param etag: The ETag of the enrollment record.
+        :type etag: str
+        :param dict custom_headers: headers that will be added to the request
+        :param bool raw: returns the direct response alongside the
+        deserialized response
+        :param operation_config: :ref:`Operation configuration
+        overrides<msrest:optionsforoperations>`.
+        :return: IndividualEnrollment or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.IndividualEnrollment or
+        ~msrest.pipeline.ClientRawResponse
+        :raises:
+        :class:`ProvisioningServiceErrorDetailsException<protocol.models.ProvisioningServiceErrorDetailsException>`
+        """
+        result = None
+        path_format_arguments = {"id": self._serialize.url("id", enrollment.registration_id, "str")}
+        url = self._client.format_url(ENROLLMENTS_URL, **path_format_arguments)
+
+        # Construct parameters
+        query_parameters = {}
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+
+        # Construct headers
+        header_parameters = {}
+        header_parameters["Accept"] = "application/json"
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
+        if custom_headers:
+            header_parameters.update(custom_headers)
+        if etag is not None:
+            header_parameters["If-Match"] = self._serialize.header("if_match", etag, "str")
+
+        # Construct body
+        body_content = self._serialize.body(enrollment, "IndividualEnrollment")
+
+        # Construct and send request
+        request = self._client.put(url, query_parameters, header_parameters, body_content)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [200]:
+            raise models.ProvisioningServiceErrorDetailsException(self._deserialize, response)
+
+        if response.status_code == 200:
+            result = self._deserialize("IndividualEnrollment", response)
+
+        if raw:
+            client_raw_response = ClientRawResponse(result, response)
+            return client_raw_response
+
+        # return result
+
+        _wrap_model(enrollment)  # rewrap input
+        _wrap_model(result)
+        return result
+
+        # create_or_update_individual_enrollment.metadata = {"url": "/enrollments/{id}"}
 
     def create_or_update_enrollment_group(self, provisioning_model):
         pass
@@ -279,23 +288,50 @@ class ProvisioningServiceClient(SDKClient):
         _wrap_model(result)
         return result
 
-    def delete_individual_enrollment_by_param(self, registration_id, etag=None):
+    def delete_individual_enrollment_by_param(
+        self, registration_id, etag=None, custom_headers=None, raw=False, **operation_config
+    ):
         """
         Delete an Individual Enrollment on the Provisioning Service
 
         :param str registration_id: The registration id of the Individual Enrollment to be deleted
         :param str etag: The etag of the Individual Enrollment to be deleted (optional)
-        :raises: :class:ProvisioningServiceError
-         <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
-         Provisioning Service
+        :param dict custom_headers: headers that will be added to the request
+        :param bool raw: returns the direct response alongside the
+         deserialized response
+        :param operation_config: :ref:`Operation configuration
+         overrides<msrest:optionsforoperations>`.
+        :return: None or ClientRawResponse if raw=true
+        :rtype: None or ~msrest.pipeline.ClientRawResponse
+        :raises:
+         :class:`ProvisioningServiceErrorDetailsException<protocol.models.ProvisioningServiceErrorDetailsException>`
         """
-        try:
-            self._runtime_client.delete_individual_enrollment(registration_id, etag)
-        except ProvisioningServiceErrorDetailsException as e:
-            raise ProvisioningServiceError(
-                self.err_msg.format(e.response.status_code, e.response.reason), e
-            )
-        return
+        path_format_arguments = {"id": self._serialize.url("id", registration_id, "str")}
+        url = self._client.format_url(ENROLLMENTS_URL, **path_format_arguments)
+
+        # Construct parameters
+        query_parameters = {}
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+
+        # Construct headers
+        header_parameters = {}
+        if custom_headers:
+            header_parameters.update(custom_headers)
+        if etag is not None:
+            header_parameters["If-Match"] = self._serialize.header("if_match", etag, "str")
+
+        # Construct and send request
+        request = self._client.delete(url, query_parameters, header_parameters)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [204]:
+            raise models.ProvisioningServiceErrorDetailsException(self._deserialize, response)
+
+        if raw:
+            client_raw_response = ClientRawResponse(None, response)
+            return client_raw_response
 
     def delete_enrollment_group_by_param(self, group_id, etag=None):
         """
