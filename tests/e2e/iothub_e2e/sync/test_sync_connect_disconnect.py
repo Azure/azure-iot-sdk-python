@@ -100,7 +100,6 @@ class TestConnectDisconnect(object):
         "Can do a manual disconnect in the `on_connection_state_change` call that is notifying the user about a connect."
     )
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     @pytest.mark.parametrize(
         "first_connect",
         [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
