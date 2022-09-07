@@ -65,11 +65,6 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.SasTokenStage())
             #
-            # EnsureDesiredPropertiesStage needs to be above TwinRequestResponseStage because it
-            # sends GetTwinOperation ops and that stage handles those ops.
-            #
-            .append_stage(pipeline_stages_iothub.EnsureDesiredPropertiesStage())
-            #
             # TwinRequestResponseStage comes near the root by default because it doesn't need to be
             # after anything
             #
