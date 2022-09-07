@@ -21,7 +21,6 @@ logger.setLevel(level=logging.INFO)
 class TestSasRenewal(object):
     @pytest.mark.it("Renews and reconnects before expiry")
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     def test_sync_sas_renews(self, client, service_helper, random_message, leak_tracker):
         leak_tracker.set_initial_object_list()
 

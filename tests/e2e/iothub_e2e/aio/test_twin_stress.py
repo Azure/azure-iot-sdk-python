@@ -39,7 +39,6 @@ def wrap_as_reported_property(value, key=None):
 @pytest.mark.timeout(600)
 @pytest.mark.stress
 @pytest.mark.describe("Client Stress")
-@pytest.mark.parametrize(*parametrize.auto_connect_disabled)
 @pytest.mark.parametrize(*parametrize.connection_retry_disabled)
 class TestTwinStress(object):
     @pytest.mark.parametrize(
