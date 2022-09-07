@@ -9,6 +9,7 @@ from azure.iot.device.provisioning.models.registration_result import (
     RegistrationResult,
     RegistrationState,
 )
+from unittest import mock
 from azure.iot.device.common.models.x509 import X509
 
 """Constants"""
@@ -38,6 +39,7 @@ def provisioning_pipeline(mocker):
 class FakeProvisioningPipeline:
     def __init__(self):
         self.responses_enabled = {}
+        self._nucleus = mock.MagicMock()
 
     def shutdown(self, callback):
         callback()
@@ -52,7 +54,7 @@ class FakeProvisioningPipeline:
         callback()
 
     def register(self, payload, callback):
-        callback(result={})
+        callback(result=mock.MagicMock())
 
 
 """Parameter fixtures"""
