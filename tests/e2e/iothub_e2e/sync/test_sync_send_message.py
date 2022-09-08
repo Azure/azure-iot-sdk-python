@@ -6,7 +6,7 @@ import logging
 import json
 import time
 import dev_utils
-from azure.iot.device.exceptions import OperationCancelled, ClientError
+from azure.iot.device.exceptions import OperationCancelled, ClientError, NoConnectionError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -171,27 +171,26 @@ class TestSendMessageRetryDisabled(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Automatically connects if transport manually disconnected before sending")
-    def test_sync_connect_if_necessary_with_retry_disabled(
-        self, client, random_message, service_helper, leak_tracker
+    @pytest.mark.it("Fails if transport manually disconnected before sending")
+    def test_sync_fails_after_manual_disconnect_with_retry_disabled(
+        self, client, random_message, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
         client.disconnect()
         assert not client.connected
 
-        client.send_message(random_message)
-        assert client.connected
+        with pytest.raises(NoConnectionError):
+            client.send_message(random_message)
 
-        event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
-        assert json.dumps(event.message_body) == random_message.data
+        assert not client.connected
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Automatically connects if transport automatically disconnected before sending")
+    @pytest.mark.it("Fails if transport automatically disconnected before sending")
     @pytest.mark.uses_iptables
-    def test_sync_connects_after_automatic_disconnect_with_retry_disabled(
-        self, client, random_message, dropper, service_helper, leak_tracker
+    def test_sync_fails_after_automatic_disconnect_with_retry_disabled(
+        self, client, random_message, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
@@ -203,11 +202,10 @@ class TestSendMessageRetryDisabled(object):
 
         assert not client.connected
         dropper.restore_all()
-        client.send_message(random_message)
-        assert client.connected
 
-        event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
-        assert json.dumps(event.message_body) == random_message.data
+        with pytest.raises(NoConnectionError):
+            client.send_message(random_message)
+        assert not client.connected
 
         leak_tracker.check_for_leaks()
 

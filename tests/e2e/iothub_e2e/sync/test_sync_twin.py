@@ -7,7 +7,7 @@ import time
 import const
 import queue
 from dev_utils import get_random_dict
-from azure.iot.device.exceptions import ClientError
+from azure.iot.device.exceptions import ClientError, NoConnectionError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -78,27 +78,19 @@ class TestReportedProperties(object):
         twin = client.get_twin()
         assert const.TEST_CONTENT not in twin[const.REPORTED]
 
-    @pytest.mark.it("Connects the transport if necessary")
+    @pytest.mark.it("Fails if there is no connection")
     @pytest.mark.quicktest_suite
-    def test_sync_patch_reported_connect_if_necessary(
-        self, client, random_reported_props, service_helper, leak_tracker
+    def test_sync_patch_reported_fails_if_no_connection(
+        self, client, random_reported_props, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
         client.disconnect()
-
         assert not client.connected
-        client.patch_twin_reported_properties(random_reported_props)
-        assert client.connected
 
-        received_patch = service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
-
-        twin = client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+        with pytest.raises(NoConnectionError):
+            client.patch_twin_reported_properties(random_reported_props)
+        assert not client.connected
 
         leak_tracker.check_for_leaks()
 

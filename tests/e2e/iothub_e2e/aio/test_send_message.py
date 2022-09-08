@@ -6,7 +6,7 @@ import pytest
 import logging
 import json
 import dev_utils
-from azure.iot.device.exceptions import OperationCancelled, ClientError
+from azure.iot.device.exceptions import OperationCancelled, ClientError, NoConnectionError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -30,20 +30,18 @@ class TestSendMessage(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Connects the transport if necessary")
+    @pytest.mark.it("Fails if not connected")
     @pytest.mark.quicktest_suite
-    async def test_connect_if_necessary(self, client, random_message, service_helper, leak_tracker):
+    async def test_send_message_no_connection(self, client, random_message, leak_tracker):
 
         leak_tracker.set_initial_object_list()
 
         await client.disconnect()
         assert not client.connected
 
-        await client.send_message(random_message)
-        assert client.connected
-
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
-        assert json.dumps(event.message_body) == random_message.data
+        with pytest.raises(NoConnectionError):
+            await client.send_message(random_message)
+        assert not client.connected
 
         leak_tracker.check_for_leaks()
 
@@ -186,27 +184,25 @@ class TestSendMessageRetryDisabled(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Automatically connects if transport manually disconnected before sending")
-    async def test_connect_if_necessary_retry_disabled(
-        self, client, random_message, service_helper, leak_tracker
+    @pytest.mark.it("Fails if transport manually disconnected before sending")
+    async def test_fails_after_manual_disconnect_retry_disabled(
+        self, client, random_message, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
         await client.disconnect()
         assert not client.connected
 
-        await client.send_message(random_message)
-        assert client.connected
-
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
-        assert json.dumps(event.message_body) == random_message.data
+        with pytest.raises(NoConnectionError):
+            await client.send_message(random_message)
+        assert not client.connected
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Automatically connects if transport automatically disconnected before sending")
+    @pytest.mark.it("Fails if transport automatically disconnected before sending")
     @pytest.mark.uses_iptables
-    async def test_connects_after_automatic_disconnect_retry_disabled(
-        self, client, random_message, dropper, service_helper, leak_tracker
+    async def test_fails_after_automatic_disconnect_retry_disabled(
+        self, client, random_message, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
@@ -218,11 +214,10 @@ class TestSendMessageRetryDisabled(object):
 
         assert not client.connected
         dropper.restore_all()
-        await client.send_message(random_message)
-        assert client.connected
 
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
-        assert json.dumps(event.message_body) == random_message.data
+        with pytest.raises(NoConnectionError):
+            await client.send_message(random_message)
+        assert not client.connected
 
         leak_tracker.check_for_leaks()
 
