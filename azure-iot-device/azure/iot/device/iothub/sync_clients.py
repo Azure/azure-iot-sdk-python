@@ -124,7 +124,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             # Disable the feature if not already disabled
             callback = EventedCallback()
             self._mqtt_pipeline.disable_feature(feature_name, callback=callback)
-            callback.wait_for_completion()
+            handle_result(callback)
 
             logger.info("Successfully disabled feature: {}".format(feature_name))
         else:
