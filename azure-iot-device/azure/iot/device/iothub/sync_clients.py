@@ -103,7 +103,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[feature_name]:
             callback = EventedCallback()
             self._mqtt_pipeline.enable_feature(feature_name, callback=callback)
-            callback.wait_for_completion()
+            handle_result(callback)
 
             logger.info("Successfully enabled feature:" + feature_name)
         else:
