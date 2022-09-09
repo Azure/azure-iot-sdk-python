@@ -3,8 +3,6 @@
 # full license information.
 
 from .utils import auth
-
-# from .protocol import GeneratedProvisioningServiceClient
 from .protocol.models import (
     # IndividualEnrollment,
     # EnrollmentGroup,
@@ -41,7 +39,7 @@ def _wrap_model(model):
         model.initial_twin = model.initial_twin._wrap()
 
 
-class GeneratedProvisioningServiceClientConfiguration(Configuration):
+class ProvisioningServiceClientConfiguration(Configuration):
     """Configuration for ProvisioningServiceClient
     Note that all parameters used to create this instance are saved as instance
     attributes.
@@ -59,7 +57,7 @@ class GeneratedProvisioningServiceClientConfiguration(Configuration):
         if not base_url:
             base_url = "https://localhost"
 
-        super(GeneratedProvisioningServiceClientConfiguration, self).__init__(base_url)
+        super(ProvisioningServiceClientConfiguration, self).__init__(base_url)
 
         self.add_user_agent("provisioningserviceclient/{}".format(VERSION))
 
@@ -108,7 +106,7 @@ class ProvisioningServiceClient(SDKClient):
             self.host_name, self.shared_access_key_name, self.shared_access_key
         )
         base_url = "https://" + self.host_name
-        self.config = GeneratedProvisioningServiceClientConfiguration(credentials, base_url)
+        self.config = ProvisioningServiceClientConfiguration(credentials, base_url)
         super(ProvisioningServiceClient, self).__init__(self.config.credentials, self.config)
 
         client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
@@ -157,7 +155,7 @@ class ProvisioningServiceClient(SDKClient):
         :type enrollment: ~protocol.models.IndividualEnrollment
         :param etag: The ETag of the enrollment record.
         :type etag: str
-        :param dict custom_headers: headers that will be added to the request
+        :param custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
         deserialized response
         :param operation_config: :ref:`Operation configuration
@@ -266,27 +264,27 @@ class ProvisioningServiceClient(SDKClient):
     #
     #     get_individual_enrollment.metadata = {"url": "/enrollments/{id}"}
 
-    def get_enrollment_group(self, group_id):
-        """
-        Retrieve an Enrollment Group from the Provisioning Service
-
-        :param str group_id: The group id of the target Enrollment Group
-        :returns: Enrollment Group from the Provisioning Service corresponding to the given
-         group id
-        :rtype: :class:`EnrollmentGroup<provisioningserviceclient.models.EnrollmentGroup>`
-        :raises: :class:ProvisioningServiceError
-         <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
-         Provisioning Service
-        """
-        try:
-            result = self._runtime_client.get_enrollment_group(group_id)
-        except ProvisioningServiceErrorDetailsException as e:
-            raise ProvisioningServiceError(
-                self.err_msg.format(e.response.status_code, e.response.reason), e
-            )
-
-        _wrap_model(result)
-        return result
+    # def get_enrollment_group(self, group_id):
+    #     """
+    #     Retrieve an Enrollment Group from the Provisioning Service
+    #
+    #     :param str group_id: The group id of the target Enrollment Group
+    #     :returns: Enrollment Group from the Provisioning Service corresponding to the given
+    #      group id
+    #     :rtype: :class:`EnrollmentGroup<provisioningserviceclient.models.EnrollmentGroup>`
+    #     :raises: :class:ProvisioningServiceError
+    #      <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
+    #      Provisioning Service
+    #     """
+    #     try:
+    #         result = self._runtime_client.get_enrollment_group(group_id)
+    #     except ProvisioningServiceErrorDetailsException as e:
+    #         raise ProvisioningServiceError(
+    #             self.err_msg.format(e.response.status_code, e.response.reason), e
+    #         )
+    #
+    #     _wrap_model(result)
+    #     return result
 
     def delete_individual_enrollment_by_param(
         self, registration_id, etag=None, custom_headers=None, raw=False, **operation_config

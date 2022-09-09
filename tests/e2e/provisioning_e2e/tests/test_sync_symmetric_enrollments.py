@@ -5,103 +5,89 @@
 # --------------------------------------------------------------------------
 
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
-from azure.iot.device import ProvisioningDeviceClient
+from azure.iot.device import ProvisioningDeviceClient, IoTHubDeviceClient
 from azure.iot.device.common import X509
-
-# from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
 from ..provisioningservice.protocol.models import (
-    # IndividualEnrollment,
+    IndividualEnrollment,
     AttestationMechanism,
     ReprovisionPolicy,
     ClientCertificateIssuancePolicy,
 )
-
-# from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
+from ..provisioningservice.client import ProvisioningServiceClient
 import pytest
 import logging
 import os
 import uuid
 
-# TODO Change before committing
-# from . import path_adjust  # noqa: F401
+from . import path_adjust  # noqa: F401
+
+# Refers to an item in "scripts" in the root. This is made to work via the above path_adjust
 from .create_x509_chain_crypto import (
     create_private_key,
     create_csr,
 )
 
-from azure.iot.device import IoTHubDeviceClient
-
-# from ..provisioningservice.protocol.provisioning_service_client import GeneratedProvisioningServiceClient
-from ..provisioningservice.client import ProvisioningServiceClient
-
-from ..provisioningservice.protocol.models.individual_enrollment import IndividualEnrollment
-
-logging.basicConfig(level=logging.DEBUG, filename="sync_sym.log")
-
-PROVISIONING_HOST = (
-    "global.azure-devices-provisioning.net"  # os.getenv("PROVISIONING_DEVICE_ENDPOINT")
-)
+PROVISIONING_HOST = os.getenv("PROVISIONING_DEVICE_ENDPOINT")
 ID_SCOPE = os.getenv("PROVISIONING_DEVICE_IDSCOPE")
 service_client = ProvisioningServiceClient.create_from_connection_string(
     os.getenv("PROVISIONING_SERVICE_CONNECTION_STRING")
 )
-
 connection_string = os.getenv("IOTHUB_CONNECTION_STRING")
 device_registry_helper = Helper(connection_string)
 linked_iot_hub = connection_string_to_hostname(connection_string)
-# TODO Delete this line. This is a pre created variable in key vault now.
-# symmetric_key_for_cert_management = os.getenv("DPS_CERT_ISSUANCE_SYM_KEY_SYNC")
+CLIENT_CERT_AUTH_NAME = os.getenv("CLIENT_CERTIFICATE_AUTHORITY_NAME")
 
 logger = logging.getLogger(__name__)
 
 
-# @pytest.mark.it(
-#     "A device gets provisioned to the linked IoTHub with the device_id equal to the registration_id of the individual enrollment that has been created with a symmetric key authentication"
-# )
-# @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
-# def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment(protocol):
-#     try:
-#         individual_enrollment_record = create_individual_enrollment(
-#             "e2e-dps-underthewhompingwillow" + str(uuid.uuid4())
-#         )
-#
-#         registration_id = individual_enrollment_record.registration_id
-#         symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
-#
-#         registration_result = result_from_register(registration_id, symmetric_key, protocol)
-#
-#         assert_device_provisioned(
-#             device_id=registration_id, registration_result=registration_result
-#         )
-#         device_registry_helper.try_delete_device(registration_id)
-#     finally:
-#         service_client.delete_individual_enrollment_by_param(registration_id)
-#
-#
-# @pytest.mark.it(
-#     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a symmetric key authentication"
-# )
-# @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
-# def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollment(protocol):
-#
-#     device_id = "e2edpstommarvoloriddle"
-#     try:
-#         individual_enrollment_record = create_individual_enrollment(
-#             registration_id="e2e-dps-prioriincantatem" + str(uuid.uuid4()), device_id=device_id
-#         )
-#
-#         registration_id = individual_enrollment_record.registration_id
-#         symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
-#
-#         registration_result = result_from_register(registration_id, symmetric_key, protocol)
-#
-#         assert device_id != registration_id
-#         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
-#         device_registry_helper.try_delete_device(device_id)
-#     finally:
-#         service_client.delete_individual_enrollment_by_param(registration_id)
-#
-#
+@pytest.mark.it(
+    "A device gets provisioned to the linked IoTHub with the device_id equal to the registration_id of the individual enrollment that has been created with a symmetric key authentication"
+)
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment(protocol):
+    registration_id = ""
+    try:
+        individual_enrollment_record = create_individual_enrollment(
+            "e2e-dps-underthewhompingwillow" + str(uuid.uuid4())
+        )
+
+        registration_id = individual_enrollment_record.registration_id
+        symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
+
+        registration_result = result_from_register(registration_id, symmetric_key, protocol)
+
+        assert_device_provisioned(
+            device_id=registration_id, registration_result=registration_result
+        )
+        device_registry_helper.try_delete_device(registration_id)
+    finally:
+        service_client.delete_individual_enrollment_by_param(registration_id)
+
+
+@pytest.mark.it(
+    "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a symmetric key authentication"
+)
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollment(protocol):
+    registration_id = ""
+    device_id = "e2edpstommarvoloriddle"
+    try:
+        individual_enrollment_record = create_individual_enrollment(
+            registration_id="e2e-dps-prioriincantatem" + str(uuid.uuid4()), device_id=device_id
+        )
+
+        registration_id = individual_enrollment_record.registration_id
+        symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
+
+        registration_result = result_from_register(registration_id, symmetric_key, protocol)
+
+        assert device_id != registration_id
+        assert_device_provisioned(device_id=device_id, registration_result=registration_result)
+        device_registry_helper.try_delete_device(device_id)
+    finally:
+        service_client.delete_individual_enrollment_by_param(registration_id)
+
+
 @pytest.mark.it(
     "A device requests a client cert by sending a certificate signing request "
     "while being provisioned to the linked IoTHub with the device_id equal to the registration_id"
@@ -111,21 +97,18 @@ logger = logging.getLogger(__name__)
 def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individual_enrollment(
     protocol,
 ):
+    registration_id = ""
     key_file = "key.pem"
     csr_file = "request.pem"
     issued_cert_file = "cert.pem"
     try:
         individual_enrollment_record = create_individual_enrollment(
-            "e2e-dps-aguamenti" + str(uuid.uuid4())
+            "e2e-dps-aguamenti" + str(uuid.uuid4()),
+            client_ca_name=CLIENT_CERT_AUTH_NAME,
         )
         #
         registration_id = individual_enrollment_record.registration_id
         symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
-
-        # registration_id = "e2e-dps-ventus"
-        # symmetric_key = symmetric_key_for_cert_management
-        # logger.debug("the symmetric key for e2e-dps-ventus")
-        # logger.debug(symmetric_key_for_cert_management)
 
         key_file = "key.pem"
         csr_file = "request.pem"
@@ -162,12 +145,9 @@ def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individua
         assert device_client.connected
         device_client.disconnect()
 
-        # TODO Uncomment this line. Right now do not delete the enrollment as it is not created on the fly.
-        # device_registry_helper.try_delete_device(registration_id)
+        device_registry_helper.try_delete_device(registration_id)
     finally:
-        # TODO Uncomment this line. Right now do not delete the enrollment as it is not created on the fly.
-        # TODO This is a previously created enrollment record.
-        # service_client.delete_individual_enrollment_by_param(registration_id)
+        service_client.delete_individual_enrollment_by_param(registration_id)
         if os.path.exists(key_file):
             os.remove(key_file)
         if os.path.exists(csr_file):
@@ -176,7 +156,7 @@ def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individua
             os.remove(issued_cert_file)
 
 
-def create_individual_enrollment(registration_id, device_id=None):
+def create_individual_enrollment(registration_id, device_id=None, client_ca_name=None):
     """
     Create an individual enrollment record using the service client
     :param registration_id: The registration id of the enrollment
@@ -185,9 +165,11 @@ def create_individual_enrollment(registration_id, device_id=None):
     """
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
     attestation_mechanism = AttestationMechanism(type="symmetricKey")
-    client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
-        certificate_authority_name="olkarclientca"
-    )
+    client_certificate_issuance_policy = None
+    if client_ca_name:
+        client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
+            certificate_authority_name=client_ca_name
+        )
 
     individual_provisioning_model = IndividualEnrollment(
         attestation=attestation_mechanism,

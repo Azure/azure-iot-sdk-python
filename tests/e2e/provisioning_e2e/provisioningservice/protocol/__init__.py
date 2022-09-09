@@ -5,9 +5,7 @@
 # regenerated.
 # --------------------------------------------------------------------------
 
-from .provisioning_service_client import GeneratedProvisioningServiceClient
 from .version import VERSION
 
-__all__ = ["GeneratedProvisioningServiceClient"]
 
 __version__ = VERSION

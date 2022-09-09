@@ -20,10 +20,10 @@ class ClientCertificateIssuancePolicy(Model):
     :type certificateAuthorityName: str
     """
 
-    _validation = {"certificateAuthorityName": {"required": True}}
+    _validation = {"certificate_authority_name": {"required": True}}
 
     _attribute_map = {
-        "certificateAuthorityName": {"key": "deviceId", "type": "str"},
+        "certificate_authority_name": {"key": "certificateAuthorityName", "type": "str"},
     }
 
     def __init__(self, **kwargs):

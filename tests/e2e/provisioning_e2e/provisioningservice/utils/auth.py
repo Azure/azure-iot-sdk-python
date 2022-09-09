@@ -7,13 +7,21 @@
 """
 
 from msrest.authentication import Authentication
-from provisioningserviceclient.utils.connection_string import ConnectionString
-from provisioningserviceclient.utils.connection_string import (
+from ..utils.connection_string import ConnectionString
+from ..utils.connection_string import (
     HOST_NAME,
     SHARED_ACCESS_KEY_NAME,
     SHARED_ACCESS_KEY,
 )
-from provisioningserviceclient.utils.sastoken import SasToken
+from ..utils.sastoken import SasToken
+
+# from provisioningserviceclient.utils.connection_string import ConnectionString
+# from provisioningserviceclient.utils.connection_string import (
+#     HOST_NAME,
+#     SHARED_ACCESS_KEY_NAME,
+#     SHARED_ACCESS_KEY,
+# )
+# from provisioningserviceclient.utils.sastoken import SasToken
 
 __all__ = ["ConnectionStringAuthentication"]
 
@@ -25,9 +33,7 @@ class ConnectionStringAuthentication(ConnectionString, Authentication):
     """
 
     def __init__(self, connection_string):
-        super(ConnectionStringAuthentication, self).__init__(
-            connection_string
-        )  # ConnectionString __init__
+        super(ConnectionStringAuthentication, self).__init__(connection_string)
 
     @classmethod
     def create_with_parsed_values(cls, host_name, shared_access_key_name, shared_access_key):
