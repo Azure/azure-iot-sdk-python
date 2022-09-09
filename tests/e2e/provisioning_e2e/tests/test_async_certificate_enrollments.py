@@ -9,12 +9,21 @@ import asyncio
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device.common import X509
-from provisioningserviceclient import (
-    ProvisioningServiceClient,
+from ..provisioningservice.protocol.models import (
     IndividualEnrollment,
+    AttestationMechanism,
+    ReprovisionPolicy,
     EnrollmentGroup,
+    # ClientCertificateIssuancePolicy,
 )
-from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
+from ..provisioningservice.client import ProvisioningServiceClient
+
+# from provisioningserviceclient import (
+#     ProvisioningServiceClient,
+#     IndividualEnrollment,
+#     EnrollmentGroup,
+# )
+# from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
 import pytest
 import logging
 import os
