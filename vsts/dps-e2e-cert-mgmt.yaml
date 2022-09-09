@@ -27,7 +27,7 @@ jobs:
 
   - script: |
       cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
-      pytest test_*_symmetric_enrollments.py --junitxml=junit/dps-cert-mgmt-e2e-test-results.xml
+      pytest --junitxml=junit/dps-cert-mgmt-e2e-test-results.xml
     displayName: 'Run Specified E2E Test with env variables'
 
     env:

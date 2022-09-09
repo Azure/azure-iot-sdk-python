@@ -3,6 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+
 import asyncio
 
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
@@ -28,8 +29,8 @@ from create_x509_chain_crypto import (
     delete_directories_certs_created_from_pipeline,
 )
 
-
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.skip, pytest.mark.asyncio]
+# pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
 
 
