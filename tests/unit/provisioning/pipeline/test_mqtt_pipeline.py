@@ -106,7 +106,6 @@ class TestMQTTPipelineInstantiation(object):
             pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage,
             pipeline_stages_base.AutoConnectStage,
             pipeline_stages_base.ConnectionStateStage,
-            pipeline_stages_base.RetryStage,
             pipeline_stages_base.OpTimeoutStage,
             pipeline_stages_mqtt.MQTTTransportStage,
         ]

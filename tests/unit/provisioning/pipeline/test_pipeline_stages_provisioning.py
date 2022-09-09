@@ -111,6 +111,7 @@ class RegistrationStageConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
+        mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")
@@ -413,30 +414,11 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         )
 
 
-class RetryStageConfig(object):
-    @pytest.fixture
-    def init_kwargs(self):
-        return {}
-
-    @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs):
-        stage = cls_type(**init_kwargs)
-        mocker.spy(stage, "run_op")
-        stage.send_op_down = mocker.MagicMock()
-        stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "report_background_exception")
-        return stage
-
-
 @pytest.mark.describe("RegistrationStage - .run_op() -- retried again with RegisterOperation")
-class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
+class TestRegistrationStageWithRetryOfRegisterOperation(RegistrationStageConfig):
     @pytest.fixture(params=[" ", fake_payload], ids=["empty payload", "some payload"])
     def request_payload(self, request):
         return request.param
-
-    @pytest.fixture
-    def cls_type(self):
-        return pipeline_stages_provisioning.RegistrationStage
 
     @pytest.fixture
     def op(self, stage, mocker, request_payload):
@@ -600,6 +582,7 @@ class PollingStageConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
+        mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")
@@ -847,11 +830,7 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
 
 
 @pytest.mark.describe("PollingStatusStage - .run_op() -- retried again with PollStatusOperation")
-class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
-    @pytest.fixture
-    def cls_type(self):
-        return pipeline_stages_provisioning.PollingStatusStage
-
+class TestPollingStatusStageWithPollStatusRetryOperation(PollingStageConfig):
     @pytest.fixture
     def op(self, stage, mocker):
         op = pipeline_ops_provisioning.PollStatusOperation(
