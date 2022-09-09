@@ -786,16 +786,6 @@ class OpTimeoutStage(PipelineStage):
     It does not attempt to cancel the operation, as Paho doesn't have a way to
     cancel an operation, and with QOS=1, sending a pub or sub twice is not
     catastrophic.
-
-    Also, as a long-term plan, the operations that need to be watched for timeout
-    will become an initialization parameter for this stage so that different
-    instances of this stage can watch for timeouts on different operations.
-    This will be done because we want a lower-level timeout stage which can watch
-    for timeouts at the MQTT level, and we want a higher-level timeout stage which
-    can watch for timeouts at the iothub level.  In this way, an MQTT operation that
-    times out can be retried as an MQTT operation and a higher-level IoTHub operation
-    which times out can be retried as an IoTHub operation (which might necessitate
-    redoing multiple MQTT operations).
     """
 
     def __init__(self):
