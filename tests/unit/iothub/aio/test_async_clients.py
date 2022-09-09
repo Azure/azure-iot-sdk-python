@@ -819,6 +819,65 @@ class SharedClientGetTwinTests(object):
         await client.get_twin()
         assert mqtt_pipeline.enable_feature.call_count == 0
 
+    @pytest.mark.it(
+        "Raises a client error if the `enable_feature` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout -> OperationTimeout",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_enable_twin_fails(
+        self, mocker, client, mqtt_pipeline, pipeline_error, client_error
+    ):
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        my_pipeline_error = pipeline_error()
+
+        def fail_enable_feature(feature_name, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
+        with pytest.raises(client_error) as e_info:
+            await client.get_twin()
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.get_twin.call_count == 0
+
     @pytest.mark.it("Begins a 'get_twin' pipeline operation")
     async def test_get_twin_calls_pipeline(self, client, mqtt_pipeline, mocker, fake_twin):
         def immediate_callback(callback):
@@ -939,6 +998,65 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
         mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
         await client.patch_twin_reported_properties(twin_patch_reported)
         assert mqtt_pipeline.enable_feature.call_count == 0
+
+    @pytest.mark.it(
+        "Raises a client error if the 'enable feature' pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout -> OperationTimeout",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_twin_enable_fails(
+        self, mocker, client, mqtt_pipeline, twin_patch_reported, pipeline_error, client_error
+    ):
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        my_pipeline_error = pipeline_error()
+
+        def fail_enable_feature(feature_name, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
+        with pytest.raises(client_error) as e_info:
+            await client.patch_twin_reported_properties(twin_patch_reported)
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.patch_twin_reported_properties.call_count == 0
 
     @pytest.mark.it("Begins a 'patch_twin_reported_properties' pipeline operation")
     async def test_patch_twin_reported_properties_calls_pipeline(

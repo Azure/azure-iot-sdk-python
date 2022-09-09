@@ -472,7 +472,6 @@ class MQTTPipeline(object):
             )
         )
 
-    # NOTE: Currently, this operation will retry itself indefinitely in the case of timeout
     def enable_feature(self, feature_name, callback):
         """
         Enable the given feature by subscribing to the appropriate topics.

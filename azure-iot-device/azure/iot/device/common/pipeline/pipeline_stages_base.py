@@ -780,9 +780,7 @@ class OpTimeoutStage(PipelineStage):
 
     For each operation that needs a timeout check, this stage will add a timer to
     the operation.  If the timer elapses, this stage will fail the operation with
-    a OperationTimeout.  The intention is that a higher stage will know what to
-    do with that error and act accordingly (either return the error to the user or
-    retry).
+    a OperationTimeout.
 
     This stage currently assumes that all timed out operation are just "lost".
     It does not attempt to cancel the operation, as Paho doesn't have a way to
