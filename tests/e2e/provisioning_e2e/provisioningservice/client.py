@@ -3,12 +3,13 @@
 # full license information.
 
 from .utils import auth
-from .protocol.models import (
-    # IndividualEnrollment,
-    # EnrollmentGroup,
-    # DeviceRegistrationState,
-    ProvisioningServiceErrorDetailsException,
-)
+
+# from .protocol.models import (
+# IndividualEnrollment,
+# EnrollmentGroup,
+# DeviceRegistrationState,
+# ProvisioningServiceErrorDetailsException,
+# )
 from msrest.service_client import SDKClient
 from msrest import Configuration, Serializer, Deserializer
 from .protocol.version import VERSION
@@ -210,8 +211,52 @@ class ProvisioningServiceClient(SDKClient):
 
         # create_or_update_individual_enrollment.metadata = {"url": "/enrollments/{id}"}
 
-    def create_or_update_enrollment_group(self, provisioning_model):
-        pass
+    def create_or_update_enrollment_group(
+        self, enrollment_group, etag=None, custom_headers=None, raw=False, **operation_config
+    ):
+        result = None
+        path_format_arguments = {
+            "id": self._serialize.url("id", enrollment_group.enrollment_group_id, "str")
+        }
+        url = self._client.format_url(ENROLLMENT_GROUPS_URL, **path_format_arguments)
+
+        # Construct parameters
+        query_parameters = {}
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+
+        # Construct headers
+        header_parameters = {}
+        header_parameters["Accept"] = "application/json"
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
+        if custom_headers:
+            header_parameters.update(custom_headers)
+        if etag is not None:
+            header_parameters["If-Match"] = self._serialize.header("if_match", etag, "str")
+
+        # Construct body
+        body_content = self._serialize.body(enrollment_group, "EnrollmentGroup")
+
+        # Construct and send request
+        request = self._client.put(url, query_parameters, header_parameters, body_content)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [200]:
+            raise models.ProvisioningServiceErrorDetailsException(self._deserialize, response)
+
+        if response.status_code == 200:
+            result = self._deserialize("EnrollmentGroup", response)
+
+        if raw:
+            client_raw_response = ClientRawResponse(result, response)
+            return client_raw_response
+
+        # return result
+
+        _wrap_model(enrollment_group)  # rewrap input
+        _wrap_model(result)
+        return result
 
     # def get_individual_enrollment(
     #     self, registration_id, custom_headers=None, raw=False, **operation_config
@@ -331,7 +376,9 @@ class ProvisioningServiceClient(SDKClient):
             client_raw_response = ClientRawResponse(None, response)
             return client_raw_response
 
-    def delete_enrollment_group_by_param(self, group_id, etag=None):
+    def delete_enrollment_group_by_param(
+        self, group_id, etag=None, custom_headers=None, raw=False, **operation_config
+    ):
         """
         Delete an Enrollment Group on the Provisioning Service
 
@@ -341,13 +388,32 @@ class ProvisioningServiceClient(SDKClient):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        try:
-            self._runtime_client.delete_enrollment_group(group_id, etag)
-        except ProvisioningServiceErrorDetailsException as e:
-            raise ProvisioningServiceError(
-                self.err_msg.format(e.response.status_code, e.response.reason), e
-            )
-        return
+        path_format_arguments = {"id": self._serialize.url("id", group_id, "str")}
+        url = self._client.format_url(ENROLLMENT_GROUPS_URL, **path_format_arguments)
+
+        # Construct parameters
+        query_parameters = {}
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+
+        # Construct headers
+        header_parameters = {}
+        if custom_headers:
+            header_parameters.update(custom_headers)
+        if etag is not None:
+            header_parameters["If-Match"] = self._serialize.header("if_match", etag, "str")
+
+        # Construct and send request
+        request = self._client.delete(url, query_parameters, header_parameters)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [204]:
+            raise models.ProvisioningServiceErrorDetailsException(self._deserialize, response)
+
+        if raw:
+            client_raw_response = ClientRawResponse(None, response)
+            return client_raw_response
 
 
 # class Query(object):
