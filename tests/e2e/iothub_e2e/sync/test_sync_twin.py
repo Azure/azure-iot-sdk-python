@@ -110,8 +110,8 @@ class TestReportedProperties(object):
 @pytest.mark.keep_alive(5)
 class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises OperationTimeout if connection drops before sending")
-    def test_sync_updates_reported_if_drop_before_sending(
-        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+    def test_sync_raises_op_timeout_if_drop_before_sending_not_enabled(
+        self, client, random_reported_props, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
@@ -136,7 +136,7 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
         # leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Updates reported properties if connection rejects send")
-    def test_sync_updates_reported_if_reject_before_sending(
+    def test_sync_updates_reported_if_reject_before_sending_not_enabled(
         self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
