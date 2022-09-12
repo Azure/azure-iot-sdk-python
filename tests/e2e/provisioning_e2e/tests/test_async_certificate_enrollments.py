@@ -14,6 +14,9 @@ from ..provisioningservice.protocol.models import (
     AttestationMechanism,
     ReprovisionPolicy,
     EnrollmentGroup,
+    X509CertificateWithInfo,
+    X509Attestation,
+    X509CAReferences,
     # ClientCertificateIssuancePolicy,
 )
 from ..provisioningservice.client import ProvisioningServiceClient
@@ -23,7 +26,7 @@ from ..provisioningservice.client import ProvisioningServiceClient
 #     IndividualEnrollment,
 #     EnrollmentGroup,
 # )
-# from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
+# from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy, X509CertificateWithInfo
 import pytest
 import logging
 import os
@@ -37,6 +40,7 @@ from create_x509_chain_crypto import (
     call_intermediate_cert_and_device_cert_creation_from_pipeline,
     delete_directories_certs_created_from_pipeline,
 )
+from ..provisioningservice.protocol.models import X509Certificates
 
 pytestmark = [pytest.mark.skip, pytest.mark.asyncio]
 # pytestmark = pytest.mark.asyncio
@@ -91,6 +95,7 @@ def before_all_tests(request):
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_device_id_for_a_x509_individual_enrollment(protocol):
+    registration_id = ""
     device_id = "e2edpsthunderbolt"
     device_index = type_to_device_indices.get("individual_with_device_id")[0]
 
@@ -120,6 +125,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_no_device_id_for_a_x509_individual_enrollment(protocol):
+    registration_id = ""
     device_index = type_to_device_indices.get("individual_no_device_id")[0]
 
     try:
@@ -160,10 +166,18 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
         with open(intermediate_cert_filename, "r") as intermediate_pem:
             intermediate_cert_content = intermediate_pem.read()
 
-        attestation_mechanism = AttestationMechanism.create_with_x509_signing_certs(
-            intermediate_cert_content
-        )
-        enrollment_group_provisioning_model = EnrollmentGroup.create(
+        # attestation_mechanism = AttestationMechanism.create_with_x509_signing_certs(
+        #     intermediate_cert_content
+        # )
+        primary = X509CertificateWithInfo(certificate=intermediate_cert_content)
+        secondary = None
+        # if cert2:
+        #     X509CertificateWithInfo(certificate=cert2)
+        certs = X509Certificates(primary=primary, secondary=secondary)
+        x509 = X509Attestation(signing_certificates=certs)
+        # return cls(type="x509", x509=x509)
+        attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+        enrollment_group_provisioning_model = EnrollmentGroup(
             group_id, attestation=attestation_mechanism, reprovision_policy=reprovision_policy
         )
 
@@ -220,10 +234,18 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
 
     try:
         DPS_GROUP_CA_CERT = os.getenv("PROVISIONING_ROOT_CERT")
-        attestation_mechanism = AttestationMechanism.create_with_x509_ca_refs(
-            ref1=DPS_GROUP_CA_CERT
-        )
-        enrollment_group_provisioning_model = EnrollmentGroup.create(
+        # attestation_mechanism = AttestationMechanism.create_with_x509_ca_refs(
+        #     ref1=DPS_GROUP_CA_CERT
+        # )
+        primary = DPS_GROUP_CA_CERT
+        secondary = None
+        # if ref2:
+        #     secondary = ref2
+        ca_refs = X509CAReferences(primary=primary, secondary=secondary)
+        x509 = X509Attestation(ca_references=ca_refs)
+        # return cls(type="x509", x509=x509)
+        attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+        enrollment_group_provisioning_model = EnrollmentGroup(
             group_id, attestation=attestation_mechanism, reprovision_policy=reprovision_policy
         )
 
@@ -289,16 +311,26 @@ def create_individual_enrollment_with_x509_client_certs(device_index, device_id=
     with open(device_cert_input_file, "r") as in_device_cert:
         device_cert_content = in_device_cert.read()
 
-    attestation_mechanism = AttestationMechanism.create_with_x509_client_certs(device_cert_content)
+    # attestation_mechanism = AttestationMechanism.create_with_x509_client_certs(device_cert_content)
 
-    individual_provisioning_model = IndividualEnrollment.create(
+    primary = X509CertificateWithInfo(certificate=device_cert_content)
+    secondary = None
+    # if cert2:
+    #     secondary = X509CertificateWithInfo(certificate=cert2)
+    certs = X509Certificates(primary=primary, secondary=secondary)
+    x509 = X509Attestation(client_certificates=certs)
+    # return cls(type="x509", x509=x509)
+
+    attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+
+    individual_provisioning_model = IndividualEnrollment(
         attestation=attestation_mechanism,
         registration_id=registration_id,
         reprovision_policy=reprovision_policy,
         device_id=device_id,
     )
 
-    return service_client.create_or_update(individual_provisioning_model)
+    return service_client.create_or_update_individual_enrollment(individual_provisioning_model)
 
 
 async def result_from_register(registration_id, device_cert_file, device_key_file, protocol):
