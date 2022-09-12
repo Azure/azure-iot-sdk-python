@@ -316,7 +316,8 @@ def create_individual_enrollment_with_x509_client_certs(device_index, device_id=
         device_cert_content = in_device_cert.read()
 
     # attestation_mechanism = AttestationMechanism.create_with_x509_client_certs(device_cert_content)
-
+    print("device_cert_content")
+    print(device_cert_content)
     primary = X509CertificateWithInfo(certificate=device_cert_content)
     secondary = None
     # if cert2:
