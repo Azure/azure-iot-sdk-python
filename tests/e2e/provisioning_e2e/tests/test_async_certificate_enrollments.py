@@ -178,7 +178,9 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
         # return cls(type="x509", x509=x509)
         attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
         enrollment_group_provisioning_model = EnrollmentGroup(
-            group_id, attestation=attestation_mechanism, reprovision_policy=reprovision_policy
+            enrollment_group_id=group_id,
+            attestation=attestation_mechanism,
+            reprovision_policy=reprovision_policy,
         )
 
         service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
@@ -246,7 +248,9 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
         # return cls(type="x509", x509=x509)
         attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
         enrollment_group_provisioning_model = EnrollmentGroup(
-            group_id, attestation=attestation_mechanism, reprovision_policy=reprovision_policy
+            enrollment_group_id=group_id,
+            attestation=attestation_mechanism,
+            reprovision_policy=reprovision_policy,
         )
 
         service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
