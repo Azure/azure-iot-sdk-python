@@ -7,7 +7,7 @@ import time
 import const
 import queue
 from dev_utils import get_random_dict
-from azure.iot.device.exceptions import ClientError
+from azure.iot.device.exceptions import ClientError, OperationTimeout
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -104,13 +104,12 @@ class TestReportedProperties(object):
 
 
 @pytest.mark.dropped_connection
-@pytest.mark.describe("Client Reported Properties with dropped connection")
+@pytest.mark.describe(
+    "Client Reported Properties with dropped connection (Twin patches not yet enabled)"
+)
 @pytest.mark.keep_alive(5)
-class TestReportedPropertiesDroppedConnection(object):
-
-    # TODO: split drop tests between first and second patches
-
-    @pytest.mark.it("Updates reported properties if connection drops before sending")
+class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
+    @pytest.mark.it("Raises OperationTimeout if connection drops before sending")
     def test_sync_updates_reported_if_drop_before_sending(
         self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
     ):
@@ -129,7 +128,74 @@ class TestReportedPropertiesDroppedConnection(object):
         while not client.connected:
             time.sleep(1)
 
+        # Failure due to timeout of subscribe (enable feature)
+        with pytest.raises(OperationTimeout):
+            send_task.result()
+
+        # TODO: investigate leak
+        # leak_tracker.check_for_leaks()
+
+    @pytest.mark.it("Updates reported properties if connection rejects send")
+    def test_sync_updates_reported_if_reject_before_sending(
+        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+
+        assert client.connected
+        dropper.reject_outgoing()
+
+        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        while client.connected:
+            time.sleep(1)
+
+        # TODO WHAT HAPPENS HERE?
         send_task.result()
+
+        # assert not send_task.done()
+
+        # dropper.restore_all()
+        # while not client.connected:
+        #     time.sleep(1)
+
+        # # Failure due to timeout of subscribe (enable feature)
+        # with pytest.raises(OperationTimeout):
+        #     send_task.result()
+
+        # # TODO: investigate leak
+        # # leak_tracker.check_for_leaks()
+
+
+@pytest.mark.dropped_connection
+@pytest.mark.describe(
+    "Client Reported Properties with dropped connection (Twin patches already enabled)"
+)
+@pytest.mark.keep_alive(5)
+class TestReportedPropertiesDroppedConnectionTwinPatchAlreadyEnabled(object):
+    @pytest.mark.it("Updates reported properties if connection drops before sending")
+    def test_sync_updates_reported_if_drop_before_sending(
+        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+
+        assert client.connected
+
+        # Send a first patch to enable the feature implicitly
+        send_task1 = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        send_task1.result()
+
+        dropper.drop_outgoing()
+
+        send_task2 = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        while client.connected:
+            time.sleep(1)
+
+        assert not send_task2.done()
+
+        dropper.restore_all()
+        while not client.connected:
+            time.sleep(1)
+
+        send_task2.result()
 
         received_patch = service_helper.get_next_reported_patch_arrival()
         assert (
@@ -147,6 +213,11 @@ class TestReportedPropertiesDroppedConnection(object):
         leak_tracker.set_initial_object_list()
 
         assert client.connected
+
+        # Send a first patch to enable the feature implicitly
+        send_task1 = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        send_task1.result()
+
         dropper.reject_outgoing()
 
         send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
