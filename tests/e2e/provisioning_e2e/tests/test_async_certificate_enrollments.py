@@ -103,12 +103,15 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         device_index = type_to_device_indices.get("individual_with_device_id")[0]
     else:
         device_index = type_to_device_indices.get("individual_with_device_id_ws")[0]
-
+    print("index of device")
+    print(device_index)
     try:
         individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
             device_index=device_index, device_id=device_id
         )
         registration_id = individual_enrollment_record.registration_id
+        print("registration_id")
+        print(registration_id)
 
         device_cert_file = "demoCA/newcerts/device_cert" + str(device_index) + ".pem"
         device_key_file = "demoCA/private/device_key" + str(device_index) + ".pem"
