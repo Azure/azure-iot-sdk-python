@@ -67,6 +67,8 @@ type_to_device_indices = {
     "individual_no_device_id": [2],
     "group_intermediate": [3, 4, 5],
     "group_ca": [6, 7, 8],
+    "individual_with_device_id_ws": [9],
+    "individual_no_device_id_ws": [10],
 }
 
 
@@ -80,7 +82,7 @@ def before_all_tests(request):
         ca_password=os.getenv("PROVISIONING_ROOT_PASSWORD"),
         intermediate_password=intermediate_password,
         device_password=device_password,
-        device_count=8,
+        device_count=10,
     )
 
     def after_module():
@@ -97,7 +99,10 @@ def before_all_tests(request):
 async def test_device_register_with_device_id_for_a_x509_individual_enrollment(protocol):
     registration_id = ""
     device_id = "e2edpsthunderbolt"
-    device_index = type_to_device_indices.get("individual_with_device_id")[0]
+    if protocol == "mqtt":
+        device_index = type_to_device_indices.get("individual_with_device_id")[0]
+    else:
+        device_index = type_to_device_indices.get("individual_with_device_id_ws")[0]
 
     try:
         individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
@@ -119,7 +124,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
     finally:
         service_client.delete_individual_enrollment_by_param(registration_id)
         # TODO Keeps on giving Enrollment already exists.
-        await asyncio.sleep(10)
+        # await asyncio.sleep(10)
 
 
 @pytest.mark.it(
@@ -128,7 +133,10 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_no_device_id_for_a_x509_individual_enrollment(protocol):
     registration_id = ""
-    device_index = type_to_device_indices.get("individual_no_device_id")[0]
+    if protocol == "mqtt":
+        device_index = type_to_device_indices.get("individual_no_device_id")[0]
+    else:
+        device_index = type_to_device_indices.get("individual_no_device_id_ws")[0]
 
     try:
         individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
