@@ -110,20 +110,20 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
             device_index=device_index, device_id=device_id
         )
         registration_id = individual_enrollment_record.registration_id
-        print("registration_id")
-        print(registration_id)
 
         device_cert_file = "demoCA/newcerts/device_cert" + str(device_index) + ".pem"
         device_key_file = "demoCA/private/device_key" + str(device_index) + ".pem"
         registration_result = await result_from_register(
             registration_id, device_cert_file, device_key_file, protocol
         )
+        print("finished returned from registration")
 
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
         # TODO Remove weird fix : not sure why the delete of the device results in connection time out
         await asyncio.sleep(10)
         device_registry_helper.try_delete_device(device_id)
+        print("deleted device")
     finally:
         pass
         # service_client.delete_individual_enrollment_by_param(registration_id)
