@@ -125,7 +125,8 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         await asyncio.sleep(10)
         device_registry_helper.try_delete_device(device_id)
     finally:
-        service_client.delete_individual_enrollment_by_param(registration_id)
+        pass
+        # service_client.delete_individual_enrollment_by_param(registration_id)
         # TODO Keeps on giving Enrollment already exists.
         # await asyncio.sleep(10)
 
@@ -348,7 +349,10 @@ def create_individual_enrollment_with_x509_client_certs(device_index, device_id=
         device_id=device_id,
     )
 
-    return service_client.create_or_update_individual_enrollment(individual_provisioning_model)
+    res = service_client.create_or_update_individual_enrollment(individual_provisioning_model)
+    print("enrollment created with registration id")
+    print(registration_id)
+    return res
 
 
 async def result_from_register(registration_id, device_cert_file, device_key_file, protocol):
