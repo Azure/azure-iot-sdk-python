@@ -4,8 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import asyncio
-
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device.common import X509
@@ -124,12 +122,11 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
         # TODO Remove weird fix : not sure why the delete of the device results in connection time out
-        await asyncio.sleep(10)
         device_registry_helper.try_delete_device(device_id)
         print("deleted device")
     finally:
-        pass
-        # service_client.delete_individual_enrollment_by_param(registration_id)
+        # pass
+        service_client.delete_individual_enrollment_by_param(registration_id)
         # TODO Keeps on giving Enrollment already exists.
         # await asyncio.sleep(10)
 
