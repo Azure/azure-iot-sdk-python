@@ -104,8 +104,6 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         device_index = type_to_device_indices.get("individual_with_device_id")[0]
     else:
         device_index = type_to_device_indices.get("individual_with_device_id_ws")[0]
-    print("index of device")
-    print(device_index)
     try:
         individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
             device_index=device_index, device_id=device_id
@@ -117,18 +115,12 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         registration_result = await result_from_register(
             registration_id, device_cert_file, device_key_file, protocol
         )
-        print("finished returned from registration")
 
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
-        # TODO Remove weird fix : not sure why the delete of the device results in connection time out
         device_registry_helper.try_delete_device(device_id)
-        print("deleted device")
     finally:
-        # pass
         service_client.delete_individual_enrollment_by_param(registration_id)
-        # TODO Keeps on giving Enrollment already exists.
-        # await asyncio.sleep(10)
 
 
 @pytest.mark.it(
@@ -330,8 +322,6 @@ def create_individual_enrollment_with_x509_client_certs(device_index, device_id=
         device_cert_content = in_device_cert.read()
 
     # attestation_mechanism = AttestationMechanism.create_with_x509_client_certs(device_cert_content)
-    print("device_cert_content")
-    print(device_cert_content)
     primary = X509CertificateWithInfo(certificate=device_cert_content)
     secondary = None
     # if cert2:
@@ -349,10 +339,7 @@ def create_individual_enrollment_with_x509_client_certs(device_index, device_id=
         device_id=device_id,
     )
 
-    res = service_client.create_or_update_individual_enrollment(individual_provisioning_model)
-    print("enrollment created with registration id")
-    print(registration_id)
-    return res
+    return service_client.create_or_update_individual_enrollment(individual_provisioning_model)
 
 
 async def result_from_register(registration_id, device_cert_file, device_key_file, protocol):
