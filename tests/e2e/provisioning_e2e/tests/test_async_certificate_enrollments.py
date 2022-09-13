@@ -45,7 +45,10 @@ from ..provisioningservice.protocol.models import X509Certificates
 # pytestmark = [pytest.mark.skip, pytest.mark.asyncio]
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
-
+logging.getLogger("azure-iot-device").setLevel(logging.DEBUG)
+# logging.getLogger('azure-iothub-provisioningserviceclient').setLevel(logging.DEBUG)
+logging.getLogger("azure-iot-hub").setLevel(logging.DEBUG)
+logging.getLogger("msrest").setLevel(logging.DEBUG)
 
 intermediate_common_name = "e2edpshomenum"
 intermediate_password = "revelio"
@@ -95,7 +98,7 @@ def before_all_tests(request):
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
-@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+@pytest.mark.parametrize("protocol", ["mqttws"])
 async def test_device_register_with_device_id_for_a_x509_individual_enrollment(protocol):
     registration_id = ""
     device_id = "e2edpsthunderbolt"
