@@ -60,6 +60,10 @@ type_to_device_indices = {
     "group_ca": [6, 7, 8],
     "individual_with_device_id_ws": [9],
     "individual_no_device_id_ws": [10],
+    "individual_dps_cert": [11],
+    "individual_dps_cert_ws": [12],
+    "group_intermediate_dps_cert": [13, 14, 15],
+    "group_ca_dps_cert": [16, 17, 18],
 }
 
 
@@ -212,9 +216,9 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
         service_client.delete_enrollment_group_by_param(group_id)
 
 
-@pytest.mark.skip(
-    reason="The enrollment is never properly created on the pipeline and it is always created without any CA reference and eventually the registration fails"
-)
+# @pytest.mark.skip(
+#     reason="The enrollment is never properly created on the pipeline and it is always created without any CA reference and eventually the registration fails"
+# )
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with an already uploaded ca cert X509 authentication"
 )
