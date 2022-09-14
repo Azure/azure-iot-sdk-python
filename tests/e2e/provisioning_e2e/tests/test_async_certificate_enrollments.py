@@ -58,8 +58,8 @@ type_to_device_indices = {
     "individual_no_device_id": [2],
     "group_intermediate": [3, 4, 5],
     "group_ca": [6, 7, 8],
-    "individual_with_device_id_ws": [9],
-    "individual_no_device_id_ws": [10],
+    # "individual_with_device_id_ws": [9],
+    # "individual_no_device_id_ws": [10],
 }
 
 
