@@ -15,7 +15,7 @@ from ..provisioningservice.protocol.models import (
     X509CertificateWithInfo,
     X509Attestation,
     X509CAReferences,
-    # ClientCertificateIssuancePolicy,
+    ClientCertificateIssuancePolicy,
 )
 from ..provisioningservice.client import ProvisioningServiceClient
 
@@ -51,6 +51,7 @@ linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRI
 
 PROVISIONING_HOST = os.getenv("PROVISIONING_DEVICE_ENDPOINT")
 ID_SCOPE = os.getenv("PROVISIONING_DEVICE_IDSCOPE")
+CLIENT_CERT_AUTH_NAME = os.getenv("CLIENT_CERTIFICATE_AUTHORITY_NAME")
 
 certificate_count = 8
 type_to_device_indices = {
@@ -87,6 +88,7 @@ def before_all_tests(request):
     request.addfinalizer(after_module)
 
 
+@pytest.mark.skip("Running 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -120,6 +122,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
+@pytest.mark.skip("Running 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with device_id equal to the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -154,6 +157,7 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
+@pytest.mark.skip("Running 1 test")
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
@@ -272,11 +276,46 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
             )
 
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
-            device_registry_helper.try_delete_device(device_id)
+            # device_registry_helper.try_delete_device(device_id)
 
         assert count == device_count_in_group
     finally:
-        service_client.delete_enrollment_group_by_param(group_id)
+        pass
+        # service_client.delete_enrollment_group_by_param(group_id)
+
+
+@pytest.mark.skip("Running 1 test")
+@pytest.mark.it(
+    "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
+)
+@pytest.mark.parametrize("protocol", ["mqttws"])
+async def test_device_register_for_a_x509_individual_enrollment_dps_cert(protocol):
+    device_id = "e2edpsthunderbolt"
+    if protocol == "mqtt":
+        device_index = type_to_device_indices.get("individual_dps_cert")[0]
+    else:
+        device_index = type_to_device_indices.get("individual_dps_cert_ws")[0]
+
+    registration_id = device_common_name + str(device_index)
+    try:
+        cert_content = read_cert_content_from_file(device_index=device_index)
+
+        individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
+            registration_id=registration_id, primary_cert=cert_content, device_id=device_id
+        )
+        registration_id = individual_enrollment_record.registration_id
+
+        device_cert_file = "demoCA/newcerts/device_cert" + str(device_index) + ".pem"
+        device_key_file = "demoCA/private/device_key" + str(device_index) + ".pem"
+        registration_result = await result_from_register(
+            registration_id, device_cert_file, device_key_file, protocol
+        )
+
+        assert device_id != registration_id
+        assert_device_provisioned(device_id=device_id, registration_result=registration_result)
+        device_registry_helper.try_delete_device(device_id)
+    finally:
+        service_client.delete_individual_enrollment_by_param(registration_id)
 
 
 def assert_device_provisioned(device_id, registration_result):
@@ -296,20 +335,29 @@ def assert_device_provisioned(device_id, registration_result):
 
 
 def create_individual_enrollment_with_x509_client_certs(
-    registration_id, primary_cert, secondary_cert=None, device_id=None
+    registration_id,
+    primary_cert,
+    secondary_cert=None,
+    device_id=None,
+    client_ca_name=None,
 ):
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
     x509 = create_x509_client_or_sign_certs(
         is_client=True, primary_cert=primary_cert, secondary_cert=secondary_cert
     )
-
     attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+
+    if client_ca_name:
+        client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
+            certificate_authority_name=client_ca_name
+        )
 
     individual_provisioning_model = IndividualEnrollment(
         attestation=attestation_mechanism,
         registration_id=registration_id,
         reprovision_policy=reprovision_policy,
         device_id=device_id,
+        client_certificate_issuance_policy=client_certificate_issuance_policy,
     )
 
     return service_client.create_or_update_individual_enrollment(individual_provisioning_model)
