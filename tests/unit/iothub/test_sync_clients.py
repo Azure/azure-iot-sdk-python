@@ -786,7 +786,7 @@ class SharedClientReceiveMethodRequestTests(object):
 
         mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
 
-        # Set handler
+        # Attempt receive
         with pytest.raises(client_error) as e_info:
             client.receive_method_request(method_name)
         assert e_info.value.__cause__ is my_pipeline_error
@@ -1169,7 +1169,7 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
 
         mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
 
-        # Set handler
+        # Get the twin
         with pytest.raises(client_error) as e_info:
             client.get_twin()
         assert e_info.value.__cause__ is my_pipeline_error
@@ -1345,7 +1345,7 @@ class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
 
         mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
 
-        # Set handler
+        # Send patch
         with pytest.raises(client_error) as e_info:
             client.patch_twin_reported_properties(twin_patch_reported)
         assert e_info.value.__cause__ is my_pipeline_error
@@ -1519,7 +1519,7 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
 
         mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
 
-        # Set handler
+        # Attempt receive
         with pytest.raises(client_error) as e_info:
             client.receive_twin_desired_properties_patch()
         assert e_info.value.__cause__ is my_pipeline_error
@@ -1893,7 +1893,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(
 
         mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
 
-        # Set handler
+        # Attempt receive
         with pytest.raises(client_error) as e_info:
             client.receive_message()
         assert e_info.value.__cause__ is my_pipeline_error
@@ -2750,7 +2750,7 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
 
         mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
 
-        # Set handler
+        # Attempt receive
         with pytest.raises(client_error) as e_info:
             client.receive_message_on_input("some_input")
         assert e_info.value.__cause__ is my_pipeline_error
