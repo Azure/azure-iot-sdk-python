@@ -107,7 +107,6 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
 
         key_file = "key.pem"
         csr_file = "request.pem"
-        issued_cert_file = "cert.pem"
 
         private_key = create_private_key(key_file)
         create_csr(private_key, csr_file, registration_id)
@@ -119,33 +118,15 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
 
-        with open(issued_cert_file, "w") as out_ca_pem:
-            # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
-            cert_data = registration_result.registration_state.issued_client_certificate
-            out_ca_pem.write(cert_data)
-
-        x509 = X509(
-            cert_file=issued_cert_file,
-            key_file=key_file,
+        await connect_device_after_provisioning(
+            registration_result=registration_result, key_file=key_file
         )
 
-        device_client = IoTHubDeviceClient.create_from_x509_certificate(
-            hostname=registration_result.registration_state.assigned_hub,
-            device_id=registration_result.registration_state.device_id,
-            x509=x509,
-        )
-        # Connect the client.
-        await device_client.connect()
-        # Assert that this X509 was able to connect.
-        assert device_client.connected
-        await device_client.disconnect()
-
-        # device_registry_helper.try_delete_device(device_id)
+        device_registry_helper.try_delete_device(device_id)
     finally:
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-@pytest.mark.skip("run 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with device_id equal to the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -167,9 +148,22 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
         registration_result = await result_from_register(
             registration_id, device_cert_file, device_key_file, protocol
         )
+        key_file = "key.pem"
+        csr_file = "request.pem"
+
+        private_key = create_private_key(key_file)
+        create_csr(private_key, csr_file, registration_id)
+
+        registration_result = await result_from_register(
+            registration_id, device_cert_file, device_key_file, protocol, csr_file=csr_file
+        )
 
         assert_device_provisioned(
             device_id=registration_id, registration_result=registration_result
+        )
+
+        await connect_device_after_provisioning(
+            registration_result=registration_result, key_file=key_file
         )
         device_registry_helper.try_delete_device(registration_id)
     finally:
@@ -400,3 +394,28 @@ async def result_from_register(
             provisioning_device_client.client_certificate_signing_request = str(csr_data)
 
     return await provisioning_device_client.register()
+
+
+async def connect_device_after_provisioning(registration_result, key_file):
+
+    issued_cert_file = "cert.pem"
+    with open(issued_cert_file, "w") as out_ca_pem:
+        # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
+        cert_data = registration_result.registration_state.issued_client_certificate
+        out_ca_pem.write(cert_data)
+
+    x509 = X509(
+        cert_file=issued_cert_file,
+        key_file=key_file,
+    )
+
+    device_client = IoTHubDeviceClient.create_from_x509_certificate(
+        hostname=registration_result.registration_state.assigned_hub,
+        device_id=registration_result.registration_state.device_id,
+        x509=x509,
+    )
+    # Connect the client.
+    await device_client.connect()
+    # Assert that this X509 was able to connect.
+    assert device_client.connected
+    await device_client.disconnect()
