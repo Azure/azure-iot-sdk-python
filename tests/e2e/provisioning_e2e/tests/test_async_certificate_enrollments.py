@@ -244,7 +244,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
     print("running ca")
     print(protocol)
     group_id = "e2e-ca-ilvermorny" + str(uuid.uuid4())
-    common_device_id = device_common_name
+    common_device_id = "snitch"
     devices_indices = type_to_device_indices.get("group_ca")
     # if protocol == "mqtt":
     #     devices_indices = type_to_device_indices.get("group_ca")
