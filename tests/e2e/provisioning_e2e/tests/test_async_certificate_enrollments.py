@@ -162,14 +162,14 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
-@pytest.mark.parametrize("protocol", ["mqtt"])
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment(
     protocol,
 ):
     print("running intermediate")
     print(protocol)
     group_id = "e2e-intermediate-durmstrang" + str(uuid.uuid4())
-    common_device_id = device_common_name
+    common_device_id = "e2edpsinterdevice"
     devices_indices = type_to_device_indices.get("group_intermediate")
     # if protocol == "mqtt":
     #     devices_indices = type_to_device_indices.get("group_intermediate")
@@ -220,15 +220,14 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
 
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
 
-            # device_registry_helper.try_delete_device(device_id)
+            device_registry_helper.try_delete_device(device_id)
             print("device was provisioned")
             print(device_id)
 
         assert count == device_count_in_group
 
     finally:
-        pass
-        # service_client.delete_enrollment_group_by_param(group_id)
+        service_client.delete_enrollment_group_by_param(group_id)
 
 
 # @pytest.mark.skip(
@@ -237,14 +236,14 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with an already uploaded ca cert X509 authentication"
 )
-@pytest.mark.parametrize("protocol", ["mqtt"])
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment(
     protocol,
 ):
     print("running ca")
     print(protocol)
     group_id = "e2e-ca-ilvermorny" + str(uuid.uuid4())
-    common_device_id = "snitch"
+    common_device_id = "e2edpscadevice"
     devices_indices = type_to_device_indices.get("group_ca")
     # if protocol == "mqtt":
     #     devices_indices = type_to_device_indices.get("group_ca")
@@ -295,12 +294,11 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
             print("device was provisioned for ca")
             print(device_id)
-            # device_registry_helper.try_delete_device(device_id)
+            device_registry_helper.try_delete_device(device_id)
 
         assert count == device_count_in_group
     finally:
-        pass
-        # service_client.delete_enrollment_group_by_param(group_id)
+        service_client.delete_enrollment_group_by_param(group_id)
 
 
 @pytest.mark.skip("Running 1 test")
