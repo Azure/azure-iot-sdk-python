@@ -92,10 +92,7 @@ def before_all_tests(request):
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_device_id_for_a_x509_individual_enrollment(protocol):
     device_id = "e2edpsthunderbolt"
-    if protocol == "mqtt":
-        device_index = type_to_device_indices.get("individual_with_device_id")[0]
-    else:
-        device_index = type_to_device_indices.get("individual_with_device_id_ws")[0]
+    device_index = type_to_device_indices.get("individual_with_device_id")[0]
 
     registration_id = device_common_name + str(device_index)
     try:
@@ -124,11 +121,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_no_device_id_for_a_x509_individual_enrollment(protocol):
-    if protocol == "mqtt":
-        device_index = type_to_device_indices.get("individual_no_device_id")[0]
-    else:
-        device_index = type_to_device_indices.get("individual_no_device_id_ws")[0]
-
+    device_index = type_to_device_indices.get("individual_no_device_id")[0]
     registration_id = device_common_name + str(device_index)
     try:
         cert_content = read_cert_content_from_file(device_index=device_index)
