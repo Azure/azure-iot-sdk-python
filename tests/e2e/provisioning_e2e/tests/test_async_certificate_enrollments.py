@@ -97,7 +97,7 @@ type_to_device_indices = {
 @pytest.fixture(scope="module", autouse=True)
 def before_all_tests(request):
     logging.info("set up certificates before cert related tests")
-    before_cert_creation_from_pipeline("testCerts")
+    before_cert_creation_from_pipeline()
     call_intermediate_cert_and_device_cert_creation_from_pipeline(
         intermediate_common_name=intermediate_common_name,
         device_common_name=device_common_name,
