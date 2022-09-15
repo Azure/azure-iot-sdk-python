@@ -170,7 +170,10 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
     print(protocol)
     group_id = "e2e-intermediate-durmstrang" + str(uuid.uuid4())
     common_device_id = device_common_name
-    devices_indices = type_to_device_indices.get("group_intermediate")
+    if protocol == "mqtt":
+        devices_indices = type_to_device_indices.get("group_intermediate")[0]
+    else:
+        devices_indices = type_to_device_indices.get("group_intermediate_ws")[0]
     device_count_in_group = len(devices_indices)
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
 
@@ -241,7 +244,10 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
     print(protocol)
     group_id = "e2e-ca-ilvermorny" + str(uuid.uuid4())
     common_device_id = device_common_name
-    devices_indices = type_to_device_indices.get("group_ca")
+    if protocol == "mqtt":
+        devices_indices = type_to_device_indices.get("group_ca")[0]
+    else:
+        devices_indices = type_to_device_indices.get("group_ca_ws")[0]
     device_count_in_group = len(devices_indices)
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
 
