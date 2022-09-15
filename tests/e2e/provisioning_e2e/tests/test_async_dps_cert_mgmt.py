@@ -138,7 +138,9 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
         cert_content = read_cert_content_from_file(device_index=device_index)
 
         individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
-            registration_id=registration_id, primary_cert=cert_content
+            registration_id=registration_id,
+            primary_cert=cert_content,
+            client_ca_name=CLIENT_CERT_AUTH_NAME,
         )
 
         registration_id = individual_enrollment_record.registration_id
