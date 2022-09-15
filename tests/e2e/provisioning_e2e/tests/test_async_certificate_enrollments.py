@@ -53,20 +53,20 @@ PROVISIONING_HOST = os.getenv("PROVISIONING_DEVICE_ENDPOINT")
 ID_SCOPE = os.getenv("PROVISIONING_DEVICE_IDSCOPE")
 CLIENT_CERT_AUTH_NAME = os.getenv("CLIENT_CERTIFICATE_AUTHORITY_NAME")
 
-certificate_count = 8
+# certificate_count = 8
 type_to_device_indices = {
     "individual_with_device_id": [1],
     "individual_with_device_id_ws": [2],
     "individual_no_device_id": [3],
     "individual_no_device_id_ws": [4],
-    "group_intermediate": [3, 4, 5],
-    "group_intermediate_ws": [6, 7, 8],
-    "group_ca": [9, 10, 11],
-    "group_ca_ws": [12, 13, 14],
-    "individual_dps_cert": [15],
-    "individual_dps_cert_ws": [16],
-    "group_intermediate_dps_cert": [17, 18, 19],
-    "group_ca_dps_cert": [20, 21, 22],
+    "group_intermediate": [5, 6, 7],
+    "group_intermediate_ws": [8, 9, 10],
+    "group_ca": [11, 12, 13],
+    "group_ca_ws": [14, 15, 16],
+    "individual_dps_cert": [17],
+    "individual_dps_cert_ws": [18],
+    "group_intermediate_dps_cert": [19, 20, 21],
+    "group_ca_dps_cert": [22, 23, 24],
 }
 
 
@@ -171,9 +171,9 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
     group_id = "e2e-intermediate-durmstrang" + str(uuid.uuid4())
     common_device_id = device_common_name
     if protocol == "mqtt":
-        devices_indices = type_to_device_indices.get("group_intermediate")[0]
+        devices_indices = type_to_device_indices.get("group_intermediate")
     else:
-        devices_indices = type_to_device_indices.get("group_intermediate_ws")[0]
+        devices_indices = type_to_device_indices.get("group_intermediate_ws")
     device_count_in_group = len(devices_indices)
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
 
@@ -245,9 +245,9 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
     group_id = "e2e-ca-ilvermorny" + str(uuid.uuid4())
     common_device_id = device_common_name
     if protocol == "mqtt":
-        devices_indices = type_to_device_indices.get("group_ca")[0]
+        devices_indices = type_to_device_indices.get("group_ca")
     else:
-        devices_indices = type_to_device_indices.get("group_ca_ws")[0]
+        devices_indices = type_to_device_indices.get("group_ca_ws")
     device_count_in_group = len(devices_indices)
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
 
