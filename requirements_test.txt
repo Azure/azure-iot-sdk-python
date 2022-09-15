@@ -5,6 +5,7 @@ pytest-testdox>=1.1.1
 pytest-cov
 pytest-timeout
 flake8
+cryptography                # Needed for cert generation and e2e
 azure-iot-hub                                    # Only needed for iothub e2e
 azure-iothub-provisioningserviceclient >= 1.2.0  # Only needed for provisioning e2e
 azure-eventhub                                   # Only needed for iothub e2e

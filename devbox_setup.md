@@ -20,7 +20,7 @@ This will install not only relevant development and test dependencies, but also 
 
 It is recommended to use [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/en/latest/install.html) for Unix-based platforms or [virtualenvwrapper-win](https://github.com/davidmarble/virtualenvwrapper-win) for Windows, in order to easily manage custom environments and switch Python versions, however this is optional.
 
-## Environment Variables (Optional)
+## Sample Environment Variables (Optional)
 
 If you wish to follow the samples exactly as written, you will need to set some environment variables on your system. These are not required however - if you wish to use different environment variables, or no environment variables at all, simply change the samples to retrieve these values from elsewhere. Additionally, different samples use different variables, so you would only need the ones relevant to samples you intend to use.
 
@@ -33,3 +33,18 @@ If you wish to follow the samples exactly as written, you will need to set some 
 * **X509_PASS_PHRASE**: The pass phrase for the X509 key (Only necessary if cert has a password)
 
 **This is an incomplete list of environment variables**
+
+
+## E2E Testing Setup (Optional - SDK Developer)
+
+If you wish to run end to end tests locally, you'll need to configure some additional environment variables:
+
+* **IOTHUB_CONNECTION_STRING**: The connection string for your IoTHub (ideally iothubowner permissions)
+* **EVENTHUB_CONNECTION_STRING**: The built-in Event Hub compatible endpoint of the above IoTHub
+
+**NOTE**: if you wish to use dedicated E2E resources, you may also prefix the above variables with `IOTHUB_E2E_`
+
+Additionally, you will need to add a messaging route with the following settings to the IoTHub in order for all tests to run correctly:
+* Name: twin
+* Endpoint: events
+* Data Source: Device Twin Change Events
