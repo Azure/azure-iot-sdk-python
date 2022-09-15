@@ -135,10 +135,10 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
             x509=x509,
         )
         # Connect the client.
-        device_client.connect()
+        await device_client.connect()
         # Assert that this X509 was able to connect.
         assert device_client.connected
-        device_client.disconnect()
+        await device_client.disconnect()
 
         # device_registry_helper.try_delete_device(device_id)
     finally:
