@@ -86,7 +86,6 @@ def before_all_tests(request):
     request.addfinalizer(after_module)
 
 
-@pytest.mark.skip("Running 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -120,7 +119,6 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-@pytest.mark.skip("Running 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with device_id equal to the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -223,9 +221,9 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
         service_client.delete_enrollment_group_by_param(group_id)
 
 
-# @pytest.mark.skip(
-#     reason="The enrollment is never properly created on the pipeline and it is always created without any CA reference and eventually the registration fails"
-# )
+@pytest.mark.skip(
+    reason="The enrollment is never properly created on the pipeline and it is always created without any CA reference and eventually the registration fails"
+)
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with an already uploaded ca cert X509 authentication"
 )
@@ -284,7 +282,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
             print("device was provisioned for ca")
             print(device_id)
-            # device_registry_helper.try_delete_device(device_id)
+            device_registry_helper.try_delete_device(device_id)
 
         assert count == device_count_in_group
     finally:
