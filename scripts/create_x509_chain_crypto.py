@@ -439,6 +439,8 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
     with open(in_cert_file_path, "w") as out_ca_pem:
         cert_pem_data = str(base64.b64decode(ca_cert), "ascii")
         out_ca_pem.write(cert_pem_data)
+        print("root cert content")
+        print(cert_pem_data)
         encoded_cert_pem_data = str.encode(cert_pem_data)
         root_cert = x509.load_pem_x509_certificate(encoded_cert_pem_data, default_backend())
 
