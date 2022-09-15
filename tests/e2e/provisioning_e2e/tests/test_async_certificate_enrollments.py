@@ -80,7 +80,7 @@ def before_all_tests(request):
         ca_password=os.getenv("PROVISIONING_ROOT_PASSWORD"),
         intermediate_password=intermediate_password,
         device_password=device_password,
-        device_count=10,
+        device_count=24,
     )
 
     def after_module():
