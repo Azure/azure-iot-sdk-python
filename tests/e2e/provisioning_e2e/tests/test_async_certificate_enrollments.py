@@ -293,7 +293,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
             )
 
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
-            print("device was provisioned")
+            print("device was provisioned for ca")
             print(device_id)
             # device_registry_helper.try_delete_device(device_id)
 
@@ -350,6 +350,9 @@ def assert_device_provisioned(device_id, registration_result):
     device = device_registry_helper.get_device(device_id)
     assert device is not None
     assert device.authentication.type == "selfSigned"
+    print("assertions")
+    print(device_id)
+    print(device.authentication.type)
     assert device.device_id == device_id
 
 
