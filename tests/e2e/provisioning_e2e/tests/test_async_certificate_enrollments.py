@@ -60,13 +60,13 @@ type_to_device_indices = {
     "individual_no_device_id": [3],
     "individual_no_device_id_ws": [4],
     "group_intermediate": [5, 6],
-    # "group_intermediate_ws": [7, 8],
-    "group_ca": [7, 8],
+    "group_intermediate_ws": [7, 8],
+    "group_ca": [9, 10],
     # "group_ca_ws": [11, 12, 13],
-    "individual_dps_cert": [9],
-    "individual_dps_cert_ws": [10],
-    "group_intermediate_dps_cert": [11, 12],
-    "group_ca_dps_cert": [13, 14],
+    "individual_dps_cert": [11],
+    "individual_dps_cert_ws": [12],
+    "group_intermediate_dps_cert": [13, 14],
+    "group_ca_dps_cert": [15, 16],
 }
 
 
@@ -80,7 +80,7 @@ def before_all_tests(request):
         ca_password=os.getenv("PROVISIONING_ROOT_PASSWORD"),
         intermediate_password=intermediate_password,
         device_password=device_password,
-        device_count=14,
+        device_count=16,
     )
 
     def after_module():
