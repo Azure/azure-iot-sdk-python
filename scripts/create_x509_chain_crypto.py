@@ -400,6 +400,7 @@ def before_cert_creation_from_pipeline():
 
     # Only needed for pipeline tests
     dirPath = "demoCA"
+    print("creating demoCA and other subfolders")
     if os.path.exists(dirPath):
         print("demoCA exists, so will delete first")
         shutil.rmtree(dirPath)
@@ -434,6 +435,7 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
     ca_key = os.getenv("PROVISIONING_ROOT_CERT_KEY")
     in_cert_file_path = "ca_cert.pem"
     in_key_file_path = "ca_key.pem"
+    print("writing ca cert on a file")
     with open(in_cert_file_path, "w") as out_ca_pem:
         cert_pem_data = str(base64.b64decode(ca_cert), "ascii")
         out_ca_pem.write(cert_pem_data)
@@ -464,6 +466,7 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
         key_file=intermediate_password_file, password=intermediate_password, key_size=key_size
     )
 
+    print("creating intermediate cert")
     intermediate_cert = create_intermediate_ca_cert(
         issuer_cert_subject=root_cert.subject,
         issuer_key=root_private_key,
@@ -472,6 +475,7 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
         days=days,
     )
 
+    print("creating device certs")
     create_multiple_device_keys_and_certs(
         number_of_devices=device_count,
         issuer_cert_subject=intermediate_cert.subject,

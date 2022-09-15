@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
-from azure.iot.device.aio import ProvisioningDeviceClient
+from azure.iot.device.aio import ProvisioningDeviceClient, IoTHubDeviceClient
 from azure.iot.device.common import X509
 from ..provisioningservice.protocol.models import (
     IndividualEnrollment,
@@ -31,6 +31,8 @@ from create_x509_chain_crypto import (
     before_cert_creation_from_pipeline,
     call_intermediate_cert_and_device_cert_creation_from_pipeline,
     delete_directories_certs_created_from_pipeline,
+    create_private_key,
+    create_csr,
 )
 from ..provisioningservice.protocol.models import X509Certificates
 
@@ -102,13 +104,43 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
 
         device_cert_file = "demoCA/newcerts/device_cert" + str(device_index) + ".pem"
         device_key_file = "demoCA/private/device_key" + str(device_index) + ".pem"
+
+        key_file = "key.pem"
+        csr_file = "request.pem"
+        issued_cert_file = "cert.pem"
+
+        private_key = create_private_key(key_file)
+        create_csr(private_key, csr_file, registration_id)
+
         registration_result = await result_from_register(
-            registration_id, device_cert_file, device_key_file, protocol
+            registration_id, device_cert_file, device_key_file, protocol, csr_file=csr_file
         )
 
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
-        device_registry_helper.try_delete_device(device_id)
+
+        with open(issued_cert_file, "w") as out_ca_pem:
+            # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
+            cert_data = registration_result.registration_state.issued_client_certificate
+            out_ca_pem.write(cert_data)
+
+        x509 = X509(
+            cert_file=issued_cert_file,
+            key_file=key_file,
+        )
+
+        device_client = IoTHubDeviceClient.create_from_x509_certificate(
+            hostname=registration_result.registration_state.assigned_hub,
+            device_id=registration_result.registration_state.device_id,
+            x509=x509,
+        )
+        # Connect the client.
+        device_client.connect()
+        # Assert that this X509 was able to connect.
+        assert device_client.connected
+        device_client.disconnect()
+
+        # device_registry_helper.try_delete_device(device_id)
     finally:
         service_client.delete_individual_enrollment_by_param(registration_id)
 
@@ -348,7 +380,9 @@ def read_cert_content_from_file(device_index):
     return device_cert_content
 
 
-async def result_from_register(registration_id, device_cert_file, device_key_file, protocol):
+async def result_from_register(
+    registration_id, device_cert_file, device_key_file, protocol, csr_file=None
+):
     x509 = X509(cert_file=device_cert_file, key_file=device_key_file, pass_phrase=device_password)
     protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
     provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certificate(
@@ -358,5 +392,11 @@ async def result_from_register(registration_id, device_cert_file, device_key_fil
         x509=x509,
         websockets=protocol_boolean_mapping[protocol],
     )
+
+    if csr_file:
+        with open(csr_file, "r") as csr:
+            csr_data = csr.read()
+            # Set the CSR on the client to send it to DPS
+            provisioning_device_client.client_certificate_signing_request = str(csr_data)
 
     return await provisioning_device_client.register()
