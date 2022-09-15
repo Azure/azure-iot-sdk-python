@@ -56,15 +56,17 @@ CLIENT_CERT_AUTH_NAME = os.getenv("CLIENT_CERTIFICATE_AUTHORITY_NAME")
 certificate_count = 8
 type_to_device_indices = {
     "individual_with_device_id": [1],
-    "individual_no_device_id": [2],
+    "individual_with_device_id_ws": [2],
+    "individual_no_device_id": [3],
+    "individual_no_device_id_ws": [4],
     "group_intermediate": [3, 4, 5],
-    "group_ca": [6, 7, 8],
-    "individual_with_device_id_ws": [9],
-    "individual_no_device_id_ws": [10],
-    "individual_dps_cert": [11],
-    "individual_dps_cert_ws": [12],
-    "group_intermediate_dps_cert": [13, 14, 15],
-    "group_ca_dps_cert": [16, 17, 18],
+    "group_intermediate_ws": [6, 7, 8],
+    "group_ca": [9, 10, 11],
+    "group_ca_ws": [12, 13, 14],
+    "individual_dps_cert": [15],
+    "individual_dps_cert_ws": [16],
+    "group_intermediate_dps_cert": [17, 18, 19],
+    "group_ca_dps_cert": [20, 21, 22],
 }
 
 
