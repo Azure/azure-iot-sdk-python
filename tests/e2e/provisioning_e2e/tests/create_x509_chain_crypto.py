@@ -390,7 +390,7 @@ def delete_directories_certs_created_from_pipeline():
         print("The file does not exist")
 
 
-def before_cert_creation_from_pipeline(dirPath=None):
+def before_cert_creation_from_pipeline():
     """
     This function creates the required folder and files before creating certificates.
     This also copies an openssl configurations file to be used for the generation of this certificates.
@@ -399,8 +399,7 @@ def before_cert_creation_from_pipeline(dirPath=None):
     """
 
     # Only needed for pipeline tests
-    if not dirPath:
-        dirPath = "demoCA"
+    dirPath = "demoCA"
     if os.path.exists(dirPath):
         print("demoCA exists, so will delete first")
         shutil.rmtree(dirPath)
