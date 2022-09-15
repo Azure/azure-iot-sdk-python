@@ -162,7 +162,7 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
-@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+@pytest.mark.parametrize("protocol", ["mqtt"])
 async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment(
     protocol,
 ):
@@ -170,10 +170,11 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
     print(protocol)
     group_id = "e2e-intermediate-durmstrang" + str(uuid.uuid4())
     common_device_id = device_common_name
-    if protocol == "mqtt":
-        devices_indices = type_to_device_indices.get("group_intermediate")
-    else:
-        devices_indices = type_to_device_indices.get("group_intermediate_ws")
+    devices_indices = type_to_device_indices.get("group_intermediate")
+    # if protocol == "mqtt":
+    #     devices_indices = type_to_device_indices.get("group_intermediate")
+    # else:
+    #     devices_indices = type_to_device_indices.get("group_intermediate_ws")
     device_count_in_group = len(devices_indices)
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
 
@@ -236,7 +237,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with an already uploaded ca cert X509 authentication"
 )
-@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+@pytest.mark.parametrize("protocol", ["mqtt"])
 async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment(
     protocol,
 ):
@@ -244,10 +245,11 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
     print(protocol)
     group_id = "e2e-ca-ilvermorny" + str(uuid.uuid4())
     common_device_id = device_common_name
-    if protocol == "mqtt":
-        devices_indices = type_to_device_indices.get("group_ca")
-    else:
-        devices_indices = type_to_device_indices.get("group_ca_ws")
+    devices_indices = type_to_device_indices.get("group_ca")
+    # if protocol == "mqtt":
+    #     devices_indices = type_to_device_indices.get("group_ca")
+    # else:
+    #     devices_indices = type_to_device_indices.get("group_ca_ws")
     device_count_in_group = len(devices_indices)
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
 
