@@ -314,6 +314,7 @@ def create_individual_enrollment_with_x509_client_certs(
     )
     attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
 
+    client_certificate_issuance_policy = None
     if client_ca_name:
         client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
             certificate_authority_name=client_ca_name
