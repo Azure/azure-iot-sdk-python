@@ -83,6 +83,7 @@ def before_all_tests(request):
     request.addfinalizer(after_module)
 
 
+@pytest.mark.skip("run 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -127,6 +128,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
+@pytest.mark.skip("run 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with device_id equal to the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -172,12 +174,14 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-@pytest.mark.skip("run 1 test")
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
-async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment():
-    protocol = "mqtt"
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment(
+    protocol,
+):
+    # protocol = "mqtt"
     print("running intermediate")
     group_id = "e2e-intermediate-durmstrang" + str(uuid.uuid4())
     common_device_id = "e2edpsinterdevice"
@@ -191,13 +195,15 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
             intermediate_cert_content = intermediate_pem.read()
 
         x509 = create_x509_client_or_sign_certs(
-            is_client=False, primary_cert=intermediate_cert_content
+            is_client=False,
+            primary_cert=intermediate_cert_content,
         )
         attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
         enrollment_group_provisioning_model = EnrollmentGroup(
             enrollment_group_id=group_id,
             attestation=attestation_mechanism,
             reprovision_policy=reprovision_policy,
+            client_ca_name=CLIENT_CERT_AUTH_NAME,
         )
 
         service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
@@ -218,18 +224,35 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
                     with open(fname) as infile:
                         outfile.write(infile.read())
 
+            # registration_result = await result_from_register(
+            #     registration_id=device_id,
+            #     device_cert_file=device_inter_cert_chain_file,
+            #     device_key_file=device_key_input_file,
+            #     protocol=protocol,
+            # )
+
+            key_file = "key.pem"
+            csr_file = "request.pem"
+
+            private_key = create_private_key(key_file)
+            create_csr(private_key, csr_file, device_id)
+
             registration_result = await result_from_register(
                 registration_id=device_id,
                 device_cert_file=device_inter_cert_chain_file,
                 device_key_file=device_key_input_file,
                 protocol=protocol,
+                csr_file=csr_file,
             )
 
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
-
-            device_registry_helper.try_delete_device(device_id)
             print("device was provisioned")
             print(device_id)
+
+            await connect_device_after_provisioning(
+                registration_result=registration_result, key_file=key_file
+            )
+            device_registry_helper.try_delete_device(device_id)
 
         assert count == device_count_in_group
 
