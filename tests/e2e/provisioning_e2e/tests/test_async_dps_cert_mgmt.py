@@ -199,11 +199,14 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
             primary_cert=intermediate_cert_content,
         )
         attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+        client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
+            certificate_authority_name=CLIENT_CERT_AUTH_NAME
+        )
         enrollment_group_provisioning_model = EnrollmentGroup(
             enrollment_group_id=group_id,
             attestation=attestation_mechanism,
             reprovision_policy=reprovision_policy,
-            client_ca_name=CLIENT_CERT_AUTH_NAME,
+            client_certificate_issuance_policy=client_certificate_issuance_policy,
         )
 
         service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
