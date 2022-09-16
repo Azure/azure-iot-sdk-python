@@ -13,9 +13,8 @@ from azure.iot.device.common.pipeline import (
     pipeline_thread,
 )
 from . import pipeline_ops_iothub_http, http_path_iothub, http_map_error
-from azure.iot.device import exceptions
 from azure.iot.device import constant as pkg_constant
-from azure.iot.device import user_agent
+from azure.iot.device import user_agent, exceptions
 
 
 logger = logging.getLogger(__name__)

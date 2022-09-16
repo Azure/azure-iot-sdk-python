@@ -8,7 +8,6 @@ Azure IoTHub Device SDK for Python.
 """
 
 import logging
-import deprecation
 from .abstract_clients import (
     AbstractIoTHubClient,
     AbstractIoTHubDeviceClient,
@@ -16,7 +15,7 @@ from .abstract_clients import (
 )
 from .models import Message
 from .inbox_manager import InboxManager
-from .sync_inbox import SyncClientInbox, InboxEmpty
+from .sync_inbox import SyncClientInbox
 from . import sync_handler_manager
 from .pipeline import constant as pipeline_constant
 from .pipeline import exceptions as pipeline_exceptions
@@ -142,7 +141,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param str feature_name: The name of the pipeline feature that corresponds to the handler
         :param new_handler: The function to be set as the handler
         """
-        self._check_receive_mode_is_handler()
         # Set the handler on the handler manager
         setattr(self._handler_manager, handler_name, new_handler)
 
@@ -347,39 +345,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent message to Hub")
 
-    @deprecation.deprecated(
-        deprecated_in="2.3.0",
-        current_version=device_constant.VERSION,
-        details="We recommend that you use the .on_method_request_received property to set a handler instead",
-    )
-    def receive_method_request(self, method_name=None, block=True, timeout=None):
-        """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
-
-        :param str method_name: Optionally provide the name of the method to receive requests for.
-            If this parameter is not given, all methods not already being specifically targeted by
-            a different request to receive_method will be received.
-        :param bool block: Indicates if the operation should block until a request is received.
-        :param int timeout: Optionally provide a number of seconds until blocking times out.
-
-        :returns: MethodRequest object representing the received method request, or None if
-            no method request has been received by the end of the blocking period.
-        """
-        self._check_receive_mode_is_api()
-
-        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
-            self._enable_feature(pipeline_constant.METHODS)
-
-        method_inbox = self._inbox_manager.get_method_request_inbox(method_name)
-
-        logger.info("Waiting for method request...")
-        try:
-            method_request = method_inbox.get(block=block, timeout=timeout)
-            logger.info("Received method request")
-        except InboxEmpty:
-            method_request = None
-            logger.info("Did not receive method request")
-        return method_request
-
     def send_method_response(self, method_response):
         """Send a response to a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
@@ -483,47 +448,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully patched twin")
 
-    @deprecation.deprecated(
-        deprecated_in="2.3.0",
-        current_version=device_constant.VERSION,
-        details="We recommend that you use the .on_twin_desired_properties_patch_received property to set a handler instead",
-    )
-    def receive_twin_desired_properties_patch(self, block=True, timeout=None):
-        """
-        Receive a desired property patch via the Azure IoT Hub or Azure IoT Edge Hub.
-
-        This is a synchronous call, which means the following:
-        1. If block=True, this function will block until one of the following happens:
-           * a desired property patch is received from the Azure IoT Hub or Azure IoT Edge Hub.
-           * the timeout period, if provided, elapses.  If a timeout happens, this function will
-             raise a InboxEmpty exception
-        2. If block=False, this function will return any desired property patches which may have
-           been received by the pipeline, but not yet returned to the application.  If no
-           desired property patches have been received by the pipeline, this function will raise
-           an InboxEmpty exception
-
-        :param bool block: Indicates if the operation should block until a request is received.
-        :param int timeout: Optionally provide a number of seconds until blocking times out.
-
-        :returns: Twin Desired Properties patch as a JSON dict, or None if no patch has been
-            received by the end of the blocking period
-        :rtype: dict or None
-        """
-        self._check_receive_mode_is_api()
-
-        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
-            self._enable_feature(pipeline_constant.TWIN_PATCHES)
-        twin_patch_inbox = self._inbox_manager.get_twin_patch_inbox()
-
-        logger.info("Waiting for twin patches...")
-        try:
-            patch = twin_patch_inbox.get(block=block, timeout=timeout)
-            logger.info("twin patch received")
-        except InboxEmpty:
-            logger.info("Did not receive twin patch")
-            return None
-        return patch
-
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """A synchronous device client that connects to an Azure IoT Hub instance."""
@@ -539,36 +463,6 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         """
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
-
-    @deprecation.deprecated(
-        deprecated_in="2.3.0",
-        current_version=device_constant.VERSION,
-        details="We recommend that you use the .on_message_received property to set a handler instead",
-    )
-    def receive_message(self, block=True, timeout=None):
-        """Receive a message that has been sent from the Azure IoT Hub.
-
-        :param bool block: Indicates if the operation should block until a message is received.
-        :param int timeout: Optionally provide a number of seconds until blocking times out.
-
-        :returns: Message that was sent from the Azure IoT Hub, or None if
-            no method request has been received by the end of the blocking period.
-        :rtype: :class:`azure.iot.device.Message` or None
-        """
-        self._check_receive_mode_is_api()
-
-        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
-            self._enable_feature(pipeline_constant.C2D_MSG)
-        c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
-
-        logger.info("Waiting for message from Hub...")
-        try:
-            message = c2d_inbox.get(block=block, timeout=timeout)
-            logger.info("Message received")
-        except InboxEmpty:
-            message = None
-            logger.info("No message received.")
-        return message
 
     def get_storage_info_for_blob(self, blob_name):
         """Sends a POST request over HTTP to an IoTHub endpoint that will return information for uploading via the Azure Storage Account linked to the IoTHub your device is connected to.
@@ -667,36 +561,6 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         handle_result(callback)
 
         logger.info("Successfully sent message to output: " + output_name)
-
-    @deprecation.deprecated(
-        deprecated_in="2.3.0",
-        current_version=device_constant.VERSION,
-        details="We recommend that you use the .on_message_received property to set a handler instead",
-    )
-    def receive_message_on_input(self, input_name, block=True, timeout=None):
-        """Receive an input message that has been sent from another Module to a specific input.
-
-        :param str input_name: The input name to receive a message on.
-        :param bool block: Indicates if the operation should block until a message is received.
-        :param int timeout: Optionally provide a number of seconds until blocking times out.
-
-        :returns: Message that was sent to the specified input, or None if
-            no method request has been received by the end of the blocking period.
-        """
-        self._check_receive_mode_is_api()
-
-        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
-            self._enable_feature(pipeline_constant.INPUT_MSG)
-        input_inbox = self._inbox_manager.get_input_message_inbox(input_name)
-
-        logger.info("Waiting for input message on: " + input_name + "...")
-        try:
-            message = input_inbox.get(block=block, timeout=timeout)
-            logger.info("Input message received on: " + input_name)
-        except InboxEmpty:
-            message = None
-            logger.info("No input message received on: " + input_name)
-        return message
 
     def invoke_method(self, method_params, device_id, module_id=None):
         """Invoke a method from your client onto a device or module client, and receive the response to the method call.
