@@ -284,7 +284,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
         )
 
         service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
-
+        print("enrollment group was created")
         count = 0
         intermediate_cert_filename = "demoCA/newcerts/intermediate_cert.pem"
         common_device_key_input_file = "demoCA/private/device_key"
@@ -325,11 +325,12 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
             await connect_device_after_provisioning(
                 registration_result=registration_result, key_file=key_file
             )
-            device_registry_helper.try_delete_device(device_id)
+            # device_registry_helper.try_delete_device(device_id)
 
         assert count == device_count_in_group
     finally:
-        service_client.delete_enrollment_group_by_param(group_id)
+        pass
+        # service_client.delete_enrollment_group_by_param(group_id)
 
 
 def assert_device_provisioned(device_id, registration_result):
