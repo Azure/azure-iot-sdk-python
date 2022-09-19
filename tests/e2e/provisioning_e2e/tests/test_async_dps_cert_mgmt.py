@@ -177,11 +177,8 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
-@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
-async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment(
-    protocol,
-):
-    # protocol = "mqtt"
+async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment():
+    protocol = "mqtt"
     print("running intermediate")
     group_id = "e2e-intermediate-durmstrang" + str(uuid.uuid4())
     common_device_id = "e2edpsinterdevice"
@@ -227,15 +224,8 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
                     with open(fname) as infile:
                         outfile.write(infile.read())
 
-            # registration_result = await result_from_register(
-            #     registration_id=device_id,
-            #     device_cert_file=device_inter_cert_chain_file,
-            #     device_key_file=device_key_input_file,
-            #     protocol=protocol,
-            # )
-
-            key_file = "key.pem"
-            csr_file = "request.pem"
+            key_file = "key" + str(index) + ".pem"
+            csr_file = "request" + str(index) + ".pem"
 
             private_key = create_private_key(key_file)
             create_csr(private_key, csr_file, device_id)
