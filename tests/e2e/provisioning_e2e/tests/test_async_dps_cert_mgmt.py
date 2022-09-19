@@ -253,7 +253,6 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
         service_client.delete_enrollment_group_by_param(group_id)
 
 
-@pytest.mark.skip("run 1 test")
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with an already uploaded ca cert X509 authentication"
 )
@@ -272,10 +271,14 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
         DPS_GROUP_CA_CERT = os.getenv("PROVISIONING_ROOT_CERT")
         x509 = create_x509_ca_refs(primary_ref=DPS_GROUP_CA_CERT)
         attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+        client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
+            certificate_authority_name=CLIENT_CERT_AUTH_NAME
+        )
         enrollment_group_provisioning_model = EnrollmentGroup(
             enrollment_group_id=group_id,
             attestation=attestation_mechanism,
             reprovision_policy=reprovision_policy,
+            client_certificate_issuance_policy=client_certificate_issuance_policy,
         )
 
         service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
@@ -300,16 +303,26 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
                         logging.debug(content)
                         outfile.write(content)
 
+            key_file = "key" + str(index) + ".pem"
+            csr_file = "request" + str(index) + ".pem"
+
+            private_key = create_private_key(key_file)
+            create_csr(private_key, csr_file, device_id)
+
             registration_result = await result_from_register(
                 registration_id=device_id,
                 device_cert_file=device_inter_cert_chain_file,
                 device_key_file=device_key_input_file,
                 protocol=protocol,
+                csr_file=csr_file,
             )
 
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
             print("device was provisioned for ca")
             print(device_id)
+            await connect_device_after_provisioning(
+                registration_result=registration_result, key_file=key_file
+            )
             device_registry_helper.try_delete_device(device_id)
 
         assert count == device_count_in_group
@@ -349,6 +362,7 @@ def create_individual_enrollment_with_x509_client_certs(
     )
     attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
 
+    client_certificate_issuance_policy = None
     if client_ca_name:
         client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
             certificate_authority_name=client_ca_name
