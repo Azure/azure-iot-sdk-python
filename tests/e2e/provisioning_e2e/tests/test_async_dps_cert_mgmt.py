@@ -134,7 +134,7 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_ind
     "A group of devices request client certs by sending certificate signing requests while being provisioned"
     " to the linked IoTHub inside a group enrollment that has been created with a symmetric key authentication"
 )
-@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+@pytest.mark.parametrize("protocol", ["mqtt"])
 async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_group_enrollment(
     protocol,
 ):
