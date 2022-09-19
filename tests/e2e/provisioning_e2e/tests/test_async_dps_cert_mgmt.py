@@ -243,6 +243,11 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
             print("device was provisioned")
             print(device_id)
+            issued_cert_file = "cert" + str(index) + ".pem"
+            with open(issued_cert_file, "w") as out_ca_pem:
+                # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
+                cert_data = registration_result.registration_state.issued_client_certificate
+                out_ca_pem.write(cert_data)
 
             await connect_device_after_provisioning(
                 registration_result=registration_result, key_file=key_file
@@ -252,6 +257,15 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
         assert count == device_count_in_group
 
     finally:
+        for index in devices_indices:
+            key_file = "key" + str(index) + ".pem"
+            csr_file = "request" + str(index) + ".pem"
+            if os.path.exists(key_file):
+                os.remove(key_file)
+            if os.path.exists(csr_file):
+                os.remove(csr_file)
+            if os.path.exists(issued_cert_file):
+                os.remove(issued_cert_file)
         service_client.delete_enrollment_group_by_param(group_id)
 
 
@@ -322,6 +336,13 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
             print("device was provisioned for ca")
             print(device_id)
+
+            issued_cert_file = "cert" + str(index) + ".pem"
+            with open(issued_cert_file, "w") as out_ca_pem:
+                # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
+                cert_data = registration_result.registration_state.issued_client_certificate
+                out_ca_pem.write(cert_data)
+
             await connect_device_after_provisioning(
                 registration_result=registration_result, key_file=key_file
             )
@@ -330,6 +351,15 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
         assert count == device_count_in_group
     finally:
         pass
+        # for index in devices_indices:
+        #     key_file = "key" + str(index) + ".pem"
+        #     csr_file = "request" + str(index) + ".pem"
+        #     if os.path.exists(key_file):
+        #         os.remove(key_file)
+        #     if os.path.exists(csr_file):
+        #         os.remove(csr_file)
+        #     if os.path.exists(issued_cert_file):
+        #         os.remove(issued_cert_file)
         # service_client.delete_enrollment_group_by_param(group_id)
 
 
@@ -431,13 +461,7 @@ async def result_from_register(
     return await provisioning_device_client.register()
 
 
-async def connect_device_after_provisioning(registration_result, key_file):
-
-    issued_cert_file = "cert.pem"
-    with open(issued_cert_file, "w") as out_ca_pem:
-        # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
-        cert_data = registration_result.registration_state.issued_client_certificate
-        out_ca_pem.write(cert_data)
+async def connect_device_after_provisioning(registration_result, issued_cert_file, key_file):
 
     x509 = X509(
         cert_file=issued_cert_file,
