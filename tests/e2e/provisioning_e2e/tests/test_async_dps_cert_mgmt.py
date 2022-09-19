@@ -83,7 +83,6 @@ def before_all_tests(request):
     request.addfinalizer(after_module)
 
 
-# @pytest.mark.skip("run 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -119,23 +118,17 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
         issued_cert_file = "cert.pem"
-        # with open(issued_cert_file, "w") as out_ca_pem:
-        #     # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
-        #     cert_data = registration_result.registration_state.issued_client_certificate
-        #     out_ca_pem.write(cert_data)
         await connect_device_with_operational_cert(
             registration_result=registration_result,
             issued_cert_file=issued_cert_file,
             key_file=key_file,
         )
-
         device_registry_helper.try_delete_device(device_id)
     finally:
         delete_client_certs(key_file, csr_file, issued_cert_file)
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-# @pytest.mark.skip("run 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with device_id equal to the registration_id of the "
     "individual enrollment that has been created with a selfsigned X509 authentication"
@@ -173,10 +166,6 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
         )
 
         issued_cert_file = "cert.pem"
-        # with open(issued_cert_file, "w") as out_ca_pem:
-        #     # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
-        #     cert_data = registration_result.registration_state.issued_client_certificate
-        #     out_ca_pem.write(cert_data)
 
         await connect_device_with_operational_cert(
             registration_result=registration_result,
@@ -195,10 +184,7 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
 )
 async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment():
     protocol = "mqtt"
-    print("running intermediate")
     group_id = "e2e-intermediate-durmstrang" + str(uuid.uuid4())
-    print("group id")
-    print(group_id)
     common_device_id = "e2edpsinterdevice"
     devices_indices = type_to_device_indices.get("group_intermediate")
     device_count_in_group = len(devices_indices)
@@ -213,17 +199,6 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
             primary_cert=intermediate_cert_content,
         )
         attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
-        # client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
-        #     certificate_authority_name=CLIENT_CERT_AUTH_NAME
-        # )
-        # enrollment_group_provisioning_model = EnrollmentGroup(
-        #     enrollment_group_id=group_id,
-        #     attestation=attestation_mechanism,
-        #     reprovision_policy=reprovision_policy,
-        #     client_certificate_issuance_policy=client_certificate_issuance_policy,
-        # )
-
-        # service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
         create_enrollment_group(group_id=group_id, attestation_mechanism=attestation_mechanism)
         count = 0
         common_device_key_input_file = "demoCA/private/device_key"
@@ -259,10 +234,6 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
             print("device was provisioned")
             print(device_id)
             issued_cert_file = "cert" + str(index) + ".pem"
-            # with open(issued_cert_file, "w") as out_ca_pem:
-            #     # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
-            #     cert_data = registration_result.registration_state.issued_client_certificate
-            #     out_ca_pem.write(cert_data)
 
             await connect_device_with_operational_cert(
                 registration_result=registration_result,
@@ -283,15 +254,15 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
         service_client.delete_enrollment_group_by_param(group_id)
 
 
+@pytest.mark.skip(
+    reason="The enrollment is never properly created on the pipeline and it is always created without any CA reference and eventually the registration fails"
+)
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with an already uploaded ca cert X509 authentication"
 )
 async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment():
     protocol = "mqtt"
-    print("running ca")
     group_id = "e2e-ca-ilvermorny" + str(uuid.uuid4())
-    print("group id")
-    print(group_id)
     common_device_id = "e2edpscadevice"
     devices_indices = type_to_device_indices.get("group_ca")
     device_count_in_group = len(devices_indices)
@@ -299,19 +270,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
         DPS_GROUP_CA_CERT = os.getenv("PROVISIONING_ROOT_CERT")
         x509 = create_x509_ca_refs(primary_ref=DPS_GROUP_CA_CERT)
         attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
-        # client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
-        #     certificate_authority_name=CLIENT_CERT_AUTH_NAME
-        # )
-        # enrollment_group_provisioning_model = EnrollmentGroup(
-        #     enrollment_group_id=group_id,
-        #     attestation=attestation_mechanism,
-        #     reprovision_policy=reprovision_policy,
-        #     client_certificate_issuance_policy=client_certificate_issuance_policy,
-        # )
-        #
-        # service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
         create_enrollment_group(group_id=group_id, attestation_mechanism=attestation_mechanism)
-        print("enrollment group was created")
         count = 0
         intermediate_cert_filename = "demoCA/newcerts/intermediate_cert.pem"
         common_device_key_input_file = "demoCA/private/device_key"
@@ -351,27 +310,22 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
             print(device_id)
 
             issued_cert_file = "cert" + str(index) + ".pem"
-            # with open(issued_cert_file, "w") as out_ca_pem:
-            #     # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
-            #     cert_data = registration_result.registration_state.issued_client_certificate
-            #     out_ca_pem.write(cert_data)
 
             await connect_device_with_operational_cert(
                 registration_result=registration_result,
                 issued_cert_file=issued_cert_file,
                 key_file=key_file,
             )
-            # device_registry_helper.try_delete_device(device_id)
+            device_registry_helper.try_delete_device(device_id)
 
         assert count == device_count_in_group
     finally:
-        pass
-        # for index in devices_indices:
-        #     key_file = "key" + str(index) + ".pem"
-        #     csr_file = "request" + str(index) + ".pem"
-        #     issued_cert_file = "cert" + str(index) + ".pem"
-        #     delete_client_certs(key_file, csr_file, issued_cert_file)
-        # service_client.delete_enrollment_group_by_param(group_id)
+        for index in devices_indices:
+            key_file = "key" + str(index) + ".pem"
+            csr_file = "request" + str(index) + ".pem"
+            issued_cert_file = "cert" + str(index) + ".pem"
+            delete_client_certs(key_file, csr_file, issued_cert_file)
+        service_client.delete_enrollment_group_by_param(group_id)
 
 
 def assert_device_provisioned(device_id, registration_result):
