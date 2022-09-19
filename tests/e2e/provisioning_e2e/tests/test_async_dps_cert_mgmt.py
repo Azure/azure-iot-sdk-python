@@ -83,7 +83,7 @@ def before_all_tests(request):
     request.addfinalizer(after_module)
 
 
-@pytest.mark.skip("run 1 test")
+# @pytest.mark.skip("run 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -128,7 +128,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-@pytest.mark.skip("run 1 test")
+# @pytest.mark.skip("run 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with device_id equal to the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -174,7 +174,6 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-@pytest.mark.skip("run 1 test")
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
@@ -182,6 +181,8 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
     protocol = "mqtt"
     print("running intermediate")
     group_id = "e2e-intermediate-durmstrang" + str(uuid.uuid4())
+    print("group id")
+    print(group_id)
     common_device_id = "e2edpsinterdevice"
     devices_indices = type_to_device_indices.get("group_intermediate")
     device_count_in_group = len(devices_indices)
@@ -261,6 +262,8 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
     protocol = "mqtt"
     print("running ca")
     group_id = "e2e-ca-ilvermorny" + str(uuid.uuid4())
+    print("group id")
+    print(group_id)
     common_device_id = "e2edpscadevice"
     devices_indices = type_to_device_indices.get("group_ca")
     device_count_in_group = len(devices_indices)
