@@ -256,9 +256,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with an already uploaded ca cert X509 authentication"
 )
-async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment(
-    protocol,
-):
+async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment():
     protocol = "mqtt"
     print("running ca")
     group_id = "e2e-ca-ilvermorny" + str(uuid.uuid4())
