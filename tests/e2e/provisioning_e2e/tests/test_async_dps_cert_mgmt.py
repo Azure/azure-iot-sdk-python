@@ -177,7 +177,7 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
-@pytest.mark.parametrize("protocol", ["mqtt"])
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment(
     protocol,
 ):
