@@ -16,6 +16,7 @@ from ..provisioningservice.protocol.models import (
     X509Attestation,
     X509CAReferences,
     ClientCertificateIssuancePolicy,
+    SymmetricKeyAttestation,
 )
 from ..provisioningservice.client import ProvisioningServiceClient
 
@@ -23,6 +24,9 @@ import pytest
 import logging
 import os
 import uuid
+import base64
+import hmac
+import hashlib
 
 from . import path_adjust  # noqa: F401
 
@@ -60,6 +64,7 @@ type_to_device_indices = {
     "individual_no_device_id": [2],
     "group_intermediate": [3, 4, 5],
     "group_ca": [6, 7, 8],
+    "group_symmetric": [9, 10, 11],
 }
 
 
@@ -84,6 +89,105 @@ def before_all_tests(request):
 
 
 @pytest.mark.it(
+    "A device requests a client cert by sending a certificate signing request "
+    "while being provisioned to the linked IoTHub with the device_id equal to the registration_id"
+    "of the individual enrollment that has been created with a symmetric key authentication"
+)
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individual_enrollment(
+    protocol,
+):
+    registration_id = "e2e-dps-locomotor" + str(uuid.uuid4())
+    key_file = "key.pem"
+    csr_file = "request.pem"
+    issued_cert_file = "cert.pem"
+    try:
+        attestation_mechanism = AttestationMechanism(type="symmetricKey")
+        individual_enrollment_record = create_individual_enrollment(
+            registration_id=registration_id,
+            attestation_mechanism=attestation_mechanism,
+            client_ca_name=CLIENT_CERT_AUTH_NAME,
+        )
+        symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
+        private_key = create_private_key(key_file)
+        create_csr(private_key, csr_file, registration_id)
+
+        registration_result = await register_via_symmetric_key(
+            registration_id, symmetric_key, protocol, csr_file=csr_file
+        )
+
+        assert_device_provisioned(
+            device_id=registration_id, registration_result=registration_result
+        )
+        await connect_device_with_operational_cert(
+            registration_result=registration_result,
+            issued_cert_file=issued_cert_file,
+            key_file=key_file,
+        )
+        device_registry_helper.try_delete_device(registration_id)
+    finally:
+        service_client.delete_individual_enrollment_by_param(registration_id)
+        delete_client_certs(key_file, csr_file, issued_cert_file)
+
+
+@pytest.mark.it(
+    "A group of devices request client certs by sending certificate signing requests while being provisioned"
+    " to the linked IoTHub inside a group enrollment that has been created with a symmetric key authentication"
+)
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_group_enrollment(
+    protocol,
+):
+    group_id = "e2e-symmetric-group" + str(uuid.uuid4())
+    devices_indices = type_to_device_indices.get("group_symmetric")
+    device_count_in_group = len(devices_indices)
+    common_device_id = "e2edpsgroupsymmetric"
+    try:
+        master_key = str(uuid.uuid4())
+        symmetric_key = SymmetricKeyAttestation(primary_key=master_key)
+        attestation_mechanism = AttestationMechanism(
+            type="symmetricKey", symmetric_key=symmetric_key
+        )
+        create_enrollment_group(group_id=group_id, attestation_mechanism=attestation_mechanism)
+
+        count = 0
+
+        for index in devices_indices:
+            count = count + 1
+            device_id = common_device_id + str(index)
+            device_key = derive_device_key(device_id, master_key)
+
+            key_file = "key" + str(index) + ".pem"
+            csr_file = "request" + str(index) + ".pem"
+
+            private_key = create_private_key(key_file)
+            create_csr(private_key, csr_file, device_id)
+            registration_result = await register_via_symmetric_key(
+                registration_id=device_id,
+                symmetric_key=device_key,
+                protocol=protocol,
+                csr_file=csr_file,
+            )
+
+            assert_device_provisioned(device_id=device_id, registration_result=registration_result)
+            issued_cert_file = "cert" + str(index) + ".pem"
+            await connect_device_with_operational_cert(
+                registration_result=registration_result,
+                issued_cert_file=issued_cert_file,
+                key_file=key_file,
+            )
+        assert count == device_count_in_group
+        device_registry_helper.try_delete_device(device_id)
+    finally:
+        for index in devices_indices:
+            key_file = "key" + str(index) + ".pem"
+            csr_file = "request" + str(index) + ".pem"
+            issued_cert_file = "cert" + str(index) + ".pem"
+            delete_client_certs(key_file, csr_file, issued_cert_file)
+        service_client.delete_enrollment_group_by_param(group_id)
+
+
+@pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
@@ -93,10 +197,11 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
     registration_id = device_common_name + str(device_index)
     try:
         cert_content = read_cert_content_from_file(device_index=device_index)
-
-        individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
+        x509 = create_x509_client_or_sign_certs(is_client=True, primary_cert=cert_content)
+        attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+        individual_enrollment_record = create_individual_enrollment(
             registration_id=registration_id,
-            primary_cert=cert_content,
+            attestation_mechanism=attestation_mechanism,
             device_id=device_id,
             client_ca_name=CLIENT_CERT_AUTH_NAME,
         )
@@ -111,7 +216,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         private_key = create_private_key(key_file)
         create_csr(private_key, csr_file, registration_id)
 
-        registration_result = await result_from_register(
+        registration_result = await register_via_x509(
             registration_id, device_cert_file, device_key_file, protocol, csr_file=csr_file
         )
 
@@ -139,10 +244,11 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
     registration_id = device_common_name + str(device_index)
     try:
         cert_content = read_cert_content_from_file(device_index=device_index)
-
-        individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
+        x509 = create_x509_client_or_sign_certs(is_client=True, primary_cert=cert_content)
+        attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+        individual_enrollment_record = create_individual_enrollment(
             registration_id=registration_id,
-            primary_cert=cert_content,
+            attestation_mechanism=attestation_mechanism,
             client_ca_name=CLIENT_CERT_AUTH_NAME,
         )
 
@@ -157,7 +263,7 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
         private_key = create_private_key(key_file)
         create_csr(private_key, csr_file, registration_id)
 
-        registration_result = await result_from_register(
+        registration_result = await register_via_x509(
             registration_id, device_cert_file, device_key_file, protocol, csr_file=csr_file
         )
 
@@ -222,7 +328,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
             private_key = create_private_key(key_file)
             create_csr(private_key, csr_file, device_id)
 
-            registration_result = await result_from_register(
+            registration_result = await register_via_x509(
                 registration_id=device_id,
                 device_cert_file=device_inter_cert_chain_file,
                 device_key_file=device_key_input_file,
@@ -297,7 +403,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
             private_key = create_private_key(key_file)
             create_csr(private_key, csr_file, device_id)
 
-            registration_result = await result_from_register(
+            registration_result = await register_via_x509(
                 registration_id=device_id,
                 device_cert_file=device_inter_cert_chain_file,
                 device_key_file=device_key_input_file,
@@ -347,19 +453,13 @@ def assert_device_provisioned(device_id, registration_result):
     assert device.device_id == device_id
 
 
-def create_individual_enrollment_with_x509_client_certs(
+def create_individual_enrollment(
     registration_id,
-    primary_cert,
-    secondary_cert=None,
+    attestation_mechanism,
     device_id=None,
     client_ca_name=None,
 ):
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
-    x509 = create_x509_client_or_sign_certs(
-        is_client=True, primary_cert=primary_cert, secondary_cert=secondary_cert
-    )
-    attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
-
     client_certificate_issuance_policy = None
     if client_ca_name:
         client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
@@ -413,7 +513,7 @@ def delete_client_certs(key_file, csr_file, issued_cert_file):
         os.remove(issued_cert_file)
 
 
-async def result_from_register(
+async def register_via_x509(
     registration_id, device_cert_file, device_key_file, protocol, csr_file=None
 ):
     x509 = X509(cert_file=device_cert_file, key_file=device_key_file, pass_phrase=device_password)
@@ -435,6 +535,25 @@ async def result_from_register(
     return await provisioning_device_client.register()
 
 
+async def register_via_symmetric_key(registration_id, symmetric_key, protocol, csr_file=None):
+    # We have this mapping because the pytest logs look better with "mqtt" and "mqttws"
+    # instead of just "True" and "False".
+    protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
+    provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+        provisioning_host=PROVISIONING_HOST,
+        registration_id=registration_id,
+        id_scope=ID_SCOPE,
+        symmetric_key=symmetric_key,
+        websockets=protocol_boolean_mapping[protocol],
+    )
+    if csr_file:
+        with open(csr_file, "r") as csr:
+            csr_data = csr.read()
+            # Set the CSR on the client to send it to DPS
+            provisioning_device_client.client_certificate_signing_request = str(csr_data)
+    return await provisioning_device_client.register()
+
+
 def create_enrollment_group(group_id, attestation_mechanism):
 
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
@@ -448,6 +567,20 @@ def create_enrollment_group(group_id, attestation_mechanism):
         client_certificate_issuance_policy=client_certificate_issuance_policy,
     )
     service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
+
+
+def derive_device_key(device_id, group_symmetric_key):
+    """
+    The unique device ID and the group master key should be encoded into "utf-8"
+    After this the encoded group master key must be used to compute an HMAC-SHA256 of the encoded registration ID.
+    Finally the result must be converted into Base64 format.
+    The device key is the "utf-8" decoding of the above result.
+    """
+    message = device_id.encode("utf-8")
+    signing_key = base64.b64decode(group_symmetric_key.encode("utf-8"))
+    signed_hmac = hmac.HMAC(signing_key, message, hashlib.sha256)
+    device_key_encoded = base64.b64encode(signed_hmac.digest())
+    return device_key_encoded.decode("utf-8")
 
 
 async def connect_device_with_operational_cert(registration_result, issued_cert_file, key_file):
