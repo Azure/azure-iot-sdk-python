@@ -21,14 +21,12 @@ try:
     from .symmetric_key_attestation import SymmetricKeyAttestation
     from .attestation_mechanism import AttestationMechanism
     from .metadata import Metadata
-
     from .initial_twin_properties import InitialTwinProperties
     from .initial_twin import InitialTwin
     from .reprovision_policy import ReprovisionPolicy
     from .custom_allocation_definition import CustomAllocationDefinition
     from .individual_enrollment import IndividualEnrollment
     from .enrollment_group import EnrollmentGroup
-
     from .client_certificate_issuance_policy import ClientCertificateIssuancePolicy
 except (ImportError) as e:
     print(e)
