@@ -21,18 +21,19 @@ try:
     from .symmetric_key_attestation import SymmetricKeyAttestation
     from .attestation_mechanism import AttestationMechanism
     from .metadata import Metadata
-    from .twin_collection import TwinCollection
+
+    # from .twin_collection import TwinCollection
     from .initial_twin_properties import InitialTwinProperties
     from .initial_twin import InitialTwin
     from .reprovision_policy import ReprovisionPolicy
     from .custom_allocation_definition import CustomAllocationDefinition
     from .individual_enrollment import IndividualEnrollment
     from .enrollment_group import EnrollmentGroup
-    from .query_specification import QuerySpecification
+
+    # from .query_specification import QuerySpecification
     from .client_certificate_issuance_policy import ClientCertificateIssuancePolicy
 except (ImportError) as e:
     print(e)
-    pass
 
 
 __all__ = [
@@ -48,7 +49,7 @@ __all__ = [
     "SymmetricKeyAttestation",
     "AttestationMechanism",
     "Metadata",
-    "TwinCollection",
+    # "TwinCollection",
     "InitialTwinProperties",
     "InitialTwin",
     "ReprovisionPolicy",
@@ -58,6 +59,6 @@ __all__ = [
     # "BulkEnrollmentOperation",
     # "BulkEnrollmentOperationError",
     # "BulkEnrollmentOperationResult",
-    "QuerySpecification",
+    # "QuerySpecification",
     "ClientCertificateIssuancePolicy",
 ]
