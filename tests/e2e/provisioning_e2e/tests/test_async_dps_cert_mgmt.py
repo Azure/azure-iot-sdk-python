@@ -149,7 +149,7 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_gro
             type="symmetricKey", symmetric_key=symmetric_key
         )
         create_enrollment_group(group_id=group_id, attestation_mechanism=attestation_mechanism)
-
+        print("enrollment group has been created")
         count = 0
 
         for index in devices_indices:
@@ -184,7 +184,8 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_gro
             csr_file = "request" + str(index) + ".pem"
             issued_cert_file = "cert" + str(index) + ".pem"
             delete_client_certs(key_file, csr_file, issued_cert_file)
-        service_client.delete_enrollment_group_by_param(group_id)
+        print("deleting enrollment group")
+        # service_client.delete_enrollment_group_by_param(group_id)
 
 
 @pytest.mark.it(
