@@ -186,6 +186,22 @@ class ProvisioningServiceClient(SDKClient):
     def create_or_update_enrollment_group(
         self, enrollment_group, etag=None, custom_headers=None, raw=False, **operation_config
     ):
+        """Create or update a device enrollment group record.
+        :param enrollment_group: The device enrollment record.
+        :type EnrollmentGroup: ~protocol.models.EnrollmentGroup
+        :param etag: The ETag of the enrollment record.
+        :type etag: str
+        :param custom_headers: headers that will be added to the request
+        :param bool raw: returns the direct response alongside the
+        deserialized response
+        :param operation_config: :ref:`Operation configuration
+        overrides<msrest:optionsforoperations>`.
+        :return: IndividualEnrollment or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.IndividualEnrollment or
+        ~msrest.pipeline.ClientRawResponse
+        :raises:
+        :class:`ProvisioningServiceErrorDetailsException<protocol.models.ProvisioningServiceErrorDetailsException>`
+        """
         result = None
         path_format_arguments = {
             "id": self._serialize.url("id", enrollment_group.enrollment_group_id, "str")
