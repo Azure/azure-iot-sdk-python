@@ -10,7 +10,8 @@ try:
         ProvisioningServiceErrorDetails,
         ProvisioningServiceErrorDetailsException,
     )
-    from .device_capabilities import DeviceCapabilities
+
+    # from .device_capabilities import DeviceCapabilities
     from .device_registration_state import DeviceRegistrationState
     from .tpm_attestation import TpmAttestation
     from .x509_certificate_info import X509CertificateInfo
@@ -28,9 +29,10 @@ try:
     from .custom_allocation_definition import CustomAllocationDefinition
     from .individual_enrollment import IndividualEnrollment
     from .enrollment_group import EnrollmentGroup
-    from .bulk_enrollment_operation import BulkEnrollmentOperation
-    from .bulk_enrollment_operation_error import BulkEnrollmentOperationError
-    from .bulk_enrollment_operation_result import BulkEnrollmentOperationResult
+
+    # from .bulk_enrollment_operation import BulkEnrollmentOperation
+    # from .bulk_enrollment_operation_error import BulkEnrollmentOperationError
+    # from .bulk_enrollment_operation_result import BulkEnrollmentOperationResult
     from .query_specification import QuerySpecification
     from .client_certificate_issuance_policy import ClientCertificateIssuancePolicy
 except (ImportError) as e:
@@ -41,7 +43,6 @@ except (ImportError) as e:
 __all__ = [
     "ProvisioningServiceErrorDetails",
     "ProvisioningServiceErrorDetailsException",
-    "DeviceCapabilities",
     "DeviceRegistrationState",
     "TpmAttestation",
     "X509CertificateInfo",
@@ -59,9 +60,9 @@ __all__ = [
     "CustomAllocationDefinition",
     "IndividualEnrollment",
     "EnrollmentGroup",
-    "BulkEnrollmentOperation",
-    "BulkEnrollmentOperationError",
-    "BulkEnrollmentOperationResult",
+    # "BulkEnrollmentOperation",
+    # "BulkEnrollmentOperationError",
+    # "BulkEnrollmentOperationResult",
     "QuerySpecification",
     "ClientCertificateIssuancePolicy",
 ]
