@@ -34,13 +34,10 @@ from create_x509_chain_crypto import (
 )
 from ..provisioningservice.protocol.models import X509Certificates
 
-# pytestmark = [pytest.mark.skip, pytest.mark.asyncio]
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
 
 intermediate_common_name = "e2edpshomenum"
-# intermediate_common_name_ws = "e2edpshomenumws"
-# intermediate_common_name_dps = "e2edpshomenumdps"
 intermediate_password = "revelio"
 device_common_name = "e2edpslocomotor" + str(uuid.uuid4())
 device_password = "mortis"
@@ -146,7 +143,7 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-# Don't do mqttws as it conflicts with same cert problem
+# TODO : Don't do mqttws as it conflicts with SAME cert problem, Need complete set of new certs with mqtts
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
@@ -154,8 +151,6 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
 async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment(
     protocol,
 ):
-    print("running intermediate")
-    print(protocol)
     group_id = "e2e-intermediate-durmstrang" + str(uuid.uuid4())
     common_device_id = "e2edpsinterdevice"
     devices_indices = type_to_device_indices.get("group_intermediate")

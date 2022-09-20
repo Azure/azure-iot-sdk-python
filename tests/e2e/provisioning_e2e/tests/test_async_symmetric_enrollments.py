@@ -18,14 +18,6 @@ import logging
 import os
 import uuid
 
-# from . import path_adjust  # noqa: F401
-#
-# # Refers to an item in "scripts" in the root. This is made to work via the above path_adjust
-# from .create_x509_chain_crypto import (
-#     create_private_key,
-#     create_csr,
-# )
-
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
 

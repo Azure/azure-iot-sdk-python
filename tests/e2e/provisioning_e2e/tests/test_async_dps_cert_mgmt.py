@@ -16,7 +16,6 @@ from ..provisioningservice.protocol.models import (
     X509Attestation,
     X509CAReferences,
     ClientCertificateIssuancePolicy,
-    # SymmetricKeyAttestation,
 )
 from ..provisioningservice.client import ProvisioningServiceClient
 
@@ -143,19 +142,10 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_gro
     device_count_in_group = len(devices_indices)
     common_device_id = "e2edpsgroupsymmetric"
     try:
-        # master_key = str(uuid.uuid4())
-        # symmetric_key = SymmetricKeyAttestation(primary_key=master_key)
         attestation_mechanism = AttestationMechanism(type="symmetricKey")
-        # attestation_mechanism = AttestationMechanism(
-        #     type="symmetricKey", symmetric_key=symmetric_key
-        # )
         eg = create_enrollment_group(group_id=group_id, attestation_mechanism=attestation_mechanism)
         master_key = eg.attestation.symmetric_key.primary_key
-        print("a valid master key has been created")
-        print(master_key)
-        print("enrollment group has been created")
         count = 0
-
         for index in devices_indices:
             count = count + 1
             device_id = common_device_id + str(index)
@@ -188,11 +178,9 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_gro
             csr_file = "request" + str(index) + ".pem"
             issued_cert_file = "cert" + str(index) + ".pem"
             delete_client_certs(key_file, csr_file, issued_cert_file)
-        print("deleting enrollment group")
-        # service_client.delete_enrollment_group_by_param(group_id)
+        service_client.delete_enrollment_group_by_param(group_id)
 
 
-@pytest.mark.skip()
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -240,7 +228,6 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-@pytest.mark.skip()
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with device_id equal to the registration_id of the "
     "individual enrollment that has been created with a selfsigned X509 authentication"
