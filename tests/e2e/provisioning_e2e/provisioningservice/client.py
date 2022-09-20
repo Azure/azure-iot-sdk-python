@@ -12,10 +12,10 @@ from msrest.pipeline import ClientRawResponse
 from .protocol import models
 import logging
 
-BULKOP_CREATE = "create"
-BULKOP_DELETE = "delete"
-BULKOP_UPDATE = "update"
-BULKOP_UPDATE_IF_MATCH_ETAG = "updateIfMatchETag"
+# BULKOP_CREATE = "create"
+# BULKOP_DELETE = "delete"
+# BULKOP_UPDATE = "update"
+# BULKOP_UPDATE_IF_MATCH_ETAG = "updateIfMatchETag"
 
 ENROLLMENTS_URL = "/enrollments/{id}/"
 ENROLLMENT_GROUPS_URL = "/enrollmentGroups/{id}"
@@ -23,14 +23,14 @@ REGISTRATIONS_URL = "/registrations/{id}"
 logging.basicConfig(level=logging.DEBUG)
 
 
-def _unwrap_model(model):
-    if model.initial_twin:  # LBYL for efficiency - nothing exceptional about this situation
-        model.initial_twin = model.initial_twin._unwrap()
-
-
-def _wrap_model(model):
-    if model.initial_twin:
-        model.initial_twin = model.initial_twin._wrap()
+# def _unwrap_model(model):
+#     if model.initial_twin:  # LBYL for efficiency - nothing exceptional about this situation
+#         model.initial_twin = model.initial_twin._unwrap()
+#
+#
+# def _wrap_model(model):
+#     if model.initial_twin:
+#         model.initial_twin = model.initial_twin._wrap()
 
 
 class ProvisioningServiceClientConfiguration(Configuration):
@@ -196,8 +196,8 @@ class ProvisioningServiceClient(SDKClient):
             client_raw_response = ClientRawResponse(result, response)
             return client_raw_response
 
-        _wrap_model(enrollment)  # rewrap input
-        _wrap_model(result)
+        # _wrap_model(enrollment)  # rewrap input
+        # _wrap_model(result)
         return result
 
     def create_or_update_enrollment_group(
@@ -241,8 +241,8 @@ class ProvisioningServiceClient(SDKClient):
             client_raw_response = ClientRawResponse(result, response)
             return client_raw_response
 
-        _wrap_model(enrollment_group)  # rewrap input
-        _wrap_model(result)
+        # _wrap_model(enrollment_group)  # rewrap input
+        # _wrap_model(result)
         return result
 
     def delete_individual_enrollment_by_param(
