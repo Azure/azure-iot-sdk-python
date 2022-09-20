@@ -39,7 +39,6 @@ from create_x509_chain_crypto import (
 )
 from ..provisioningservice.protocol.models import X509Certificates
 
-# pytestmark = [pytest.mark.skip, pytest.mark.asyncio]
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
 
