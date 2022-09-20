@@ -51,14 +51,10 @@ linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRI
 PROVISIONING_HOST = os.getenv("PROVISIONING_DEVICE_ENDPOINT")
 ID_SCOPE = os.getenv("PROVISIONING_DEVICE_IDSCOPE")
 
-# certificate_count = 8
 type_to_device_indices = {
     "individual_with_device_id": [1],
-    # "individual_with_device_id_ws": [2],
     "individual_no_device_id": [2],
-    # "individual_no_device_id_ws": [4],
     "group_intermediate": [3, 4],
-    # "group_intermediate_ws": [7, 8],
     "group_ca": [5, 6],
 }
 
@@ -200,8 +196,6 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
 
             device_registry_helper.try_delete_device(device_id)
-            print("device was provisioned")
-            print(device_id)
 
         assert count == device_count_in_group
 
@@ -219,8 +213,6 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
 async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment(
     protocol,
 ):
-    print("running ca")
-    print(protocol)
     group_id = "e2e-ca-ilvermorny" + str(uuid.uuid4())
     common_device_id = "e2edpscadevice"
     devices_indices = type_to_device_indices.get("group_ca")
@@ -268,8 +260,6 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
             )
 
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
-            print("device was provisioned for ca")
-            print(device_id)
             device_registry_helper.try_delete_device(device_id)
 
         assert count == device_count_in_group
@@ -290,9 +280,6 @@ def assert_device_provisioned(device_id, registration_result):
     device = device_registry_helper.get_device(device_id)
     assert device is not None
     assert device.authentication.type == "selfSigned"
-    print("assertions")
-    print(device_id)
-    print(device.authentication.type)
     assert device.device_id == device_id
 
 

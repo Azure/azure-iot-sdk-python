@@ -6,33 +6,6 @@
 # --------------------------------------------------------------------------
 
 try:
-    #     from .provisioning_service_error_details_py3 import (
-    #         ProvisioningServiceErrorDetails,
-    #         ProvisioningServiceErrorDetailsException,
-    #     )
-    #     from .device_capabilities_py3 import DeviceCapabilities
-    #     from .device_registration_state_py3 import DeviceRegistrationState
-    #     from .tpm_attestation_py3 import TpmAttestation
-    #     from .x509_certificate_info_py3 import X509CertificateInfo
-    #     from .x509_certificate_with_info_py3 import X509CertificateWithInfo
-    #     from .x509_certificates_py3 import X509Certificates
-    #     from .x509_ca_references_py3 import X509CAReferences
-    #     from .x509_attestation_py3 import X509Attestation
-    #     from .symmetric_key_attestation_py3 import SymmetricKeyAttestation
-    #     from .attestation_mechanism_py3 import AttestationMechanism
-    #     from .metadata_py3 import Metadata
-    #     from .twin_collection_py3 import TwinCollection
-    #     from .initial_twin_properties_py3 import InitialTwinProperties
-    #     from .initial_twin_py3 import InitialTwin
-    #     from .reprovision_policy_py3 import ReprovisionPolicy
-    #     from .custom_allocation_definition_py3 import CustomAllocationDefinition
-    #     from .individual_enrollment_py3 import IndividualEnrollment
-    #     from .enrollment_group_py3 import EnrollmentGroup
-    #     from .bulk_enrollment_operation_py3 import BulkEnrollmentOperation
-    #     from .bulk_enrollment_operation_error_py3 import BulkEnrollmentOperationError
-    #     from .bulk_enrollment_operation_result_py3 import BulkEnrollmentOperationResult
-    #     from .query_specification_py3 import QuerySpecification
-    # except (SyntaxError, ImportError):
     from .provisioning_service_error_details import (
         ProvisioningServiceErrorDetails,
         ProvisioningServiceErrorDetailsException,

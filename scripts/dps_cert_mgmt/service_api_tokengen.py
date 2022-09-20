@@ -7,12 +7,12 @@ from hmac import HMAC
 # For Service API token, uri is your DPS Service endpoint
 # This can be found in the DPS 'Overview' blade
 # e.g mydps.azure-devices-provisioning.net
-uri = "dpscert-mac-westcentralus.azure-devices-provisioning.net"
+uri = "<DPS Service endpoint>"
 
 # For Service API token, paste the primary or secondary key belonging to the provisioningservice owner.
 # This can be found in the DPS 'Shared access policies' blade
 # under 'Primary key' or 'Secondary key'
-key = "wIOrm9ma6zHxEHgdD0YRhAqnM7G8gif/0O+EBc/Q02U="
+key = "<Primary key or Secondary key>"
 
 policy_name = "provisioningserviceowner"
 expiry = 3600

@@ -4,12 +4,6 @@
 
 from .utils import auth
 
-# from .protocol.models import (
-# IndividualEnrollment,
-# EnrollmentGroup,
-# DeviceRegistrationState,
-# ProvisioningServiceErrorDetailsException,
-# )
 from msrest.service_client import SDKClient
 from msrest import Configuration, Serializer, Deserializer
 from .protocol.version import VERSION
@@ -26,8 +20,7 @@ BULKOP_UPDATE_IF_MATCH_ETAG = "updateIfMatchETag"
 ENROLLMENTS_URL = "/enrollments/{id}/"
 ENROLLMENT_GROUPS_URL = "/enrollmentGroups/{id}"
 REGISTRATIONS_URL = "/registrations/{id}"
-
-logging.basicConfig(level=logging.DEBUG, filename="sync_enroll.log")
+logging.basicConfig(level=logging.DEBUG)
 
 
 def _unwrap_model(model):
@@ -203,13 +196,9 @@ class ProvisioningServiceClient(SDKClient):
             client_raw_response = ClientRawResponse(result, response)
             return client_raw_response
 
-        # return result
-
         _wrap_model(enrollment)  # rewrap input
         _wrap_model(result)
         return result
-
-        # create_or_update_individual_enrollment.metadata = {"url": "/enrollments/{id}"}
 
     def create_or_update_enrollment_group(
         self, enrollment_group, etag=None, custom_headers=None, raw=False, **operation_config
@@ -252,84 +241,9 @@ class ProvisioningServiceClient(SDKClient):
             client_raw_response = ClientRawResponse(result, response)
             return client_raw_response
 
-        # return result
-
         _wrap_model(enrollment_group)  # rewrap input
         _wrap_model(result)
         return result
-
-    # def get_individual_enrollment(
-    #     self, registration_id, custom_headers=None, raw=False, **operation_config
-    # ):
-    #     """
-    #     Retrieve an Individual Enrollment from the Provisioning Service
-    #
-    #     :param str registration_id: The registration id of the target Individual Enrollment
-    #     :param dict custom_headers: headers that will be added to the request
-    #     :param bool raw: returns the direct response alongside the deserialized response
-    #     :param operation_config: :ref:`Operation configuration overrides<msrest:optionsforoperations>`.
-    #     :returns: Individual Enrollment from the Provisioning Service corresponding to the given
-    #      registration id
-    #     :rtype: :class:`IndividualEnrollment<provisioningserviceclient.models.IndividualEnrollment>`
-    #     :raises: :class:ProvisioningServiceError <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
-    #      Provisioning Service
-    #     """
-    #     result = None
-    #     # Construct URL
-    #     url = self.get_individual_enrollment.metadata["url"]
-    #     path_format_arguments = {"id": self._serialize.url("id", registration_id, "str")}
-    #     url = self._client.format_url(url, **path_format_arguments)
-    #
-    #     # Construct parameters
-    #     query_parameters = {}
-    #     query_parameters["api-version"] = self._serialize.query(
-    #         "self.api_version", self.api_version, "str"
-    #     )
-    #
-    #     # Construct headers
-    #     header_parameters = {}
-    #     header_parameters["Accept"] = "application/json"
-    #     if custom_headers:
-    #         header_parameters.update(custom_headers)
-    #
-    #     # Construct and send request
-    #     request = self._client.get(url, query_parameters, header_parameters)
-    #     response = self._client.send(request, stream=False, **operation_config)
-    #
-    #     if response.status_code not in [200]:
-    #         raise models.ProvisioningServiceErrorDetailsException(self._deserialize, response)
-    #
-    #     if response.status_code == 200:
-    #         result = self._deserialize("IndividualEnrollment", response)
-    #
-    #     if raw:
-    #         result = ClientRawResponse(result, response)
-    #     _wrap_model(result)
-    #     return result
-    #
-    #     get_individual_enrollment.metadata = {"url": "/enrollments/{id}"}
-
-    # def get_enrollment_group(self, group_id):
-    #     """
-    #     Retrieve an Enrollment Group from the Provisioning Service
-    #
-    #     :param str group_id: The group id of the target Enrollment Group
-    #     :returns: Enrollment Group from the Provisioning Service corresponding to the given
-    #      group id
-    #     :rtype: :class:`EnrollmentGroup<provisioningserviceclient.models.EnrollmentGroup>`
-    #     :raises: :class:ProvisioningServiceError
-    #      <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
-    #      Provisioning Service
-    #     """
-    #     try:
-    #         result = self._runtime_client.get_enrollment_group(group_id)
-    #     except ProvisioningServiceErrorDetailsException as e:
-    #         raise ProvisioningServiceError(
-    #             self.err_msg.format(e.response.status_code, e.response.reason), e
-    #         )
-    #
-    #     _wrap_model(result)
-    #     return result
 
     def delete_individual_enrollment_by_param(
         self, registration_id, etag=None, custom_headers=None, raw=False, **operation_config
@@ -414,106 +328,3 @@ class ProvisioningServiceClient(SDKClient):
         if raw:
             client_raw_response = ClientRawResponse(None, response)
             return client_raw_response
-
-
-# class Query(object):
-#     """
-#     Query object that can be used to iterate over Provisioning Service data.
-#     Note that for general usage, Query objects should be generated using a
-#     :class:`ProvisioningServiceClient<provisioningserviceclient.ProvisioningServiceClient>`
-#     instance, not directly constructed.
-#
-#     :param query_spec_or_id: The Query Specification or registration id
-#     :type query_spec_or_id: :class:`QuerySpecification
-#      <provisioningserviceclient.QuerySpecification>` or str
-#     :param query_fn: Function pointer to make HTTP query request. Note well that it must take args
-#      in the format query_fn(qs: QuerySpecification, cust_headers: dict, raw_resp: bool) or
-#      query_fn(id: str, cust_headers: dict, raw_resp:bool) and return an instance of
-#      :class:`ClientRawResponse<msrest.pipeline.ClientRawResponse>` when raw_resp == True
-#     :type query_fn: Function pointer
-#     :param sastoken_factory: Sas Token Factory to generate Sas Tokens
-#     :type sastoken_factory: :class:`SasTokenFactory<utils.sastoken.SasTokenFactory>`
-#     :param int page_size: Max number of results per page of query response
-#     :ivar page_size: Max number of results per page of query response
-#     :ivar has_next: Indicates if the Query has more results to return
-#     :ivar continuation_token: Token indicating current position in list of results
-#     :raises: TypeError if given invalid type
-#     """
-#
-#     page_size_header = "x-ms-max-item-count"
-#     continuation_token_header = "x-ms-continuation"
-#     item_type_header = "x-ms-item-type"
-#
-#     err_msg = "Service Error {} - {}"
-#
-#     def __init__(self, query_spec_or_id, query_fn, page_size=None):
-#         self._query_spec_or_id = query_spec_or_id
-#         self._query_fn = query_fn
-#         self.page_size = page_size
-#         self.has_next = True
-#         self.continuation_token = None
-#
-#     def __iter__(self):
-#         self.continuation_token = None
-#         return self
-#
-#     def __next__(self):
-#         return self.next()
-#
-#     @property
-#     def page_size(self):
-#         return self._page_size
-#
-#     @page_size.setter
-#     def page_size(self, value):
-#         if value is None or value > 0:
-#             self._page_size = value
-#         else:
-#             raise ValueError("Page size must be a positive number")
-#
-#     def next(self, continuation_token=None):
-#         """
-#         Get the next page of query results
-#
-#         :param str continuation_token: Token indicating a specific starting point in the set
-#          of all results
-#         :returns: The next page of results
-#         :rtype: list[:class:`IndividualEnrollment
-#          <provisioningserviceclient.models.IndividualEnrollment>`]
-#         :raises: StopIteration if there are no more results or
-#          :class:`ProvisioningServiceError<provisioningserviceclient.ProvisioningServiceError>` if an
-#          error occurs on the Provisioning Service
-#         """
-#         if not self.has_next:
-#             raise StopIteration("No more results")
-#
-#         if not continuation_token:
-#             continuation_token = self.continuation_token
-#
-#         if self.page_size is not None:
-#             page_size = str(self._page_size)
-#         else:
-#             page_size = self._page_size
-#
-#         try:
-#             raw_resp = self._query_fn(
-#                 self._query_spec_or_id, page_size, continuation_token, raw=True
-#             )
-#         except ProvisioningServiceErrorDetailsException as e:
-#             raise ProvisioningServiceError(
-#                 self.err_msg.format(e.response.status_code, e.response.reason), e
-#             )
-#
-#         if not raw_resp.output:
-#             raise StopIteration("No more results")
-#
-#         self.continuation_token = raw_resp.headers[Query.continuation_token_header]
-#         self.has_next = self.continuation_token is not None
-#
-#         # wrap results
-#         output = []
-#         for item in raw_resp.output:
-#             _wrap_model(item)
-#             output.append(item)
-#
-#         return output

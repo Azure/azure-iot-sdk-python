@@ -15,13 +15,6 @@ from ..utils.connection_string import (
 )
 from ..utils.sastoken import SasToken
 
-# from provisioningserviceclient.utils.connection_string import ConnectionString
-# from provisioningserviceclient.utils.connection_string import (
-#     HOST_NAME,
-#     SHARED_ACCESS_KEY_NAME,
-#     SHARED_ACCESS_KEY,
-# )
-# from provisioningserviceclient.utils.sastoken import SasToken
 
 __all__ = ["ConnectionStringAuthentication"]
 
