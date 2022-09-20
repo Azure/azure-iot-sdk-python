@@ -150,7 +150,7 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_gro
         #     type="symmetricKey", symmetric_key=symmetric_key
         # )
         eg = create_enrollment_group(group_id=group_id, attestation_mechanism=attestation_mechanism)
-        master_key = eg.attestation.symmetricKey
+        master_key = eg.attestation.symmetric_key.primary_key
         print("a valid master key has been created")
         print(master_key)
         print("enrollment group has been created")
