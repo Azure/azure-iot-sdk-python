@@ -28,7 +28,6 @@ from create_x509_chain_crypto import (
     create_private_key,
     create_csr,
 )
-from dev_utils.provisioningservice.protocol import X509Certificates
 
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
@@ -467,7 +466,7 @@ def create_x509_client_or_sign_certs(is_client, primary_cert, secondary_cert=Non
     secondary = None
     if secondary_cert:
         secondary = models.X509CertificateWithInfo(certificate=secondary_cert)
-    certs = X509Certificates(primary=primary, secondary=secondary)
+    certs = models.X509Certificates(primary=primary, secondary=secondary)
     if is_client:
         x509_attestation = models.X509Attestation(client_certificates=certs)
     else:
