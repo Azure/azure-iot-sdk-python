@@ -159,7 +159,7 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
             reprovision_policy=reprovision_policy,
         )
 
-        service_client.create_or_update(enrollment_group_provisioning_model)
+        service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
 
         count = 0
         common_device_key_input_file = "demoCA/private/device_key"
@@ -221,7 +221,7 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authenticatio
             reprovision_policy=reprovision_policy,
         )
 
-        service_client.create_or_update(enrollment_group_provisioning_model)
+        service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
 
         count = 0
         intermediate_cert_filename = "demoCA/newcerts/intermediate_cert.pem"
