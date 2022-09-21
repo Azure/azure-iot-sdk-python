@@ -73,7 +73,7 @@ async def main():
         await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
 
         # finally, disconnect
-        await device_client.disconnect()
+        await device_client.shutdown()
     else:
         print("Can not send telemetry from the provisioned device")
 
