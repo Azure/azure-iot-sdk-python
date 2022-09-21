@@ -7,8 +7,8 @@
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device.aio import ProvisioningDeviceClient, IoTHubDeviceClient
 from azure.iot.device.common import X509
-from provisioningservice.protocol import models
-from provisioningservice.client import ProvisioningServiceClient
+from dev_utils.provisioningservice.protocol import models
+from dev_utils.provisioningservice import ProvisioningServiceClient
 
 import pytest
 import logging
@@ -28,7 +28,7 @@ from create_x509_chain_crypto import (
     create_private_key,
     create_csr,
 )
-from provisioningservice.protocol.models import X509Certificates
+from dev_utils.provisioningservice.protocol import X509Certificates
 
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
