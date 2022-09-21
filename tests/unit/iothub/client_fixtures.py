@@ -195,6 +195,8 @@ def mock_edge_hsm(mocker):
 class FakeIoTHubPipeline:
     def __init__(self):
         self.feature_enabled = {}  # This just has to be here for the spec
+        self.connected = True  # Necessary for a small amount of tests
+        self._nucleus = None  # Necessary for a small amount of tests
 
     def shutdown(self, callback):
         callback()

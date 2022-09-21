@@ -143,23 +143,49 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         self._check_receive_mode_is_handler()
 
-        # Enable the feature if necessary
-        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
-            # We have to call this on a loop running on a different thread in order to ensure
-            # the setter can be called both within a coroutine (with a running event loop) and
-            # outside of a coroutine (where no event loop is currently running)
-            loop = loop_management.get_client_internal_loop()
-            fut = asyncio.run_coroutine_threadsafe(self._enable_feature(feature_name), loop=loop)
-            fut.result()
+        # Enable or Disable the feature if already connected (or if auto-connect is enabled).
+        # Otherwise, set the handler and feature will be enabled/disabled upon next connection.
+        # NOTE: It isn't great we have to check auto-connect from this level, but it is what it is
+        if (
+            self._mqtt_pipeline.connected
+            or self._mqtt_pipeline._nucleus.pipeline_configuration.auto_connect
+        ):
 
-        # Disable the feature if necessary
-        elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
-            # We have to call this on a loop running on a different thread in order to ensure
-            # the setter can be called both within a coroutine (with a running event loop) and
-            # outside of a coroutine (where no event loop is currently running)
-            loop = loop_management.get_client_internal_loop()
-            fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
-            fut.result()
+            # Enable the feature if necessary
+            if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
+                # We have to call this on a loop running on a different thread in order to ensure
+                # the setter can be called both within a coroutine (with a running event loop) and
+                # outside of a coroutine (where no event loop is currently running)
+                logger.debug(
+                    "Setting {} handler requires enabling feature {}".format(
+                        handler_name, feature_name
+                    )
+                )
+                loop = loop_management.get_client_internal_loop()
+                fut = asyncio.run_coroutine_threadsafe(
+                    self._enable_feature(feature_name), loop=loop
+                )
+                fut.result()
+
+            # Disable the feature if necessary
+            elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
+                # We have to call this on a loop running on a different thread in order to ensure
+                # the setter can be called both within a coroutine (with a running event loop) and
+                # outside of a coroutine (where no event loop is currently running)
+                logger.debug(
+                    "Un-setting {} handler requires disabling feature {}".format(
+                        handler_name, feature_name
+                    )
+                )
+                loop = loop_management.get_client_internal_loop()
+                fut = asyncio.run_coroutine_threadsafe(
+                    self._disable_feature(feature_name), loop=loop
+                )
+                fut.result()
+        else:
+            logger.debug(
+                "Client not yet connected - corresponding feature will be enabled/disabled upon next connect"
+            )
 
         # Set the handler on the handler manager
         setattr(self._handler_manager, handler_name, new_handler)

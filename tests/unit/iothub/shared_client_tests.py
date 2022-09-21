@@ -681,11 +681,14 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
 
     @pytest.mark.it(
-        "Implicitly enables the corresponding feature if not already enabled, when a handler value is set"
+        "Implicitly enables the corresponding feature if not already enabled, when a handler value is set while the client is already connected"
     )
-    def test_enables_feature_only_if_not_already_enabled(
-        self, mocker, client, handler, handler_name, feature_name, mqtt_pipeline
+    def test_enables_feature_only_if_not_yet_enabled_and_already_connected(
+        self, client, handler, handler_name, feature_name, mqtt_pipeline
     ):
+        assert getattr(client, handler_name) is None
+        # Client will appear connected
+        mqtt_pipeline.connected = True
         # Feature will appear disabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = False
         # Set handler
@@ -693,7 +696,11 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         # Feature was enabled
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == feature_name
+        # Handler was set
+        assert getattr(client, handler_name) is handler
 
+        # Reset
+        setattr(client, handler_name, None)
         mqtt_pipeline.enable_feature.reset_mock()
 
         # Feature will appear already enabled
@@ -702,6 +709,61 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         setattr(client, handler_name, handler)
         # Feature was not enabled again
         assert mqtt_pipeline.enable_feature.call_count == 0
+        # Handler was set
+        assert getattr(client, handler_name) is handler
+
+    @pytest.mark.it(
+        "Implicitly enables the corresponding feature if not already enabled, when a handler value is set while auto-connect is enabled"
+    )
+    def test_enables_feature_only_if_not_yet_enabled_and_autoconnect_enabled(
+        self, mocker, client, handler, handler_name, feature_name, mqtt_pipeline
+    ):
+        assert getattr(client, handler_name) is None
+        # Client will appear disconnected
+        mqtt_pipeline.connected = False
+        # Auto-connect will appear enabled
+        mqtt_pipeline._nucleus = mocker.MagicMock()
+        mqtt_pipeline._nucleus.pipeline_configuration.auto_connect = True
+        # Feature will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+        # Set handler
+        setattr(client, handler_name, handler)
+        # Feature was enabled
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == feature_name
+        # Handler was set
+        assert getattr(client, handler_name) is handler
+
+        # Reset
+        setattr(client, handler_name, None)
+        mqtt_pipeline.enable_feature.reset_mock()
+
+        # Feature will appear already enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True
+        # Set handler
+        setattr(client, handler_name, handler)
+        # Feature was not enabled again
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Handler was set
+        assert getattr(client, handler_name) is handler
+
+    @pytest.mark.it(
+        "Does not enable the corresponding feature when a handler is set while the client is disconnected and auto-connect is disabled"
+    )
+    def test_no_enable(self, mocker, client, handler, handler_name, mqtt_pipeline):
+        # Client will appear disconnected
+        mqtt_pipeline.connected = False
+        # Auto-connect will appear disabled
+        mqtt_pipeline._nucleus = mocker.MagicMock()
+        mqtt_pipeline._nucleus.pipeline_configuration.auto_connect = False
+        # Feature will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+        # Set handler
+        setattr(client, handler_name, handler)
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Handler was set
+        assert getattr(client, handler_name) is handler
 
     @pytest.mark.it(
         "Raises a client error and does not set the handler if enabling the corresponding feature fails"
@@ -750,6 +812,8 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
     def test_enable_feature_fails(
         self, mocker, client, handler, handler_name, mqtt_pipeline, pipeline_error, client_error
     ):
+        # Client will appear connected
+        mqtt_pipeline.connected = True
         # Feature will appear disabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = False
         # Handler is not set
@@ -772,11 +836,16 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         assert getattr(client, handler_name) is None
 
     @pytest.mark.it(
-        "Implicitly disables the corresponding feature if not already disabled, when handler value is set back to None"
+        "Implicitly disables the corresponding feature if not already disabled, when handler value is set back to None while the client is already connected"
     )
-    def test_disables_feature_only_if_not_already_disabled(
-        self, mocker, client, handler_name, feature_name, mqtt_pipeline
+    def test_disables_feature_only_if_not_yet_disabled_and_already_connected(
+        self, client, handler, handler_name, feature_name, mqtt_pipeline
     ):
+        # Initial setup
+        setattr(client, handler_name, handler)
+        assert getattr(client, handler_name) is handler
+        # Client will appear connected
+        mqtt_pipeline.connected = True
         # Feature will appear enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = True
         # Set handler to None
@@ -784,7 +853,11 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         # Feature was disabled
         assert mqtt_pipeline.disable_feature.call_count == 1
         assert mqtt_pipeline.disable_feature.call_args[0][0] == feature_name
+        # Handler was set
+        assert getattr(client, handler_name) is None
 
+        # Reset
+        setattr(client, handler_name, handler)
         mqtt_pipeline.disable_feature.reset_mock()
 
         # Feature will appear already disabled
@@ -793,6 +866,63 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         setattr(client, handler_name, None)
         # Feature was not disabled again
         assert mqtt_pipeline.disable_feature.call_count == 0
+        # Handler was set
+        assert getattr(client, handler_name) is None
+
+    @pytest.mark.it(
+        "Implicitly disables the corresponding feature if not already disabled, when handler value is set back to None while the client is already connected"
+    )
+    def test_disables_feature_only_if_not_yet_disabled_and_autoconnect_enabled(
+        self, mocker, client, handler, handler_name, feature_name, mqtt_pipeline
+    ):
+        # Initial setup
+        setattr(client, handler_name, handler)
+        assert getattr(client, handler_name) is handler
+        # Client will appear disconnected
+        mqtt_pipeline.connected = False
+        # Auto-connect will appear enabled
+        mqtt_pipeline._nucleus = mocker.MagicMock()
+        mqtt_pipeline._nucleus.pipeline_configuration.auto_connect = True
+        # Feature will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True
+        # Set handler to None
+        setattr(client, handler_name, None)
+        # Feature was disabled
+        assert mqtt_pipeline.disable_feature.call_count == 1
+        assert mqtt_pipeline.disable_feature.call_args[0][0] == feature_name
+        # Handler was set
+        assert getattr(client, handler_name) is None
+
+        # Reset
+        setattr(client, handler_name, handler)
+        mqtt_pipeline.disable_feature.reset_mock()
+
+        # Feature will appear already disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+        # Set handler to None
+        setattr(client, handler_name, None)
+        # Feature was not disabled again
+        assert mqtt_pipeline.disable_feature.call_count == 0
+        # Handler was set
+        assert getattr(client, handler_name) is None
+
+    @pytest.mark.it(
+        "Does not disable the corresponding feature when a handler is set to None while the client is disconnected and auto-connect is disabled"
+    )
+    def test_no_disable(self, mocker, client, handler_name, mqtt_pipeline):
+        # Client will appear disconnected
+        mqtt_pipeline.connected = False
+        # Auto-connect will appear disabled
+        mqtt_pipeline._nucleus = mocker.MagicMock()
+        mqtt_pipeline._nucleus.pipeline_configuration.auto_connect = False
+        # Feature will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+        # Set handler
+        setattr(client, handler_name, None)
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Handler was set
+        assert getattr(client, handler_name) is None
 
     @pytest.mark.it(
         "Raises a client error and does not set the handler to None if disabling the corresponding feature fails"
@@ -841,6 +971,8 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
     def test_disable_feature_fails(
         self, mocker, client, handler, handler_name, mqtt_pipeline, pipeline_error, client_error
     ):
+        # Client will appear connected
+        mqtt_pipeline.connected = True
         # Feature will appear enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = True
         # Set spurious existing handler
