@@ -8,7 +8,7 @@ from provisioning_e2e.service_helper import Helper, connection_string_to_hostnam
 from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device.common import X509
 from dev_utils.provisioningservice.protocol import models
-from dev_utils.provisioningservice import ProvisioningServiceClient
+from dev_utils.provisioningservice.client import ProvisioningServiceClient
 
 import pytest
 import logging
