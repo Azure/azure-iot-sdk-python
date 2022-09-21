@@ -6,8 +6,8 @@
 
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device.aio import ProvisioningDeviceClient
-from ..provisioningservice.protocol import models
-from ..provisioningservice.client import ProvisioningServiceClient
+from provisioningservice.protocol import models
+from provisioningservice.client import ProvisioningServiceClient
 import pytest
 import logging
 import os
