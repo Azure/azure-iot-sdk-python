@@ -7,16 +7,7 @@
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device.aio import ProvisioningDeviceClient, IoTHubDeviceClient
 from azure.iot.device.common import X509
-from ..provisioningservice.protocol.models import (
-    IndividualEnrollment,
-    AttestationMechanism,
-    ReprovisionPolicy,
-    EnrollmentGroup,
-    X509CertificateWithInfo,
-    X509Attestation,
-    X509CAReferences,
-    ClientCertificateIssuancePolicy,
-)
+from ..provisioningservice.protocol import models
 from ..provisioningservice.client import ProvisioningServiceClient
 
 import pytest
@@ -100,7 +91,7 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_ind
     csr_file = "request.pem"
     issued_cert_file = "cert.pem"
     try:
-        attestation_mechanism = AttestationMechanism(type="symmetricKey")
+        attestation_mechanism = models.AttestationMechanism(type="symmetricKey")
         individual_enrollment_record = create_individual_enrollment(
             registration_id=registration_id,
             attestation_mechanism=attestation_mechanism,
@@ -141,7 +132,7 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_gro
     device_count_in_group = len(devices_indices)
     common_device_id = "e2edpsgroupsymmetric"
     try:
-        attestation_mechanism = AttestationMechanism(type="symmetricKey")
+        attestation_mechanism = models.AttestationMechanism(type="symmetricKey")
         eg = create_enrollment_group(group_id=group_id, attestation_mechanism=attestation_mechanism)
         master_key = eg.attestation.symmetric_key.primary_key
         count = 0
@@ -191,7 +182,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
     try:
         cert_content = read_cert_content_from_file(device_index=device_index)
         x509 = create_x509_client_or_sign_certs(is_client=True, primary_cert=cert_content)
-        attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+        attestation_mechanism = models.AttestationMechanism(type="x509", x509=x509)
         individual_enrollment_record = create_individual_enrollment(
             registration_id=registration_id,
             attestation_mechanism=attestation_mechanism,
@@ -238,7 +229,7 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
     try:
         cert_content = read_cert_content_from_file(device_index=device_index)
         x509 = create_x509_client_or_sign_certs(is_client=True, primary_cert=cert_content)
-        attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+        attestation_mechanism = models.AttestationMechanism(type="x509", x509=x509)
         individual_enrollment_record = create_individual_enrollment(
             registration_id=registration_id,
             attestation_mechanism=attestation_mechanism,
@@ -297,7 +288,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
             is_client=False,
             primary_cert=intermediate_cert_content,
         )
-        attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+        attestation_mechanism = models.AttestationMechanism(type="x509", x509=x509)
         create_enrollment_group(group_id=group_id, attestation_mechanism=attestation_mechanism)
         count = 0
         common_device_key_input_file = "demoCA/private/device_key"
@@ -368,7 +359,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
     try:
         DPS_GROUP_CA_CERT = os.getenv("PROVISIONING_ROOT_CERT")
         x509 = create_x509_ca_refs(primary_ref=DPS_GROUP_CA_CERT)
-        attestation_mechanism = AttestationMechanism(type="x509", x509=x509)
+        attestation_mechanism = models.AttestationMechanism(type="x509", x509=x509)
         create_enrollment_group(group_id=group_id, attestation_mechanism=attestation_mechanism)
         count = 0
         intermediate_cert_filename = "demoCA/newcerts/intermediate_cert.pem"
@@ -452,14 +443,14 @@ def create_individual_enrollment(
     device_id=None,
     client_ca_name=None,
 ):
-    reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
+    reprovision_policy = models.ReprovisionPolicy(migrate_device_data=True)
     client_certificate_issuance_policy = None
     if client_ca_name:
-        client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
+        client_certificate_issuance_policy = models.ClientCertificateIssuancePolicy(
             certificate_authority_name=client_ca_name
         )
 
-    individual_provisioning_model = IndividualEnrollment(
+    individual_provisioning_model = models.IndividualEnrollment(
         attestation=attestation_mechanism,
         registration_id=registration_id,
         reprovision_policy=reprovision_policy,
@@ -472,21 +463,21 @@ def create_individual_enrollment(
 
 def create_x509_client_or_sign_certs(is_client, primary_cert, secondary_cert=None):
 
-    primary = X509CertificateWithInfo(certificate=primary_cert)
+    primary = models.X509CertificateWithInfo(certificate=primary_cert)
     secondary = None
     if secondary_cert:
-        secondary = X509CertificateWithInfo(certificate=secondary_cert)
+        secondary = models.X509CertificateWithInfo(certificate=secondary_cert)
     certs = X509Certificates(primary=primary, secondary=secondary)
     if is_client:
-        x509_attestation = X509Attestation(client_certificates=certs)
+        x509_attestation = models.X509Attestation(client_certificates=certs)
     else:
-        x509_attestation = X509Attestation(signing_certificates=certs)
+        x509_attestation = models.X509Attestation(signing_certificates=certs)
     return x509_attestation
 
 
 def create_x509_ca_refs(primary_ref, secondary_ref=None):
-    ca_refs = X509CAReferences(primary=primary_ref, secondary=secondary_ref)
-    x509_attestation = X509Attestation(ca_references=ca_refs)
+    ca_refs = models.X509CAReferences(primary=primary_ref, secondary=secondary_ref)
+    x509_attestation = models.X509Attestation(ca_references=ca_refs)
     return x509_attestation
 
 
@@ -549,11 +540,11 @@ async def register_via_symmetric_key(registration_id, symmetric_key, protocol, c
 
 def create_enrollment_group(group_id, attestation_mechanism):
 
-    reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
-    client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
+    reprovision_policy = models.ReprovisionPolicy(migrate_device_data=True)
+    client_certificate_issuance_policy = models.ClientCertificateIssuancePolicy(
         certificate_authority_name=CLIENT_CERT_AUTH_NAME
     )
-    enrollment_group_provisioning_model = EnrollmentGroup(
+    enrollment_group_provisioning_model = models.EnrollmentGroup(
         enrollment_group_id=group_id,
         attestation=attestation_mechanism,
         reprovision_policy=reprovision_policy,
