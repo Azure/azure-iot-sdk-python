@@ -6,12 +6,7 @@
 
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device import ProvisioningDeviceClient
-from ..provisioningservice.protocol.models import (
-    IndividualEnrollment,
-    AttestationMechanism,
-    ReprovisionPolicy,
-    ClientCertificateIssuancePolicy,
-)
+from ..provisioningservice.protocol import models
 from ..provisioningservice.client import ProvisioningServiceClient
 import pytest
 import logging
@@ -80,22 +75,18 @@ def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollmen
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-def create_individual_enrollment(registration_id, device_id=None, client_ca_name=None):
+def create_individual_enrollment(registration_id, device_id=None):
     """
     Create an individual enrollment record using the service client
     :param registration_id: The registration id of the enrollment
     :param device_id:  Optional device id
     :return: And individual enrollment record
     """
-    reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
-    attestation_mechanism = AttestationMechanism(type="symmetricKey")
+    reprovision_policy = models.ReprovisionPolicy(migrate_device_data=True)
+    attestation_mechanism = models.AttestationMechanism(type="symmetricKey")
     client_certificate_issuance_policy = None
-    if client_ca_name:
-        client_certificate_issuance_policy = ClientCertificateIssuancePolicy(
-            certificate_authority_name=client_ca_name
-        )
 
-    individual_provisioning_model = IndividualEnrollment(
+    individual_provisioning_model = models.IndividualEnrollment(
         attestation=attestation_mechanism,
         registration_id=registration_id,
         device_id=device_id,
