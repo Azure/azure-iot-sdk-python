@@ -72,7 +72,7 @@ def before_all_tests(request):
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
-@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+@pytest.mark.parametrize("protocol", ["mqtt"])
 def test_device_register_with_device_id_for_a_x509_individual_enrollment(protocol):
     registration_id = ""
     device_id = "e2edpsflyingfeather"
@@ -102,7 +102,7 @@ def test_device_register_with_device_id_for_a_x509_individual_enrollment(protoco
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with device_id equal to the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
-@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+@pytest.mark.parametrize("protocol", ["mqtt"])
 def test_device_register_with_no_device_id_for_a_x509_individual_enrollment(protocol):
     registration_id = ""
     device_index = type_to_device_indices.get("individual_no_device_id")[0]
