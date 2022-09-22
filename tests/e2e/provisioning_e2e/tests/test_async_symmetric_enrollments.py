@@ -6,23 +6,15 @@
 
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device.aio import ProvisioningDeviceClient
-from azure.iot.device.aio import IoTHubDeviceClient
-from azure.iot.device.common import X509
-from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
-from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
+from dev_utils.provisioningservice.protocol import models
+from dev_utils.provisioningservice.client import ProvisioningServiceClient
 import pytest
 import logging
 import os
 import uuid
-from . import path_adjust  # noqa: F401
-from create_x509_chain_crypto import (
-    create_private_key,
-    create_csr,
-)
 
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
-
 
 PROVISIONING_HOST = os.getenv("PROVISIONING_DEVICE_ENDPOINT")
 ID_SCOPE = os.getenv("PROVISIONING_DEVICE_IDSCOPE")
@@ -33,8 +25,7 @@ service_client = ProvisioningServiceClient.create_from_connection_string(
 service_client = ProvisioningServiceClient.create_from_connection_string(conn_str)
 device_registry_helper = Helper(os.getenv("IOTHUB_CONNECTION_STRING"))
 linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRING"))
-# TODO Delete this line. This is a pre created variable in key vault now.
-symmetric_key_for_cert_management = os.getenv("DPS_CERT_ISSUANCE_SYM_KEY_AIO")
+CLIENT_CERT_AUTH_NAME = os.getenv("CLIENT_CERTIFICATE_AUTHORITY_NAME")
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +38,7 @@ logger = logging.getLogger(__name__)
 async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment(
     protocol,
 ):
+    registration_id = ""
     try:
         individual_enrollment_record = create_individual_enrollment(
             "e2e-dps-legilimens" + str(uuid.uuid4())
@@ -70,7 +62,7 @@ async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 async def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollment(protocol):
-
+    registration_id = ""
     device_id = "e2edpsgoldensnitch"
     try:
         individual_enrollment_record = create_individual_enrollment(
@@ -89,97 +81,29 @@ async def test_device_register_with_device_id_for_a_symmetric_key_individual_enr
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-@pytest.mark.it(
-    "A device requests a client cert by sending a certificate signing request "
-    "while being provisioned to the linked IoTHub with the device_id equal to the registration_id"
-    "of the individual enrollment that has been created with a symmetric key authentication"
-)
-@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
-async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_individual_enrollment(
-    protocol,
-):
-    key_file = "key.pem"
-    csr_file = "request.pem"
-    issued_cert_file = "cert.pem"
-
-    try:
-        # TODO Uncomment lines when service releases. Can not create enrollment record now as it
-        # TODO involves manual steps to associate the enrollment with Client and Server Profiles.
-        # individual_enrollment_record = create_individual_enrollment(
-        #     "e2e-dps-avis" + str(uuid.uuid4())
-        # )
-
-        # registration_id = individual_enrollment_record.registration_id
-        # symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
-
-        registration_id = "e2e-dps-avis"
-        symmetric_key = symmetric_key_for_cert_management
-
-        logger.debug("the symmetric key for e2e-dps-avis")
-        logger.debug(symmetric_key_for_cert_management)
-        private_key = create_private_key(key_file)
-        create_csr(private_key, csr_file, registration_id)
-
-        registration_result = await result_from_register(
-            registration_id, symmetric_key, protocol, csr_file=csr_file
-        )
-
-        assert_device_provisioned(
-            device_id=registration_id, registration_result=registration_result, client_cert=True
-        )
-        with open(issued_cert_file, "w") as out_ca_pem:
-            # Write the issued certificate on the file. This forms the certificate portion of the X509 object.
-            cert_data = registration_result.registration_state.issued_client_certificate
-            out_ca_pem.write(cert_data)
-
-        x509 = X509(
-            cert_file=issued_cert_file,
-            key_file=key_file,
-        )
-
-        device_client = IoTHubDeviceClient.create_from_x509_certificate(
-            hostname=registration_result.registration_state.assigned_hub,
-            device_id=registration_result.registration_state.device_id,
-            x509=x509,
-        )
-        # Connect the client.
-        await device_client.connect()
-        # Assert that this X509 was able to connect.
-        assert device_client.connected
-        await device_client.disconnect()
-
-        # TODO Uncomment this line. Right now do not delete the enrollment as it is not created on the fly.
-        # device_registry_helper.try_delete_device(registration_id)
-    finally:
-        # TODO Uncomment this line. Right now do not delete the enrollment as it is not created on the fly.
-        # TODO This is a previously created enrollment record.
-        # service_client.delete_individual_enrollment_by_param(registration_id)
-        if os.path.exists(key_file):
-            os.remove(key_file)
-        if os.path.exists(csr_file):
-            os.remove(csr_file)
-        if os.path.exists(issued_cert_file):
-            os.remove(issued_cert_file)
-
-
-def create_individual_enrollment(registration_id, device_id=None):
+def create_individual_enrollment(registration_id, device_id=None, client_ca_name=None):
     """
     Create an individual enrollment record using the service client
     :param registration_id: The registration id of the enrollment
     :param device_id:  Optional device id
     :return: And individual enrollment record
     """
-    reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
-    attestation_mechanism = AttestationMechanism(type="symmetricKey")
-
-    individual_provisioning_model = IndividualEnrollment.create(
+    reprovision_policy = models.ReprovisionPolicy(migrate_device_data=True)
+    attestation_mechanism = models.AttestationMechanism(type="symmetricKey")
+    client_certificate_issuance_policy = None
+    if client_ca_name:
+        client_certificate_issuance_policy = models.ClientCertificateIssuancePolicy(
+            certificate_authority_name=client_ca_name
+        )
+    individual_provisioning_model = models.IndividualEnrollment(
         attestation=attestation_mechanism,
         registration_id=registration_id,
         device_id=device_id,
         reprovision_policy=reprovision_policy,
+        client_certificate_issuance_policy=client_certificate_issuance_policy,
     )
 
-    return service_client.create_or_update(individual_provisioning_model)
+    return service_client.create_or_update_individual_enrollment(individual_provisioning_model)
 
 
 def assert_device_provisioned(device_id, registration_result, client_cert=False):

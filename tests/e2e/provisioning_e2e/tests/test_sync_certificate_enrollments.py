@@ -7,12 +7,8 @@
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device import ProvisioningDeviceClient
 from azure.iot.device.common import X509
-from provisioningserviceclient import (
-    ProvisioningServiceClient,
-    IndividualEnrollment,
-    EnrollmentGroup,
-)
-from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
+from dev_utils.provisioningservice.protocol import models
+from dev_utils.provisioningservice.client import ProvisioningServiceClient
 import pytest
 import logging
 import os
@@ -26,7 +22,6 @@ from create_x509_chain_crypto import (
     call_intermediate_cert_and_device_cert_creation_from_pipeline,
     delete_directories_certs_created_from_pipeline,
 )
-
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -82,9 +77,12 @@ def test_device_register_with_device_id_for_a_x509_individual_enrollment(protoco
     device_id = "e2edpsflyingfeather"
     device_index = type_to_device_indices.get("individual_with_device_id")[0]
 
+    registration_id = device_common_name + str(device_index)
     try:
+        cert_content = read_cert_content_from_file(device_index=device_index)
+
         individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
-            device_index=device_index, device_id=device_id
+            registration_id=registration_id, primary_cert=cert_content, device_id=device_id
         )
         registration_id = individual_enrollment_record.registration_id
 
@@ -107,11 +105,14 @@ def test_device_register_with_device_id_for_a_x509_individual_enrollment(protoco
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
 def test_device_register_with_no_device_id_for_a_x509_individual_enrollment(protocol):
     device_index = type_to_device_indices.get("individual_no_device_id")[0]
-
+    registration_id = device_common_name + str(device_index)
     try:
+        cert_content = read_cert_content_from_file(device_index=device_index)
+
         individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
-            device_index=device_index
+            registration_id=registration_id, primary_cert=cert_content
         )
+
         registration_id = individual_enrollment_record.registration_id
 
         device_cert_file = "demoCA/newcerts/device_cert" + str(device_index) + ".pem"
@@ -139,21 +140,24 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
     common_device_id = device_common_name
     devices_indices = type_to_device_indices.get("group_intermediate")
     device_count_in_group = len(devices_indices)
-    reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
+    reprovision_policy = models.ReprovisionPolicy(migrate_device_data=True)
 
     try:
         intermediate_cert_filename = "demoCA/newcerts/intermediate_cert.pem"
         with open(intermediate_cert_filename, "r") as intermediate_pem:
             intermediate_cert_content = intermediate_pem.read()
 
-        attestation_mechanism = AttestationMechanism.create_with_x509_signing_certs(
-            intermediate_cert_content
+        x509 = create_x509_client_or_sign_certs(
+            is_client=False, primary_cert=intermediate_cert_content
         )
-        enrollment_group_provisioning_model = EnrollmentGroup.create(
-            group_id, attestation=attestation_mechanism, reprovision_policy=reprovision_policy
+        attestation_mechanism = models.AttestationMechanism(type="x509", x509=x509)
+        enrollment_group_provisioning_model = models.EnrollmentGroup(
+            enrollment_group_id=group_id,
+            attestation=attestation_mechanism,
+            reprovision_policy=reprovision_policy,
         )
 
-        service_client.create_or_update(enrollment_group_provisioning_model)
+        service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
 
         count = 0
         common_device_key_input_file = "demoCA/private/device_key"
@@ -203,18 +207,19 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authenticatio
     common_device_id = device_common_name
     devices_indices = type_to_device_indices.get("group_ca")
     device_count_in_group = len(devices_indices)
-    reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
+    reprovision_policy = models.ReprovisionPolicy(migrate_device_data=True)
 
     try:
         DPS_GROUP_CA_CERT = os.getenv("PROVISIONING_ROOT_CERT")
-        attestation_mechanism = AttestationMechanism.create_with_x509_ca_refs(
-            ref1=DPS_GROUP_CA_CERT
-        )
-        enrollment_group_provisioning_model = EnrollmentGroup.create(
-            group_id, attestation=attestation_mechanism, reprovision_policy=reprovision_policy
+        x509 = create_x509_ca_refs(primary_ref=DPS_GROUP_CA_CERT)
+        attestation_mechanism = models.AttestationMechanism(type="x509", x509=x509)
+        enrollment_group_provisioning_model = models.EnrollmentGroup(
+            enrollment_group_id=group_id,
+            attestation=attestation_mechanism,
+            reprovision_policy=reprovision_policy,
         )
 
-        service_client.create_or_update(enrollment_group_provisioning_model)
+        service_client.create_or_update_enrollment_group(enrollment_group_provisioning_model)
 
         count = 0
         intermediate_cert_filename = "demoCA/newcerts/intermediate_cert.pem"
@@ -268,24 +273,50 @@ def assert_device_provisioned(device_id, registration_result):
     assert device.device_id == device_id
 
 
-def create_individual_enrollment_with_x509_client_certs(device_index, device_id=None):
-    registration_id = device_common_name + str(device_index)
-    reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
+def create_individual_enrollment_with_x509_client_certs(
+    registration_id, primary_cert, secondary_cert=None, device_id=None
+):
+    reprovision_policy = models.ReprovisionPolicy(migrate_device_data=True)
+    x509 = create_x509_client_or_sign_certs(
+        is_client=True, primary_cert=primary_cert, secondary_cert=secondary_cert
+    )
+    attestation_mechanism = models.AttestationMechanism(type="x509", x509=x509)
 
-    device_cert_input_file = "demoCA/newcerts/device_cert" + str(device_index) + ".pem"
-    with open(device_cert_input_file, "r") as in_device_cert:
-        device_cert_content = in_device_cert.read()
-
-    attestation_mechanism = AttestationMechanism.create_with_x509_client_certs(device_cert_content)
-
-    individual_provisioning_model = IndividualEnrollment.create(
+    individual_provisioning_model = models.IndividualEnrollment(
         attestation=attestation_mechanism,
         registration_id=registration_id,
         reprovision_policy=reprovision_policy,
         device_id=device_id,
     )
 
-    return service_client.create_or_update(individual_provisioning_model)
+    return service_client.create_or_update_individual_enrollment(individual_provisioning_model)
+
+
+def create_x509_client_or_sign_certs(is_client, primary_cert, secondary_cert=None):
+
+    primary = models.X509CertificateWithInfo(certificate=primary_cert)
+    secondary = None
+    if secondary_cert:
+        secondary = models.X509CertificateWithInfo(certificate=secondary_cert)
+    certs = models.X509Certificates(primary=primary, secondary=secondary)
+    if is_client:
+        x509_attestation = models.X509Attestation(client_certificates=certs)
+    else:
+        x509_attestation = models.X509Attestation(signing_certificates=certs)
+    return x509_attestation
+
+
+def create_x509_ca_refs(primary_ref, secondary_ref=None):
+    ca_refs = models.X509CAReferences(primary=primary_ref, secondary=secondary_ref)
+    x509_attestation = models.X509Attestation(ca_references=ca_refs)
+    return x509_attestation
+
+
+def read_cert_content_from_file(device_index):
+    device_cert_input_file = "demoCA/newcerts/device_cert" + str(device_index) + ".pem"
+    with open(device_cert_input_file, "r") as in_device_cert:
+        device_cert_content = in_device_cert.read()
+    return device_cert_content
 
 
 def result_from_register(registration_id, device_cert_file, device_key_file, protocol):
