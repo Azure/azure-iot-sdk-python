@@ -8,8 +8,6 @@ import pytest
 import logging
 from azure.iot.device.common.models import X509
 from azure.iot.device.provisioning.pipeline.mqtt_pipeline import MQTTPipeline
-from tests.common.pipeline import helpers
-import json
 from azure.iot.device.provisioning.pipeline import constant as dps_constants
 from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning,
