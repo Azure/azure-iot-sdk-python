@@ -142,8 +142,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param new_handler: The function to be set as the handler
         """
         self._check_receive_mode_is_handler()
-        # Set the handler on the handler manager
-        setattr(self._handler_manager, handler_name, new_handler)
 
         # Enable the feature if necessary
         if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
@@ -162,6 +160,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             loop = loop_management.get_client_internal_loop()
             fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
             fut.result()
+
+        # Set the handler on the handler manager
+        setattr(self._handler_manager, handler_name, new_handler)
 
     async def shutdown(self):
         """Shut down the client for graceful exit.

@@ -104,7 +104,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[feature_name]:
             callback = EventedCallback()
             self._mqtt_pipeline.enable_feature(feature_name, callback=callback)
-            callback.wait_for_completion()
+            handle_result(callback)
 
             logger.info("Successfully enabled feature:" + feature_name)
         else:
@@ -125,7 +125,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             # Disable the feature if not already disabled
             callback = EventedCallback()
             self._mqtt_pipeline.disable_feature(feature_name, callback=callback)
-            callback.wait_for_completion()
+            handle_result(callback)
 
             logger.info("Successfully disabled feature: {}".format(feature_name))
         else:
@@ -143,8 +143,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param new_handler: The function to be set as the handler
         """
         self._check_receive_mode_is_handler()
-        # Set the handler on the handler manager
-        setattr(self._handler_manager, handler_name, new_handler)
 
         # Enable the feature if necessary
         if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
@@ -153,6 +151,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # Disable the feature if necessary
         elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
             self._disable_feature(feature_name)
+
+        # Set the handler on the handler manager.
+        setattr(self._handler_manager, handler_name, new_handler)
 
     def shutdown(self):
         """Shut down the client for graceful exit.
