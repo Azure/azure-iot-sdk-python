@@ -562,6 +562,28 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
+    def _ensure_features(self):
+        """Ensure that all features corresponding to set handlers have been enabled.
+        Ensure that all features corresponding to unset handlers have been disabled.
+        """
+
+        feature_map = {
+            "on_message_received": pipeline_constant.C2D_MSG,
+            "on_method_request_received": pipeline_constant.METHODS,
+            "on_twin_desired_properties_patch_received": pipeline_constant.TWIN_PATCHES,
+        }
+        for handler in feature_map:
+            feature = feature_map[handler]
+            # If handler is set, but feature is not enabled... ENABLE
+            if (
+                getattr(self, handler) is not None
+                and not self._mqtt_pipeline.feature_enabled[feature]
+            ):
+                self._enable_feature(feature)
+            # If handler is not set, but feature is enabled... DISABLE
+            if getattr(self, handler) is None and self._mqtt_pipeline.feature_enabled[feature]:
+                self._disable_feature(feature)
+
     @deprecation.deprecated(
         deprecated_in="2.3.0",
         current_version=device_constant.VERSION,
@@ -643,6 +665,28 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         """
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_input_message_received = self._inbox_manager.route_input_message
+
+    def _ensure_features(self):
+        """Ensure that all features corresponding to set handlers have been enabled.
+        Ensure that all features corresponding to unset handlers have been disabled.
+        """
+
+        feature_map = {
+            "on_message_received": pipeline_constant.INPUT_MSG,
+            "on_method_request_received": pipeline_constant.METHODS,
+            "on_twin_desired_properties_patch_received": pipeline_constant.TWIN_PATCHES,
+        }
+        for handler in feature_map:
+            feature = feature_map[handler]
+            # If handler is set, but feature is not enabled... ENABLE
+            if (
+                getattr(self, handler) is not None
+                and not self._mqtt_pipeline.feature_enabled[feature]
+            ):
+                self._enable_feature(feature)
+            # If handler is not set, but feature is enabled... DISABLE
+            if getattr(self, handler) is None and self._mqtt_pipeline.feature_enabled[feature]:
+                self._disable_feature(feature)
 
     def send_message_to_output(self, message, output_name):
         """Sends an event/message to the given module output.

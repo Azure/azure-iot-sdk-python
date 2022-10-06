@@ -17,7 +17,7 @@ from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubModuleClient,
 )
 from azure.iot.device.iothub.models import Message
-from azure.iot.device.iothub.pipeline import constant
+from azure.iot.device.iothub.pipeline import constant as pipeline_constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.iothub.inbox_manager import InboxManager
@@ -401,8 +401,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         self._check_receive_mode_is_api()
 
-        if not self._mqtt_pipeline.feature_enabled[constant.METHODS]:
-            await self._enable_feature(constant.METHODS)
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
+            await self._enable_feature(pipeline_constant.METHODS)
 
         method_inbox = self._inbox_manager.get_method_request_inbox(method_name)
 
@@ -468,8 +468,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         logger.info("Getting twin")
 
-        if not self._mqtt_pipeline.feature_enabled[constant.TWIN]:
-            await self._enable_feature(constant.TWIN)
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
+            await self._enable_feature(pipeline_constant.TWIN)
 
         get_twin_async = async_adapter.emulate_async(self._mqtt_pipeline.get_twin)
 
@@ -504,8 +504,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         logger.info("Patching twin reported properties")
 
-        if not self._mqtt_pipeline.feature_enabled[constant.TWIN]:
-            await self._enable_feature(constant.TWIN)
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
+            await self._enable_feature(pipeline_constant.TWIN)
 
         patch_twin_async = async_adapter.emulate_async(
             self._mqtt_pipeline.patch_twin_reported_properties
@@ -533,8 +533,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         self._check_receive_mode_is_api()
 
-        if not self._mqtt_pipeline.feature_enabled[constant.TWIN_PATCHES]:
-            await self._enable_feature(constant.TWIN_PATCHES)
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
+            await self._enable_feature(pipeline_constant.TWIN_PATCHES)
         twin_patch_inbox = self._inbox_manager.get_twin_patch_inbox()
 
         logger.info("Waiting for twin patches...")
@@ -558,6 +558,28 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
+    def _ensure_features(self):
+        """Ensure that all features corresponding to set handlers have been enabled.
+        Ensure that all features corresponding to unset handlers have been disabled.
+        """
+
+        feature_map = {
+            "on_message_received": pipeline_constant.C2D_MSG,
+            "on_method_request_received": pipeline_constant.METHODS,
+            "on_twin_desired_properties_patch_received": pipeline_constant.TWIN_PATCHES,
+        }
+        for handler in feature_map:
+            feature = feature_map[handler]
+            # If handler is set, but feature is not enabled... ENABLE
+            if (
+                getattr(self, handler) is not None
+                and not self._mqtt_pipeline.feature_enabled[feature]
+            ):
+                self._enable_feature(feature)
+            # If handler is not set, but feature is enabled... DISABLE
+            if getattr(self, handler) is None and self._mqtt_pipeline.feature_enabled[feature]:
+                self._disable_feature(feature)
+
     @deprecation.deprecated(
         deprecated_in="2.3.0",
         current_version=device_constant.VERSION,
@@ -573,8 +595,8 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         """
         self._check_receive_mode_is_api()
 
-        if not self._mqtt_pipeline.feature_enabled[constant.C2D_MSG]:
-            await self._enable_feature(constant.C2D_MSG)
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
+            await self._enable_feature(pipeline_constant.C2D_MSG)
         c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
 
         logger.info("Waiting for message from Hub...")
@@ -640,6 +662,28 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
+    def _ensure_features(self):
+        """Ensure that all features corresponding to set handlers have been enabled.
+        Ensure that all features corresponding to unset handlers have been disabled.
+        """
+
+        feature_map = {
+            "on_message_received": pipeline_constant.INPUT_MSG,
+            "on_method_request_received": pipeline_constant.METHODS,
+            "on_twin_desired_properties_patch_received": pipeline_constant.TWIN_PATCHES,
+        }
+        for handler in feature_map:
+            feature = feature_map[handler]
+            # If handler is set, but feature is not enabled... ENABLE
+            if (
+                getattr(self, handler) is not None
+                and not self._mqtt_pipeline.feature_enabled[feature]
+            ):
+                self._enable_feature(feature)
+            # If handler is not set, but feature is enabled... DISABLE
+            if getattr(self, handler) is None and self._mqtt_pipeline.feature_enabled[feature]:
+                self._disable_feature(feature)
+
     async def send_message_to_output(self, message, output_name):
         """Sends an event/message to the given module output.
 
@@ -703,8 +747,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         """
         self._check_receive_mode_is_api()
 
-        if not self._mqtt_pipeline.feature_enabled[constant.INPUT_MSG]:
-            await self._enable_feature(constant.INPUT_MSG)
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
+            await self._enable_feature(pipeline_constant.INPUT_MSG)
         inbox = self._inbox_manager.get_input_message_inbox(input_name)
 
         logger.info("Waiting for input message on: " + input_name + "...")

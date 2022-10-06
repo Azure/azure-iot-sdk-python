@@ -130,6 +130,15 @@ class AbstractIoTHubClient(abc.ABC):
         if self._handler_manager.handling_client_events:
             event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
             client_event_inbox.put(event)
+        # Ensure that expected features are enabled/disabled
+        with self._client_lock:
+            if self._receive_type is RECEIVE_TYPE_HANDLER:
+                try:
+                    self._ensure_features()
+                # TODO: better except block
+                except Exception:
+                    logger.debug("Attempting to enable feature upon connect failed")
+
         # Ensure that all handlers are running now that connection is re-established.
         self._handler_manager.ensure_running()
 
@@ -234,6 +243,10 @@ class AbstractIoTHubClient(abc.ABC):
     @abc.abstractmethod
     def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
         # Will be implemented differently in child classes, but define here for static analysis
+        pass
+
+    @abc.abstractmethod
+    def _ensure_features(self):
         pass
 
     @classmethod
