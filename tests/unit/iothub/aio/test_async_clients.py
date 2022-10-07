@@ -819,9 +819,7 @@ class SharedClientGetTwinTests(object):
         await client.get_twin()
         assert mqtt_pipeline.enable_feature.call_count == 0
 
-    @pytest.mark.it(
-        "Raises a client error if the `enable_feature` pipeline operation calls back with a pipeline error"
-    )
+    @pytest.mark.it("Raises a client error if enabling twin messaging feature fails")
     @pytest.mark.parametrize(
         "pipeline_error,client_error",
         [
@@ -863,16 +861,21 @@ class SharedClientGetTwinTests(object):
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )
-    async def test_enable_twin_fails(
+    async def test_enable_feature_fails(
         self, mocker, client, mqtt_pipeline, pipeline_error, client_error
     ):
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        # Feature will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        # Enable Feature will fail
         my_pipeline_error = pipeline_error()
 
         def fail_enable_feature(feature_name, callback):
             callback(error=my_pipeline_error)
 
         mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
+
+        # Get twin
         with pytest.raises(client_error) as e_info:
             await client.get_twin()
         assert e_info.value.__cause__ is my_pipeline_error
@@ -999,9 +1002,7 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
         await client.patch_twin_reported_properties(twin_patch_reported)
         assert mqtt_pipeline.enable_feature.call_count == 0
 
-    @pytest.mark.it(
-        "Raises a client error if the 'enable feature' pipeline operation calls back with a pipeline error"
-    )
+    @pytest.mark.it("Raises a client error if enabling twin messaging feature fails")
     @pytest.mark.parametrize(
         "pipeline_error,client_error",
         [
@@ -1043,16 +1044,21 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )
-    async def test_twin_enable_fails(
-        self, mocker, client, mqtt_pipeline, twin_patch_reported, pipeline_error, client_error
+    async def test_enable_feature_fails(
+        self, mocker, client, mqtt_pipeline, pipeline_error, client_error, twin_patch_reported
     ):
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        # Feature will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        # Enable Feature will fail
         my_pipeline_error = pipeline_error()
 
         def fail_enable_feature(feature_name, callback):
             callback(error=my_pipeline_error)
 
         mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
+
+        # Send patch
         with pytest.raises(client_error) as e_info:
             await client.patch_twin_reported_properties(twin_patch_reported)
         assert e_info.value.__cause__ is my_pipeline_error

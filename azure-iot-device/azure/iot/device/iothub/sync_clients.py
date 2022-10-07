@@ -141,9 +141,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param str feature_name: The name of the pipeline feature that corresponds to the handler
         :param new_handler: The function to be set as the handler
         """
-        # Set the handler on the handler manager
-        setattr(self._handler_manager, handler_name, new_handler)
-
         # Enable the feature if necessary
         if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
             self._enable_feature(feature_name)
@@ -151,6 +148,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # Disable the feature if necessary
         elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
             self._disable_feature(feature_name)
+
+        # Set the handler on the handler manager.
+        setattr(self._handler_manager, handler_name, new_handler)
 
     def shutdown(self):
         """Shut down the client for graceful exit.

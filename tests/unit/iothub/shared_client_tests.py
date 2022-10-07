@@ -669,7 +669,9 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         # Feature was not enabled again
         assert mqtt_pipeline.enable_feature.call_count == 0
 
-    @pytest.mark.it("Raises a client error if enabling the corresponding feature fails")
+    @pytest.mark.it(
+        "Raises a client error and does not set the handler if enabling the corresponding feature fails"
+    )
     @pytest.mark.parametrize(
         "pipeline_error,client_error",
         [
@@ -716,6 +718,8 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
     ):
         # Feature will appear disabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+        # Handler is not set
+        assert getattr(client, handler_name) is None
 
         # Enable Feature will fail
         my_pipeline_error = pipeline_error()
@@ -725,10 +729,13 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
 
         mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
 
-        # Set handler
+        # Attempt setting handler
         with pytest.raises(client_error) as e_info:
             setattr(client, handler_name, handler)
         assert e_info.value.__cause__ is my_pipeline_error
+
+        # The handler was not set
+        assert getattr(client, handler_name) is None
 
     @pytest.mark.it(
         "Implicitly disables the corresponding feature if not already disabled, when handler value is set back to None"
@@ -753,7 +760,9 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         # Feature was not disabled again
         assert mqtt_pipeline.disable_feature.call_count == 0
 
-    @pytest.mark.it("Raises a client error if disabling the corresponding feature fails")
+    @pytest.mark.it(
+        "Raises a client error and does not set the handler to None if disabling the corresponding feature fails"
+    )
     @pytest.mark.parametrize(
         "pipeline_error,client_error",
         [
@@ -800,6 +809,10 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
     ):
         # Feature will appear enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = True
+        # Set spurious existing handler
+        fake_handler = mocker.MagicMock()
+        setattr(client, handler_name, fake_handler)
+        assert getattr(client, handler_name) is fake_handler
 
         # Disable Feature will fail
         my_pipeline_error = pipeline_error()
@@ -809,10 +822,14 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
 
         mqtt_pipeline.disable_feature = mocker.MagicMock(side_effect=fail_disable_feature)
 
-        # Set handler to None
+        # Attempt setting handler to None
         with pytest.raises(client_error) as e_info:
             setattr(client, handler_name, None)
         assert e_info.value.__cause__ is my_pipeline_error
+
+        # The handler was not set to None
+        assert getattr(client, handler_name) is not None
+        assert getattr(client, handler_name) is fake_handler
 
 
 # NOTE: If more properties are added, this class should become a general purpose properties test class
