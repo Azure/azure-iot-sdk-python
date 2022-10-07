@@ -137,7 +137,7 @@ class AbstractIoTHubClient(abc.ABC):
                     self._ensure_features()
                 # TODO: better except block
                 except Exception:
-                    logger.debug("Attempting to enable feature upon connect failed")
+                    logger.debug("Failure while attempting to enable feature upon connect")
 
         # Ensure that all handlers are running now that connection is re-established.
         self._handler_manager.ensure_running()
