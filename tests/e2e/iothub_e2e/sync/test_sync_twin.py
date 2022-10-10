@@ -256,6 +256,7 @@ class TestDesiredProperties(object):
             received_patches.put(patch)
 
         client.on_twin_desired_properties_patch_received = handle_on_patch_received
+        client.enable_twin_desired_properties_patch_receive()
 
         # erase all old desired properties. Otherwise our random dict will only
         # be part of the twin we get when we call `get_twin` below (because of

@@ -3,7 +3,6 @@
 # license information.
 import pytest
 import logging
-import time
 from dev_utils import get_random_dict
 import parametrize
 from azure.iot.device.iothub import MethodResponse
@@ -60,7 +59,7 @@ class TestMethods(object):
             )
 
         client.on_method_request_received = handle_on_method_request_received
-        time.sleep(1)  # wait for subscribe, etc, to complete
+        client.enable_method_request_receive()
 
         # invoke the method call
         method_response = service_helper.invoke_method(method_name, request_payload)
