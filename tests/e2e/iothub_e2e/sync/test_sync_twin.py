@@ -107,8 +107,7 @@ class TestReportedProperties(object):
 @pytest.mark.describe(
     "Client Reported Properties with dropped connection (Twin patches not yet enabled)"
 )
-@pytest.mark.keep_alive(3)
-# NOTE: Keep_alive must be < 5 for these tests, as a timeout takes 10 seconds
+@pytest.mark.keep_alive(5)
 class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
     @pytest.mark.it(
         "Raises OperationTimeout if connection is not restored after dropping outgoing packets"
@@ -134,33 +133,38 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
         # TODO: investigate leak
         # leak_tracker.check_for_leaks()
 
-    # @pytest.mark.it("???")
-    # def test_idk_it_does_a_thing(
-    #     self, client, random_reported_props, dropper, executor, leak_tracker
-    # ):
-    #     leak_tracker.set_initial_object_list()
-    #     assert client.connected
+    @pytest.mark.it(
+        "Raises OperationTimeout even if connection is restored after dropping outgoing packets"
+    )
+    def test_sync_raises_op_timeout_if_drop_and_restore(
+        self, client, random_reported_props, dropper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
 
-    #     # Drop outgoing packets
-    #     dropper.drop_outgoing()
+        # Drop outgoing packets
+        dropper.drop_outgoing()
 
-    #     # Attempt to send a twin patch (implicitly enabling twin patches first)
-    #     send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-    #     while client.connected:
-    #         time.sleep(1)
+        # Attempt to send a twin patch (implicitly enabling twin patches first)
+        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        while client.connected:
+            time.sleep(1)
+        # Sending twin patch has not yet failed
+        assert not send_task.done()
 
-    #     assert not send_task.done()
+        # Restore outgoing packet functionality and manually reconnect.
+        # We need to manually reconnect to make sure the connection happens before any timeouts.
+        dropper.restore_all()
+        client.connect()
+        # Sending twin patch still has not yet failed
+        assert not send_task.done()
 
-    #     dropper.restore_all()
-    #     while not client.connected:
-    #         time.sleep(1)
+        # Failure due to timeout of subscribe (enable feature)
+        with pytest.raises(OperationTimeout):
+            send_task.result()
 
-    #     # Failure due to timeout of subscribe (enable feature)
-    #     with pytest.raises(OperationTimeout):
-    #         send_task.result()
-
-    #     # TODO: investigate leak
-    #     # leak_tracker.check_for_leaks()
+        # TODO: investigate leak
+        # leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "Raises OperationTimeout if connection is not restored after rejecting outgoing packets"
@@ -181,62 +185,43 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
         with pytest.raises(OperationTimeout):
             send_task.result()
 
+        dropper.restore_all()
+
         # TODO: investigate leak
         # leak_tracker.check_for_leaks()
 
-    # @pytest.mark.it("Raises OperationTimeout if connection is not restored after dropping outgoing packets")
-    # def test_sync_raises_op_timeout_if_drop_before_sending_not_enabled(
-    #     self, client, random_reported_props, dropper, executor, leak_tracker
-    # ):
-    #     leak_tracker.set_initial_object_list()
-    #     assert client.connected
+    @pytest.mark.it(
+        "Raises OperationTimeout even if connection is restored after rejecting outgoing packets"
+    )
+    def test_sync_raises_op_timeout_if_reject_and_restore(
+        self, client, random_reported_props, dropper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
 
-    #     # Drop outgoing packets
-    #     dropper.drop_outgoing()
+        # Reject outgoing packets
+        dropper.reject_outgoing()
 
-    #     # Attempt to send a twin patch (implicitly enabling twin patches first)
-    #     send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-    #     while client.connected:
-    #         time.sleep(1)
+        # Attempt to send a twin patch (implicitly enabling twin patches first)
+        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        while client.connected:
+            time.sleep(1)
+        # Sending twin patch has not yet failed
+        assert not send_task.done()
 
-    #     assert not send_task.done()
+        # Restore outgoing packet functionality and manually reconnect.
+        # We need to manually reconnect to make sure the connection happens before any timeouts.
+        dropper.restore_all()
+        client.connect()
+        # Sending twin patch still has not yet failed
+        assert not send_task.done()
 
-    #     dropper.restore_all()
-    #     while not client.connected:
-    #         time.sleep(1)
+        # Failure due to timeout of subscribe (enable feature)
+        with pytest.raises(OperationTimeout):
+            send_task.result()
 
-    #     # Failure due to timeout of subscribe (enable feature)
-    #     with pytest.raises(OperationTimeout):
-    #         send_task.result()
-
-    #     # TODO: investigate leak
-    #     # leak_tracker.check_for_leaks()
-
-    # @pytest.mark.it("Raises OperationTimeout if network rejects outgoing packets")
-    # def test_sync_updates_reported_if_reject_before_sending_not_enabled(
-    #     self, client, random_reported_props, dropper, executor, leak_tracker
-    # ):
-    #     leak_tracker.set_initial_object_list()
-
-    #     assert client.connected
-    #     dropper.reject_outgoing()
-
-    #     send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-    #     while client.connected:
-    #         time.sleep(1)
-
-    #     assert not send_task.done()
-
-    #     dropper.restore_all()
-    #     while not client.connected:
-    #         time.sleep(1)
-
-    #     # Failure due to timeout of subscribe (enable feature)
-    #     with pytest.raises(OperationTimeout):
-    #         send_task.result()
-
-    #     # TODO: investigate leak
-    #     # leak_tracker.check_for_leaks()
+        # TODO: investigate leak
+        # leak_tracker.check_for_leaks()
 
 
 @pytest.mark.dropped_connection

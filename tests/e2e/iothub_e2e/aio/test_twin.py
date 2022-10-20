@@ -6,7 +6,7 @@ import pytest
 import logging
 import const
 from dev_utils import get_random_dict
-from azure.iot.device.exceptions import ClientError
+from azure.iot.device.exceptions import ClientError, OperationTimeout
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -115,75 +115,216 @@ class TestReportedProperties(object):
 
 
 @pytest.mark.dropped_connection
-@pytest.mark.describe("Client Reported Properties with dropped connection")
+@pytest.mark.describe(
+    "Client Reported Properties with dropped connection (Twin patches not yet enabled)"
+)
 @pytest.mark.keep_alive(5)
-class TestReportedPropertiesDroppedConnection(object):
-
-    # TODO: split drop tests between first and second patches
-
-    @pytest.mark.it("Updates reported properties if connection drops before sending")
-    async def test_updates_reported_if_drop_before_sending(
-        self, client, random_reported_props, dropper, service_helper, leak_tracker
+class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
+    @pytest.mark.it(
+        "Raises OperationTimeout if connection is not restored after dropping outgoing packets"
+    )
+    async def test_sync_raises_op_timeout_if_drop_without_restore(
+        self, client, random_reported_props, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
-
         assert client.connected
+
+        # Drop outgoing packets
         dropper.drop_outgoing()
 
+        # Attempt to send a twin patch (implicitly enabling twin patches first)
         send_task = asyncio.ensure_future(
             client.patch_twin_reported_properties(random_reported_props)
         )
-        while client.connected:
-            await asyncio.sleep(1)
 
-        assert not send_task.done()
+        # Failure due to timeout of subscribe (enable feature)
+        with pytest.raises(OperationTimeout):
+            await send_task
 
         dropper.restore_all()
-        while not client.connected:
-            await asyncio.sleep(1)
-
-        await send_task
-
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
 
         # TODO: investigate leak
         # leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Updates reported properties if connection rejects send")
-    async def test_updates_reported_if_reject_before_sending(
-        self, client, random_reported_props, dropper, service_helper, leak_tracker
+    @pytest.mark.it(
+        "Raises OperationTimeout even if connection is restored after dropping outgoing packets"
+    )
+    async def test_sync_raises_op_timeout_if_drop_and_restore(
+        self, client, random_reported_props, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
-
         assert client.connected
-        dropper.reject_outgoing()
 
+        # Drop outgoing packets
+        dropper.drop_outgoing()
+
+        # Attempt to send a twin patch (implicitly enabling twin patches first)
         send_task = asyncio.ensure_future(
             client.patch_twin_reported_properties(random_reported_props)
         )
         while client.connected:
             await asyncio.sleep(1)
-
+        # Sending twin patch has not yet failed
         assert not send_task.done()
 
+        # Restore outgoing packet functionality and manually reconnect.
+        # We need to manually reconnect to make sure the connection happens before any timeouts.
+        dropper.restore_all()
+        await client.connect()
+        # Sending twin patch still has not yet failed
+        assert not send_task.done()
+
+        # Failure due to timeout of subscribe (enable feature)
+        with pytest.raises(OperationTimeout):
+            await send_task
+
+        # TODO: investigate leak
+        # leak_tracker.check_for_leaks()
+
+    @pytest.mark.it(
+        "Raises OperationTimeout if connection is not restored after rejecting outgoing packets"
+    )
+    async def test_sync_raises_op_timeout_if_reject_without_restore(
+        self, client, random_reported_props, dropper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Reject outgoing packets
+        dropper.reject_outgoing()
+
+        # Attempt to send a twin patch (implicitly enabling twin patches first)
+        send_task = asyncio.ensure_future(
+            client.patch_twin_reported_properties(random_reported_props)
+        )
+        # Failure due to failure of subscribe (enable feature)
+        with pytest.raises(OperationTimeout):
+            await send_task
+
+        dropper.restore_all()
+
+        # TODO: investigate leak
+        # leak_tracker.check_for_leaks()
+
+    @pytest.mark.it(
+        "Raises OperationTimeout even if connection is restored after rejecting outgoing packets"
+    )
+    async def test_sync_raises_op_timeout_if_reject_and_restore(
+        self, client, random_reported_props, dropper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Reject outgoing packets
+        dropper.reject_outgoing()
+
+        # Attempt to send a twin patch (implicitly enabling twin patches first)
+        send_task = asyncio.ensure_future(
+            client.patch_twin_reported_properties(random_reported_props)
+        )
+        while client.connected:
+            await asyncio.sleep(1)
+        # Sending twin patch has not yet failed
+        assert not send_task.done()
+
+        # Restore outgoing packet functionality and manually reconnect.
+        # We need to manually reconnect to make sure the connection happens before any timeouts.
+        dropper.restore_all()
+        await client.connect()
+        # Sending twin patch still has not yet failed
+        assert not send_task.done()
+
+        # Failure due to timeout of subscribe (enable feature)
+        with pytest.raises(OperationTimeout):
+            await send_task
+
+        # TODO: investigate leak
+        # leak_tracker.check_for_leaks()
+
+
+@pytest.mark.dropped_connection
+@pytest.mark.describe(
+    "Client Reported Properties with dropped connection (Twin patches already enabled)"
+)
+@pytest.mark.keep_alive(5)
+class TestReportedPropertiesDroppedConnectionTwinPatchAlreadyEnabled(object):
+    @pytest.mark.it(
+        "Updates reported properties once connection is restored after dropping outgoing packets"
+    )
+    async def test_sync_updates_reported_if_drop_before_sending(
+        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Enable twins first, then drop outgoing packets
+        await client._enable_feature("twin")
+        dropper.drop_outgoing()
+
+        # Attempt to send a twin patch
+        send_task = asyncio.ensure_future(
+            client.patch_twin_reported_properties(random_reported_props)
+        )
+        # Wait for client to realize connection has dropped (due to keepalive)
+        while client.connected:
+            await asyncio.sleep(1)
+        # Even though the connection has dropped, the twin patch send has not returned
+        assert not send_task.done()
+
+        # Restore outgoing packet functionality and wait for client to reconnect
         dropper.restore_all()
         while not client.connected:
             await asyncio.sleep(1)
-
+        # Wait for the send task to complete now that the client has reconnected
         await send_task
 
+        # Ensure the sent patch was received by the service
         received_patch = await service_helper.get_next_reported_patch_arrival()
         assert (
             received_patch[const.REPORTED][const.TEST_CONTENT]
             == random_reported_props[const.TEST_CONTENT]
         )
 
-        # TODO: investigate leak
-        # leak_tracker.check_for_leaks()
+        leak_tracker.check_for_leaks()
+
+    @pytest.mark.it(
+        "Updates reported properties once connection is restored after rejecting outgoing packets"
+    )
+    async def test_sync_updates_reported_if_reject_before_sending(
+        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Enable twins first, then reject packets
+        await client._enable_feature("twin")
+        dropper.reject_outgoing()
+
+        # Attempt to send a twin patch
+        send_task = asyncio.ensure_future(
+            client.patch_twin_reported_properties(random_reported_props)
+        )
+        # Wait for client to realize connection has dropped (due to keepalive)
+        while client.connected:
+            await asyncio.sleep(1)
+        # Even though the connection has dropped, the twin patch send has not returned
+        assert not send_task.done()
+
+        # Restore outgoing packet functionality and wait for client to reconnect
+        dropper.restore_all()
+        while not client.connected:
+            await asyncio.sleep(1)
+        # Wait for the send task to complete now that the client has reconnected
+        await send_task
+
+        # Ensure the sent patch was received by the service
+        received_patch = await service_helper.get_next_reported_patch_arrival()
+        assert (
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
+        )
+
+        leak_tracker.check_for_leaks()
 
 
 @pytest.mark.describe("Client Desired Properties")
