@@ -123,8 +123,8 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
     @pytest.mark.it(
         "Raises OperationTimeout if connection is not restored after dropping outgoing packets"
     )
-    async def test_sync_raises_op_timeout_if_drop_without_restore(
-        self, client, random_reported_props, dropper, executor, leak_tracker
+    async def test_raises_op_timeout_if_drop_without_restore(
+        self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -149,8 +149,8 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
     @pytest.mark.it(
         "Raises OperationTimeout even if connection is restored after dropping outgoing packets"
     )
-    async def test_sync_raises_op_timeout_if_drop_and_restore(
-        self, client, random_reported_props, dropper, executor, leak_tracker
+    async def test_raises_op_timeout_if_drop_and_restore(
+        self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -184,8 +184,8 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
     @pytest.mark.it(
         "Raises OperationTimeout if connection is not restored after rejecting outgoing packets"
     )
-    async def test_sync_raises_op_timeout_if_reject_without_restore(
-        self, client, random_reported_props, dropper, executor, leak_tracker
+    async def test_raises_op_timeout_if_reject_without_restore(
+        self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -209,8 +209,8 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
     @pytest.mark.it(
         "Raises OperationTimeout even if connection is restored after rejecting outgoing packets"
     )
-    async def test_sync_raises_op_timeout_if_reject_and_restore(
-        self, client, random_reported_props, dropper, executor, leak_tracker
+    async def test_raises_op_timeout_if_reject_and_restore(
+        self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -251,8 +251,8 @@ class TestReportedPropertiesDroppedConnectionTwinPatchAlreadyEnabled(object):
     @pytest.mark.it(
         "Updates reported properties once connection is restored after dropping outgoing packets"
     )
-    async def test_sync_updates_reported_if_drop_before_sending(
-        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+    async def test_updates_reported_if_drop_before_sending(
+        self, client, random_reported_props, dropper, service_helper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -290,8 +290,8 @@ class TestReportedPropertiesDroppedConnectionTwinPatchAlreadyEnabled(object):
     @pytest.mark.it(
         "Updates reported properties once connection is restored after rejecting outgoing packets"
     )
-    async def test_sync_updates_reported_if_reject_before_sending(
-        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+    async def test_updates_reported_if_reject_before_sending(
+        self, client, random_reported_props, dropper, service_helper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
