@@ -174,6 +174,7 @@ class TestTwinStress(object):
             asyncio.run_coroutine_threadsafe(patches.put(patch), event_loop)
 
         client.on_twin_desired_properties_patch_received = handle_on_patch_received
+        await client.enable_twin_desired_properties_patch_receive()
 
         for i in range(iteration_count):
             logger.info("Iteration {} of {}".format(i, iteration_count))
@@ -218,6 +219,7 @@ class TestTwinStress(object):
             asyncio.run_coroutine_threadsafe(patches.put(patch), event_loop)
 
         client.on_twin_desired_properties_patch_received = handle_on_patch_received
+        await client.enable_twin_desired_properties_patch_receive()
 
         props = {"key_{}".format(k): None for k in range(0, batch_size)}
 
