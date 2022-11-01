@@ -8,7 +8,6 @@ Azure IoTHub Device SDK for Python.
 """
 
 import logging
-import asyncio
 from azure.iot.device.common import async_adapter
 from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubClient,
@@ -16,12 +15,12 @@ from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubModuleClient,
 )
 from azure.iot.device.iothub.models import Message
-from azure.iot.device.iothub.pipeline import constant
+from azure.iot.device.iothub.pipeline import constant as pipeline_constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from .async_inbox import AsyncClientInbox
-from . import async_handler_manager, loop_management
+from . import async_handler_manager
 from azure.iot.device import constant as device_constant
 
 logger = logging.getLogger(__name__)
@@ -129,37 +128,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         else:
             # This branch shouldn't be reached, but in case it is, log it
             logger.info("Feature ({}) already disabled - skipping".format(feature_name))
-
-    def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
-        """Set a receive handler on the handler manager and enable the corresponding feature.
-
-        This is a synchronous call (yes, even though this is the async client), meaning that this
-        function will not return until the feature has been enabled (if necessary).
-
-        :param str handler_name: The name of the handler on the handler manager to set
-        :param str feature_name: The name of the pipeline feature that corresponds to the handler
-        :param new_handler: The function to be set as the handler
-        """
-        # Set the handler on the handler manager
-        setattr(self._handler_manager, handler_name, new_handler)
-
-        # Enable the feature if necessary
-        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
-            # We have to call this on a loop running on a different thread in order to ensure
-            # the setter can be called both within a coroutine (with a running event loop) and
-            # outside of a coroutine (where no event loop is currently running)
-            loop = loop_management.get_client_internal_loop()
-            fut = asyncio.run_coroutine_threadsafe(self._enable_feature(feature_name), loop=loop)
-            fut.result()
-
-        # Disable the feature if necessary
-        elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
-            # We have to call this on a loop running on a different thread in order to ensure
-            # the setter can be called both within a coroutine (with a running event loop) and
-            # outside of a coroutine (where no event loop is currently running)
-            loop = loop_management.get_client_internal_loop()
-            fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
-            fut.result()
 
     async def shutdown(self):
         """Shut down the client for graceful exit.
@@ -410,8 +378,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         logger.info("Getting twin")
 
-        if not self._mqtt_pipeline.feature_enabled[constant.TWIN]:
-            await self._enable_feature(constant.TWIN)
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
+            await self._enable_feature(pipeline_constant.TWIN)
 
         get_twin_async = async_adapter.emulate_async(self._mqtt_pipeline.get_twin)
 
@@ -446,8 +414,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         logger.info("Patching twin reported properties")
 
-        if not self._mqtt_pipeline.feature_enabled[constant.TWIN]:
-            await self._enable_feature(constant.TWIN)
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
+            await self._enable_feature(pipeline_constant.TWIN)
 
         patch_twin_async = async_adapter.emulate_async(
             self._mqtt_pipeline.patch_twin_reported_properties
@@ -458,6 +426,86 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         await handle_result(callback)
 
         logger.info("Successfully sent twin patch")
+
+    async def enable_method_request_receive(self):
+        """
+        Enable the client's ability to receive method requests from IoTHub.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
+            await self._enable_feature(pipeline_constant.METHODS)
+
+    async def disable_method_request_receive(self):
+        """
+        Disable the client's ability to receive method requests from IoTHub.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        if self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
+            await self._disable_feature(pipeline_constant.METHODS)
+
+    async def enable_twin_desired_properties_patch_receive(self):
+        """
+        Enable the client's ability to receive twin desired property patches from IoTHub.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
+            await self._enable_feature(pipeline_constant.TWIN_PATCHES)
+
+    async def disable_twin_desired_properties_patch_receive(self):
+        """
+        Disable the client's ability to receive twin desired property patches from IoTHub.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        if self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
+            await self._disable_feature(pipeline_constant.TWIN_PATCHES)
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
@@ -516,6 +564,46 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         )
         await handle_result(callback)
         logger.info("Successfully notified blob upload status")
+
+    async def enable_message_receive(self):
+        """
+        Enable the client's ability to receive cloud-to-device messages from IoTHub.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
+            await self._enable_feature(pipeline_constant.C2D_MSG)
+
+    async def disable_message_receive(self):
+        """
+        Disable the client's ability to receive cloud-to-device messages from IoTHub.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        if self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
+            await self._disable_feature(pipeline_constant.C2D_MSG)
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
@@ -601,3 +689,43 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         method_response = await handle_result(callback)
         logger.info("Successfully invoked method")
         return method_response
+
+    async def enable_message_receive(self):
+        """
+        Enable the client's ability to receive input messages from IoTHub.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
+            await self._enable_feature(pipeline_constant.INPUT_MSG)
+
+    async def disable_message_receive(self):
+        """
+        Disable the client's ability to receive input messages from IoTHub.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        if self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
+            await self._disable_feature(pipeline_constant.INPUT_MSG)

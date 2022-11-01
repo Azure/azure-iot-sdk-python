@@ -88,12 +88,7 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.ConnectionStateStage())
             #
-            # RetryStage needs to be near the end because it's retrying low-level MQTT operations.
-            #
-            .append_stage(pipeline_stages_base.RetryStage())
-            #
-            # OpTimeoutStage needs to be after RetryStage because OpTimeoutStage returns the timeout
-            # errors that RetryStage is watching for.
+            # OpTimeoutStage needs to be near the end because it is for low-level MQTT operations.
             #
             .append_stage(pipeline_stages_base.OpTimeoutStage())
             #
@@ -470,7 +465,6 @@ class MQTTPipeline(object):
             )
         )
 
-    # NOTE: Currently, this operation will retry itself indefinitely in the case of timeout
     def enable_feature(self, feature_name, callback):
         """
         Enable the given feature by subscribing to the appropriate topics.
