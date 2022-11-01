@@ -92,7 +92,7 @@ class TestReportedProperties(object):
     @pytest.mark.it("Fails if there is no connection")
     @pytest.mark.quicktest_suite
     async def test_patch_reported_fails_if_no_connection(
-        self, client, random_reported_props, service_helper, leak_tracker
+        self, client, random_reported_props, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
