@@ -34,7 +34,6 @@ ca_chain_prefix="azure-iot-test-only.chain.ca"
 intermediate_ca_dir="."
 openssl_root_config_file="./openssl_root_ca.cnf"
 openssl_intermediate_config_file="./openssl_device_intermediate_ca.cnf"
-intermediate_ca_password="1234"
 root_ca_prefix="azure-iot-test-only.root.ca"
 intermediate_ca_prefix="azure-iot-test-only.intermediate"
 
@@ -123,6 +122,7 @@ function generate_intermediate_ca()
     fi
 
     root_ca_password="${1}"
+    intermediate_ca_password="${1}"
 
     local common_name="Azure IoT Hub Intermediate Cert Test Only"
 
