@@ -107,7 +107,7 @@ class TestReportedProperties(object):
 @pytest.mark.describe(
     "Client Reported Properties with dropped connection (Twin patches not yet enabled)"
 )
-@pytest.mark.keep_alive(5)
+@pytest.mark.keep_alive(4)
 class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
     @pytest.mark.it(
         "Raises OperationTimeout if connection is not restored after dropping outgoing packets"
@@ -148,7 +148,7 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
         # Attempt to send a twin patch (implicitly enabling twin patches first)
         send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
         while client.connected:
-            time.sleep(1)
+            time.sleep(0.5)
         # Sending twin patch has not yet failed
         assert not send_task.done()
 
@@ -205,7 +205,7 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
         # Attempt to send a twin patch (implicitly enabling twin patches first)
         send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
         while client.connected:
-            time.sleep(1)
+            time.sleep(0.5)
         # Sending twin patch has not yet failed
         assert not send_task.done()
 
@@ -228,7 +228,7 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
 @pytest.mark.describe(
     "Client Reported Properties with dropped connection (Twin patches already enabled)"
 )
-@pytest.mark.keep_alive(5)
+@pytest.mark.keep_alive(4)
 class TestReportedPropertiesDroppedConnectionTwinPatchAlreadyEnabled(object):
     @pytest.mark.it(
         "Updates reported properties once connection is restored after dropping outgoing packets"
@@ -247,14 +247,14 @@ class TestReportedPropertiesDroppedConnectionTwinPatchAlreadyEnabled(object):
         send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
         # Wait for client to realize connection has dropped (due to keepalive)
         while client.connected:
-            time.sleep(1)
+            time.sleep(0.5)
         # Even though the connection has dropped, the twin patch send has not returned
         assert not send_task.done()
 
         # Restore outgoing packet functionality and wait for client to reconnect
         dropper.restore_all()
         while not client.connected:
-            time.sleep(1)
+            time.sleep(0.5)
         # Wait for the send task to complete now that the client has reconnected
         send_task.result()
 
@@ -284,14 +284,14 @@ class TestReportedPropertiesDroppedConnectionTwinPatchAlreadyEnabled(object):
         send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
         # Wait for client to realize connection has dropped (due to keepalive)
         while client.connected:
-            time.sleep(1)
+            time.sleep(0.5)
         # Even though the connection has dropped, the twin patch send has not returned
         assert not send_task.done()
 
         # Restore outgoing packet functionality and wait for client to reconnect
         dropper.restore_all()
         while not client.connected:
-            time.sleep(1)
+            time.sleep(0.5)
         # Wait for the send task to complete now that the client has reconnected
         send_task.result()
 
