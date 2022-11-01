@@ -7,7 +7,7 @@ import time
 import const
 import queue
 from dev_utils import get_random_dict
-from azure.iot.device.exceptions import ClientError, OperationTimeout
+from azure.iot.device.exceptions import ClientError, OperationTimeout, NoConnectionError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
