@@ -118,7 +118,10 @@ class TestReportedProperties(object):
 @pytest.mark.describe(
     "Client Reported Properties with dropped connection (Twin patches not yet enabled)"
 )
-@pytest.mark.keep_alive(5)
+@pytest.mark.keep_alive(4)
+# Because the timeout for a subscribe is 10 seconds, and a connection drop can take up to
+# 2x keepalive, we need a keepalive < 5 in order to effectively test what happens if a
+# connection drops and comes back
 class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
     @pytest.mark.it(
         "Raises OperationTimeout if connection is not restored after dropping outgoing packets"
@@ -163,7 +166,7 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
             client.patch_twin_reported_properties(random_reported_props)
         )
         while client.connected:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
         # Sending twin patch has not yet failed
         assert not send_task.done()
 
@@ -223,7 +226,7 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
             client.patch_twin_reported_properties(random_reported_props)
         )
         while client.connected:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
         # Sending twin patch has not yet failed
         assert not send_task.done()
 
@@ -246,7 +249,7 @@ class TestReportedPropertiesDroppedConnectionTwinPatchNotEnabled(object):
 @pytest.mark.describe(
     "Client Reported Properties with dropped connection (Twin patches already enabled)"
 )
-@pytest.mark.keep_alive(5)
+@pytest.mark.keep_alive(4)
 class TestReportedPropertiesDroppedConnectionTwinPatchAlreadyEnabled(object):
     @pytest.mark.it(
         "Updates reported properties once connection is restored after dropping outgoing packets"
@@ -267,14 +270,14 @@ class TestReportedPropertiesDroppedConnectionTwinPatchAlreadyEnabled(object):
         )
         # Wait for client to realize connection has dropped (due to keepalive)
         while client.connected:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
         # Even though the connection has dropped, the twin patch send has not returned
         assert not send_task.done()
 
         # Restore outgoing packet functionality and wait for client to reconnect
         dropper.restore_all()
         while not client.connected:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
         # Wait for the send task to complete now that the client has reconnected
         await send_task
 
@@ -306,14 +309,14 @@ class TestReportedPropertiesDroppedConnectionTwinPatchAlreadyEnabled(object):
         )
         # Wait for client to realize connection has dropped (due to keepalive)
         while client.connected:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
         # Even though the connection has dropped, the twin patch send has not returned
         assert not send_task.done()
 
         # Restore outgoing packet functionality and wait for client to reconnect
         dropper.restore_all()
         while not client.connected:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
         # Wait for the send task to complete now that the client has reconnected
         await send_task
 
