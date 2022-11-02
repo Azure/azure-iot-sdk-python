@@ -753,24 +753,12 @@ class OpTimeoutStage(PipelineStage):
 
     For each operation that needs a timeout check, this stage will add a timer to
     the operation.  If the timer elapses, this stage will fail the operation with
-    a OperationTimeout.  The intention is that a higher stage will know what to
-    do with that error and act accordingly (either return the error to the user or
-    retry).
+    a OperationTimeout.
 
     This stage currently assumes that all timed out operation are just "lost".
     It does not attempt to cancel the operation, as Paho doesn't have a way to
     cancel an operation, and with QOS=1, sending a pub or sub twice is not
     catastrophic.
-
-    Also, as a long-term plan, the operations that need to be watched for timeout
-    will become an initialization parameter for this stage so that different
-    instances of this stage can watch for timeouts on different operations.
-    This will be done because we want a lower-level timeout stage which can watch
-    for timeouts at the MQTT level, and we want a higher-level timeout stage which
-    can watch for timeouts at the iothub level.  In this way, an MQTT operation that
-    times out can be retried as an MQTT operation and a higher-level IoTHub operation
-    which times out can be retried as an IoTHub operation (which might necessitate
-    redoing multiple MQTT operations).
     """
 
     def __init__(self):
@@ -819,98 +807,6 @@ class OpTimeoutStage(PipelineStage):
             logger.debug("{}({}): Cancelling timer".format(self.name, op.name))
             op.timeout_timer.cancel()
             op.timeout_timer = None
-
-
-class RetryStage(PipelineStage):
-    """
-    The purpose of the retry stage is to watch specific operations for specific
-    errors and retry the operations as appropriate.
-
-    Unlike the OpTimeoutStage, this stage will never need to worry about cancelling
-    failed operations.  When an operation is retried at this stage, it is already
-    considered "failed", so no cancellation needs to be done.
-    """
-
-    def __init__(self):
-        super().__init__()
-        # Retry intervals are hardcoded for now. Later, they come in as an
-        # init param, probably via retry policy.
-        self.retry_intervals = {
-            pipeline_ops_mqtt.MQTTSubscribeOperation: 20,
-            pipeline_ops_mqtt.MQTTUnsubscribeOperation: 20,
-            # Only Sub and Unsub are here because MQTT auto retries pub
-        }
-        self.ops_waiting_to_retry = []
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
-        """
-        Send all ops down and intercept their return to "watch for retry"
-        """
-        if self._should_watch_for_retry(op):
-            op.add_callback(self._do_retry_if_necessary)
-            self.send_op_down(op)
-        else:
-            self.send_op_down(op)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _should_watch_for_retry(self, op):
-        """
-        Return True if this op needs to be watched for retry.  This can be
-        called before the op runs.
-        """
-        return type(op) in self.retry_intervals
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _should_retry(self, op, error):
-        """
-        Return True if this op needs to be retried.  This must be called after
-        the op completes.
-        """
-        if error:
-            if self._should_watch_for_retry(op):
-                if isinstance(error, pipeline_exceptions.OperationTimeout):
-                    return True
-        return False
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _do_retry_if_necessary(self, op, error):
-        """
-        Handler which gets called when operations are complete.  This function
-        is where we check to see if a retry is necessary and set a "retry timer"
-        which can be used to send the op down again.
-        """
-        if self._should_retry(op, error):
-            self_weakref = weakref.ref(self)
-
-            @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def do_retry():
-                this = self_weakref()
-                logger.debug("{}({}): retrying".format(this.name, op.name))
-                op.retry_timer.cancel()
-                op.retry_timer = None
-                this.ops_waiting_to_retry.remove(op)
-                # Don't just send it down directly.  Instead, go through run_op so we get
-                # retry functionality this time too
-                this.run_op(op)
-
-            interval = self.retry_intervals[type(op)]
-            logger.info(
-                "{}({}): Op needs retry with interval {} because of {}.  Setting timer.".format(
-                    self.name, op.name, interval, error
-                )
-            )
-
-            # if we don't keep track of this op, it might get collected.
-            op.halt_completion()
-            self.ops_waiting_to_retry.append(op)
-            op.retry_timer = threading.Timer(self.retry_intervals[type(op)], do_retry)
-            op.retry_timer.start()
-
-        else:
-            if op.retry_timer:
-                op.retry_timer.cancel()
-                op.retry_timer = None
 
 
 class ConnectionStateStage(PipelineStage):

@@ -20,7 +20,6 @@ from azure.iot.device import constant as device_constant
 from .shared_client_tests import (
     SharedIoTHubClientInstantiationTests,
     SharedIoTHubClientPROPERTYHandlerTests,
-    SharedIoTHubClientPROPERTYReceiverHandlerTests,
     SharedIoTHubClientPROPERTYConnectedTests,
     SharedIoTHubClientOCCURRENCEConnectTests,
     SharedIoTHubClientOCCURRENCEDisconnectTests,
@@ -1124,6 +1123,170 @@ class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
         assert e_info.value.__cause__ is my_pipeline_error
 
 
+class SharedClientEnableReceiveTests(WaitsForEventCompletion):
+    @pytest.mark.it("Enables the corresponding feature if it is not already enabled")
+    def test_not_already_enabled(self, client_method, feature_name, mqtt_pipeline):
+        # Feature will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+        # Invoke the client method
+        client_method()
+        # Feature was enabled
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == feature_name
+
+    @pytest.mark.it("Does not enable the corresponding feature if it already enabled")
+    def test_already_enabled(self, client_method, mqtt_pipeline):
+        # Feature will appear already enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True
+        # Invoke the client method
+        client_method()
+        # Feature was not enabled again
+        assert mqtt_pipeline.enable_feature.call_count == 0
+
+    @pytest.mark.it("Raises a client error if enabling the corresponding feature fails")
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout -> OperationTimeout",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    def test_enable_feature_fails(
+        self, mocker, client_method, mqtt_pipeline, pipeline_error, client_error
+    ):
+        # Feature will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        # Enable Feature will fail
+        my_pipeline_error = pipeline_error()
+
+        def fail_enable_feature(feature_name, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.enable_feature = mocker.MagicMock(side_effect=fail_enable_feature)
+
+        # Attempt invoking the client method
+        with pytest.raises(client_error) as e_info:
+            client_method()
+        assert e_info.value.__cause__ is my_pipeline_error
+
+
+class SharedClientDisableReceiveTests(WaitsForEventCompletion):
+    @pytest.mark.it("Disable the corresponding feature if it is not already disabled")
+    def test_not_already_disabled(self, client_method, feature_name, mqtt_pipeline):
+        # Feature will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True
+        # Invoke the client method
+        client_method()
+        # Feature was disabled
+        assert mqtt_pipeline.disable_feature.call_count == 1
+        assert mqtt_pipeline.disable_feature.call_args[0][0] == feature_name
+
+    @pytest.mark.it("Does not disable the corresponding feature if it already disabled")
+    def test_already_disabled(self, client_method, mqtt_pipeline):
+        # Feature will appear already disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+        # Invoke the client method
+        client_method()
+        # Feature was not disabled again
+        assert mqtt_pipeline.disable_feature.call_count == 0
+
+    @pytest.mark.it("Raises a client error if disabling the corresponding feature fails")
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout -> OperationTimeout",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    def test_disable_feature_fails(
+        self, mocker, client_method, mqtt_pipeline, pipeline_error, client_error
+    ):
+        # Feature will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True
+
+        # Disable Feature will fail
+        my_pipeline_error = pipeline_error()
+
+        def fail_disable_feature(feature_name, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.disable_feature = mocker.MagicMock(side_effect=fail_disable_feature)
+
+        # Attempt invoking the client method
+        with pytest.raises(client_error) as e_info:
+            client_method()
+        assert e_info.value.__cause__ is my_pipeline_error
+
+
 ################
 # DEVICE TESTS #
 ################
@@ -1453,26 +1616,52 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(
             assert e_info.value.__cause__ is my_pipeline_error
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_message_received")
-class TestIoTHubDeviceClientPROPERTYOnMessageReceivedHandler(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .enable_message_receive()")
+class TestIoTHubDeviceClientEnableMessageReceive(
+    IoTHubDeviceClientTestsConfig, SharedClientEnableReceiveTests
 ):
     @pytest.fixture
-    def handler_name(self):
-        return "on_message_received"
+    def client_method(self, client):
+        return client.enable_message_receive
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.C2D_MSG
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_method_request_received")
-class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .disable_message_receive()")
+class TestIoTHubDeviceClientDisableMessageReceive(
+    IoTHubDeviceClientTestsConfig, SharedClientDisableReceiveTests
 ):
     @pytest.fixture
-    def handler_name(self):
-        return "on_method_request_received"
+    def client_method(self, client):
+        return client.disable_message_receive
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.C2D_MSG
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .enable_method_request_receive()")
+class TestIoTHubDeviceClientEnableMethodRequestReceive(
+    IoTHubDeviceClientTestsConfig, SharedClientEnableReceiveTests
+):
+    @pytest.fixture
+    def client_method(self, client):
+        return client.enable_method_request_receive
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.METHODS
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .disable_method_request_receive()")
+class TestIoTHubDeviceClientDisableMethodRequestReceive(
+    IoTHubDeviceClientTestsConfig, SharedClientDisableReceiveTests
+):
+    @pytest.fixture
+    def client_method(self, client):
+        return client.disable_method_request_receive
 
     @pytest.fixture
     def feature_name(self):
@@ -1480,18 +1669,62 @@ class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
 
 
 @pytest.mark.describe(
-    "IoTHubDeviceClient (Synchronous) - PROPERTY .on_twin_desired_properties_patch_received"
+    "IoTHubDeviceClient (Synchronous) - .enable_twin_desired_properties_patch_receive()"
 )
-class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
+class TestIoTHubDeviceClientEnableTwinPatchtReceive(
+    IoTHubDeviceClientTestsConfig, SharedClientEnableReceiveTests
 ):
     @pytest.fixture
-    def handler_name(self):
-        return "on_twin_desired_properties_patch_received"
+    def client_method(self, client):
+        return client.enable_twin_desired_properties_patch_receive
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
+
+
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Synchronous) - .disable_twin_desired_properties_patch_receive()"
+)
+class TestIoTHubDeviceClientDisableTwinPatchtReceive(
+    IoTHubDeviceClientTestsConfig, SharedClientDisableReceiveTests
+):
+    @pytest.fixture
+    def client_method(self, client):
+        return client.disable_twin_desired_properties_patch_receive
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.TWIN_PATCHES
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_message_received")
+class TestIoTHubDeviceClientPROPERTYOnMessageReceivedHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_message_received"
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_method_request_received")
+class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_method_request_received"
+
+
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Synchronous) - PROPERTY .on_twin_desired_properties_patch_received"
+)
+class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_twin_desired_properties_patch_received"
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_connection_state_change")
@@ -1997,26 +2230,52 @@ class TestIoTHubModuleClientInvokeMethod(WaitsForEventCompletion, IoTHubModuleCl
             assert e_info.value.__cause__ is my_pipeline_error
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_message_received")
-class TestIoTHubModuleClientPROPERTYOnMessageReceivedHandler(
-    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .enable_message_receive()")
+class TestIoTHubModuleClientEnableMessageReceive(
+    IoTHubModuleClientTestsConfig, SharedClientEnableReceiveTests
 ):
     @pytest.fixture
-    def handler_name(self):
-        return "on_message_received"
+    def client_method(self, client):
+        return client.enable_message_receive
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.INPUT_MSG
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_method_request_received")
-class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
-    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .disable_message_receive()")
+class TestIoTHubModuleClientDisableMessageReceive(
+    IoTHubModuleClientTestsConfig, SharedClientDisableReceiveTests
 ):
     @pytest.fixture
-    def handler_name(self):
-        return "on_method_request_received"
+    def client_method(self, client):
+        return client.disable_message_receive
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.INPUT_MSG
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .enable_method_request_receive()")
+class TestIoTHubModuleClientEnableMethodRequestReceive(
+    IoTHubModuleClientTestsConfig, SharedClientEnableReceiveTests
+):
+    @pytest.fixture
+    def client_method(self, client):
+        return client.enable_method_request_receive
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.METHODS
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .disable_method_request_receive()")
+class TestIoTHubModuleClientDisableMethodRequestReceive(
+    IoTHubModuleClientTestsConfig, SharedClientDisableReceiveTests
+):
+    @pytest.fixture
+    def client_method(self, client):
+        return client.disable_method_request_receive
 
     @pytest.fixture
     def feature_name(self):
@@ -2024,18 +2283,62 @@ class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
 
 
 @pytest.mark.describe(
-    "IoTHubModuleClient (Synchronous) - PROPERTY .on_twin_desired_properties_patch_received"
+    "IoTHubModuleClient (Synchronous) - .enable_twin_desired_properties_patch_receive()"
 )
-class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
-    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
+class TestIoTHubModuleClientEnableTwinPatchReceive(
+    IoTHubModuleClientTestsConfig, SharedClientEnableReceiveTests
 ):
     @pytest.fixture
-    def handler_name(self):
-        return "on_twin_desired_properties_patch_received"
+    def client_method(self, client):
+        return client.enable_twin_desired_properties_patch_receive
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
+
+
+@pytest.mark.describe(
+    "IoTHubModuleClient (Synchronous) - .disable_twin_desired_properties_patch_receive()"
+)
+class TestIoTHubModuleClientDisableTwinPatchReceive(
+    IoTHubModuleClientTestsConfig, SharedClientDisableReceiveTests
+):
+    @pytest.fixture
+    def client_method(self, client):
+        return client.disable_twin_desired_properties_patch_receive
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.TWIN_PATCHES
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_message_received")
+class TestIoTHubModuleClientPROPERTYOnMessageReceivedHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_message_received"
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_method_request_received")
+class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_method_request_received"
+
+
+@pytest.mark.describe(
+    "IoTHubModuleClient (Synchronous) - PROPERTY .on_twin_desired_properties_patch_received"
+)
+class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_twin_desired_properties_patch_received"
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_connection_state_change")

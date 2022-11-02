@@ -3,7 +3,6 @@
 # license information.
 import pytest
 import logging
-import asyncio
 import parametrize
 from dev_utils import get_random_dict
 from azure.iot.device.iothub import MethodResponse
@@ -64,7 +63,7 @@ class TestMethods(object):
             )
 
         client.on_method_request_received = handle_on_method_request_received
-        await asyncio.sleep(1)  # wait for subscribe, etc, to complete
+        await client.enable_method_request_receive()
 
         # invoke the method call
         method_response = await service_helper.invoke_method(method_name, request_payload)

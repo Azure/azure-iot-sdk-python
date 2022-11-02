@@ -33,6 +33,7 @@ class TestReceiveC2d(object):
             received.set()
 
         client.on_message_received = handle_on_message_received
+        client.enable_message_receive()
 
         service_helper.send_c2d(message, {})
 
