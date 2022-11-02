@@ -292,6 +292,9 @@ class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchNotEnabled(ob
     "Client Reported Properties with dropped connection (Connection Retry enabled, Twin patches already enabled)"
 )
 @pytest.mark.keep_alive(4)
+# Because the timeout for a subscribe is 10 seconds, and a connection drop can take up to
+# 2x keepalive, we need a keepalive < 5 in order to effectively test what happens if a
+# connection drops and comes back
 class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
     @pytest.mark.it(
         "Updates reported properties once connection is restored after dropping outgoing packets"

@@ -412,7 +412,7 @@ class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchAlreadyEnable
         assert client.connected
 
         # Enable twins first, then drop outgoing packets
-        client._enable_feature("twin")
+        await client._enable_feature("twin")
         dropper.drop_outgoing()
 
         # Attempt to send a twin patch (implicitly enabling twin patches first)
@@ -441,7 +441,7 @@ class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchAlreadyEnable
         assert client.connected
 
         # Enable twins first, then reject outgoing packets
-        client._enable_feature("twin")
+        await client._enable_feature("twin")
         dropper.reject_outgoing()
 
         # Attempt to send a twin patch (implicitly enabling twin patches first)
