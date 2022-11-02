@@ -71,7 +71,7 @@ class TestSendMessage(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Fails if there is no connection")
+    @pytest.mark.it("Raises NoConnectionError if there is no connection")
     async def test_fails_if_no_connection(self, client, random_message, leak_tracker):
         leak_tracker.set_initial_object_list()
 
@@ -101,7 +101,7 @@ class TestSendMessageDroppedConnectionRetryEnabled(object):
 
     @pytest.mark.it("Sends message once connection is restored after dropping outgoing packets")
     @pytest.mark.uses_iptables
-    async def test_sends_if_drop_before_sending(
+    async def test_sends_if_drop_and_restore(
         self, client, random_message, dropper, service_helper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
@@ -134,7 +134,7 @@ class TestSendMessageDroppedConnectionRetryEnabled(object):
 
     @pytest.mark.it("Sends message once connection is restored after rejecting outgoing packets")
     @pytest.mark.uses_iptables
-    async def test_sends_if_reject_before_sending(
+    async def test_sends_if_reject_and_restore(
         self, client, random_message, dropper, service_helper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
@@ -179,11 +179,9 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         await client.connect()
         assert client.connected
 
-    @pytest.mark.it("Fails after dropping outgoing packets before sending")
+    @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
     @pytest.mark.uses_iptables
-    async def test_sends_if_drop_before_sending(
-        self, client, random_message, dropper, leak_tracker
-    ):
+    async def test_raises_op_cancelled_if_drop(self, client, random_message, dropper, leak_tracker):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
@@ -205,9 +203,9 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         # TODO: Why is the message object leaking? Why is the callback leaking?
         # leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Fails after rejecting outgoing packets before sending")
+    @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
     @pytest.mark.uses_iptables
-    async def test_sends_if_reject_before_sending(
+    async def test_raises_op_cancelled_if_reject(
         self, client, random_message, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()

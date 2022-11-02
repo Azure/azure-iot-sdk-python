@@ -253,7 +253,7 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchNotEnabled(obj
 # connection drops
 class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
-    async def test_sync_raises_op_cancelled_if_drop(
+    async def test_raises_op_cancelled_if_drop(
         self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
@@ -281,7 +281,7 @@ class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchNotEnabled(ob
         # leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
-    async def test_sync_raises_op_cancelled_if_reject(
+    async def test_raises_op_cancelled_if_reject(
         self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
@@ -405,7 +405,7 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchAlreadyEnabled
 # connection drops
 class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
     @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
-    async def test_sync_raises_op_cancelled_if_drop(
+    async def test_raises_op_cancelled_if_drop(
         self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
@@ -434,7 +434,7 @@ class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchAlreadyEnable
         # leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
-    async def test_sync_raises_op_cancelled_if_reject(
+    async def test_raises_op_cancelled_if_reject(
         self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
