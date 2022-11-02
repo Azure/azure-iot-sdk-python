@@ -96,7 +96,7 @@ class TestInstantiation(object):
         assert http_transport_object._proxies["https"] == expected_proxy_string
 
     @pytest.mark.it(
-        "Configures TLS/SSL context to use TLS 1.2, require certificates and check hostname"
+        "Configures TLS/SSL context to use client-side connection, require certificates and check hostname"
     )
     def test_configures_tls_context(self, mocker):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
@@ -105,7 +105,9 @@ class TestInstantiation(object):
         HTTPTransport(hostname=fake_hostname)
         # Verify correctness of TLS/SSL Context
         assert mock_ssl_context_constructor.call_count == 1
-        assert mock_ssl_context_constructor.call_args == mocker.call(protocol=ssl.PROTOCOL_TLSv1_2)
+        assert mock_ssl_context_constructor.call_args == mocker.call(
+            protocol=ssl.PROTOCOL_TLS_CLIENT
+        )
         assert mock_ssl_context.check_hostname is True
         assert mock_ssl_context.verify_mode == ssl.CERT_REQUIRED
 
