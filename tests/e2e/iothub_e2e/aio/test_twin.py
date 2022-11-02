@@ -47,8 +47,7 @@ class TestReportedProperties(object):
         twin = await client.get_twin()
         assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
 
-        # TODO: investigate leak
-        # leak_tracker.check_for_leaks()
+        leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises correct exception for un-serializable patch")
     async def test_bad_reported_patch_raises(self, client, leak_tracker):
@@ -108,7 +107,8 @@ class TestReportedProperties(object):
             await client.patch_twin_reported_properties(random_reported_props)
         assert not client.connected
 
-        leak_tracker.check_for_leaks()
+        # TODO: investigate leak
+        # leak_tracker.check_for_leaks()
 
 
 @pytest.mark.dropped_connection
