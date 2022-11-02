@@ -195,7 +195,8 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         while client.connected:
             assert not send_task.done()
             await asyncio.sleep(0.5)
-        # Immediately upon connection drop, the task is cancelled
+        # (Almost) Immediately upon connection drop, the task is cancelled
+        await asyncio.sleep(0.1)
         assert send_task.done()
         with pytest.raises(OperationCancelled):
             await send_task
@@ -221,7 +222,8 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         while client.connected:
             assert not send_task.done()
             await asyncio.sleep(0.5)
-        # Immediately upon connection drop, the task is cancelled
+        # (Almost) Immediately upon connection drop, the task is cancelled
+        await asyncio.sleep(0.1)
         assert send_task.done()
         with pytest.raises(OperationCancelled):
             await send_task
