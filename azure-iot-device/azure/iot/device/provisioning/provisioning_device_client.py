@@ -68,6 +68,8 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the registration
+            attempt is cancelled.
         :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if the connection times out.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.

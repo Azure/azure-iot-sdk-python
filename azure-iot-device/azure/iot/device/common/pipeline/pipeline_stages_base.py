@@ -50,10 +50,9 @@ class PipelineStage(abc.ABC):
     An example of a generic-to-specific stage is IoTHubMQTTTranslationStage which converts IoTHub operations
     (such as SendD2CMessageOperation) to MQTT operations (such as Publish).
 
-    Each stage should also work in the broadest domain possible.  For example a generic stage
-    that initiates a connection if any arbitrary operation needs a connection is more useful
-    than having some MQTT-specific code that re-connects to the MQTT broker if the user calls Publish and
-    there's no connection.
+    Each stage should also work in the broadest domain possible. Generic is better than specific, for
+    example, if a stage deals with establishing connections, there should be nothing protocol-specific
+    about it unless necessary.
 
     One way to think about stages is to look at every "block of functionality" in your code and ask yourself
     "is this the one and only time I will need this code"?  If the answer is no, it might be worthwhile to

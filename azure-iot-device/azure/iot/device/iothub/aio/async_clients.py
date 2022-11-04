@@ -185,7 +185,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if the connection times out.
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the connect attempt is
+            cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if the connect attempt
+            times out.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -258,6 +261,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             the connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the reauthorization
+            attempt is cancelled.
         :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if the reauthorization
             attempt times out.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if the client was not initially
@@ -292,16 +297,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             Message class will be converted to Message object.
         :type message: :class:`azure.iot.device.Message` or str
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected (and there is no auto-connect enabled)
+            connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the send attempt is
+            cancelled.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
@@ -330,16 +329,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param method_response: The MethodResponse to send
         :type method_response: :class:`azure.iot.device.MethodResponse`
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected (and there is no auto-connect enabled)
+            connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the send attempt is
+            cancelled.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -363,16 +356,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :returns: Complete Twin as a JSON dict
         :rtype: dict
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected (and there is no auto-connect enabled)
+            connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the request attempt is
+            cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if request attempt
+            times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -399,16 +388,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param reported_properties_patch: Twin Reported Properties patch as a JSON dict
         :type reported_properties_patch: dict
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected (and there is no auto-connect enabled)
+            connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the send attempt is
+            cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if send attempt
+            times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -431,16 +416,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         Enable the client's ability to receive method requests from IoTHub.
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -451,16 +430,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         Disable the client's ability to receive method requests from IoTHub.
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -471,16 +444,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         Enable the client's ability to receive twin desired property patches from IoTHub.
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -491,16 +458,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         Disable the client's ability to receive twin desired property patches from IoTHub.
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -569,16 +530,10 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         """
         Enable the client's ability to receive cloud-to-device messages from IoTHub.
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -589,16 +544,10 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         """
         Disable the client's ability to receive cloud-to-device messages from IoTHub.
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -634,16 +583,10 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :type message: :class:`azure.iot.device.Message` or str
         :param str output_name: Name of the output to send the event to.
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected (and there is no auto-connect enabled)
+            connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if send attempt
+            times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
@@ -694,16 +637,10 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         """
         Enable the client's ability to receive input messages from IoTHub.
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -714,16 +651,10 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         """
         Disable the client's ability to receive input messages from IoTHub.
 
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
