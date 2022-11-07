@@ -739,33 +739,6 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                     )
                 )
 
-        elif isinstance(event, pipeline_events_base.ConnectedEvent):
-            """
-            If we're reconnecting, send all pending requests down again.  This is necessary
-            because any response that might have been sent by the service was possibly lost
-            when the connection dropped.  The fact that the operation is still pending means
-            that we haven't received the response yet.  Sending the request more than once
-            will result in a reasonable response for all known operations, aside from extra
-            processing on the server in the case of a re-sent provisioning request, or the
-            appearance of a jump in $version attributes in the case of a lost twin PATCH
-            operation.  Since we're reusing the same $rid, the server, of course, _could_
-            recognize that this is a duplicate request, but the behavior in this case is
-            undefined.
-            """
-
-            for request_id in self.pending_responses:
-                logger.info(
-                    "{stage}: ConnectedEvent: re-publishing request {id} for {method} {type} ".format(
-                        stage=self.name,
-                        id=request_id,
-                        method=self.pending_responses[request_id].method,
-                        type=self.pending_responses[request_id].request_type,
-                    )
-                )
-                self._send_request_down(request_id, self.pending_responses[request_id])
-
-            self.send_event_up(event)
-
         else:
             self.send_event_up(event)
 
