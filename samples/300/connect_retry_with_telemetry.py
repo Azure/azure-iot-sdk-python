@@ -145,7 +145,7 @@ async def main():
     # your application
     device_client = create_client()
 
-    main_event_loop = asyncio.get_running_loop()
+    main_event_loop = asyncio.get_event_loop()
     print("IoT Hub device sending periodic messages")
 
     try:
@@ -164,3 +164,8 @@ if __name__ == "__main__":
     # Set debug=True if asyncio logs are needed.
     # asyncio.run(main(), debug=True)
     asyncio.run(main())
+
+    # If using Python 3.6 use the following code instead of asyncio.run(main()):
+    # loop = asyncio.get_event_loop()
+    # loop.run_until_complete(main())
+    # loop.close()
