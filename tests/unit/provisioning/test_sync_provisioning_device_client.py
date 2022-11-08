@@ -322,9 +322,11 @@ class TestClientRegister(object):
         with pytest.raises(client_error) as e_info:
             client.register()
         assert e_info.value.__cause__ is my_pipeline_error
+        # Disconnect did not have to called because the connect never succeeded
+        assert provisioning_pipeline.disconnect.call_count == 0
 
     @pytest.mark.it(
-        "Raises a client error if the `enable` pipeline operation calls back with a pipeline error"
+        "Raises a client error and disconnects if the `enable` pipeline operation calls back with a pipeline error"
     )
     @pytest.mark.parametrize("pipeline_error,client_error", POSSIBLE_CLIENT_ERRORS)
     def test_enable_raises_error(self, client, provisioning_pipeline, pipeline_error, client_error):
@@ -341,9 +343,11 @@ class TestClientRegister(object):
         with pytest.raises(client_error) as e_info:
             client.register()
         assert e_info.value.__cause__ is my_pipeline_error
+        # Disconnect was called to clean up failure
+        assert provisioning_pipeline.disconnect.call_count == 1
 
     @pytest.mark.it(
-        "Raises a client error if the `register` pipeline operation calls back with a pipeline error"
+        "Raises a client error and disconnects if the `register` pipeline operation calls back with a pipeline error"
     )
     @pytest.mark.parametrize("pipeline_error,client_error", POSSIBLE_CLIENT_ERRORS)
     def test_register_raises_error(
@@ -359,6 +363,8 @@ class TestClientRegister(object):
         with pytest.raises(client_error) as e_info:
             client.register()
         assert e_info.value.__cause__ is my_pipeline_error
+        # Disconnect was called to clean up failure
+        assert provisioning_pipeline.disconnect.call_count == 1
 
     @pytest.mark.it(
         "Still returns the registration result even if the `disconnect` pipeline operation calls back with a pipeline error"

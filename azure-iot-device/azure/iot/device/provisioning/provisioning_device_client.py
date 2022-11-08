@@ -100,39 +100,47 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         logger.info("Registering with Provisioning Service...")
 
         # Connect
+        # NOTE: The client should always be disconnected when calling this API, so we have to
+        # connect every time. This is because of the finally block below that disconnects even
+        # on failure. However, even if somehow the client is already connected, there shouldn't
+        # be a problem - this connect will still succeed, while maintaining the existing connection
         logger.debug("Starting pipeline connect operation")
         connect_complete = EventedCallback()
         self._pipeline.connect(callback=connect_complete)
         handle_result(connect_complete)
         logger.debug("Completed pipeline connect operation")
 
-        #  Enable (if necessary)
-        if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
-            logger.debug("Starting pipeline enable operation")
-            enable_complete = EventedCallback()
-            self._pipeline.enable_responses(callback=enable_complete)
-            handle_result(enable_complete)
-            logger.debug("Completed pipeline enable operation")
-
-        # Register
-        logger.debug("Starting pipeline register operation")
-        register_complete = EventedCallback(return_arg_name="result")
-        self._pipeline.register(payload=self._provisioning_payload, callback=register_complete)
-        result = handle_result(register_complete)
-        log_on_register_complete(result)
-        logger.debug("Completed pipeline register operation")
-
-        # Disconnect
         try:
-            # This shouldn't fail, but we put it in this block anyway to ensure that
-            # the result can be returned in the case there is failure for some reason.
-            # This is okay to do because even in the case of failure, a disconnect occurs.
-            logger.debug("Starting pipeline disconnect operation")
-            disconnect_complete = EventedCallback()
-            self._pipeline.disconnect(callback=disconnect_complete)
-            handle_result(disconnect_complete)
-            logger.debug("Completed pipeline disconnect operation")
-        except Exception as e:
-            logger.debug("Pipeline disconnect operation raised exception: {}".format(str(e)))
+            #  Enable (if necessary)
+            if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
+                logger.debug("Starting pipeline enable operation")
+                enable_complete = EventedCallback()
+                self._pipeline.enable_responses(callback=enable_complete)
+                handle_result(enable_complete)
+                logger.debug("Completed pipeline enable operation")
+
+            # Register
+            logger.debug("Starting pipeline register operation")
+            register_complete = EventedCallback(return_arg_name="result")
+            self._pipeline.register(payload=self._provisioning_payload, callback=register_complete)
+            result = handle_result(register_complete)
+            log_on_register_complete(result)
+            logger.debug("Completed pipeline register operation")
+        except Exception:
+            raise
         finally:
-            return result
+            # Disconnect
+            try:
+                logger.debug("Starting pipeline disconnect operation")
+                disconnect_complete = EventedCallback()
+                self._pipeline.disconnect(callback=disconnect_complete)
+                handle_result(disconnect_complete)
+                logger.debug("Completed pipeline disconnect operation")
+            except Exception as e:
+                # This shouldn't fail, but we put it in this block anyway to ensure that
+                # the result can still be returned in the case there is failure for some reason.
+                # This is okay to do because even in the case of failure, a disconnect occurs.
+                # self._pipeline_disconnect()
+                logger.debug("Pipeline disconnect operation raised exception: {}".format(str(e)))
+
+        return result

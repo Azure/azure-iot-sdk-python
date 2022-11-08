@@ -101,6 +101,10 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         logger.info("Registering with Provisioning Service...")
 
         # Connect
+        # NOTE: The client should always be disconnected when calling this API, so we have to
+        # connect every time. This is because of the finally block below that disconnects even
+        # on failure. However, even if somehow the client is already connected, there shouldn't
+        # be a problem - this connect will still succeed, while maintaining the existing connection
         logger.debug("Starting pipeline connect operation")
         connect_async = async_adapter.emulate_async(self._pipeline.connect)
         connect_complete = async_adapter.AwaitableCallback()
@@ -108,36 +112,39 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         await handle_result(connect_complete)
         logger.debug("Completed pipeline connect operation")
 
-        # Enable (if necessary)
-        if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
-            logger.debug("Starting pipeline enable operation")
-            enable_async = async_adapter.emulate_async(self._pipeline.enable_responses)
-            enable_complete = async_adapter.AwaitableCallback()
-            await enable_async(callback=enable_complete)
-            await handle_result(enable_complete)
-            logger.debug("Completed pipeline enable operation")
-
-        # Register
-        logger.debug("Starting pipeline register operation")
-        register_async = async_adapter.emulate_async(self._pipeline.register)
-        register_complete = async_adapter.AwaitableCallback(return_arg_name="result")
-        await register_async(payload=self._provisioning_payload, callback=register_complete)
-        result = await handle_result(register_complete)
-        log_on_register_complete(result)
-        logger.debug("Completed pipeline register operation")
-
-        # Disconnect
         try:
-            # This shouldn't fail, but we put it in this block anyway to ensure that
-            # the result can be returned in the case there is failure for some reason.
-            # This is okay to do because even in the case of failure, a disconnect occurs.
-            logger.debug("Starting pipeline disconnect operation")
-            disconnect_async = async_adapter.emulate_async(self._pipeline.disconnect)
-            disconnect_complete = async_adapter.AwaitableCallback()
-            await disconnect_async(callback=disconnect_complete)
-            await handle_result(disconnect_complete)
-            logger.debug("Completed pipeline disconnect operation")
-        except Exception as e:
-            logger.debug("Pipeline disconnect operation raised exception: {}".format(str(e)))
+            # Enable (if necessary)
+            if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
+                logger.debug("Starting pipeline enable operation")
+                enable_async = async_adapter.emulate_async(self._pipeline.enable_responses)
+                enable_complete = async_adapter.AwaitableCallback()
+                await enable_async(callback=enable_complete)
+                await handle_result(enable_complete)
+                logger.debug("Completed pipeline enable operation")
+
+            # Register
+            logger.debug("Starting pipeline register operation")
+            register_async = async_adapter.emulate_async(self._pipeline.register)
+            register_complete = async_adapter.AwaitableCallback(return_arg_name="result")
+            await register_async(payload=self._provisioning_payload, callback=register_complete)
+            result = await handle_result(register_complete)
+            log_on_register_complete(result)
+            logger.debug("Completed pipeline register operation")
+        except Exception:
+            raise
         finally:
-            return result
+            # Disconnect
+            try:
+                # This shouldn't fail, but we put it in this block anyway to ensure that
+                # the result can still be returned in the case there is failure for some reason.
+                # This is okay to do because even in the case of failure, a disconnect occurs.
+                logger.debug("Starting pipeline disconnect operation")
+                disconnect_async = async_adapter.emulate_async(self._pipeline.disconnect)
+                disconnect_complete = async_adapter.AwaitableCallback()
+                await disconnect_async(callback=disconnect_complete)
+                await handle_result(disconnect_complete)
+                logger.debug("Completed pipeline disconnect operation")
+            except Exception as e:
+                logger.debug("Pipeline disconnect operation raised exception: {}".format(str(e)))
+
+        return result
