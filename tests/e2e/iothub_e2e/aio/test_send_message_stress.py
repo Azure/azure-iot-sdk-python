@@ -285,7 +285,6 @@ class TestSendMessageStress(object):
     @pytest.mark.timeout(SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION * 2)
     @pytest.mark.dropped_connection
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     async def test_stress_send_message_with_flaky_network(
         self,
         client,

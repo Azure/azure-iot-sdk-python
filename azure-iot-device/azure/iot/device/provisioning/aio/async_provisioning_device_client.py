@@ -88,13 +88,15 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if establishing a
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the registration
+            attempt is cancelled.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if the connection times out.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
-
         """
         logger.info("Registering with Provisioning Service...")
 

@@ -150,6 +150,9 @@ class ServiceHelperSync(object):
 
         return response
 
+    def get_twin(self):
+        return self._registry_manager.get_twin(self.device_id)
+
     def send_c2d(self, payload, properties):
         if self.module_id:
             raise TypeError("sending C2D to modules is not supported")

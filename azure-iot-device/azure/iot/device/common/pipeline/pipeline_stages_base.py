@@ -50,10 +50,9 @@ class PipelineStage(abc.ABC):
     An example of a generic-to-specific stage is IoTHubMQTTTranslationStage which converts IoTHub operations
     (such as SendD2CMessageOperation) to MQTT operations (such as Publish).
 
-    Each stage should also work in the broadest domain possible.  For example a generic stage (say
-    "AutoConnectStage") that initiates a connection if any arbitrary operation needs a connection is more useful
-    than having some MQTT-specific code that re-connects to the MQTT broker if the user calls Publish and
-    there's no connection.
+    Each stage should also work in the broadest domain possible. Generic is better than specific, for
+    example, if a stage deals with establishing connections, there should be nothing protocol-specific
+    about it unless necessary.
 
     One way to think about stages is to look at every "block of functionality" in your code and ask yourself
     "is this the one and only time I will need this code"?  If the answer is no, it might be worthwhile to
@@ -556,63 +555,6 @@ class SasTokenStage(PipelineStage):
         self.send_op_down(
             pipeline_ops_base.ReauthorizeConnectionOperation(callback=on_reauthorize_complete)
         )
-
-
-class AutoConnectStage(PipelineStage):
-    """
-    This stage is responsible for ensuring that the protocol is connected when
-    it needs to be connected.
-    """
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
-        # Any operation that requires a connection can trigger a connection if
-        # we're not connected and the auto-connect feature is enabled.
-        if (
-            op.needs_connection
-            and not self.nucleus.connected
-            and self.nucleus.pipeline_configuration.auto_connect
-        ):
-            logger.debug(
-                "{}({}): Op needs connection.  Queueing this op and starting a ConnectionOperation".format(
-                    self.name, op.name
-                )
-            )
-            self._do_connect(op)
-
-        else:
-            self.send_op_down(op)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _do_connect(self, op):
-        """
-        Start connecting the transport in response to some operation
-        """
-        # Alias to avoid overload within the callback below
-        # CT-TODO: remove the need for this with better callback semantics
-        op_needs_connect = op
-
-        # function that gets called after we're connected.
-        @pipeline_thread.runs_on_pipeline_thread
-        def on_connect_op_complete(op, error):
-            if error:
-                logger.debug(
-                    "{}({}): Connection failed.  Completing with failure because of connection failure: {}".format(
-                        self.name, op_needs_connect.name, error
-                    )
-                )
-                op_needs_connect.complete(error=error)
-            else:
-                logger.debug(
-                    "{}({}): connection is complete.  Running op that triggered connection.".format(
-                        self.name, op_needs_connect.name
-                    )
-                )
-                self.run_op(op_needs_connect)
-
-        # call down to the next stage to connect.
-        logger.debug("{}({}): calling down with Connect operation".format(self.name, op.name))
-        self.send_op_down(pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete))
 
 
 class CoordinateRequestAndResponseStage(PipelineStage):
