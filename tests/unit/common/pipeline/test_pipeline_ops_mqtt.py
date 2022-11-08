@@ -36,11 +36,6 @@ class MQTTPublishOperationInstantiationTests(MQTTPublishOperationTestConfig):
         op = cls_type(**init_kwargs)
         assert op.payload == init_kwargs["payload"]
 
-    @pytest.mark.it("Initializes 'needs_connection' attribute as True")
-    def test_needs_connection(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.needs_connection is True
-
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
@@ -66,11 +61,6 @@ class MQTTSubscribeOperationInstantiationTests(MQTTSubscribeOperationTestConfig)
     def test_topic(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.topic == init_kwargs["topic"]
-
-    @pytest.mark.it("Initializes 'needs_connection' attribute as True")
-    def test_needs_connection(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.needs_connection is True
 
     @pytest.mark.it("Initializes 'timeout_timer' attribute as None")
     def test_timeout_timer(self, cls_type, init_kwargs):
@@ -107,11 +97,6 @@ class MQTTUnsubscribeOperationInstantiationTests(MQTTUnsubscribeOperationTestCon
     def test_topic(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.topic == init_kwargs["topic"]
-
-    @pytest.mark.it("Initializes 'needs_connection' attribute as True")
-    def test_needs_connection(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.needs_connection is True
 
     @pytest.mark.it("Initializes 'timeout_timer' attribute as None")
     def test_timeout_timer(self, cls_type, init_kwargs):

@@ -31,7 +31,7 @@ def add_operation_tests(
     :param extended_op_instantiation_test_class: A class defining instantiation tests that are
         specific to the Operation class under test, and not shared with all Operations.
         Note that you may override shared instantiation tests defined in this function within
-        the provided test class (e.g. test_needs_connection)
+        the provided test class
     """
 
     # Extend the provided test config class
@@ -64,12 +64,6 @@ def add_operation_tests(
             op = cls_type(**init_kwargs)
             assert op.error is None
 
-        # NOTE: this test should be overridden for operations that set this value to True
-        @pytest.mark.it("Initializes 'needs_connection' attribute as False")
-        def test_needs_connection(self, cls_type, init_kwargs):
-            op = cls_type(**init_kwargs)
-            assert op.needs_connection is False
-
         @pytest.mark.it("Initializes 'callback_stack' list attribute with the provided callback")
         def test_callback_added_to_list(self, cls_type, init_kwargs):
             op = cls_type(**init_kwargs)
@@ -78,8 +72,8 @@ def add_operation_tests(
 
     # If an extended operation instantiation test class is provided, use those tests as well.
     # By using the extended_op_instantiation_test_class as the first parent class, this ensures that
-    # tests from OperationBaseInstantiationTests (e.g. test_needs_connection) can be overwritten by
-    # tests provided in extended_op_instantiation_test_class.
+    # tests from OperationBaseInstantiationTests can be overwritten by tests provided in
+    # extended_op_instantiation_test_class.
     if extended_op_instantiation_test_class:
 
         class OperationInstantiationTests(

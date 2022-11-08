@@ -64,6 +64,35 @@ class TestProvisioningClientCreateFromX509Certificate(
 
 @pytest.mark.describe("ProvisioningDeviceClient (Async) - .register()")
 class TestClientRegister(object):
+    @pytest.mark.it("Implicitly connects to the provisioning service if not already connected")
+    async def test_connects_provisioning_only_if_not_already_connected(
+        self, mocker, provisioning_pipeline, registration_result
+    ):
+        # Override callback to pass successful result
+        def connect_complete_success_callback(callback):
+            callback()
+
+        mocker.patch.object(
+            provisioning_pipeline, "connect", side_effect=connect_complete_success_callback
+        )
+
+        # Not yet connected (does a connection)
+        provisioning_pipeline._nucleus.connected = False
+        assert provisioning_pipeline.connect.call_count == 0
+        client = ProvisioningDeviceClient(provisioning_pipeline)
+        await client.register()
+        assert provisioning_pipeline.connect.call_count == 1
+
+        # Reset mock
+        provisioning_pipeline.connect.reset_mock()
+
+        # Already connected (does not do a connection)
+        provisioning_pipeline._nucleus.connected = True
+        assert provisioning_pipeline.connect.call_count == 0
+        client = ProvisioningDeviceClient(provisioning_pipeline)
+        await client.register()
+        assert provisioning_pipeline.connect.call_count == 0
+
     @pytest.mark.it("Implicitly enables responses from provisioning service if not already enabled")
     async def test_enables_provisioning_only_if_not_already_enabled(
         self, mocker, provisioning_pipeline, registration_result

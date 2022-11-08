@@ -35,7 +35,6 @@ def _validate_kwargs(exclude=[], **kwargs):
         "proxy_options",
         "sastoken_ttl",
         "keep_alive",
-        "auto_connect",
         "connection_retry",
         "connection_retry_interval",
     ]
@@ -55,7 +54,6 @@ def _get_config_kwargs(**kwargs):
         "product_info",
         "proxy_options",
         "keep_alive",
-        "auto_connect",
         "connection_retry",
         "connection_retry_interval",
     ]
@@ -218,8 +216,6 @@ class AbstractIoTHubClient(abc.ABC):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
-        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
-            invoked which requires a connection to be established. (Default: True)
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
@@ -299,8 +295,6 @@ class AbstractIoTHubClient(abc.ABC):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
-        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
-            invoked which requires a connection to be established. (Default: True)
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
@@ -527,8 +521,6 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
-        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
-            invoked which requires a connection to be established. (Default: True)
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
@@ -584,8 +576,6 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
-        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
-            invoked which requires a connection to be established. (Default: True)
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
@@ -657,8 +647,6 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
-        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
-            invoked which requires a connection to be established. (Default: True)
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)
@@ -803,8 +791,6 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
-        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
-            invoked which requires a connection to be established. (Default: True)
         :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
         :param int connection_retry_interval: Interval, in seconds, between attempts to
             re-establish a dropped connection (Default: 10)

@@ -26,10 +26,6 @@ class PipelineOperation(object):
     :ivar callback: The callback that is called when the operation is completed, either
         successfully or with a failure.
     :type callback: Function
-    :ivar needs_connection: This is an attribute that indicates whether a particular operation
-        requires a connection to operate.  This is currently used by the AutoConnectStage
-        stage, but this functionality will be revamped shortly.
-    :type needs_connection: Boolean
     :ivar error: The presence of a value in the error attribute indicates that the operation failed,
         absence of this value indicates that the operation either succeeded or hasn't been handled yet.
     :type error: Error
@@ -49,7 +45,6 @@ class PipelineOperation(object):
             )
         self.name = self.__class__.__name__
         self.callback_stack = []
-        self.needs_connection = False
         self.completed = False  # Operation has been fully completed
         self.completing = False  # Operation is in the process of completing
         self.error = None  # Error associated with Operation completion

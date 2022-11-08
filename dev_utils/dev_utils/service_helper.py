@@ -47,6 +47,9 @@ class ServiceHelper:
             response_timeout_in_seconds,
         )
 
+    async def get_twin(self):
+        return await self._event_loop.run_in_executor(self._executor, self._inner_object.get_twin)
+
     async def send_c2d(
         self,
         payload,
