@@ -23,6 +23,58 @@ logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.asyncio
 
 
+# NOTE: Not all of these errors are possible in practice on all pipeline operations.
+# However, we will test all of them on all pipeline operations for safety + maintainability
+POSSIBLE_CLIENT_ERRORS = [
+    pytest.param(
+        pipeline_exceptions.ConnectionDroppedError,
+        client_exceptions.ConnectionDroppedError,
+        id="ConnectionDroppedError->ConnectionDroppedError",
+    ),
+    pytest.param(
+        pipeline_exceptions.ConnectionFailedError,
+        client_exceptions.ConnectionFailedError,
+        id="ConnectionFailedError->ConnectionFailedError",
+    ),
+    pytest.param(
+        pipeline_exceptions.UnauthorizedError,
+        client_exceptions.CredentialError,
+        id="UnauthorizedError->CredentialError",
+    ),
+    pytest.param(
+        pipeline_exceptions.ProtocolClientError,
+        client_exceptions.ClientError,
+        id="ProtocolClientError->ClientError",
+    ),
+    pytest.param(
+        pipeline_exceptions.TlsExchangeAuthError,
+        client_exceptions.ClientError,
+        id="TlsExchangeAuthError->ClientError",
+    ),
+    pytest.param(
+        pipeline_exceptions.ProtocolProxyError,
+        client_exceptions.ClientError,
+        id="ProtocolProxyError->ClientError",
+    ),
+    pytest.param(
+        pipeline_exceptions.OperationTimeout,
+        client_exceptions.OperationTimeout,
+        id="OperationTimeout->OperationTimeout",
+    ),
+    pytest.param(
+        pipeline_exceptions.OperationCancelled,
+        client_exceptions.OperationCancelled,
+        id="OperationCancelled->OperationCancelled",
+    ),
+    pytest.param(
+        pipeline_exceptions.PipelineNotRunning,
+        client_exceptions.ClientError,
+        id="PipelineNotRunning->ClientError",
+    ),
+    pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+]
+
+
 async def create_completed_future(result=None):
     f = asyncio.Future()
     f.set_result(result)
@@ -62,266 +114,295 @@ class TestProvisioningClientCreateFromX509Certificate(
     pass
 
 
-@pytest.mark.describe("ProvisioningDeviceClient (Async) - .register()")
-class TestClientRegister(object):
-    @pytest.mark.it("Implicitly enables responses from provisioning service if not already enabled")
-    async def test_enables_provisioning_only_if_not_already_enabled(
-        self, mocker, provisioning_pipeline, registration_result
-    ):
-        # Override callback to pass successful result
-        def register_complete_success_callback(payload, callback):
-            callback(result=registration_result)
-
-        mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_success_callback
-        )
-
-        provisioning_pipeline.responses_enabled.__getitem__.return_value = False
-
+@pytest.mark.describe("ProvisioningDeviceClient (Async) - .shutdown()")
+class TestClientShutdown(object):
+    @pytest.mark.it("Begins a 'shutdown' pipeline operation")
+    async def test_calls_pipeline_shutdown(self, provisioning_pipeline):
         client = ProvisioningDeviceClient(provisioning_pipeline)
-        await client.register()
-
-        assert provisioning_pipeline.enable_responses.call_count == 1
-
-        provisioning_pipeline.enable_responses.reset_mock()
-
-        provisioning_pipeline.responses_enabled.__getitem__.return_value = True
-        await client.register()
-        assert provisioning_pipeline.enable_responses.call_count == 0
-
-    @pytest.mark.it("Begins a 'register' pipeline operation")
-    async def test_register_calls_pipeline_register(
-        self, provisioning_pipeline, mocker, registration_result
-    ):
-        def register_complete_success_callback(payload, callback):
-            callback(result=registration_result)
-
-        mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_success_callback
-        )
-        client = ProvisioningDeviceClient(provisioning_pipeline)
-        await client.register()
-        assert provisioning_pipeline.register.call_count == 1
-
-    @pytest.mark.it(
-        "Begins a 'shutdown' pipeline operation if the registration result is successful"
-    )
-    async def test_shutdown_upon_success(self, mocker, provisioning_pipeline, registration_result):
-        # success result
-        registration_result._status = "assigned"
-
-        def register_complete_success_callback(payload, callback):
-            callback(result=registration_result)
-
-        mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_success_callback
-        )
-
-        client = ProvisioningDeviceClient(provisioning_pipeline)
-        await client.register()
-
+        await client.shutdown()
         assert provisioning_pipeline.shutdown.call_count == 1
 
     @pytest.mark.it(
-        "Does NOT begin a 'shutdown' pipeline operation if the registration result is NOT successful"
+        "Waits for the completion of the 'shutdown' pipeline operation before returning"
     )
-    async def test_no_shutdown_upon_fail(self, mocker, provisioning_pipeline, registration_result):
-        # fail result
-        registration_result._status = "not assigned"
-
-        def register_complete_fail_callback(payload, callback):
-            callback(result=registration_result)
-
-        mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_fail_callback
-        )
-
-        client = ProvisioningDeviceClient(provisioning_pipeline)
-        await client.register()
-
-        assert provisioning_pipeline.shutdown.call_count == 0
-
-    @pytest.mark.it(
-        "Waits for the completion of both the 'register' and 'shutdown' pipeline operations before returning, if the registration result is successful"
-    )
-    async def test_waits_for_pipeline_op_completions_on_success(
-        self, mocker, provisioning_pipeline, registration_result
-    ):
-        # success result
-        registration_result._status = "assigned"
-
-        # Set up mocks
-        cb_mock_register = mocker.MagicMock()
+    async def test_waits_for_pipeline_op_completion(self, mocker, provisioning_pipeline):
         cb_mock_shutdown = mocker.MagicMock()
-        cb_mock_register.completion.return_value = await create_completed_future(
-            registration_result
-        )
         cb_mock_shutdown.completion.return_value = await create_completed_future(None)
         mocker.patch.object(async_adapter, "AwaitableCallback").side_effect = [
-            cb_mock_register,
             cb_mock_shutdown,
         ]
 
-        # Run test
         client = ProvisioningDeviceClient(provisioning_pipeline)
-        await client.register()
-
-        # Calls made as expected
-        assert provisioning_pipeline.register.call_count == 1
+        await client.shutdown()
         assert provisioning_pipeline.shutdown.call_count == 1
-        # Callbacks sent to pipeline as expected
-        assert provisioning_pipeline.register.call_args == mocker.call(
-            payload=mocker.ANY, callback=cb_mock_register
-        )
         assert provisioning_pipeline.shutdown.call_args == mocker.call(callback=cb_mock_shutdown)
-        # Callback completions were waited upon as expected
-        assert cb_mock_register.completion.call_count == 1
         assert cb_mock_shutdown.completion.call_count == 1
-
-    @pytest.mark.it(
-        "Waits for the completion of just the 'register' pipeline operation before returning, if the registration result is NOT successful"
-    )
-    async def test_waits_for_pipeline_op_completion_on_failure(
-        self, mocker, provisioning_pipeline, registration_result
-    ):
-        # fail result
-        registration_result._status = "not assigned"
-
-        # Set up mocks
-        cb_mock_register = mocker.MagicMock()
-        cb_mock_shutdown = mocker.MagicMock()
-        cb_mock_register.completion.return_value = await create_completed_future(
-            registration_result
-        )
-        cb_mock_shutdown.completion.return_value = await create_completed_future(None)
-        mocker.patch.object(async_adapter, "AwaitableCallback").side_effect = [
-            cb_mock_register,
-            cb_mock_shutdown,
-        ]
-
-        # Run test
-        client = ProvisioningDeviceClient(provisioning_pipeline)
-        await client.register()
-
-        # Calls made as expected
-        assert provisioning_pipeline.register.call_count == 1
-        assert provisioning_pipeline.shutdown.call_count == 0
-        # Callbacks sent to pipeline as expected
-        assert provisioning_pipeline.register.call_args == mocker.call(
-            payload=mocker.ANY, callback=cb_mock_register
-        )
-        # Callback completions were waited upon as expected
-        assert cb_mock_register.completion.call_count == 1
-        assert cb_mock_shutdown.completion.call_count == 0
-
-    @pytest.mark.it("Returns the registration result that the pipeline returned")
-    async def test_verifies_registration_result_returned(
-        self, mocker, provisioning_pipeline, registration_result
-    ):
-        result = registration_result
-
-        def register_complete_success_callback(payload, callback):
-            callback(result=result)
-
-        mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_success_callback
-        )
-
-        client = ProvisioningDeviceClient(provisioning_pipeline)
-        result_returned = await client.register()
-        assert result_returned == result
-
-    @pytest.mark.it(
-        "Raises a client error if the `register` pipeline operation calls back with a pipeline error"
-    )
-    @pytest.mark.parametrize(
-        "pipeline_error,client_error",
-        [
-            pytest.param(
-                pipeline_exceptions.ConnectionDroppedError,
-                client_exceptions.ConnectionDroppedError,
-                id="ConnectionDroppedError->ConnectionDroppedError",
-            ),
-            pytest.param(
-                pipeline_exceptions.ConnectionFailedError,
-                client_exceptions.ConnectionFailedError,
-                id="ConnectionFailedError->ConnectionFailedError",
-            ),
-            pytest.param(
-                pipeline_exceptions.UnauthorizedError,
-                client_exceptions.CredentialError,
-                id="UnauthorizedError->CredentialError",
-            ),
-            pytest.param(
-                pipeline_exceptions.ProtocolClientError,
-                client_exceptions.ClientError,
-                id="ProtocolClientError->ClientError",
-            ),
-            pytest.param(
-                pipeline_exceptions.OperationTimeout,
-                client_exceptions.OperationTimeout,
-                id="OperationTimeout->OperationTimeout",
-            ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
-        ],
-    )
-    async def test_raises_error_on_register_pipeline_op_error(
-        self, mocker, client_error, pipeline_error, provisioning_pipeline
-    ):
-        error = pipeline_error()
-
-        def register_complete_failure_callback(payload, callback):
-            callback(result=None, error=error)
-
-        mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_failure_callback
-        )
-
-        client = ProvisioningDeviceClient(provisioning_pipeline)
-
-        with pytest.raises(client_error) as e_info:
-            await client.register()
-
-        assert e_info.value.__cause__ is error
-        assert provisioning_pipeline.register.call_count == 1
 
     @pytest.mark.it(
         "Raises a client error if the `shutdown` pipeline operation calls back with a pipeline error"
     )
-    @pytest.mark.parametrize(
-        "pipeline_error,client_error",
-        [
-            # The only expected errors are unexpected ones
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError")
-        ],
-    )
-    async def test_raises_error_on_shutdown_pipeline_op_error(
-        self, mocker, pipeline_error, client_error, provisioning_pipeline, registration_result
+    @pytest.mark.parametrize("pipeline_error,client_error", POSSIBLE_CLIENT_ERRORS)
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, provisioning_pipeline, pipeline_error, client_error
     ):
-        # success result is required to trigger shutdown
-        registration_result._status = "assigned"
-
         error = pipeline_error()
 
-        def register_complete_success_callback(payload, callback):
-            callback(result=registration_result)
-
-        def shutdown_failure_callback(callback):
-            callback(result=None, error=error)
+        def shutdown_complete_failure_callback(callback):
+            callback(error=error)
 
         mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_success_callback
-        )
-        mocker.patch.object(
-            provisioning_pipeline, "shutdown", side_effect=shutdown_failure_callback
+            provisioning_pipeline, "shutdown", side_effect=shutdown_complete_failure_callback
         )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
         with pytest.raises(client_error) as e_info:
-            await client.register()
+            await client.shutdown()
 
         assert e_info.value.__cause__ is error
+        assert provisioning_pipeline.shutdown.call_count == 1
+
+
+@pytest.mark.describe("ProvisioningDeviceClient (Async) - .register()")
+class TestClientRegister(object):
+    @pytest.fixture
+    def client(self, provisioning_pipeline):
+        return ProvisioningDeviceClient(provisioning_pipeline)
+
+    @pytest.mark.it(
+        "Runs `connect`, `enable`, `register` and `disconnect` pipeline operations in sequence, if the registration response feature is not yet enabled"
+    )
+    async def test_pipeline_operations_responses_disabled(
+        self, mocker, client, provisioning_pipeline, registration_result
+    ):
+        # Set the pipeline to have responses not yet enabled
+        provisioning_pipeline.responses_enabled.__getitem__.return_value = False
+        # Create a manager mock to track all pipeline calls
+        manager_mock = mocker.MagicMock()
+        manager_mock.attach_mock(provisioning_pipeline.connect, "connect")
+        manager_mock.attach_mock(provisioning_pipeline.enable_responses, "enable_responses")
+        manager_mock.attach_mock(provisioning_pipeline.register, "register")
+        manager_mock.attach_mock(provisioning_pipeline.disconnect, "disconnect")
+
+        # Pipeline operations have not yet been called
+        assert provisioning_pipeline.connect.call_count == 0
+        assert provisioning_pipeline.enable_responses.call_count == 0
+        assert provisioning_pipeline.register.call_count == 0
+        assert provisioning_pipeline.disconnect.call_count == 0
+
+        await client.register()
+
+        # Pipeline operations were called in sequence
+        assert provisioning_pipeline.connect.call_count == 1
+        assert provisioning_pipeline.enable_responses.call_count == 1
         assert provisioning_pipeline.register.call_count == 1
+        assert provisioning_pipeline.disconnect.call_count == 1
+        assert manager_mock.mock_calls == [
+            mocker.call.connect(callback=mocker.ANY),
+            mocker.call.enable_responses(callback=mocker.ANY),
+            mocker.call.register(payload=mocker.ANY, callback=mocker.ANY),
+            mocker.call.disconnect(callback=mocker.ANY),
+        ]
+
+    @pytest.mark.it(
+        "Runs `connect`, `register` and `disconnect` pipeline operations in sequence, if the registration response feature is already enabled"
+    )
+    async def test_pipeline_operations_responses_enabled(
+        self, mocker, client, provisioning_pipeline, registration_result
+    ):
+        # Set the pipeline to have responses already enabled
+        provisioning_pipeline.responses_enabled.__getitem__.return_value = True
+        # Create a manager mock to track all pipeline calls
+        manager_mock = mocker.MagicMock()
+        manager_mock.attach_mock(provisioning_pipeline.connect, "connect")
+        manager_mock.attach_mock(provisioning_pipeline.enable_responses, "enable_responses")
+        manager_mock.attach_mock(provisioning_pipeline.register, "register")
+        manager_mock.attach_mock(provisioning_pipeline.disconnect, "disconnect")
+
+        # Pipeline operations have not yet been called
+        assert provisioning_pipeline.connect.call_count == 0
+        assert provisioning_pipeline.enable_responses.call_count == 0
+        assert provisioning_pipeline.register.call_count == 0
+        assert provisioning_pipeline.disconnect.call_count == 0
+
+        await client.register()
+
+        # Enabling responses was not called
+        assert provisioning_pipeline.enable_responses.call_count == 0
+        # Pipeline operations were called in sequence
+        assert provisioning_pipeline.connect.call_count == 1
+        assert provisioning_pipeline.register.call_count == 1
+        assert provisioning_pipeline.disconnect.call_count == 1
+        assert manager_mock.mock_calls == [
+            mocker.call.connect(callback=mocker.ANY),
+            mocker.call.register(payload=mocker.ANY, callback=mocker.ANY),
+            mocker.call.disconnect(callback=mocker.ANY),
+        ]
+
+    @pytest.mark.it("Waits for the completion of all pipeline operations before returning")
+    async def test_pipeline_operations_completed(self, mocker, client, provisioning_pipeline):
+        # Set the pipeline to have responses not yet enabled
+        provisioning_pipeline.responses_enabled.__getitem__.return_value = False
+        cb_mock_connect = mocker.MagicMock()
+        cb_mock_connect.completion.return_value = await create_completed_future(None)
+        cb_mock_enable = mocker.MagicMock()
+        cb_mock_enable.completion.return_value = await create_completed_future(None)
+        cb_mock_register = mocker.MagicMock()
+        cb_mock_register.completion.return_value = await create_completed_future(None)
+        cb_mock_disconnect = mocker.MagicMock()
+        cb_mock_disconnect.completion.return_value = await create_completed_future(None)
+
+        mocker.patch.object(async_adapter, "AwaitableCallback").side_effect = [
+            cb_mock_connect,
+            cb_mock_enable,
+            cb_mock_register,
+            cb_mock_disconnect,
+        ]
+
+        await client.register()
+
+        # All pipeline op completions were waited upon
+        assert provisioning_pipeline.connect.call_count == 1
+        assert provisioning_pipeline.connect.call_args == mocker.call(callback=cb_mock_connect)
+        assert cb_mock_connect.completion.call_count == 1
+        assert provisioning_pipeline.enable_responses.call_count == 1
+        assert provisioning_pipeline.enable_responses.call_args == mocker.call(
+            callback=cb_mock_enable
+        )
+        assert cb_mock_enable.completion.call_count == 1
+        assert provisioning_pipeline.register.call_count == 1
+        assert provisioning_pipeline.register.call_args == mocker.call(
+            payload=mocker.ANY, callback=cb_mock_register
+        )
+        assert cb_mock_register.completion.call_count == 1
+        assert provisioning_pipeline.disconnect.call_count == 1
+        assert provisioning_pipeline.disconnect.call_args == mocker.call(
+            callback=cb_mock_disconnect
+        )
+        assert cb_mock_disconnect.completion.call_count == 1
+
+    @pytest.mark.it("Provides the provisioning payload to the pipeline `register` operation")
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            pytest.param(None, id="No payload set on client"),
+            pytest.param("Some Payload", id="Custom payload set on client"),
+        ],
+    )
+    async def test_register_with_payload(self, mocker, client, provisioning_pipeline, payload):
+        if payload:
+            client.provisioning_payload = payload
+        else:
+            assert client.provisioning_payload is None
+
+        await client.register()
+
+        assert provisioning_pipeline.register.call_count == 1
+        assert provisioning_pipeline.register.call_args == mocker.call(
+            payload=client.provisioning_payload, callback=mocker.ANY
+        )
+
+    @pytest.mark.it("Returns the registration result returned by the pipeline `register` operation")
+    @pytest.mark.parametrize(
+        "registration_success",
+        [
+            pytest.param(True, id="Registration succeeded (assigned)"),
+            pytest.param(False, id="Registration failed (not assigned)"),
+        ],
+    )
+    async def test_returns_registration_result(
+        self, client, provisioning_pipeline, registration_result, registration_success
+    ):
+        if registration_success:
+            registration_result._status = "assigned"
+        else:
+            registration_result._status = "not assigned"
+
+        def register_complete_callback(payload, callback):
+            callback(result=registration_result)
+
+        provisioning_pipeline.register.side_effect = register_complete_callback
+
+        result = await client.register()
+        assert result is registration_result
+
+    @pytest.mark.it(
+        "Raises a client error if the `connect` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize("pipeline_error,client_error", POSSIBLE_CLIENT_ERRORS)
+    async def test_connect_raises_error(
+        self, client, provisioning_pipeline, pipeline_error, client_error
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def connect_complete_callback(callback):
+            callback(error=my_pipeline_error)
+
+        provisioning_pipeline.connect.side_effect = connect_complete_callback
+
+        with pytest.raises(client_error) as e_info:
+            await client.register()
+        assert e_info.value.__cause__ is my_pipeline_error
+
+    @pytest.mark.it(
+        "Raises a client error if the `enable` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize("pipeline_error,client_error", POSSIBLE_CLIENT_ERRORS)
+    async def test_enable_raises_error(
+        self, client, provisioning_pipeline, pipeline_error, client_error
+    ):
+        # Set the pipeline to have responses not yet enabled
+        provisioning_pipeline.responses_enabled.__getitem__.return_value = False
+
+        my_pipeline_error = pipeline_error()
+
+        def enable_complete_callback(callback):
+            callback(error=my_pipeline_error)
+
+        provisioning_pipeline.enable_responses.side_effect = enable_complete_callback
+
+        with pytest.raises(client_error) as e_info:
+            await client.register()
+        assert e_info.value.__cause__ is my_pipeline_error
+
+    @pytest.mark.it(
+        "Raises a client error if the `register` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize("pipeline_error,client_error", POSSIBLE_CLIENT_ERRORS)
+    async def test_register_raises_error(
+        self, client, provisioning_pipeline, pipeline_error, client_error
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def register_complete_callback(payload, callback):
+            callback(error=my_pipeline_error, result=None)
+
+        provisioning_pipeline.register.side_effect = register_complete_callback
+
+        with pytest.raises(client_error) as e_info:
+            await client.register()
+        assert e_info.value.__cause__ is my_pipeline_error
+
+    @pytest.mark.it(
+        "Still returns the registration result even if the `disconnect` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize("pipeline_error,client_error", POSSIBLE_CLIENT_ERRORS)
+    async def test_disconnect_raises_error(
+        self, client, provisioning_pipeline, registration_result, pipeline_error, client_error
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def register_complete_callback(payload, callback):
+            callback(result=registration_result)
+
+        provisioning_pipeline.register.side_effect = register_complete_callback
+
+        def disconnect_complete_callback(callback):
+            callback(error=my_pipeline_error)
+
+        provisioning_pipeline.disconnect.side_effect = disconnect_complete_callback
+
+        result = await client.register()
+        assert result is registration_result
 
 
 @pytest.mark.describe("ProvisioningDeviceClient (Async) - .set_provisioning_payload()")
