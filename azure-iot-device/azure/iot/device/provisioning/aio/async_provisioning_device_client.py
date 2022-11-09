@@ -81,8 +81,6 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         If a registration attempt is made while a previous registration is in progress it may
         throw an error.
 
-        Once the device is successfully registered, the client will no longer be operable.
-
         :returns: RegistrationResult indicating the result of the registration.
         :rtype: :class:`azure.iot.device.RegistrationResult`
 
