@@ -33,8 +33,18 @@ def handle_result(callback):
         raise exceptions.CredentialError("Credentials invalid, could not connect") from e
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError("Error in the provisioning client") from e
+    except pipeline_exceptions.TlsExchangeAuthError as e:
+        raise exceptions.ClientError(
+            "Error in the provisioning client due to TLS exchanges."
+        ) from e
+    except pipeline_exceptions.ProtocolProxyError as e:
+        raise exceptions.ClientError(
+            "Error in the provisioning client raised due to proxy connections."
+        ) from e
     except pipeline_exceptions.OperationTimeout as e:
         raise exceptions.OperationTimeout("Could not complete operation before timeout") from e
+    except pipeline_exceptions.OperationCancelled as e:
+        raise exceptions.OperationCancelled("Operation was cancelled before completion") from e
     except pipeline_exceptions.PipelineNotRunning as e:
         raise exceptions.ClientError("Client has already been shut down") from e
     except Exception as e:
@@ -47,6 +57,19 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
     using Symmetric Key or X509 authentication.
     """
 
+    def shutdown(self):
+        """Shut down the client for graceful exit.
+
+        Once this method is called, any attempts at further client calls will result in a
+        ClientError being raised
+
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        shutdown_complete = EventedCallback()
+        self._pipeline.shutdown(callback=shutdown_complete)
+        handle_result(shutdown_complete)
+
     def register(self):
         """
         Register the device with the provisioning service
@@ -56,8 +79,6 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         Before returning, the client will also disconnect from the provisioning service.
         If a registration attempt is made while a previous registration is in progress it may
         throw an error.
-
-        Once the device is successfully registered, the client will no longer be operable.
 
         :returns: RegistrationResult indicating the result of the registration.
         :rtype: :class:`azure.iot.device.RegistrationResult`
@@ -77,44 +98,47 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         logger.info("Registering with Provisioning Service...")
 
         # Connect
-        if not self._pipeline._nucleus.connected:
-            connect_complete = EventedCallback()
-            self._pipeline.connect(callback=connect_complete)
-            result = handle_result(connect_complete)
+        # NOTE: The client should always be disconnected when calling this API, so we have to
+        # connect every time. This is because of the finally block below that disconnects even
+        # on failure. However, even if somehow the client is already connected, there shouldn't
+        # be a problem - this connect will still succeed, while maintaining the existing connection
+        logger.debug("Starting pipeline connect operation")
+        connect_complete = EventedCallback()
+        self._pipeline.connect(callback=connect_complete)
+        handle_result(connect_complete)
+        logger.debug("Completed pipeline connect operation")
 
-        # Enable Responses
-        if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
-            self._enable_responses()
+        try:
+            #  Enable (if necessary)
+            if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
+                logger.debug("Starting pipeline enable operation")
+                enable_complete = EventedCallback()
+                self._pipeline.enable_responses(callback=enable_complete)
+                handle_result(enable_complete)
+                logger.debug("Completed pipeline enable operation")
 
-        # Register
-        register_complete = EventedCallback(return_arg_name="result")
-        self._pipeline.register(payload=self._provisioning_payload, callback=register_complete)
-        result = handle_result(register_complete)
-
-        log_on_register_complete(result)
-
-        # Implicitly shut down the pipeline upon successful completion
-        if result is not None and result.status == "assigned":
-            logger.debug("Beginning pipeline shutdown operation")
-            shutdown_complete = EventedCallback()
-            self._pipeline.shutdown(callback=shutdown_complete)
-            handle_result(shutdown_complete)
-            logger.debug("Completed pipeline shutdown operation")
+            # Register
+            logger.debug("Starting pipeline register operation")
+            register_complete = EventedCallback(return_arg_name="result")
+            self._pipeline.register(payload=self._provisioning_payload, callback=register_complete)
+            result = handle_result(register_complete)
+            log_on_register_complete(result)
+            logger.debug("Completed pipeline register operation")
+        except Exception:
+            raise
+        finally:
+            # Disconnect
+            try:
+                logger.debug("Starting pipeline disconnect operation")
+                disconnect_complete = EventedCallback()
+                self._pipeline.disconnect(callback=disconnect_complete)
+                handle_result(disconnect_complete)
+                logger.debug("Completed pipeline disconnect operation")
+            except Exception as e:
+                # This shouldn't fail, but we put it in this block anyway to ensure that
+                # the result can still be returned in the case there is failure for some reason.
+                # This is okay to do because even in the case of failure, a disconnect occurs.
+                # self._pipeline_disconnect()
+                logger.debug("Pipeline disconnect operation raised exception: {}".format(str(e)))
 
         return result
-
-    def _enable_responses(self):
-        """Enable to receive responses from Device Provisioning Service.
-
-        This is a synchronous call, meaning that this function will not return until the feature
-        has been enabled.
-
-        """
-        logger.info("Enabling reception of response from Device Provisioning Service...")
-
-        subscription_complete = EventedCallback()
-        self._pipeline.enable_responses(callback=subscription_complete)
-
-        handle_result(subscription_complete)
-
-        logger.info("Successfully subscribed to Device Provisioning Service to receive responses")

@@ -16,7 +16,7 @@ from azure.iot.device.common.models.x509 import X509
 fake_x509_cert_file_value = "fake_cert_file"
 fake_x509_cert_key_file = "fake_cert_key_file"
 fake_pass_phrase = "fake_pass_phrase"
-fake_status = "200"
+fake_status = "assigned"
 fake_sub_status = "OK"
 fake_operation_id = "fake_operation_id"
 fake_device_id = "MyDevice"

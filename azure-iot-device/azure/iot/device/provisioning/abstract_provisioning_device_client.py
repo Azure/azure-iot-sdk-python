@@ -224,6 +224,11 @@ class AbstractProvisioningDeviceClient(abc.ABC):
         return cls(mqtt_provisioning_pipeline)
 
     @abc.abstractmethod
+    def shutdown(self):
+        """Shut down the client."""
+        pass
+
+    @abc.abstractmethod
     def register(self):
         """
         Register the device with the Device Provisioning Service.

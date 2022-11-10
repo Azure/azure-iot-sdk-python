@@ -127,4 +127,6 @@ async def result_from_register(registration_id, symmetric_key, protocol):
         websockets=protocol_boolean_mapping[protocol],
     )
 
-    return await provisioning_device_client.register()
+    result = await provisioning_device_client.register()
+    await provisioning_device_client.shutdown()
+    return result
