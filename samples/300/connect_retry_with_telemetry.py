@@ -90,7 +90,7 @@ def create_client():
     return device_client
 
 
-async def do_work(device_client):
+async def send_telemetry(device_client):
     global connected_event
     print("Client is connected {}".format(device_client.connected))
     if not device_client.connected:
@@ -155,9 +155,13 @@ async def main():
                 print("Fatal error encountered. Will exit the application...")
                 logging.error("Fatal error encountered. Will exit the application...")
                 break
-            await do_work(device_client)
+            await send_telemetry(device_client)
     except KeyboardInterrupt:
         print("IoTHubClient sample stopped by user")
+    finally:
+        print("Shutting down IoTHubClient")
+        main_event_loop.run_until_complete(device_client.shutdown())
+        main_event_loop.close()
 
 
 if __name__ == "__main__":
