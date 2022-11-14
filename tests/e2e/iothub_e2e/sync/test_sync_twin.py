@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.ERROR)
 reset_reported_props = {const.TEST_CONTENT: None}
 
 
-@pytest.mark.describe("Client Get Twin")
+# @pytest.mark.describe("Client Get Twin")
 class TestGetTwin(object):
     @pytest.mark.it("Can get the twin")
     @pytest.mark.quicktest_suite
@@ -42,7 +42,7 @@ class TestGetTwin(object):
 
     @pytest.mark.it("Raises NoConnectionError if there is no connection")
     @pytest.mark.quicktest_suite
-    def test_sync_get_twin_fails_if_no_connection(self, client, leak_tracker):
+    def test_sync_get_twin_fails_if_no_connection(self, client, client_cleanup, leak_tracker):
         leak_tracker.set_initial_object_list()
 
         client.disconnect()
@@ -52,8 +52,8 @@ class TestGetTwin(object):
             client.get_twin()
         assert not client.connected
 
-        # TODO: Investigate leak
-        # leak_tracker.check_for_leaks()
+        client_cleanup()
+        leak_tracker.check_for_leaks()
 
 
 @pytest.mark.describe(
@@ -69,7 +69,7 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
         "Raises OperationTimeout if connection is not restored after dropping outgoing packets"
     )
     def test_sync_raises_op_timeout_if_drop_without_restore(
-        self, client, dropper, executor, leak_tracker
+        self, client, client_cleanup, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -77,23 +77,21 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
         # Drop outgoing packets
         dropper.drop_outgoing()
 
-        # Attempt to get the twin (implicitly enabling twin first)
-        get_task = executor.submit(client.get_twin)
-
         # Failure due to timeout of subscribe (enable feature)
         with pytest.raises(OperationTimeout):
-            get_task.result()
+            # Attempt to get the twin (implicitly enabling twin first)
+            client.get_twin()
 
         dropper.restore_all()
 
-        # TODO: investigate leak
-        # leak_tracker.check_for_leaks()
+        client_cleanup()
+        leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "Raises OperationTimeout even if connection is restored after dropping outgoing packets"
     )
     def test_sync_raises_op_timeout_if_drop_and_restore(
-        self, client, dropper, executor, leak_tracker
+        self, client, client_cleanup, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -120,7 +118,8 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
             get_task.result()
 
         # TODO: investigate leak
-        # leak_tracker.check_for_leaks()
+        client_cleanup()
+        leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "Raises OperationTimeout if connection is not restored after rejecting outgoing packets"

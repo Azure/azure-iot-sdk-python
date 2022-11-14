@@ -54,7 +54,7 @@ class TestGetTwin(object):
         assert not client.connected
 
         # TODO: Investigate leak
-        # leak_tracker.check_for_leaks()
+        leak_tracker.check_for_leaks()
 
 
 @pytest.mark.describe(
@@ -87,8 +87,10 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
 
         dropper.restore_all()
 
+        await asyncio.sleep(5)
+
         # TODO: investigate leak
-        # leak_tracker.check_for_leaks()
+        leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "Raises OperationTimeout even if connection is restored after dropping outgoing packets"

@@ -68,7 +68,9 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises NoConnectionError if there is no connection")
-    def test_sync_fails_if_no_connection(self, client, random_message, leak_tracker):
+    def test_sync_fails_if_no_connection(
+        self, client, client_cleanup, random_message, leak_tracker
+    ):
         leak_tracker.set_initial_object_list()
 
         client.disconnect()
@@ -78,8 +80,8 @@ class TestSendMessage(object):
             client.send_message(random_message)
         assert not client.connected
 
-        # TODO: Why is the message object leaking
-        # leak_tracker.check_for_leaks()
+        client_cleanup()
+        leak_tracker.check_for_leaks()
 
 
 @pytest.mark.dropped_connection
@@ -178,7 +180,7 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
     @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
     @pytest.mark.uses_iptables
     def test_sync_raises_op_cancelled_if_drop(
-        self, client, random_message, dropper, executor, leak_tracker
+        self, client, client_cleanup, random_message, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -199,13 +201,13 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             send_task.result()
 
-        # TODO: Why is the message object leaking? Why is the callback leaking?
-        # leak_tracker.check_for_leaks()
+        client_cleanup()
+        leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets before sending")
     @pytest.mark.uses_iptables
     def test_sync_raises_op_cancelled_if_reject(
-        self, client, random_message, dropper, executor, leak_tracker
+        self, client, client_cleanup, random_message, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -226,5 +228,5 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             send_task.result()
 
-        # TODO: Why is the message object leaking? Why is the callback leaking?
-        # leak_tracker.check_for_leaks()
+        client_cleanup()
+        leak_tracker.check_for_leaks()

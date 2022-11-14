@@ -34,7 +34,10 @@ def brand_new_client(device_identity, client_kwargs, service_helper, device_id, 
     logger.info("test is complete.  Shutting down client")
     logger.info("---------------------------------------")
 
-    client.shutdown()
+    try:
+        client.shutdown()
+    except Exception:
+        logger.info("Device was already shut down - no need to do it again")
 
     logger.info("-------------------------------------------")
     logger.info("test is complete.  client shutdown complete")
@@ -48,6 +51,16 @@ def client(brand_new_client):
     client.connect()
 
     yield client
+
+
+@pytest.fixture
+def client_cleanup(client):
+    # Clean any pending paho messages waiting on a connect
+    def cleaner():
+        client.connect()
+        time.sleep(1)
+
+    return cleaner
 
 
 @pytest.fixture(scope="session")
