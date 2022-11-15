@@ -43,6 +43,9 @@ class TestSendMessage(object):
         assert isinstance(e_info.value.__cause__, TypeError)
 
         del e_info
+        # TODO: Why does this need a sleep, but the sync test doesn't?
+        # There might be something here, investigate further
+        await asyncio.sleep(1)
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
