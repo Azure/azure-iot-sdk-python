@@ -117,4 +117,6 @@ def result_from_register(registration_id, symmetric_key, protocol):
         websockets=protocol_boolean_mapping[protocol],
     )
 
-    return provisioning_device_client.register()
+    result = provisioning_device_client.register()
+    provisioning_device_client.shutdown()
+    return result
