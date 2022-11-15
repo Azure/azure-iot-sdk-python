@@ -27,7 +27,7 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises correct exception for un-serializable payload")
-    def test_sync_bad_payload_raises(self, client, leak_tracker):
+    def test_sync_bad_payload_raises(self, client, flush_outgoing, leak_tracker):
         leak_tracker.set_initial_object_list()
 
         # There's no way to serialize a function.
@@ -38,8 +38,9 @@ class TestSendMessage(object):
             client.send_message(thing_that_cant_serialize)
         assert isinstance(e_info.value.__cause__, TypeError)
 
-        # TODO; investigate this leak
-        # leak_tracker.check_for_leaks()
+        del e_info
+        flush_outgoing()
+        leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
     def test_sync_sends_json_string(self, client, service_helper, leak_tracker):
@@ -69,7 +70,7 @@ class TestSendMessage(object):
 
     @pytest.mark.it("Raises NoConnectionError if there is no connection")
     def test_sync_fails_if_no_connection(
-        self, client, client_cleanup, random_message, leak_tracker
+        self, client, flush_outgoing, random_message, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
@@ -80,7 +81,7 @@ class TestSendMessage(object):
             client.send_message(random_message)
         assert not client.connected
 
-        client_cleanup()
+        flush_outgoing()
         leak_tracker.check_for_leaks()
 
 
@@ -90,13 +91,6 @@ class TestSendMessage(object):
 )
 @pytest.mark.keep_alive(5)
 class TestSendMessageDroppedConnectionRetryEnabled(object):
-    @pytest.fixture(scope="function", autouse=True)
-    def reconnect_after_test(self, dropper, client):
-        yield
-        dropper.restore_all()
-        client.connect()
-        assert client.connected
-
     @pytest.mark.it("Sends message once connection is restored after dropping outgoing packets")
     @pytest.mark.uses_iptables
     def test_sync_sends_if_drop_and_restore(
@@ -170,17 +164,10 @@ class TestSendMessageDroppedConnectionRetryEnabled(object):
 @pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(False)
 class TestSendMessageDroppedConnectionRetryDisabled(object):
-    @pytest.fixture(scope="function", autouse=True)
-    def reconnect_after_test(self, dropper, client):
-        yield
-        dropper.restore_all()
-        client.connect()
-        assert client.connected
-
     @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
     @pytest.mark.uses_iptables
     def test_sync_raises_op_cancelled_if_drop(
-        self, client, client_cleanup, random_message, dropper, executor, leak_tracker
+        self, client, flush_outgoing, random_message, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -201,13 +188,15 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             send_task.result()
 
-        client_cleanup()
+        dropper.restore_all()
+        del send_task
+        flush_outgoing()
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets before sending")
     @pytest.mark.uses_iptables
     def test_sync_raises_op_cancelled_if_reject(
-        self, client, client_cleanup, random_message, dropper, executor, leak_tracker
+        self, client, flush_outgoing, random_message, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -228,5 +217,7 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             send_task.result()
 
-        client_cleanup()
+        dropper.restore_all()
+        del send_task
+        flush_outgoing()
         leak_tracker.check_for_leaks()

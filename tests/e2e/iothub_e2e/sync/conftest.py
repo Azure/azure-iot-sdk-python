@@ -53,16 +53,6 @@ def client(brand_new_client):
     yield client
 
 
-@pytest.fixture
-def client_cleanup(client):
-    # Clean any pending paho messages waiting on a connect
-    def cleaner():
-        client.connect()
-        time.sleep(1)
-
-    return cleaner
-
-
 @pytest.fixture(scope="session")
 def service_helper():
     service_helper = ServiceHelperSync(
@@ -82,3 +72,23 @@ def service_helper():
     logger.info("---------------------------------")
     logger.info("service helper shut down complete")
     logger.info("---------------------------------")
+
+
+@pytest.fixture
+def flush_outgoing(client, service_helper):
+    """Use this to flush outgoing messages in Paho so they do not trigger the leak tracker"""
+
+    def flusher():
+        # Connect to publish any pending messages in Paho
+        client.connect()
+        # Wait so that the service helper has time to receive them
+        time.sleep(1)
+        # Clear any incoming data in the service helper
+        service_helper.clear_incoming()
+
+        # NOTE: This shutdown won't be necessary if Subs/Unsubs get cleared from transport
+        # after timeout. Could also clear the above try except around shutdown in the
+        # brand_new_client fixture.
+        client.shutdown()
+
+    return flusher
