@@ -92,7 +92,7 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
         "Raises OperationTimeout if connection is not restored after dropping outgoing packets"
     )
     async def test_sync_raises_op_timeout_if_drop_without_restore(
-        self, client, flush_messages, dropper, leak_tracker
+        self, client, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -112,19 +112,14 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
         with pytest.raises(OperationTimeout):
             await get_task
 
-        dropper.restore_all()
-
         del get_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "Raises OperationTimeout even if connection is restored after dropping outgoing packets"
     )
-    async def test_sync_raises_op_timeout_if_drop_and_restore(
-        self, client, flush_messages, dropper, leak_tracker
-    ):
+    async def test_sync_raises_op_timeout_if_drop_and_restore(self, client, dropper, leak_tracker):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
@@ -151,7 +146,6 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
             await get_task
 
         del get_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
@@ -159,7 +153,7 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
         "Raises OperationTimeout if connection is not restored after rejecting outgoing packets"
     )
     async def test_sync_raises_op_timeout_if_reject_without_restore(
-        self, client, flush_messages, dropper, leak_tracker
+        self, client, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -179,10 +173,7 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
         with pytest.raises(OperationTimeout):
             await get_task
 
-        dropper.restore_all()
-
         del get_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
@@ -190,7 +181,7 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
         "Raises OperationTimeout even if connection is restored after rejecting outgoing packets"
     )
     async def test_sync_raises_op_timeout_if_reject_and_restore(
-        self, client, flush_messages, dropper, leak_tracker
+        self, client, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -217,7 +208,6 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
             await get_task
 
         del get_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
@@ -233,9 +223,7 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
 # connection drops
 class TestGetTwinDroppedConnectionRetryDisabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
-    async def test_sync_raises_op_cancelled_if_drop(
-        self, client, flush_messages, dropper, leak_tracker
-    ):
+    async def test_sync_raises_op_cancelled_if_drop(self, client, dropper, leak_tracker):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
@@ -254,17 +242,12 @@ class TestGetTwinDroppedConnectionRetryDisabledTwinPatchNotEnabled(object):
         with pytest.raises(OperationCancelled):
             await get_task
 
-        dropper.restore_all()
-
         del get_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
-    async def test_sync_raises_op_cancelled_if_reject(
-        self, client, flush_messages, dropper, leak_tracker
-    ):
+    async def test_sync_raises_op_cancelled_if_reject(self, client, dropper, leak_tracker):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
@@ -283,10 +266,7 @@ class TestGetTwinDroppedConnectionRetryDisabledTwinPatchNotEnabled(object):
         with pytest.raises(OperationCancelled):
             await get_task
 
-        dropper.restore_all()
-
         del get_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
@@ -398,9 +378,8 @@ class TestGetTwinDroppedConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
         with pytest.raises(OperationCancelled):
             await get_task
 
-        dropper.restore_all()
-
         del get_task
+        dropper.restore_all()
         await flush_messages()
         leak_tracker.check_for_leaks()
 
@@ -427,9 +406,8 @@ class TestGetTwinDroppedConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
         with pytest.raises(OperationCancelled):
             await get_task
 
-        dropper.restore_all()
-
         del get_task
+        dropper.restore_all()
         await flush_messages()
         leak_tracker.check_for_leaks()
 
@@ -477,9 +455,7 @@ class TestReportedProperties(object):
             pytest.param(True, id="Twin already enabled"),
         ],
     )
-    async def test_bad_reported_patch_raises(
-        self, client, twin_enabled, flush_messages, leak_tracker
-    ):
+    async def test_bad_reported_patch_raises(self, client, twin_enabled, leak_tracker):
         leak_tracker.set_initial_object_list()
 
         if twin_enabled:
@@ -494,7 +470,9 @@ class TestReportedProperties(object):
         assert isinstance(e_info.value.__cause__, TypeError)
 
         del e_info
-        await flush_messages()
+        # TODO: Why does this need a sleep, but the sync test doesn't?
+        # There might be something here, investigate further
+        await asyncio.sleep(1)
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can clear a reported property")
@@ -577,7 +555,7 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchNotEnabled(obj
         "Raises OperationTimeout if connection is not restored after dropping outgoing packets"
     )
     async def test_raises_op_timeout_if_drop_without_restore(
-        self, client, random_reported_props, flush_messages, dropper, leak_tracker
+        self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -599,10 +577,7 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchNotEnabled(obj
         with pytest.raises(OperationTimeout):
             await send_task
 
-        dropper.restore_all()
-
         del send_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
@@ -610,7 +585,7 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchNotEnabled(obj
         "Raises OperationTimeout even if connection is restored after dropping outgoing packets"
     )
     async def test_raises_op_timeout_if_drop_and_restore(
-        self, client, random_reported_props, flush_messages, dropper, leak_tracker
+        self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -640,7 +615,6 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchNotEnabled(obj
             await send_task
 
         del send_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
@@ -648,7 +622,7 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchNotEnabled(obj
         "Raises OperationTimeout if connection is not restored after rejecting outgoing packets"
     )
     async def test_raises_op_timeout_if_reject_without_restore(
-        self, client, random_reported_props, flush_messages, dropper, leak_tracker
+        self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -670,10 +644,7 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchNotEnabled(obj
         with pytest.raises(OperationTimeout):
             await send_task
 
-        dropper.restore_all()
-
         del send_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
@@ -681,7 +652,7 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchNotEnabled(obj
         "Raises OperationTimeout even if connection is restored after rejecting outgoing packets"
     )
     async def test_raises_op_timeout_if_reject_and_restore(
-        self, client, random_reported_props, flush_messages, dropper, leak_tracker
+        self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -711,7 +682,6 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchNotEnabled(obj
             await send_task
 
         del send_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
@@ -728,7 +698,7 @@ class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchNotEnabled(obj
 class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
     async def test_raises_op_cancelled_if_drop(
-        self, client, random_reported_props, flush_messages, dropper, leak_tracker
+        self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -750,16 +720,13 @@ class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchNotEnabled(ob
         with pytest.raises(OperationCancelled):
             await send_task.result()
 
-        dropper.restore_all()
-
         del send_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
     async def test_raises_op_cancelled_if_reject(
-        self, client, random_reported_props, flush_messages, dropper, leak_tracker
+        self, client, random_reported_props, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -781,10 +748,7 @@ class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchNotEnabled(ob
         with pytest.raises(OperationCancelled):
             await send_task.result()
 
-        dropper.restore_all()
-
         del send_task
-        await flush_messages()
         # TODO: enable leak checker after fixing SubscribeOperation memory leak
         # leak_tracker.check_for_leaks()
 
@@ -906,9 +870,8 @@ class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchAlreadyEnable
         with pytest.raises(OperationCancelled):
             await send_task.result()
 
-        dropper.restore_all()
-
         del send_task
+        dropper.restore_all()
         await flush_messages()
         leak_tracker.check_for_leaks()
 
@@ -937,9 +900,8 @@ class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchAlreadyEnable
         with pytest.raises(OperationCancelled):
             await send_task.result()
 
-        dropper.restore_all()
-
         del send_task
+        dropper.restore_all()
         await flush_messages()
         leak_tracker.check_for_leaks()
 
@@ -981,4 +943,4 @@ class TestDesiredProperties(object):
         leak_tracker.check_for_leaks()
 
 
-# # TODO: etag tests, version tests
+# TODO: etag tests, version tests

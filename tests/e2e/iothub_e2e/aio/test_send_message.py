@@ -31,7 +31,7 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises correct exception for un-serializable payload")
-    async def test_bad_payload_raises(self, client, flush_messages, leak_tracker):
+    async def test_bad_payload_raises(self, client, leak_tracker):
         leak_tracker.set_initial_object_list()
 
         # There's no way to serialize a function.
@@ -43,7 +43,6 @@ class TestSendMessage(object):
         assert isinstance(e_info.value.__cause__, TypeError)
 
         del e_info
-        await flush_messages()
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
@@ -192,8 +191,8 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             await send_task
 
-        dropper.restore_all()
         del send_task
+        dropper.restore_all()
         await flush_messages()
         leak_tracker.check_for_leaks()
 
@@ -221,7 +220,7 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             await send_task
 
-        dropper.restore_all()
         del send_task
+        dropper.restore_all()
         await flush_messages()
         leak_tracker.check_for_leaks()
