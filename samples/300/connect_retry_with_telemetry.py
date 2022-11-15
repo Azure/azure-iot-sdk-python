@@ -3,6 +3,7 @@
 
 import random
 import asyncio
+
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import exceptions
 import logging
@@ -136,7 +137,22 @@ async def connect_with_retry(device_client, number_of_tries=None):
                 return False
 
 
-async def main():
+async def run_sample(device_client):
+    encountered_no_error = await connect_with_retry(device_client, RETRY_NOS)
+    if not encountered_no_error:
+        print("Fatal error encountered. Will exit the application...")
+        logging.error("Fatal error encountered. Will exit the application...")
+        raise
+    while True:
+        # encountered_no_error = await connect_with_retry(device_client, RETRY_NOS)
+        # if not encountered_no_error:
+        #     print("Fatal error encountered. Will exit the application...")
+        #     logging.error("Fatal error encountered. Will exit the application...")
+        #     break
+        await send_telemetry(device_client)
+
+
+def main():
     global main_event_loop
     print("IoT Hub Sample #1 - Constant Connection With Telemetry")
     print("Press Ctrl-C to exit")
@@ -149,13 +165,14 @@ async def main():
     print("IoT Hub device sending periodic messages")
 
     try:
-        while True:
-            encountered_no_error = await connect_with_retry(device_client, RETRY_NOS)
-            if not encountered_no_error:
-                print("Fatal error encountered. Will exit the application...")
-                logging.error("Fatal error encountered. Will exit the application...")
-                break
-            await send_telemetry(device_client)
+        # while True:
+        #     encountered_no_error = await connect_with_retry(device_client, RETRY_NOS)
+        #     if not encountered_no_error:
+        #         print("Fatal error encountered. Will exit the application...")
+        #         logging.error("Fatal error encountered. Will exit the application...")
+        #         break
+        #     await send_telemetry(device_client)
+        main_event_loop.run_until_complete(run_sample(device_client))
     except KeyboardInterrupt:
         print("IoTHubClient sample stopped by user")
     finally:
@@ -167,8 +184,8 @@ async def main():
 if __name__ == "__main__":
     # Set debug=True if asyncio logs are needed.
     # asyncio.run(main(), debug=True)
-    asyncio.run(main())
-
+    # asyncio.run(main())
+    main()
     # If using Python 3.6 use the following code instead of asyncio.run(main()):
     # loop = asyncio.get_event_loop()
     # loop.run_until_complete(main())
