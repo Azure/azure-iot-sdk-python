@@ -18,4 +18,6 @@ from azure.iot.device.common.transport_exceptions import (  # noqa: F401
     # But for now, this is a stopgap.
     UnauthorizedError,
     ProtocolClientError,
+    TlsExchangeAuthError,
+    ProtocolProxyError,
 )

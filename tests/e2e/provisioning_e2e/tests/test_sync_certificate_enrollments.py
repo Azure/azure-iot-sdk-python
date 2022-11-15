@@ -299,4 +299,6 @@ def result_from_register(registration_id, device_cert_file, device_key_file, pro
         websockets=protocol_boolean_mapping[protocol],
     )
 
-    return provisioning_device_client.register()
+    result = provisioning_device_client.register()
+    provisioning_device_client.shutdown()
+    return result
