@@ -84,10 +84,7 @@ async def brand_new_client(device_identity, client_kwargs, service_helper, devic
     logger.info("test is complete.  Shutting down client")
     logger.info("---------------------------------------")
 
-    try:
-        await client.shutdown()
-    except Exception:
-        logger.info("Device was already shut down - no need to do it again")
+    await client.shutdown()
 
     logger.info("-------------------------------------------")
     logger.info("test is complete.  client shutdown complete")
@@ -126,7 +123,7 @@ async def service_helper(event_loop, executor):
 
 
 @pytest.fixture
-def flush_outgoing(client, service_helper):
+def flush_messages(client, service_helper):
     """Use this to flush outgoing messages in Paho so they do not trigger the leak tracker"""
 
     async def flusher():
@@ -136,10 +133,5 @@ def flush_outgoing(client, service_helper):
         await asyncio.sleep(1)
         # Clear any incoming data in the service helper
         service_helper.clear_incoming()
-
-        # NOTE: This shutdown won't be necessary if Subs/Unsubs get cleared from transport
-        # after timeout. Could also clear the above try except around shutdown in the
-        # brand_new_client fixture.
-        await client.shutdown()
 
     return flusher

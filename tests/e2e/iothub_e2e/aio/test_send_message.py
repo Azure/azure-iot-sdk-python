@@ -31,7 +31,7 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises correct exception for un-serializable payload")
-    async def test_bad_payload_raises(self, client, flush_outgoing, leak_tracker):
+    async def test_bad_payload_raises(self, client, flush_messages, leak_tracker):
         leak_tracker.set_initial_object_list()
 
         # There's no way to serialize a function.
@@ -43,7 +43,7 @@ class TestSendMessage(object):
         assert isinstance(e_info.value.__cause__, TypeError)
 
         del e_info
-        await flush_outgoing()
+        await flush_messages()
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
@@ -74,7 +74,7 @@ class TestSendMessage(object):
 
     @pytest.mark.it("Raises NoConnectionError if there is no connection")
     async def test_fails_if_no_connection(
-        self, client, random_message, flush_outgoing, leak_tracker
+        self, client, random_message, flush_messages, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
@@ -85,7 +85,7 @@ class TestSendMessage(object):
             await client.send_message(random_message)
         assert not client.connected
 
-        await flush_outgoing()
+        await flush_messages()
         leak_tracker.check_for_leaks()
 
 
@@ -171,7 +171,7 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
     @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
     @pytest.mark.uses_iptables
     async def test_raises_op_cancelled_if_drop(
-        self, client, random_message, flush_outgoing, dropper, leak_tracker
+        self, client, random_message, flush_messages, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -194,13 +194,13 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
 
         dropper.restore_all()
         del send_task
-        await flush_outgoing()
+        await flush_messages()
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
     @pytest.mark.uses_iptables
     async def test_raises_op_cancelled_if_reject(
-        self, client, random_message, flush_outgoing, dropper, leak_tracker
+        self, client, random_message, flush_messages, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -223,5 +223,5 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
 
         dropper.restore_all()
         del send_task
-        await flush_outgoing()
+        await flush_messages()
         leak_tracker.check_for_leaks()
