@@ -99,6 +99,14 @@ class ServiceHelperSync(object):
         self.cv = threading.Condition()
         self.incoming_eventhub_events = {}
 
+    def clear_incoming(self):
+        """Flush the incoming queues"""
+        with self.incoming_patch_queue.mutex:
+            self.incoming_patch_queue.queue.clear()
+
+        with self.cv:
+            self.incoming_eventhub_events.clear()
+
     def set_identity(self, device_id, module_id):
         if device_id != self.device_id or module_id != self.module_id:
             self.device_id = device_id

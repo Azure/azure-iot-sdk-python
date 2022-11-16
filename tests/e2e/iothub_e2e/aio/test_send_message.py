@@ -42,8 +42,11 @@ class TestSendMessage(object):
             await client.send_message(thing_that_cant_serialize)
         assert isinstance(e_info.value.__cause__, TypeError)
 
-        # TODO: investigate leak
-        # leak_tracker.check_for_leaks()
+        del e_info
+        # TODO: Why does this need a sleep, but the sync test doesn't?
+        # There might be something here, investigate further
+        await asyncio.sleep(1)
+        leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
     async def test_sends_json_string(self, client, service_helper, leak_tracker):
@@ -72,7 +75,9 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises NoConnectionError if there is no connection")
-    async def test_fails_if_no_connection(self, client, random_message, leak_tracker):
+    async def test_fails_if_no_connection(
+        self, client, random_message, flush_messages, leak_tracker
+    ):
         leak_tracker.set_initial_object_list()
 
         await client.disconnect()
@@ -82,8 +87,8 @@ class TestSendMessage(object):
             await client.send_message(random_message)
         assert not client.connected
 
-        # TODO: Why is the message object leaking?
-        # leak_tracker.check_for_leaks()
+        await flush_messages()
+        leak_tracker.check_for_leaks()
 
 
 @pytest.mark.dropped_connection
@@ -92,13 +97,6 @@ class TestSendMessage(object):
 )
 @pytest.mark.keep_alive(5)
 class TestSendMessageDroppedConnectionRetryEnabled(object):
-    @pytest.fixture(scope="function", autouse=True)
-    async def reconnect_after_test(self, dropper, client):
-        yield
-        dropper.restore_all()
-        await client.connect()
-        assert client.connected
-
     @pytest.mark.it("Sends message once connection is restored after dropping outgoing packets")
     @pytest.mark.uses_iptables
     async def test_sends_if_drop_and_restore(
@@ -172,16 +170,11 @@ class TestSendMessageDroppedConnectionRetryEnabled(object):
 @pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(False)
 class TestSendMessageDroppedConnectionRetryDisabled(object):
-    @pytest.fixture(scope="function", autouse=True)
-    async def reconnect_after_test(self, dropper, client):
-        yield
-        dropper.restore_all()
-        await client.connect()
-        assert client.connected
-
     @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
     @pytest.mark.uses_iptables
-    async def test_raises_op_cancelled_if_drop(self, client, random_message, dropper, leak_tracker):
+    async def test_raises_op_cancelled_if_drop(
+        self, client, random_message, flush_messages, dropper, leak_tracker
+    ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
@@ -201,13 +194,15 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             await send_task
 
-        # TODO: Why is the message object leaking? Why is the callback leaking?
-        # leak_tracker.check_for_leaks()
+        del send_task
+        dropper.restore_all()
+        await flush_messages()
+        leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
     @pytest.mark.uses_iptables
     async def test_raises_op_cancelled_if_reject(
-        self, client, random_message, dropper, leak_tracker
+        self, client, random_message, flush_messages, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -228,5 +223,7 @@ class TestSendMessageDroppedConnectionRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             await send_task
 
-        # TODO: Why is the message object leaking? Why is the callback leaking?
-        # leak_tracker.check_for_leaks()
+        del send_task
+        dropper.restore_all()
+        await flush_messages()
+        leak_tracker.check_for_leaks()
