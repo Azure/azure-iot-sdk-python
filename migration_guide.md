@@ -31,6 +31,7 @@ Similarly to the above, there is an additional explicit step you must now make w
 ### V2
 ```python
 from azure.iot.device import IoTHubDeviceClient
+
 client = IoTHubDeviceClient.create_from_connection_string("<Your Connection String>")
 
 # define behavior for receiving a message
@@ -47,6 +48,7 @@ client.on_message_received = message_handler
 ### V3
 ```python
 from azure.iot.device import IoTHubDeviceClient
+
 client = IoTHubDeviceClient.create_from_connection_string("<Your Connection String>")
 
 # define behavior for receiving a message
@@ -101,6 +103,8 @@ client = IoTHubDeviceClient.create_from_connection_string(connection_string)
 ### V3
 ```python
 from azure.iot.device import IoTHubDeviceClient
+
+client = IoTHubDeviceClient.create_from_connection_string(connection_string)
 
 # ...
 #<do things>
