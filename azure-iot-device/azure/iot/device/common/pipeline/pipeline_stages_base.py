@@ -401,7 +401,7 @@ class SasTokenStage(PipelineStage):
         old_alarm = self._token_update_alarm
         self._token_update_alarm = None
         if old_alarm:
-            logger.debug("Cancelling SAS Token update alarm")
+            logger.debug("{}: Cancelling SAS Token update alarm".format(self.name))
             old_alarm.cancel()
             old_alarm = None
 
@@ -411,7 +411,7 @@ class SasTokenStage(PipelineStage):
         old_reauth_retry_timer = self._reauth_retry_timer
         self._reauth_retry_timer = None
         if old_reauth_retry_timer:
-            logger.debug("Cancelling reauthorization retry timer")
+            logger.debug("{}: Cancelling reauthorization retry timer".format(self.name))
             old_reauth_retry_timer.cancel()
             old_reauth_retry_timer = None
 
@@ -884,6 +884,11 @@ class ConnectionStateStage(PipelineStage):
                 # Cancel all pending ops so they don't hang
                 while not self.waiting_ops.empty():
                     waiting_op = self.waiting_ops.get_nowait()
+                    logger.debug(
+                        "{}({}): Cancelling waiting {} operation".format(
+                            self.name, op.name, waiting_op.name
+                        )
+                    )
                     cancel_error = pipeline_exceptions.OperationCancelled(
                         "Operation waiting in ConnectionStateStage cancelled by shutdown"
                     )
