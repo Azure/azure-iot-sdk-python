@@ -91,24 +91,6 @@ def create_client():
     return device_client
 
 
-async def send_telemetry(device_client):
-    global connected_event
-    print("Client is connected {}".format(device_client.connected))
-    if not device_client.connected:
-        print("Waiting for connection ...")
-        await connected_event.wait()
-
-    item = random.Random()
-    print("Sending message...")
-    try:
-        await device_client.send_message(str(item))
-        print("Message sent...")
-        await asyncio.sleep(TELEMETRY_INTERVAL)
-    except Exception:
-        print("Caught exception while trying to send message....")
-        logging.debug(traceback.format_exc())
-
-
 async def connect_with_retry(device_client, number_of_tries=None):
     if device_client.connected:
         print("Client is already connected...")
@@ -141,15 +123,23 @@ async def run_sample(device_client):
     encountered_no_error = await connect_with_retry(device_client, RETRY_NOS)
     if not encountered_no_error:
         print("Fatal error encountered. Will exit the application...")
-        logging.error("Fatal error encountered. Will exit the application...")
         raise
     while True:
-        # encountered_no_error = await connect_with_retry(device_client, RETRY_NOS)
-        # if not encountered_no_error:
-        #     print("Fatal error encountered. Will exit the application...")
-        #     logging.error("Fatal error encountered. Will exit the application...")
-        #     break
-        await send_telemetry(device_client)
+        global connected_event
+        print("Client is connected {}".format(device_client.connected))
+        if not device_client.connected:
+            print("Waiting for connection ...")
+            await connected_event.wait()
+
+        item = random.Random()
+        print("Sending message...")
+        try:
+            await device_client.send_message(str(item))
+            print("Message sent...")
+            await asyncio.sleep(TELEMETRY_INTERVAL)
+        except Exception:
+            print("Caught exception while trying to send message....")
+            logging.debug(traceback.format_exc())
 
 
 def main():
@@ -165,13 +155,6 @@ def main():
     print("IoT Hub device sending periodic messages")
 
     try:
-        # while True:
-        #     encountered_no_error = await connect_with_retry(device_client, RETRY_NOS)
-        #     if not encountered_no_error:
-        #         print("Fatal error encountered. Will exit the application...")
-        #         logging.error("Fatal error encountered. Will exit the application...")
-        #         break
-        #     await send_telemetry(device_client)
         main_event_loop.run_until_complete(run_sample(device_client))
     except KeyboardInterrupt:
         print("IoTHubClient sample stopped by user")
@@ -182,11 +165,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # Set debug=True if asyncio logs are needed.
-    # asyncio.run(main(), debug=True)
-    # asyncio.run(main())
     main()
-    # If using Python 3.6 use the following code instead of asyncio.run(main()):
-    # loop = asyncio.get_event_loop()
-    # loop.run_until_complete(main())
-    # loop.close()
