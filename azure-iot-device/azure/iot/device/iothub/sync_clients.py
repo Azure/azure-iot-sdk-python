@@ -207,9 +207,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
     def disconnect(self):
         """Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub instance.
 
-        It is recommended that you make sure to call this function when you are completely done
-        with the your client instance.
-
         This is a synchronous call, meaning that this function will not return until the connection
         to the service has been completely closed.
 
@@ -325,9 +322,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         This is a synchronous event, meaning that this function will not return until the event
         has been sent to the service and the service has acknowledged receipt of the event.
-
-        If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
 
         :param method_response: The MethodResponse to send.
         :type method_response: :class:`azure.iot.device.MethodResponse`
@@ -575,9 +569,6 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         This is a synchronous event, meaning that this function will not return until the event
         has been sent to the service and the service has acknowledged receipt of the event.
-
-        If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
 
         :param message: Message to send to the given output. Anything passed that is not an instance of the
             Message class will be converted to Message object.

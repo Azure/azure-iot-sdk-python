@@ -1,6 +1,6 @@
 # IoTHub Python SDK Migration Guide
 
-This guide details the migration plan to move from the IoTHub Python V2 code base to the new and improved V3 code base. While the APIs remain mostly the same there a few differences you may need to account for in your application, as we have removed some of the implicit behaviors present in V2 in order to provide a more reliable and consistent user experience.
+This guide details how to update existing code that uses an `azure-iot-device` V2 release to use a V3 release instead. While the APIs remain mostly the same, there are a few differences you may need to account for in your application, as we have removed some of the implicit behaviors present in V2 in order to provide a more reliable and consistent user experience.
 
 ## Connecting to IoTHub
 One of the primary changes in V3 is the removal of automatic connections when invoking other APIs on the `IoTHubDeviceClient` and `IoTHubModuleClient`. You must now make an explicit manual connection before sending or receiving any data.
@@ -23,6 +23,8 @@ client.send_message("some message")
 ```
 
 Note that many people using V2 may already have been doing manual connects, as for some time, this has been our recommended practice.
+
+Note also that this change does *not* affect automatic reconnection attempts in the case of network failure. Once the manual connect has been successful, the client will (under default settings) still attempt to retain that connected state as it did in V2.
 
 
 ## Receiving data from IoTHub
@@ -93,7 +95,7 @@ While using the `.shutdown()` method when you are completely finished with an in
 ```python
 from azure.iot.device import IoTHubDeviceClient
 
-client = IoTHubDeviceClient.create_from_connection_string(connection_string)
+client = IoTHubDeviceClient.create_from_connection_string("<Your Connection String>")
 
 # ...
 #<do things>
@@ -104,7 +106,7 @@ client = IoTHubDeviceClient.create_from_connection_string(connection_string)
 ```python
 from azure.iot.device import IoTHubDeviceClient
 
-client = IoTHubDeviceClient.create_from_connection_string(connection_string)
+client = IoTHubDeviceClient.create_from_connection_string("<Your Connection String>")
 
 # ...
 #<do things>
@@ -130,6 +132,7 @@ client = ProvisioningDeviceClient.create_from_symmetric_key(
     )
 
 registration_result = client.register()
+
 # Shutdown is implicit upon successful registration
 ```
 

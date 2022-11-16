@@ -204,9 +204,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
     async def disconnect(self):
         """Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub instance.
 
-        It is recommended that you make sure to call this coroutine when you are completely done
-        with the your client instance.
-
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -290,9 +287,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
     async def send_message(self, message):
         """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
 
-        If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
-
         :param message: The actual message to send. Anything passed that is not an instance of the
             Message class will be converted to Message object.
         :type message: :class:`azure.iot.device.Message` or str
@@ -322,9 +316,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     async def send_method_response(self, method_response):
         """Send a response to a method request via the Azure IoT Hub or Azure IoT Edge Hub.
-
-        If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
 
         :param method_response: The MethodResponse to send
         :type method_response: :class:`azure.iot.device.MethodResponse`
@@ -574,9 +565,6 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         """Sends an event/message to the given module output.
 
         These are outgoing events and are meant to be "output events"
-
-        If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
 
         :param message: Message to send to the given output. Anything passed that is not an
             instance of the Message class will be converted to Message object.
