@@ -21,6 +21,9 @@ class ServiceHelper:
             iothub_connection_string, eventhub_connection_string, eventhub_consumer_group
         )
 
+    def clear_incoming(self):
+        return self._inner_object.clear_incoming()
+
     def set_identity(self, device_id, module_id):
         return self._inner_object.set_identity(device_id, module_id)
 

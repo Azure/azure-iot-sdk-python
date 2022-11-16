@@ -285,11 +285,19 @@ class MQTTTransportStage(PipelineStage):
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_complete(cancelled=False):
                 if cancelled:
-                    op.complete(
-                        error=pipeline_exceptions.OperationCancelled(
-                            "Operation cancelled before SUBACK received"
+                    if not op.completed:
+                        op.complete(
+                            error=pipeline_exceptions.OperationCancelled(
+                                "Operation cancelled before SUBACK received"
+                            )
                         )
-                    )
+                    else:
+                        # This could reasonably happen on sub/unsub due to TimeoutStage
+                        logger.debug(
+                            "{}({}): Operation has already been completed, no need to cancel".format(
+                                self.name, op.name
+                            )
+                        )
                 else:
                     logger.debug(
                         "{}({}): SUBACK received. completing op.".format(self.name, op.name)
@@ -307,11 +315,19 @@ class MQTTTransportStage(PipelineStage):
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_complete(cancelled=False):
                 if cancelled:
-                    op.complete(
-                        error=pipeline_exceptions.OperationCancelled(
-                            "Operation cancelled before UNSUBACK received"
+                    if not op.completed:
+                        op.complete(
+                            error=pipeline_exceptions.OperationCancelled(
+                                "Operation cancelled before UNSUBACK received"
+                            )
                         )
-                    )
+                    else:
+                        # This could reasonably happen on sub/unsub due to TimeoutStage
+                        logger.debug(
+                            "{}({}): Operation has already been completed, no need to cancel".format(
+                                self.name, op.name
+                            )
+                        )
                 else:
                     logger.debug(
                         "{}({}): UNSUBACK received.  completing op.".format(self.name, op.name)
