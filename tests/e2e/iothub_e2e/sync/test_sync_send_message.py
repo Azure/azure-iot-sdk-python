@@ -6,10 +6,18 @@ import logging
 import json
 import time
 import dev_utils
-from azure.iot.device.exceptions import OperationCancelled, ClientError, NoConnectionError
+from azure.iot.device.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
+
+PACKET_DROP = "Packet Drop"
+PACKET_REJECT = "Packet Reject"
+
+
+@pytest.fixture(params=[PACKET_DROP, PACKET_REJECT])
+def failure_type(request):
+    return request.param
 
 
 @pytest.mark.describe("Client send_message method")
@@ -67,47 +75,60 @@ class TestSendMessage(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises NoConnectionError if there is no connection")
+    @pytest.mark.it("Waits until a connection is established to send if there is no connection")
     def test_sync_fails_if_no_connection(
-        self, client, flush_messages, random_message, leak_tracker
+        self, client, executor, random_message, service_helper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
         client.disconnect()
         assert not client.connected
 
-        with pytest.raises(NoConnectionError):
-            client.send_message(random_message)
-        assert not client.connected
+        # Attempt to send a message
+        send_task = executor.submit(client.send_message, random_message)
+        time.sleep(1)
+        # Still not done
+        assert not send_task.done()
+        # Connect
+        client.connect()
+        time.sleep(0.5)
+        # Task is now done
+        assert send_task.done()
 
-        flush_messages()
+        event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert json.dumps(event.message_body) == random_message.data
+
         leak_tracker.check_for_leaks()
 
 
 @pytest.mark.dropped_connection
-@pytest.mark.describe(
-    "Client send_message method with dropped connection (Connection Retry enabled)"
-)
+@pytest.mark.describe("Client send_message method with network failure (Connection Retry enabled)")
 @pytest.mark.keep_alive(5)
-class TestSendMessageDroppedConnectionRetryEnabled(object):
-    @pytest.mark.it("Sends message once connection is restored after dropping outgoing packets")
+class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
+    @pytest.mark.it(
+        "Succeeds once network is restored and client automatically reconnects after having disconnected due to network failure"
+    )
     @pytest.mark.uses_iptables
-    def test_sync_sends_if_drop_and_restore(
-        self, client, random_message, dropper, service_helper, executor, leak_tracker
+    def test_sync_network_failure_causes_disconnect(
+        self, client, random_message, failure_type, dropper, service_helper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Drop outgoing packets
-        dropper.drop_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
         # Attempt to send a message
         send_task = executor.submit(client.send_message, random_message)
 
-        # Wait for client to realize connection has dropped
+        # Wait for client to disconnect
         while client.connected:
+            assert not send_task.done()
             time.sleep(0.5)
-        # Even though connection has dropped, the message send has not completed
+        # Client has now disconnected and task will not finish until reconnection
         assert not send_task.done()
 
         # Restore outgoing packet functionality and wait for client to reconnect
@@ -123,31 +144,29 @@ class TestSendMessageDroppedConnectionRetryEnabled(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Sends message once connection is restored after rejecting outgoing packets")
-    @pytest.mark.uses_iptables
-    def test_sync_sends_if_reject_and_restore(
-        self, client, random_message, dropper, service_helper, executor, leak_tracker
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    def test_sync_network_failure_no_disconnect(
+        self, client, random_message, failure_type, dropper, service_helper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Reject outgoing packets
-        dropper.reject_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
         # Attempt to send a message
         send_task = executor.submit(client.send_message, random_message)
 
-        # Wait for client to realize connection has dropped
-        while client.connected:
-            time.sleep(0.5)
-        # Even though the connection has dropped, the message send has not completed
+        # Has not been able to succeed due to network failure, but client is still connected
+        time.sleep(1)
         assert not send_task.done()
+        assert client.connected
 
-        # Restore outgoing packet functionality and wait for client to reconnect
+        # Restore network, and operation succeeds
         dropper.restore_all()
-        while not client.connected:
-            time.sleep(0.5)
-        # Wait for the send task to complete now that the client has reconnected
         send_task.result()
 
         # Ensure the sent message was received by the service
@@ -157,66 +176,77 @@ class TestSendMessageDroppedConnectionRetryEnabled(object):
         leak_tracker.check_for_leaks()
 
 
-@pytest.mark.describe(
-    "Client send_message method with dropped connection (Connection Retry disabled)"
-)
+@pytest.mark.describe("Client send_message method with network failure (Connection Retry disabled)")
 @pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(False)
-class TestSendMessageDroppedConnectionRetryDisabled(object):
-    @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
-    @pytest.mark.uses_iptables
-    def test_sync_raises_op_cancelled_if_drop(
-        self, client, flush_messages, random_message, dropper, executor, leak_tracker
+class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
+    @pytest.mark.it(
+        "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
+    )
+    def test_sync_network_failure_causes_disconnect(
+        self, client, random_message, failure_type, service_helper, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Drop outgoing packets
-        dropper.drop_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
         # Attempt to send a message
         send_task = executor.submit(client.send_message, random_message)
 
-        # Wait for client to realize connection has dropped
+        # Wait for client disconnect
         while client.connected:
             assert not send_task.done()
             time.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        time.sleep(0.1)
-        assert send_task.done()
-        with pytest.raises(OperationCancelled):
-            send_task.result()
+        # Client has now disconnected and task will not finish until reconnection
+        assert not send_task.done()
+        time.sleep(1)
+        assert not send_task.done()
 
-        del send_task
+        # Restore network and manually connect
         dropper.restore_all()
-        flush_messages()
+        client.connect()
+
+        send_task.result()
+
+        # Ensure the sent message was received by the service
+        event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert json.dumps(event.message_body) == random_message.data
+
+        dropper.restore_all()
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets before sending")
-    @pytest.mark.uses_iptables
-    def test_sync_raises_op_cancelled_if_reject(
-        self, client, flush_messages, random_message, dropper, executor, leak_tracker
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    def test_sync_network_failure_no_disconnect(
+        self, client, random_message, failure_type, service_helper, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Reject outgoing packets
-        dropper.reject_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
         # Attempt to send a message
         send_task = executor.submit(client.send_message, random_message)
 
-        # Wait for client to realize connection has dropped
-        while client.connected:
-            assert not send_task.done()
-            time.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        time.sleep(0.1)
-        assert send_task.done()
-        with pytest.raises(OperationCancelled):
-            send_task.result()
+        # Has not been able to succeed due to network failure, but client is still connected
+        time.sleep(1)
+        assert not send_task.done()
+        assert client.connected
 
-        del send_task
+        # Restore network, and operation succeeds
         dropper.restore_all()
-        flush_messages()
+        send_task.result()
+
+        # Ensure the sent message was received by the service
+        event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert json.dumps(event.message_body) == random_message.data
+
         leak_tracker.check_for_leaks()

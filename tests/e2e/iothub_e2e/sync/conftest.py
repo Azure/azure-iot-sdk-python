@@ -69,18 +69,3 @@ def service_helper():
     logger.info("---------------------------------")
     logger.info("service helper shut down complete")
     logger.info("---------------------------------")
-
-
-@pytest.fixture
-def flush_messages(client, service_helper):
-    """Use this to flush outgoing messages in Paho so they do not trigger the leak tracker"""
-
-    def flusher():
-        # Connect to publish any pending messages in Paho
-        client.connect()
-        # Wait so that the service helper has time to receive them
-        time.sleep(2.5)
-        # Clear any incoming data in the service helper
-        service_helper.clear_incoming()
-
-    return flusher

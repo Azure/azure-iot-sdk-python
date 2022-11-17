@@ -9,8 +9,6 @@ import queue
 from dev_utils import get_random_dict
 from azure.iot.device.exceptions import (
     ClientError,
-    OperationTimeout,
-    OperationCancelled,
     NoConnectionError,
 )
 
@@ -21,6 +19,14 @@ logging.basicConfig(level=logging.ERROR)
 # TODO: tests with drop_incoming and reject_incoming
 
 reset_reported_props = {const.TEST_CONTENT: None}
+
+PACKET_DROP = "Packet Drop"
+PACKET_REJECT = "Packet Reject"
+
+
+@pytest.fixture(params=[PACKET_DROP, PACKET_REJECT])
+def failure_type(request):
+    return request.param
 
 
 @pytest.mark.describe("Client Get Twin")
@@ -50,22 +56,10 @@ class TestGetTwin(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises NoConnectionError if there is no connection")
-    @pytest.mark.parametrize(
-        "twin_enabled",
-        [
-            pytest.param(False, id="Twin not yet enabled"),
-            pytest.param(True, id="Twin already enabled"),
-        ],
-    )
+    @pytest.mark.it("Raises NoConnectionError if there is no connection (Twin not yet enabled)")
     @pytest.mark.quicktest_suite
-    def test_sync_get_twin_fails_if_no_connection(
-        self, client, flush_messages, twin_enabled, leak_tracker
-    ):
+    def test_sync_no_connection_twin_not_enabled(self, client, leak_tracker):
         leak_tracker.set_initial_object_list()
-
-        if twin_enabled:
-            client._enable_feature("twin")
 
         client.disconnect()
         assert not client.connected
@@ -74,237 +68,33 @@ class TestGetTwin(object):
             client.get_twin()
         assert not client.connected
 
-        flush_messages()
         leak_tracker.check_for_leaks()
 
-
-@pytest.mark.describe(
-    "Client Get Twin with dropped connection (Connection Retry enabled, Twin not yet enabled)"
-)
-@pytest.mark.dropped_connection
-@pytest.mark.keep_alive(4)
-# Because the timeout for a subscribe is 10 seconds, and a connection drop can take up to
-# 2x keepalive, we need a keepalive < 5 in order to effectively test what happens if a
-# connection drops and comes back
-class TestGetTwinDroppedConnectionRetryEnabledTwinPatchNotEnabled(object):
     @pytest.mark.it(
-        "Raises OperationTimeout if connection is not restored after dropping outgoing packets"
+        "Waits to complete until a connection is established if there is no connection (Twin already enabled)"
     )
-    def test_sync_raises_op_timeout_if_drop_without_restore(
-        self, client, dropper, executor, leak_tracker
-    ):
+    @pytest.mark.quicktest_suite
+    def test_sync_no_connection_twin_enabled(self, client, service_helper, executor, leak_tracker):
         leak_tracker.set_initial_object_list()
-        assert client.connected
 
-        # Drop outgoing packets
-        dropper.drop_outgoing()
-
-        # Attempt to get a twin (implicitly enabling twin first)
-        get_task = executor.submit(client.get_twin)
-        # Wait for client disconnect
-        while client.connected:
-            time.sleep(0.5)
-        # Getting the twin has not yet failed
-        assert not get_task.done()
-
-        # Failure due to timeout of subscribe (enable feature)
-        with pytest.raises(OperationTimeout):
-            get_task.result()
-
-        del get_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-    @pytest.mark.it(
-        "Raises OperationTimeout even if connection is restored after dropping outgoing packets"
-    )
-    def test_sync_raises_op_timeout_if_drop_and_restore(
-        self, client, dropper, executor, leak_tracker
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Drop outgoing packets
-        dropper.drop_outgoing()
-
-        # Attempt to get a twin (implicitly enabling twin first)
-        get_task = executor.submit(client.get_twin)
-        # Wait for client disconnect
-        while client.connected:
-            time.sleep(0.5)
-        # Getting the twin has not yet failed
-        assert not get_task.done()
-
-        # Restore outgoing packet functionality and manually reconnect.
-        # We need to manually reconnect to make sure the connection happens before any timeouts.
-        dropper.restore_all()
-        client.connect()
-        # Getting the twin still has not yet failed
-        assert not get_task.done()
-
-        # Failure due to timeout of subscribe (enable feature)
-        with pytest.raises(OperationTimeout):
-            get_task.result()
-
-        del get_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-    @pytest.mark.it(
-        "Raises OperationTimeout if connection is not restored after rejecting outgoing packets"
-    )
-    def test_sync_raises_op_timeout_if_reject_without_restore(
-        self, client, dropper, executor, leak_tracker
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Reject outgoing packets
-        dropper.reject_outgoing()
-
-        # Attempt to get the twin (implicitly enabling twin first)
-        get_task = executor.submit(client.get_twin)
-        # Wait for client disconnect
-        while client.connected:
-            time.sleep(0.5)
-        # Getting the twin has not yet failed
-        assert not get_task.done()
-
-        # Failure due to failure of subscribe (enable feature)
-        with pytest.raises(OperationTimeout):
-            get_task.result()
-
-        del get_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-    @pytest.mark.it(
-        "Raises OperationTimeout even if connection is restored after rejecting outgoing packets"
-    )
-    def test_sync_raises_op_timeout_if_reject_and_restore(
-        self, client, dropper, executor, leak_tracker
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Reject outgoing packets
-        dropper.reject_outgoing()
-
-        # Attempt to get the twin (implicitly enabling twin first)
-        get_task = executor.submit(client.get_twin)
-        while client.connected:
-            time.sleep(0.5)
-        # Getting the twin has not yet failed
-        assert not get_task.done()
-
-        # Restore outgoing packet functionality and manually reconnect.
-        # We need to manually reconnect to make sure the connection happens before any timeouts.
-        dropper.restore_all()
-        client.connect()
-        # Getting the twin still has not yet failed
-        assert not get_task.done()
-
-        # Failure due to timeout of subscribe (enable feature)
-        with pytest.raises(OperationTimeout):
-            get_task.result()
-
-        del get_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-
-@pytest.mark.dropped_connection
-@pytest.mark.describe(
-    "Client Get Twin with dropped connection (Connection Retry disabled, Twin not yet enabled)"
-)
-@pytest.mark.keep_alive(4)
-@pytest.mark.connection_retry(False)
-# Because the timeout for a subscribe is 10 seconds, and a connection drop can take up to
-# 2x keepalive, we need a keepalive < 5 in order to effectively test what happens if a
-# connection drops
-class TestGetTwinDroppedConnectionRetryDisabledTwinPatchNotEnabled(object):
-    @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
-    def test_sync_raises_op_cancelled_if_drop(self, client, dropper, executor, leak_tracker):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Drop outgoing packets
-        dropper.drop_outgoing()
-
-        # Attempt to get the twin (implicitly enabling twin first)
-        get_task = executor.submit(client.get_twin)
-
-        while client.connected:
-            assert not get_task.done()
-            time.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        time.sleep(0.1)
-        assert get_task.done()
-        with pytest.raises(OperationCancelled):
-            get_task.result()
-
-        del get_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-    @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
-    def test_sync_raises_op_cancelled_if_reject(self, client, dropper, executor, leak_tracker):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Drop outgoing packets
-        dropper.reject_outgoing()
-
-        # Attempt to get the twin (implicitly enabling twin first)
-        get_task = executor.submit(client.get_twin)
-
-        while client.connected:
-            assert not get_task.done()
-            time.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        time.sleep(0.1)
-        assert get_task.done()
-        with pytest.raises(OperationCancelled):
-            get_task.result()
-
-        del get_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-
-@pytest.mark.dropped_connection
-@pytest.mark.describe(
-    "Client Get Twin with dropped connection (Connection Retry enabled, Twin already enabled)"
-)
-@pytest.mark.keep_alive(4)
-class TestGetTwinDroppedConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
-    @pytest.mark.it("Returns the twin once connection is restored after dropping outgoing packets")
-    def test_sync_gets_twin_if_drop_and_restore(
-        self, client, dropper, service_helper, executor, leak_tracker
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Enable twins first, then drop outgoing packets
         client._enable_feature("twin")
-        dropper.drop_outgoing()
 
-        # Attempt to get the twin
+        client.disconnect()
+        assert not client.connected
+
+        # Attempt to get twin
         get_task = executor.submit(client.get_twin)
-        # Wait for client to realize connection has dropped (due to keepalive)
-        while client.connected:
-            time.sleep(0.5)
-        # Even though the connection has dropped, the get twin request has not returned
+        time.sleep(1)
+        # Still not done
         assert not get_task.done()
-
-        # Restore outgoing packet functionality and wait for client to reconnect
-        dropper.restore_all()
-        while not client.connected:
-            time.sleep(0.5)
-        # Wait for the request task to complete now that the client has reconnected
+        # Connect
+        client.connect()
+        time.sleep(0.5)
+        # Task is now done
+        assert get_task.done()
         twin1 = get_task.result()
 
-        # Get the twin from the service to compare
+        # Validate twin with service
         twin2 = service_helper.get_twin()
         # NOTE: It would be nice to compare the full properties, but the service client one
         # has metadata the client does not have. Look into this further to expand testing.
@@ -313,30 +103,69 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Returns the twin once connection is restored after rejecting outgoing packets")
-    def test_sync_gets_twin_if_reject_and_restore(
-        self, client, dropper, service_helper, executor, leak_tracker
+
+@pytest.mark.describe(
+    "Client Get Twin with network failure (Connection Retry enabled, Twin not yet enabled)"
+)
+@pytest.mark.dropped_connection
+@pytest.mark.keep_alive(5)
+@pytest.mark.connection_retry(True)
+class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object):
+    @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
+    def test_sync_network_failure_causes_disconnect(
+        self, client, failure_type, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Enable twins first, then reject packets
-        client._enable_feature("twin")
-        dropper.reject_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
-        # Attempt to get the twin
+        # Attempt to get twin (implicitly enabling twin first)
         get_task = executor.submit(client.get_twin)
-        # Wait for client to realize connection has dropped (due to keepalive)
+        # Wait for client disconnect
         while client.connected:
+            assert not get_task.done()
             time.sleep(0.5)
-        # Even though the connection has dropped, the get twin request has not returned
-        assert not get_task.done()
+        # Client has now disconnected
+        assert get_task.done()
+        with pytest.raises(NoConnectionError):
+            get_task.result()
 
-        # Restore outgoing packet functionality and wait for client to reconnect
+        # Restore and wait so any background operations can resolve before leak checking
         dropper.restore_all()
-        while not client.connected:
-            time.sleep(0.5)
-        # Wait for the request task to complete now that the client has reconnected
+        time.sleep(1)
+        del get_task
+        leak_tracker.check_for_leaks()
+
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    def test_sync_network_failure_no_disconnect(
+        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
+
+        # Attempt to get twin (implicitly enabling twin first)
+        get_task = executor.submit(client.get_twin)
+
+        # Has not been able to succeed due to network failure, but client is still connected
+        time.sleep(1)
+        assert not get_task.done()
+        assert client.connected
+
+        # Restore network, and operation succeeds
+        dropper.restore_all()
+        time.sleep(1)
+        assert get_task.done()
         twin1 = get_task.result()
 
         # Get the twin from the service to compare
@@ -349,67 +178,258 @@ class TestGetTwinDroppedConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
         leak_tracker.check_for_leaks()
 
 
-@pytest.mark.dropped_connection
 @pytest.mark.describe(
-    "Client Get Twin with dropped connection (Connection Retry disabled, Twin already enabled)"
+    "Client Get Twin with network failure (Connection Retry disabled, Twin not yet enabled)"
 )
-@pytest.mark.keep_alive(4)
+@pytest.mark.dropped_connection
+@pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(False)
-class TestGetTwinDroppedConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
-    @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
-    def test_sync_raises_op_cancelled_if_drop(
-        self, client, flush_messages, dropper, executor, leak_tracker
+class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object):
+    @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
+    def test_sync_network_failure_causes_disconnect(
+        self, client, failure_type, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Enable twins first, then drop outgoing packets
-        client._enable_feature("twin")
-        dropper.drop_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
-        # Attempt to get the twin
+        # Attempt to get twin (implicitly enabling twin first)
         get_task = executor.submit(client.get_twin)
-
+        # Wait for client disconnect
         while client.connected:
             assert not get_task.done()
             time.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        time.sleep(0.1)
+        # Client has now disconnected
         assert get_task.done()
-        with pytest.raises(OperationCancelled):
+        with pytest.raises(NoConnectionError):
             get_task.result()
 
         del get_task
-        dropper.restore_all()
-        flush_messages()
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
-    def test_sync_raises_op_cancelled_if_reject(
-        self, client, flush_messages, dropper, executor, leak_tracker
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    def test_sync_network_failure_no_disconnect(
+        self, client, failure_type, service_helper, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Enable twins first, then reject outgoing packets
-        client._enable_feature("twin")
-        dropper.reject_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
-        # Attempt to get the twin
+        # Attempt to get twin (implicitly enabling twin first)
         get_task = executor.submit(client.get_twin)
 
+        # Has not been able to succeed due to network failure, but client is still connected
+        time.sleep(1)
+        assert not get_task.done()
+        assert client.connected
+
+        # Restore network, and operation succeeds
+        dropper.restore_all()
+        time.sleep(1)
+        assert get_task.done()
+        twin1 = get_task.result()
+
+        # Get the twin from the service to compare
+        twin2 = service_helper.get_twin()
+        # NOTE: It would be nice to compare the full properties, but the service client one
+        # has metadata the client does not have. Look into this further to expand testing.
+        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
+        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
+
+        leak_tracker.check_for_leaks()
+
+
+@pytest.mark.describe(
+    "Client Get Twin with network failure (Connection Retry enabled, Twin already enabled)"
+)
+@pytest.mark.dropped_connection
+@pytest.mark.keep_alive(5)
+@pytest.mark.connection_retry(True)
+class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
+    @pytest.mark.it(
+        "Succeeds once network is restored and client automatically reconnects after having disconnected due to network failure"
+    )
+    def test_sync_network_failure_causes_disconnect(
+        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Enable twins
+        client._enable_feature("twin")
+
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
+
+        # Attempt to get twin
+        get_task = executor.submit(client.get_twin)
+
+        # Wait for client disconnect
         while client.connected:
             assert not get_task.done()
             time.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        time.sleep(0.1)
-        get_task.done()
-        with pytest.raises(OperationCancelled):
-            get_task.result()
-
-        del get_task
+        # Client has now disconnected and task will not finish until reconnection
+        assert not get_task.done()
         dropper.restore_all()
-        flush_messages()
+        # Wait for client reconnect
+        while not client.connected:
+            assert not get_task.done()
+            time.sleep(0.5)
+
+        # Once connection is returned, the task will finish
+        twin1 = get_task.result()
+
+        # Get the twin from the service to compare
+        twin2 = service_helper.get_twin()
+        # NOTE: It would be nice to compare the full properties, but the service client one
+        # has metadata the client does not have. Look into this further to expand testing.
+        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
+        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
+
+        leak_tracker.check_for_leaks()
+
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    def test_sync_network_failure_no_disconnect(
+        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Enable twins
+        client._enable_feature("twin")
+
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
+
+        # Attempt to get twin
+        get_task = executor.submit(client.get_twin)
+
+        # Has not been able to succeed due to network failure, but client is still connected
+        time.sleep(1)
+        assert not get_task.done()
+        assert client.connected
+
+        # Restore network, and operation succeeds
+        dropper.restore_all()
+        time.sleep(1)
+        assert get_task.done()
+        twin1 = get_task.result()
+
+        # Get the twin from the service to compare
+        twin2 = service_helper.get_twin()
+        # NOTE: It would be nice to compare the full properties, but the service client one
+        # has metadata the client does not have. Look into this further to expand testing.
+        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
+        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
+
+        leak_tracker.check_for_leaks()
+
+
+@pytest.mark.describe(
+    "Client Get Twin with network failure (Connection Retry disabled, Twin already enabled)"
+)
+@pytest.mark.dropped_connection
+@pytest.mark.keep_alive(5)
+@pytest.mark.connection_retry(False)
+class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
+    @pytest.mark.it(
+        "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
+    )
+    def test_sync_network_failure_causes_disconnect(
+        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Enable twins
+        client._enable_feature("twin")
+
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
+
+        # Attempt to get twin
+        get_task = executor.submit(client.get_twin)
+
+        # Wait for client disconnect
+        while client.connected:
+            assert not get_task.done()
+            time.sleep(0.5)
+        # Client has now disconnected and task will not finish until reconnection
+        assert not get_task.done()
+        time.sleep(1)
+        assert not get_task.done()
+        dropper.restore_all()
+        # Manually reconnect
+        client.connect()
+
+        # Once connection is returned, the task will finish
+        twin1 = get_task.result()
+
+        # Get the twin from the service to compare
+        twin2 = service_helper.get_twin()
+        # NOTE: It would be nice to compare the full properties, but the service client one
+        # has metadata the client does not have. Look into this further to expand testing.
+        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
+        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
+
+        leak_tracker.check_for_leaks()
+
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    def test_sync_network_failure_no_disconnect(
+        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Enable twins
+        client._enable_feature("twin")
+
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
+
+        # Attempt to get twin
+        get_task = executor.submit(client.get_twin)
+
+        # Has not been able to succeed due to network failure, but client is still connected
+        time.sleep(1)
+        assert not get_task.done()
+        assert client.connected
+
+        # Restore network, and operation succeeds
+        dropper.restore_all()
+        time.sleep(1)
+        assert get_task.done()
+        twin1 = get_task.result()
+
+        # Get the twin from the service to compare
+        twin2 = service_helper.get_twin()
+        # NOTE: It would be nice to compare the full properties, but the service client one
+        # has metadata the client does not have. Look into this further to expand testing.
+        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
+        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
+
         leak_tracker.check_for_leaks()
 
 
@@ -512,22 +532,10 @@ class TestReportedProperties(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises NoConnectionError if there is no connection")
-    @pytest.mark.parametrize(
-        "twin_enabled",
-        [
-            pytest.param(False, id="Twin not yet enabled"),
-            pytest.param(True, id="Twin already enabled"),
-        ],
-    )
+    @pytest.mark.it("Raises NoConnectionError if there is no connection (Twin not yet enabled)")
     @pytest.mark.quicktest_suite
-    def test_sync_patch_reported_fails_if_no_connection(
-        self, client, flush_messages, twin_enabled, random_reported_props, leak_tracker
-    ):
+    def test_sync_no_connection_twin_not_enabled(self, client, random_reported_props, leak_tracker):
         leak_tracker.set_initial_object_list()
-
-        if twin_enabled:
-            client._enable_feature("twin")
 
         client.disconnect()
         assert not client.connected
@@ -536,354 +544,435 @@ class TestReportedProperties(object):
             client.patch_twin_reported_properties(random_reported_props)
         assert not client.connected
 
-        flush_messages()
         leak_tracker.check_for_leaks()
 
-
-@pytest.mark.dropped_connection
-@pytest.mark.describe(
-    "Client Reported Properties with dropped connection (Connection Retry enabled, Twin not yet enabled)"
-)
-@pytest.mark.keep_alive(4)
-# Because the timeout for a subscribe is 10 seconds, and a connection drop can take up to
-# 2x keepalive, we need a keepalive < 5 in order to effectively test what happens if a
-# connection drops and comes back
-class TestReportedPropertiesDroppedConnectionWRetryEnabledTwinPatchNotEnabled(object):
     @pytest.mark.it(
-        "Raises OperationTimeout if connection is not restored after dropping outgoing packets"
+        "Waits to complete until a connection is established if there is no connection (Twin already enabled)"
     )
-    def test_sync_raises_op_timeout_if_drop_without_restore(
-        self, client, random_reported_props, dropper, executor, leak_tracker
+    @pytest.mark.quicktest_suite
+    def test_sync_no_connection_twin_enabled(
+        self, client, service_helper, random_reported_props, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
-        assert client.connected
 
-        # Drop outgoing packets
-        dropper.drop_outgoing()
-
-        # Attempt to send a twin patch (implicitly enabling twin first)
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-        # Wait for client to disconnect
-        while client.connected:
-            time.sleep(0.5)
-        # Sending twin patch has not yet failed
-        assert not send_task.done()
-
-        # Failure due to timeout of subscribe (enable feature)
-        with pytest.raises(OperationTimeout):
-            send_task.result()
-
-        del send_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-    @pytest.mark.it(
-        "Raises OperationTimeout even if connection is restored after dropping outgoing packets"
-    )
-    def test_sync_raises_op_timeout_if_drop_and_restore(
-        self, client, random_reported_props, dropper, executor, leak_tracker
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Drop outgoing packets
-        dropper.drop_outgoing()
-
-        # Attempt to send a twin patch (implicitly enabling twin first)
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-        # Wait for client to disconnect
-        while client.connected:
-            time.sleep(0.5)
-        # Sending twin patch has not yet failed
-        assert not send_task.done()
-
-        # Restore outgoing packet functionality and manually reconnect.
-        # We need to manually reconnect to make sure the connection happens before any timeouts.
-        dropper.restore_all()
-        client.connect()
-        # Sending twin patch still has not yet failed
-        assert not send_task.done()
-
-        # Failure due to timeout of subscribe (enable feature)
-        with pytest.raises(OperationTimeout):
-            send_task.result()
-
-        del send_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-    @pytest.mark.it(
-        "Raises OperationTimeout if connection is not restored after rejecting outgoing packets"
-    )
-    def test_sync_raises_op_timeout_if_reject_without_restore(
-        self, client, random_reported_props, dropper, executor, leak_tracker
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Reject outgoing packets
-        dropper.reject_outgoing()
-
-        # Attempt to send a twin patch (implicitly enabling twin first)
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-        # Wait for client to disconnect
-        while client.connected:
-            time.sleep(0.5)
-        # Sending twin patch has not yet failed
-        assert not send_task.done()
-
-        # Failure due to failure of subscribe (enable feature)
-        with pytest.raises(OperationTimeout):
-            send_task.result()
-
-        del send_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-    @pytest.mark.it(
-        "Raises OperationTimeout even if connection is restored after rejecting outgoing packets"
-    )
-    def test_sync_raises_op_timeout_if_reject_and_restore(
-        self, client, random_reported_props, dropper, executor, leak_tracker
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Reject outgoing packets
-        dropper.reject_outgoing()
-
-        # Attempt to send a twin patch (implicitly enabling twin first)
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-        # Wait for the client to disconnect
-        while client.connected:
-            time.sleep(0.5)
-        # Sending twin patch has not yet failed
-        assert not send_task.done()
-
-        # Restore outgoing packet functionality and manually reconnect.
-        # We need to manually reconnect to make sure the connection happens before any timeouts.
-        dropper.restore_all()
-        client.connect()
-        # Sending twin patch still has not yet failed
-        assert not send_task.done()
-
-        # Failure due to timeout of subscribe (enable feature)
-        with pytest.raises(OperationTimeout):
-            send_task.result()
-
-        del send_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-
-@pytest.mark.dropped_connection
-@pytest.mark.describe(
-    "Client Reported Properties with dropped connection (Connection Retry disabled, Twin not yet enabled)"
-)
-@pytest.mark.keep_alive(4)
-@pytest.mark.connection_retry(False)
-# Because the timeout for a subscribe is 10 seconds, and a connection drop can take up to
-# 2x keepalive, we need a keepalive < 5 in order to effectively test what happens if a
-# connection drops
-class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchNotEnabled(object):
-    @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
-    def test_sync_raises_op_cancelled_if_drop(
-        self, client, random_reported_props, dropper, executor, leak_tracker
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Drop outgoing packets
-        dropper.drop_outgoing()
-
-        # Attempt to send a twin patch (implicitly enabling twin first)
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-
-        while client.connected:
-            assert not send_task.done()
-            time.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        time.sleep(0.1)
-        assert send_task.done()
-        with pytest.raises(OperationCancelled):
-            send_task.result()
-
-        del send_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-    @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
-    def test_sync_raises_op_cancelled_if_reject(
-        self, client, random_reported_props, dropper, executor, leak_tracker
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Drop outgoing packets
-        dropper.reject_outgoing()
-
-        # Attempt to send a twin patch (implicitly enabling twin first)
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-
-        while client.connected:
-            assert not send_task.done()
-            time.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        time.sleep(0.1)
-        assert send_task.done()
-        with pytest.raises(OperationCancelled):
-            send_task.result()
-
-        del send_task
-        # TODO: enable leak checker after fixing SubscribeOperation memory leak
-        # leak_tracker.check_for_leaks()
-
-
-@pytest.mark.dropped_connection
-@pytest.mark.describe(
-    "Client Reported Properties with dropped connection (Connection Retry enabled, Twin already enabled)"
-)
-@pytest.mark.keep_alive(4)
-class TestReportedPropertiesDroppedConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
-    @pytest.mark.it(
-        "Updates reported properties once connection is restored after dropping outgoing packets"
-    )
-    def test_sync_updates_reported_if_drop_and_restore(
-        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Enable twins first, then drop outgoing packets
         client._enable_feature("twin")
-        dropper.drop_outgoing()
 
-        # Attempt to send a twin patch
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-        # Wait for client to realize connection has dropped (due to keepalive)
-        while client.connected:
-            time.sleep(0.5)
-        # Even though the connection has dropped, the twin patch send has not returned
-        assert not send_task.done()
+        client.disconnect()
+        assert not client.connected
 
-        # Restore outgoing packet functionality and wait for client to reconnect
-        dropper.restore_all()
-        while not client.connected:
-            time.sleep(0.5)
-        # Wait for the send task to complete now that the client has reconnected
-        send_task.result()
+        # Attempt to patch
+        patch_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        time.sleep(1)
+        # Still not done
+        assert not patch_task.done()
+        # Connect
+        client.connect()
+        time.sleep(0.5)
+        # Task is now done
+        assert patch_task.done()
 
-        # Ensure the sent patch was received by the service
+        # wait for patch to arrive at service and verify
         received_patch = service_helper.get_next_reported_patch_arrival()
         assert (
             received_patch[const.REPORTED][const.TEST_CONTENT]
             == random_reported_props[const.TEST_CONTENT]
         )
 
+        # get twin from the service and verify content
+        twin = client.get_twin()
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it(
-        "Updates reported properties once connection is restored after rejecting outgoing packets"
-    )
-    def test_sync_updates_reported_if_reject_and_restore(
-        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+
+@pytest.mark.describe(
+    "Client Reported Properties with network failure (Connection Retry enabled, Twin not yet enabled)"
+)
+@pytest.mark.dropped_connection
+@pytest.mark.keep_alive(5)
+@pytest.mark.connection_retry(True)
+class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object):
+    @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
+    def test_sync_network_failure_causes_disconnect(
+        self, client, random_reported_props, failure_type, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Enable twins first, then reject packets
-        client._enable_feature("twin")
-        dropper.reject_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
-        # Attempt to send a twin patch
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-        # Wait for client to realize connection has dropped (due to keepalive)
+        # Attempt to patch twin (implicitly enabling twin first)
+        patch_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        # Wait for client disconnect
         while client.connected:
+            assert not patch_task.done()
             time.sleep(0.5)
-        # Even though the connection has dropped, the twin patch send has not returned
-        assert not send_task.done()
+        # Client has now disconnected
+        assert patch_task.done()
+        with pytest.raises(NoConnectionError):
+            patch_task.result()
 
-        # Restore outgoing packet functionality and wait for client to reconnect
+        # Restore and wait so any background operations can resolve before leak checking
         dropper.restore_all()
-        while not client.connected:
-            time.sleep(0.5)
-        # Wait for the send task to complete now that the client has reconnected
-        send_task.result()
+        time.sleep(1)
+        del patch_task
+        leak_tracker.check_for_leaks()
 
-        # Ensure the sent patch was received by the service
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    def test_sync_network_failure_no_disconnect(
+        self,
+        client,
+        random_reported_props,
+        failure_type,
+        service_helper,
+        dropper,
+        executor,
+        leak_tracker,
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
+
+        # Attempt to patch twin (implicitly enabling twin first)
+        patch_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+
+        # Has not been able to succeed due to network failure, but client is still connected
+        time.sleep(1)
+        assert not patch_task.done()
+        assert client.connected
+
+        # Restore network, and operation succeeds
+        dropper.restore_all()
+        time.sleep(1)
+        assert patch_task.done()
+
+        # wait for patch to arrive at service and verify
         received_patch = service_helper.get_next_reported_patch_arrival()
         assert (
             received_patch[const.REPORTED][const.TEST_CONTENT]
             == random_reported_props[const.TEST_CONTENT]
         )
 
+        # get twin from the service and verify content
+        twin = client.get_twin()
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+
         leak_tracker.check_for_leaks()
 
 
-@pytest.mark.dropped_connection
 @pytest.mark.describe(
-    "Client Reported Properties with dropped connection (Connection Retry disabled, Twin already enabled)"
+    "Client Reported Properties with network failure (Connection Retry disabled, Twin not yet enabled)"
 )
-@pytest.mark.keep_alive(4)
+@pytest.mark.dropped_connection
+@pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(False)
-# Because the timeout for a subscribe is 10 seconds, and a connection drop can take up to
-# 2x keepalive, we need a keepalive < 5 in order to effectively test what happens if a
-# connection drops
-class TestReportedPropertiesDroppedConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
-    @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
-    def test_sync_raises_op_cancelled_if_drop(
-        self, client, flush_messages, random_reported_props, dropper, executor, leak_tracker
+class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object):
+    @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
+    def test_sync_network_failure_causes_disconnect(
+        self, client, random_reported_props, failure_type, dropper, executor, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Enable twins first, then drop outgoing packets
-        client._enable_feature("twin")
-        dropper.drop_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
-        # Attempt to send a twin patch
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-
+        # Attempt to patch twin (implicitly enabling twin first)
+        patch_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        # Wait for client disconnect
         while client.connected:
-            assert not send_task.done()
+            assert not patch_task.done()
             time.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        time.sleep(0.1)
-        assert send_task.done()
-        with pytest.raises(OperationCancelled):
-            send_task.result()
+        # Client has now disconnected
+        assert patch_task.done()
+        with pytest.raises(NoConnectionError):
+            patch_task.result()
 
-        del send_task
-        dropper.restore_all()
-        flush_messages()
+        del patch_task
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
-    def test_sync_raises_op_cancelled_if_reject(
-        self, client, flush_messages, random_reported_props, dropper, executor, leak_tracker
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    def test_sync_network_failure_no_disconnect(
+        self,
+        client,
+        random_reported_props,
+        failure_type,
+        service_helper,
+        dropper,
+        executor,
+        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Enable twins first, then reject outgoing packets
-        client._enable_feature("twin")
-        dropper.reject_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
-        # Attempt to send a twin patch
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        # Attempt to patch twin (implicitly enabling twin first)
+        patch_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
 
-        while client.connected:
-            assert not send_task.done()
-            time.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        time.sleep(0.1)
-        assert send_task.done()
-        with pytest.raises(OperationCancelled):
-            send_task.result()
+        # Has not been able to succeed due to network failure, but client is still connected
+        time.sleep(1)
+        assert not patch_task.done()
+        assert client.connected
 
-        del send_task
+        # Restore network, and operation succeeds
         dropper.restore_all()
-        flush_messages()
+        time.sleep(1)
+        assert patch_task.done()
+
+        # wait for patch to arrive at service and verify
+        received_patch = service_helper.get_next_reported_patch_arrival()
+        assert (
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
+        )
+
+        # get twin from the service and verify content
+        twin = client.get_twin()
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+
+        leak_tracker.check_for_leaks()
+
+
+@pytest.mark.describe(
+    "Client Reported Properties with network failure (Connection Retry enabled, Twin already enabled)"
+)
+@pytest.mark.dropped_connection
+@pytest.mark.keep_alive(5)
+@pytest.mark.connection_retry(True)
+class TestReportedPropertiesTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
+    @pytest.mark.it(
+        "Succeeds once network is restored and client automatically reconnects after having disconnected due to network failure"
+    )
+    def test_sync_network_failure_causes_disconnect(
+        self,
+        client,
+        random_reported_props,
+        failure_type,
+        service_helper,
+        dropper,
+        executor,
+        leak_tracker,
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Enable twins
+        client._enable_feature("twin")
+
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
+
+        # Attempt to patch twin
+        patch_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+
+        # Wait for client disconnect
+        while client.connected:
+            assert not patch_task.done()
+            time.sleep(0.5)
+        # Client has now disconnected and task will not finish until reconnection
+        assert not patch_task.done()
+        dropper.restore_all()
+        # Wait for client reconnect
+        while not client.connected:
+            assert not patch_task.done()
+            time.sleep(0.5)
+
+        # Once connection is returned, the task will finish
+        patch_task.result()
+
+        # wait for patch to arrive at service and verify
+        received_patch = service_helper.get_next_reported_patch_arrival()
+        assert (
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
+        )
+
+        # get twin from the service and verify content
+        twin = client.get_twin()
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+
+        leak_tracker.check_for_leaks()
+
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    def test_sync_network_failure_no_disconnect(
+        self,
+        client,
+        random_reported_props,
+        failure_type,
+        service_helper,
+        dropper,
+        executor,
+        leak_tracker,
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Enable twins
+        client._enable_feature("twin")
+
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
+
+        # Attempt to patch twin
+        patch_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+
+        # Has not been able to succeed due to network failure, but client is still connected
+        time.sleep(1)
+        assert not patch_task.done()
+        assert client.connected
+
+        # Restore network, and operation succeeds
+        dropper.restore_all()
+        time.sleep(1)
+        assert patch_task.done()
+
+        # wait for patch to arrive at service and verify
+        received_patch = service_helper.get_next_reported_patch_arrival()
+        assert (
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
+        )
+
+        # get twin from the service and verify content
+        twin = client.get_twin()
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+
+        leak_tracker.check_for_leaks()
+
+
+@pytest.mark.describe(
+    "Client Reported Properties with network failure (Connection Retry disabled, Twin already enabled)"
+)
+@pytest.mark.dropped_connection
+@pytest.mark.keep_alive(5)
+@pytest.mark.connection_retry(False)
+class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
+    @pytest.mark.it(
+        "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
+    )
+    def test_sync_network_failure_causes_disconnect(
+        self,
+        client,
+        random_reported_props,
+        failure_type,
+        service_helper,
+        dropper,
+        executor,
+        leak_tracker,
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Enable twins
+        client._enable_feature("twin")
+
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
+
+        # Attempt to patch twin
+        patch_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+
+        # Wait for client disconnect
+        while client.connected:
+            assert not patch_task.done()
+            time.sleep(0.5)
+        # Client has now disconnected and task will not finish until reconnection
+        assert not patch_task.done()
+        time.sleep(1)
+        assert not patch_task.done()
+        dropper.restore_all()
+        # Manually reconnect
+        client.connect()
+
+        # Once connection is returned, the task will finish
+        patch_task.result()
+
+        # wait for patch to arrive at service and verify
+        received_patch = service_helper.get_next_reported_patch_arrival()
+        assert (
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
+        )
+
+        # get twin from the service and verify content
+        twin = client.get_twin()
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+
+        leak_tracker.check_for_leaks()
+
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    def test_sync_network_failure_no_disconnect(
+        self,
+        client,
+        random_reported_props,
+        failure_type,
+        service_helper,
+        dropper,
+        executor,
+        leak_tracker,
+    ):
+        leak_tracker.set_initial_object_list()
+        assert client.connected
+
+        # Enable twins
+        client._enable_feature("twin")
+
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
+
+        # Attempt to patch twin
+        patch_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+
+        # Has not been able to succeed due to network failure, but client is still connected
+        time.sleep(1)
+        assert not patch_task.done()
+        assert client.connected
+
+        # Restore network, and operation succeeds
+        dropper.restore_all()
+        time.sleep(1)
+        assert patch_task.done()
+
+        # wait for patch to arrive at service and verify
+        received_patch = service_helper.get_next_reported_patch_arrival()
+        assert (
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
+        )
+
+        # get twin from the service and verify content
+        twin = client.get_twin()
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+
         leak_tracker.check_for_leaks()
 
 
