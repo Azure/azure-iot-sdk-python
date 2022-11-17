@@ -283,21 +283,15 @@ class MQTTTransportStage(PipelineStage):
             logger.debug("{}({}): subscribing to {}".format(self.name, op.name, op.topic))
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_complete(cancelled=False):
+            def on_complete(cancelled=False, failure_with_cause=None):
                 if cancelled:
-                    if not op.completed:
-                        op.complete(
-                            error=pipeline_exceptions.OperationCancelled(
-                                "Operation cancelled before SUBACK received"
-                            )
+                    op.complete(
+                        error=pipeline_exceptions.OperationCancelled(
+                            "Operation cancelled before SUBACK received"
                         )
-                    else:
-                        # This could reasonably happen on sub/unsub due to TimeoutStage
-                        logger.debug(
-                            "{}({}): Operation has already been completed, no need to cancel".format(
-                                self.name, op.name
-                            )
-                        )
+                    )
+                elif failure_with_cause:
+                    op.complete(error=failure_with_cause)
                 else:
                     logger.debug(
                         "{}({}): SUBACK received. completing op.".format(self.name, op.name)
@@ -313,21 +307,15 @@ class MQTTTransportStage(PipelineStage):
             logger.debug("{}({}): unsubscribing from {}".format(self.name, op.name, op.topic))
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_complete(cancelled=False):
+            def on_complete(cancelled=False, failure_with_cause=None):
                 if cancelled:
-                    if not op.completed:
-                        op.complete(
-                            error=pipeline_exceptions.OperationCancelled(
-                                "Operation cancelled before UNSUBACK received"
-                            )
+                    op.complete(
+                        error=pipeline_exceptions.OperationCancelled(
+                            "Operation cancelled before UNSUBACK received"
                         )
-                    else:
-                        # This could reasonably happen on sub/unsub due to TimeoutStage
-                        logger.debug(
-                            "{}({}): Operation has already been completed, no need to cancel".format(
-                                self.name, op.name
-                            )
-                        )
+                    )
+                elif failure_with_cause:
+                    op.complete(error=failure_with_cause)
                 else:
                     logger.debug(
                         "{}({}): UNSUBACK received.  completing op.".format(self.name, op.name)

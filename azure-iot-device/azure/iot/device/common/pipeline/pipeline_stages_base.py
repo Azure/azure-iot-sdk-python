@@ -13,7 +13,7 @@ import weakref
 import threading
 import queue
 from . import pipeline_events_base
-from . import pipeline_ops_base, pipeline_ops_mqtt
+from . import pipeline_ops_base
 from . import pipeline_thread
 from . import pipeline_exceptions
 from .pipeline_nucleus import ConnectionState
@@ -683,72 +683,6 @@ class CoordinateRequestAndResponseStage(PipelineStage):
 
         else:
             self.send_event_up(event)
-
-
-class OpTimeoutStage(PipelineStage):
-    """
-    The purpose of the timeout stage is to add timeout errors to select operations
-
-    The timeout_intervals attribute contains a list of operations to track along with
-    their timeout values.  Right now this list is hard-coded but the operations and
-    intervals will eventually become a parameter.
-
-    For each operation that needs a timeout check, this stage will add a timer to
-    the operation.  If the timer elapses, this stage will fail the operation with
-    a OperationTimeout.
-
-    This stage currently assumes that all timed out operation are just "lost".
-    It does not attempt to cancel the operation, as Paho doesn't have a way to
-    cancel an operation, and with QOS=1, sending a pub or sub twice is not
-    catastrophic.
-    """
-
-    def __init__(self):
-        super().__init__()
-        # use a fixed list and fixed intervals for now.  Later, this info will come in
-        # as an init param or a retry policy
-        self.timeout_intervals = {
-            pipeline_ops_mqtt.MQTTSubscribeOperation: 10,
-            pipeline_ops_mqtt.MQTTUnsubscribeOperation: 10,
-            # Only Sub and Unsub are here because MQTT auto retries pub
-        }
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
-        if type(op) in self.timeout_intervals:
-            # Create a timer to watch for operation timeout on this op and attach it
-            # to the op.
-            self_weakref = weakref.ref(self)
-
-            @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_timeout():
-                this = self_weakref()
-                logger.info("{}({}): returning timeout error".format(this.name, op.name))
-                op.complete(
-                    error=pipeline_exceptions.OperationTimeout(
-                        "operation timed out before protocol client could respond"
-                    )
-                )
-
-            logger.debug("{}({}): Creating timer".format(self.name, op.name))
-            op.timeout_timer = threading.Timer(self.timeout_intervals[type(op)], on_timeout)
-            op.timeout_timer.start()
-
-            # Send the op down, but intercept the return of the op so we can
-            # remove the timer when the op is done
-            op.add_callback(self._clear_timer)
-            logger.debug("{}({}): Sending down".format(self.name, op.name))
-            self.send_op_down(op)
-        else:
-            self.send_op_down(op)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _clear_timer(self, op, error):
-        # When an op comes back, delete the timer and pass it right up.
-        if op.timeout_timer:
-            logger.debug("{}({}): Cancelling timer".format(self.name, op.name))
-            op.timeout_timer.cancel()
-            op.timeout_timer = None
 
 
 class ConnectionStateStage(PipelineStage):

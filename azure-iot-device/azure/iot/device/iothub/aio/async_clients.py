@@ -297,8 +297,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             Message class will be converted to Message object.
         :type message: :class:`azure.iot.device.Message` or str
 
-        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the send attempt is
             cancelled.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
@@ -329,8 +327,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param method_response: The MethodResponse to send
         :type method_response: :class:`azure.iot.device.MethodResponse`
 
-        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the send attempt is
             cancelled.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
@@ -356,12 +352,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :returns: Complete Twin as a JSON dict
         :rtype: dict
 
-        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the request attempt is
             cancelled.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if request attempt
-            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (first attempt only).
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -388,12 +382,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param reported_properties_patch: Twin Reported Properties patch as a JSON dict
         :type reported_properties_patch: dict
 
-        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if the send attempt is
             cancelled.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if send attempt
-            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (first attempt only).
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -419,7 +411,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -433,7 +424,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -447,7 +437,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -461,7 +450,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -533,7 +521,6 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -547,7 +534,6 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -583,8 +569,6 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :type message: :class:`azure.iot.device.Message` or str
         :param str output_name: Name of the output to send the event to.
 
-        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if send attempt
             times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
@@ -640,7 +624,6 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -654,7 +637,6 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
         :raises: :class:`azure.iot.device.exceptions.OperationCancelled` if cancelled.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if times out
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """

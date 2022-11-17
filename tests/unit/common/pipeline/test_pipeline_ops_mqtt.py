@@ -62,16 +62,6 @@ class MQTTSubscribeOperationInstantiationTests(MQTTSubscribeOperationTestConfig)
         op = cls_type(**init_kwargs)
         assert op.topic == init_kwargs["topic"]
 
-    @pytest.mark.it("Initializes 'timeout_timer' attribute as None")
-    def test_timeout_timer(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.timeout_timer is None
-
-    @pytest.mark.it("Initializes 'retry_timer' attribute as None")
-    def test_retry_timer(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.retry_timer is None
-
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
@@ -97,16 +87,6 @@ class MQTTUnsubscribeOperationInstantiationTests(MQTTUnsubscribeOperationTestCon
     def test_topic(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.topic == init_kwargs["topic"]
-
-    @pytest.mark.it("Initializes 'timeout_timer' attribute as None")
-    def test_timeout_timer(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.timeout_timer is None
-
-    @pytest.mark.it("Initializes 'retry_timer' attribute as None")
-    def test_retry_timer(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.retry_timer is None
 
 
 pipeline_ops_test.add_operation_tests(

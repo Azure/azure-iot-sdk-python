@@ -12,6 +12,7 @@ import traceback
 import weakref
 import socket
 from . import transport_exceptions as exceptions
+from enum import Enum
 import socks
 
 logger = logging.getLogger(__name__)
@@ -218,6 +219,14 @@ class MQTTTransport(object):
                 )
                 client.loop_stop()
             else:
+                # Fail any outstanding Subscribes and Unsubscribes (since they will no longer be able to complete)
+                # This should only really make a difference if a sub or unsub came through after connection drop,
+                # but before the client realized it.
+                this._op_manager.fail_all_subs_and_unsubs(
+                    error_cls=exceptions.NoConnectionError,
+                    error_msg=mqtt.error_string(mqtt.MQTT_ERR_NO_CONN),
+                )
+
                 if this.on_mqtt_disconnected_handler:
                     try:
                         this.on_mqtt_disconnected_handler(cause)
@@ -232,21 +241,21 @@ class MQTTTransport(object):
             logger.info("suback received for {}".format(mid))
             # subscribe failures are returned from the subscribe() call.  This is just
             # a notification that a SUBACK was received, so there is no failure case here
-            this._op_manager.complete_operation(mid)
+            this._op_manager.complete_operation(OperationType.SUBSCRIBE, mid)
 
         def on_unsubscribe(client, userdata, mid):
             this = self_weakref()
             logger.info("UNSUBACK received for {}".format(mid))
             # unsubscribe failures are returned from the unsubscribe() call.  This is just
             # a notification that a SUBACK was received, so there is no failure case here
-            this._op_manager.complete_operation(mid)
+            this._op_manager.complete_operation(OperationType.UNSUBSCRIBE, mid)
 
         def on_publish(client, userdata, mid):
             this = self_weakref()
             logger.info("payload published for {}".format(mid))
             # publish failures are returned from the publish() call.  This is just
             # a notification that a PUBACK was received, so there is no failure case here
-            this._op_manager.complete_operation(mid)
+            this._op_manager.complete_operation(OperationType.PUBLISH, mid)
 
         def on_message(client, userdata, mqtt_message):
             this = self_weakref()
@@ -490,7 +499,7 @@ class MQTTTransport(object):
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
             raise _create_error_from_rc_code(rc)
-        self._op_manager.establish_operation(mid, callback)
+        self._op_manager.establish_operation(OperationType.SUBSCRIBE, mid, callback)
 
     def unsubscribe(self, topic, callback=None):
         """
@@ -517,7 +526,7 @@ class MQTTTransport(object):
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
             raise _create_error_from_rc_code(rc)
-        self._op_manager.establish_operation(mid, callback)
+        self._op_manager.establish_operation(OperationType.UNSUBSCRIBE, mid, callback)
 
     def publish(self, topic, payload, qos=1, callback=None):
         """
@@ -536,7 +545,6 @@ class MQTTTransport(object):
         :raises: TypeError if payload is not a valid type
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
-        :raises: NoConnectionError if the client isn't actually connected.
         """
         logger.info("publishing on {}".format(topic))
         try:
@@ -549,9 +557,19 @@ class MQTTTransport(object):
             raise exceptions.ProtocolClientError("Unexpected Paho failure during publish") from e
         logger.debug("_mqtt_client.publish returned rc={}".format(rc))
         if rc:
-            # This could result in ConnectionDroppedError or ProtocolClientError
-            raise _create_error_from_rc_code(rc)
-        self._op_manager.establish_operation(mid, callback)
+            # Even though Paho returns a rc code indicating an error, it still stores the message
+            # and will publish on connect, so this isn't really a failure - it just hangs.
+            if rc == mqtt.MQTT_ERR_NO_CONN:
+                logger.debug("MQTT client not connected - will publish upon connect")
+            else:
+                raise _create_error_from_rc_code(rc)
+        self._op_manager.establish_operation(OperationType.PUBLISH, mid, callback)
+
+
+class OperationType(Enum):
+    PUBLISH = "PUBLISH"
+    SUBSCRIBE = "SUBSCRIBE"
+    UNSUBSCRIBE = "UNSUBSCRIBE"
 
 
 class OperationManager(object):
@@ -560,7 +578,11 @@ class OperationManager(object):
     def __init__(self):
         # Maps mid->callback for operations where a request has been sent
         # but the response has not yet been received
-        self._pending_operation_callbacks = {}
+        self._pending_operation_callbacks = {
+            OperationType.PUBLISH: {},
+            OperationType.SUBSCRIBE: {},
+            OperationType.UNSUBSCRIBE: {},
+        }
 
         # Maps mid->mid for responses received that are NOT established in the _pending_operation_callbacks dict.
         # Necessary because sometimes an operation will complete with a response before the
@@ -570,7 +592,7 @@ class OperationManager(object):
 
         self._lock = threading.Lock()
 
-    def establish_operation(self, mid, callback=None):
+    def establish_operation(self, op_type, mid, callback=None):
         """Establish a pending operation identified by MID, and store its completion callback.
 
         If the operation has already been completed, the callback will be triggered.
@@ -590,7 +612,7 @@ class OperationManager(object):
 
             else:
                 # Store the operation as pending, along with callback
-                self._pending_operation_callbacks[mid] = callback
+                self._pending_operation_callbacks[op_type][mid] = callback
                 logger.debug("Waiting for response on MID: {}".format(mid))
 
         # Now that the lock has been released, if the callback should be triggered,
@@ -609,7 +631,7 @@ class OperationManager(object):
                 # Not entirely unexpected because of QOS=1
                 logger.debug("No callback for MID: {}".format(mid))
 
-    def complete_operation(self, mid):
+    def complete_operation(self, op_type, mid):
         """Complete an operation identified by MID and trigger the associated completion callback.
 
         If the operation MID is unknown, the completion status will be stored until
@@ -620,11 +642,11 @@ class OperationManager(object):
 
         with self._lock:
             # If the mid is associated with an established pending operation, trigger the associated callback
-            if mid in self._pending_operation_callbacks:
+            if mid in self._pending_operation_callbacks[op_type]:
 
                 # Retrieve the callback, and clear the pending operation now that it has been completed
-                callback = self._pending_operation_callbacks[mid]
-                del self._pending_operation_callbacks[mid]
+                callback = self._pending_operation_callbacks[op_type][mid]
+                del self._pending_operation_callbacks[op_type][mid]
 
                 # Since the operation is complete, indicate the callback should be triggered
                 trigger_callback = True
@@ -652,15 +674,38 @@ class OperationManager(object):
                 # fully expected.  QOS=1 means we might get 2 PUBACKs
                 logger.debug("No callback set for MID: {}".format(mid))
 
+    def fail_all_subs_and_unsubs(self, error_cls, error_msg):
+        """Fail all SUBSCRIBE and UNSUBSCRIBE operations with a given error, removing MID tracking"""
+        logger.debug("Failing all subscribes and unsubscribes outstanding")
+        with self._lock:
+            pending_ops = []
+            for op_type in [OperationType.SUBSCRIBE, OperationType.UNSUBSCRIBE]:
+                pending_ops += list(self._pending_operation_callbacks[op_type].items())
+                self._pending_operation_callbacks[op_type].clear()
+
+        # Trigger failure in callbacks
+        for pending_op in pending_ops:
+            mid = pending_op[0]
+            callback = pending_op[1]
+            if callback:
+                logger.debug("Failing {} with {} - Triggering callback".format(mid, error_cls))
+                try:
+                    callback(failure_with_cause=error_cls(error_msg))
+                except Exception:
+                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug(traceback.format_exc())
+            else:
+                logger.debug("Can't fail {} - No callback set. Removing.".format(mid))
+
     def cancel_all_operations(self):
         """Complete all pending operations with cancellation, removing MID tracking"""
         logger.debug("Cancelling all pending operations")
         with self._lock:
             # Clear pending operations
-            pending_ops = list(self._pending_operation_callbacks.items())
-            for pending_op in pending_ops:
-                mid = pending_op[0]
-                del self._pending_operation_callbacks[mid]
+            pending_ops = []
+            for op_type in list(self._pending_operation_callbacks.keys()):
+                pending_ops += list(self._pending_operation_callbacks[op_type].items())
+                self._pending_operation_callbacks[op_type].clear()
 
             # Clear unknown responses
             unknown_mids = [mid for mid in self._unknown_operation_completions]
