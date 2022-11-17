@@ -447,20 +447,6 @@ class MQTTTransportStage(PipelineStage):
         else:
             logger.info("{}: Unexpected disconnect (no pending connection op)".format(self.name))
 
-            # If there is no connection retry, cancel any transport operations waiting on response
-            # so that they do not get stuck there.
-            if not self.nucleus.pipeline_configuration.connection_retry:
-                logger.debug(
-                    "{}: Connection Retry disabled - cancelling in-flight operations".format(
-                        self.name
-                    )
-                )
-                # TODO: Remove private access to the op manager (this layer shouldn't know about it)
-                # This is a stopgap. I didn't want to invest too much infrastructure into a cancel flow
-                # given that future development of individual operation cancels might affect the
-                # approach to cancelling inflight ops waiting in the transport.
-                self.transport._op_manager.cancel_all_operations()
-
             # Regardless of cause, it is now a ConnectionDroppedError. Log it and swallow it.
             # Higher layers will see that we're disconnected and may reconnect as necessary.
             e = transport_exceptions.ConnectionDroppedError("Unexpected disconnection")
