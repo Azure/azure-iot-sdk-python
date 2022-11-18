@@ -397,7 +397,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     async def start_method_request_receive(self):
         """
-        Enable the client's ability to receive method requests from IoTHub.
+        Start receiving method requests from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -410,7 +410,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     async def stop_method_request_receive(self):
         """
-        Disable the client's ability to receive method requests from IoTHub.
+        Stop receiving method requests from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -423,7 +423,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     async def start_twin_desired_properties_patch_receive(self):
         """
-        Enable the client's ability to receive twin desired property patches from IoTHub.
+        Start receiving twin desired property patches from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -436,7 +436,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     async def stop_twin_desired_properties_patch_receive(self):
         """
-        Disable the client's ability to receive twin desired property patches from IoTHub.
+        Stop receiving twin desired property patches from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -507,7 +507,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
     async def start_message_receive(self):
         """
-        Enable the client's ability to receive cloud-to-device messages from IoTHub.
+        Start receiving cloud-to-device messages from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -520,7 +520,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
     async def stop_message_receive(self):
         """
-        Disable the client's ability to receive cloud-to-device messages from IoTHub.
+        Stop receiving cloud-to-device messages from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -607,7 +607,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
     async def start_message_receive(self):
         """
-        Enable the client's ability to receive input messages from IoTHub.
+        Start receiving input messages from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -620,7 +620,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
     async def stop_message_receive(self):
         """
-        Disable the client's ability to receive input messages from IoTHub.
+        Stop receiving input messages from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
