@@ -1637,52 +1637,52 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig
             assert e_info.value.__cause__ is my_pipeline_error
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .enable_message_receive()")
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .start_message_receive()")
 class TestIoTHubDeviceClientEnableMessageReceive(
     IoTHubDeviceClientTestsConfig, SharedClientEnableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.enable_message_receive
+        return client.start_message_receive
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.C2D_MSG
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .disable_message_receive()")
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .stop_message_receive()")
 class TestIoTHubDeviceClientDisableMessageReceive(
     IoTHubDeviceClientTestsConfig, SharedClientDisableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.disable_message_receive
+        return client.stop_message_receive
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.C2D_MSG
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .enable_method_request_receive()")
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .start_method_request_receive()")
 class TestIoTHubDeviceClientEnableMethodRequestReceive(
     IoTHubDeviceClientTestsConfig, SharedClientEnableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.enable_method_request_receive
+        return client.start_method_request_receive
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.METHODS
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .disable_method_request_receive()")
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .stop_method_request_receive()")
 class TestIoTHubDeviceClientDisableMethodRequestReceive(
     IoTHubDeviceClientTestsConfig, SharedClientDisableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.disable_method_request_receive
+        return client.stop_method_request_receive
 
     @pytest.fixture
     def feature_name(self):
@@ -1690,14 +1690,14 @@ class TestIoTHubDeviceClientDisableMethodRequestReceive(
 
 
 @pytest.mark.describe(
-    "IoTHubDeviceClient (Asynchronous) - .enable_twin_desired_properties_patch_receive()"
+    "IoTHubDeviceClient (Asynchronous) - .start_twin_desired_properties_patch_receive()"
 )
 class TestIoTHubDeviceClientEnableTwinPatchtReceive(
     IoTHubDeviceClientTestsConfig, SharedClientEnableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.enable_twin_desired_properties_patch_receive
+        return client.start_twin_desired_properties_patch_receive
 
     @pytest.fixture
     def feature_name(self):
@@ -1705,14 +1705,14 @@ class TestIoTHubDeviceClientEnableTwinPatchtReceive(
 
 
 @pytest.mark.describe(
-    "IoTHubDeviceClient (Asynchronous) - .disable_twin_desired_properties_patch_receive()"
+    "IoTHubDeviceClient (Asynchronous) - .stop_twin_desired_properties_patch_receive()"
 )
 class TestIoTHubDeviceClientDisableTwinPatchtReceive(
     IoTHubDeviceClientTestsConfig, SharedClientDisableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.disable_twin_desired_properties_patch_receive
+        return client.stop_twin_desired_properties_patch_receive
 
     @pytest.fixture
     def feature_name(self):
@@ -2261,52 +2261,52 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
         assert e_info.value.__cause__ is my_pipeline_error
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .enable_message_receive()")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .start_message_receive()")
 class TestIoTHubModuleClientEnableMessageReceive(
     IoTHubModuleClientTestsConfig, SharedClientEnableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.enable_message_receive
+        return client.start_message_receive
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.INPUT_MSG
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .disable_message_receive()")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .stop_message_receive()")
 class TestIoTHubModuleClientDisableMessageReceive(
     IoTHubModuleClientTestsConfig, SharedClientDisableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.disable_message_receive
+        return client.stop_message_receive
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.INPUT_MSG
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .enable_method_request_receive()")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .start_method_request_receive()")
 class TestIoTHubModuleClientEnableMethodRequestReceive(
     IoTHubModuleClientTestsConfig, SharedClientEnableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.enable_method_request_receive
+        return client.start_method_request_receive
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.METHODS
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .disable_method_request_receive()")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .stop_method_request_receive()")
 class TestIoTHubModuleClientDisableMethodRequestReceive(
     IoTHubModuleClientTestsConfig, SharedClientDisableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.disable_method_request_receive
+        return client.stop_method_request_receive
 
     @pytest.fixture
     def feature_name(self):
@@ -2314,14 +2314,14 @@ class TestIoTHubModuleClientDisableMethodRequestReceive(
 
 
 @pytest.mark.describe(
-    "IoTHubModuleClient (Asynchronous) - .enable_twin_desired_properties_patch_receive()"
+    "IoTHubModuleClient (Asynchronous) - .start_twin_desired_properties_patch_receive()"
 )
 class TestIoTHubModuleClientEnableTwinPatchReceive(
     IoTHubModuleClientTestsConfig, SharedClientEnableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.enable_twin_desired_properties_patch_receive
+        return client.start_twin_desired_properties_patch_receive
 
     @pytest.fixture
     def feature_name(self):
@@ -2329,14 +2329,14 @@ class TestIoTHubModuleClientEnableTwinPatchReceive(
 
 
 @pytest.mark.describe(
-    "IoTHubModuleClient (Asynchronous) - .disable_twin_desired_properties_patch_receive()"
+    "IoTHubModuleClient (Asynchronous) - .stop_twin_desired_properties_patch_receive()"
 )
 class TestIoTHubModuleClientDisableTwinPatchReceive(
     IoTHubModuleClientTestsConfig, SharedClientDisableReceiveTests
 ):
     @pytest.fixture
     def client_method(self, client):
-        return client.disable_twin_desired_properties_patch_receive
+        return client.stop_twin_desired_properties_patch_receive
 
     @pytest.fixture
     def feature_name(self):

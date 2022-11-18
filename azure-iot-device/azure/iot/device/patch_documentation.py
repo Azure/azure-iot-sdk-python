@@ -16,24 +16,22 @@ def execute_patch_for_sync():
     connect.__doc__ = IoTHubDeviceClient.connect.__doc__
     setattr(IoTHubDeviceClient, "connect", connect)
 
-    def disable_method_request_receive(self):
-        return super(IoTHubDeviceClient, self).disable_method_request_receive()
+    def stop_method_request_receive(self):
+        return super(IoTHubDeviceClient, self).stop_method_request_receive()
 
-    disable_method_request_receive.__doc__ = (
-        IoTHubDeviceClient.disable_method_request_receive.__doc__
-    )
-    setattr(IoTHubDeviceClient, "disable_method_request_receive", disable_method_request_receive)
+    stop_method_request_receive.__doc__ = IoTHubDeviceClient.stop_method_request_receive.__doc__
+    setattr(IoTHubDeviceClient, "stop_method_request_receive", stop_method_request_receive)
 
-    def disable_twin_desired_properties_patch_receive(self):
-        return super(IoTHubDeviceClient, self).disable_twin_desired_properties_patch_receive()
+    def stop_twin_desired_properties_patch_receive(self):
+        return super(IoTHubDeviceClient, self).stop_twin_desired_properties_patch_receive()
 
-    disable_twin_desired_properties_patch_receive.__doc__ = (
-        IoTHubDeviceClient.disable_twin_desired_properties_patch_receive.__doc__
+    stop_twin_desired_properties_patch_receive.__doc__ = (
+        IoTHubDeviceClient.stop_twin_desired_properties_patch_receive.__doc__
     )
     setattr(
         IoTHubDeviceClient,
-        "disable_twin_desired_properties_patch_receive",
-        disable_twin_desired_properties_patch_receive,
+        "stop_twin_desired_properties_patch_receive",
+        stop_twin_desired_properties_patch_receive,
     )
 
     def disconnect(self):
@@ -42,22 +40,22 @@ def execute_patch_for_sync():
     disconnect.__doc__ = IoTHubDeviceClient.disconnect.__doc__
     setattr(IoTHubDeviceClient, "disconnect", disconnect)
 
-    def enable_method_request_receive(self):
-        return super(IoTHubDeviceClient, self).enable_method_request_receive()
+    def start_method_request_receive(self):
+        return super(IoTHubDeviceClient, self).start_method_request_receive()
 
-    enable_method_request_receive.__doc__ = IoTHubDeviceClient.enable_method_request_receive.__doc__
-    setattr(IoTHubDeviceClient, "enable_method_request_receive", enable_method_request_receive)
+    start_method_request_receive.__doc__ = IoTHubDeviceClient.start_method_request_receive.__doc__
+    setattr(IoTHubDeviceClient, "start_method_request_receive", start_method_request_receive)
 
-    def enable_twin_desired_properties_patch_receive(self):
-        return super(IoTHubDeviceClient, self).enable_twin_desired_properties_patch_receive()
+    def start_twin_desired_properties_patch_receive(self):
+        return super(IoTHubDeviceClient, self).start_twin_desired_properties_patch_receive()
 
-    enable_twin_desired_properties_patch_receive.__doc__ = (
-        IoTHubDeviceClient.enable_twin_desired_properties_patch_receive.__doc__
+    start_twin_desired_properties_patch_receive.__doc__ = (
+        IoTHubDeviceClient.start_twin_desired_properties_patch_receive.__doc__
     )
     setattr(
         IoTHubDeviceClient,
-        "enable_twin_desired_properties_patch_receive",
-        enable_twin_desired_properties_patch_receive,
+        "start_twin_desired_properties_patch_receive",
+        start_twin_desired_properties_patch_receive,
     )
 
     def get_twin(self):
@@ -168,24 +166,22 @@ def execute_patch_for_sync():
     connect.__doc__ = IoTHubModuleClient.connect.__doc__
     setattr(IoTHubModuleClient, "connect", connect)
 
-    def disable_method_request_receive(self):
-        return super(IoTHubModuleClient, self).disable_method_request_receive()
+    def stop_method_request_receive(self):
+        return super(IoTHubModuleClient, self).stop_method_request_receive()
 
-    disable_method_request_receive.__doc__ = (
-        IoTHubModuleClient.disable_method_request_receive.__doc__
-    )
-    setattr(IoTHubModuleClient, "disable_method_request_receive", disable_method_request_receive)
+    stop_method_request_receive.__doc__ = IoTHubModuleClient.stop_method_request_receive.__doc__
+    setattr(IoTHubModuleClient, "stop_method_request_receive", stop_method_request_receive)
 
-    def disable_twin_desired_properties_patch_receive(self):
-        return super(IoTHubModuleClient, self).disable_twin_desired_properties_patch_receive()
+    def stop_twin_desired_properties_patch_receive(self):
+        return super(IoTHubModuleClient, self).stop_twin_desired_properties_patch_receive()
 
-    disable_twin_desired_properties_patch_receive.__doc__ = (
-        IoTHubModuleClient.disable_twin_desired_properties_patch_receive.__doc__
+    stop_twin_desired_properties_patch_receive.__doc__ = (
+        IoTHubModuleClient.stop_twin_desired_properties_patch_receive.__doc__
     )
     setattr(
         IoTHubModuleClient,
-        "disable_twin_desired_properties_patch_receive",
-        disable_twin_desired_properties_patch_receive,
+        "stop_twin_desired_properties_patch_receive",
+        stop_twin_desired_properties_patch_receive,
     )
 
     def disconnect(self):
@@ -194,22 +190,22 @@ def execute_patch_for_sync():
     disconnect.__doc__ = IoTHubModuleClient.disconnect.__doc__
     setattr(IoTHubModuleClient, "disconnect", disconnect)
 
-    def enable_method_request_receive(self):
-        return super(IoTHubModuleClient, self).enable_method_request_receive()
+    def start_method_request_receive(self):
+        return super(IoTHubModuleClient, self).start_method_request_receive()
 
-    enable_method_request_receive.__doc__ = IoTHubModuleClient.enable_method_request_receive.__doc__
-    setattr(IoTHubModuleClient, "enable_method_request_receive", enable_method_request_receive)
+    start_method_request_receive.__doc__ = IoTHubModuleClient.start_method_request_receive.__doc__
+    setattr(IoTHubModuleClient, "start_method_request_receive", start_method_request_receive)
 
-    def enable_twin_desired_properties_patch_receive(self):
-        return super(IoTHubModuleClient, self).enable_twin_desired_properties_patch_receive()
+    def start_twin_desired_properties_patch_receive(self):
+        return super(IoTHubModuleClient, self).start_twin_desired_properties_patch_receive()
 
-    enable_twin_desired_properties_patch_receive.__doc__ = (
-        IoTHubModuleClient.enable_twin_desired_properties_patch_receive.__doc__
+    start_twin_desired_properties_patch_receive.__doc__ = (
+        IoTHubModuleClient.start_twin_desired_properties_patch_receive.__doc__
     )
     setattr(
         IoTHubModuleClient,
-        "enable_twin_desired_properties_patch_receive",
-        enable_twin_desired_properties_patch_receive,
+        "start_twin_desired_properties_patch_receive",
+        start_twin_desired_properties_patch_receive,
     )
 
     def get_twin(self):

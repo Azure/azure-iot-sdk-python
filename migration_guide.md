@@ -28,7 +28,7 @@ Note also that this change does *not* affect automatic reconnection attempts in 
 
 
 ## Receiving data from IoTHub
-Similarly to the above, there is an additional explicit step you must now make when trying to receive data. In addition to setting your handler, you must now enable receiving. Note also that the above step of manually connecting must also be done before starting to receive data.
+Similarly to the above, there is an additional explicit step you must now make when trying to receive data. In addition to setting your handler, you must explicitly start/stop receiving. Note also that the above step of manually connecting must also be done before starting to receive data.
 
 ### V2
 ```python
@@ -65,17 +65,17 @@ client.on_message_received = message_handler
 
 # connect and start receiving messages
 client.connect()
-client.enable_message_receive()
+client.start_message_receive()
 ```
 
 Note that this must be done not just for receiving messages, but receiving any data. Consult the chart below to see which APIs you will need for the type of data you are receiving.
 
 
-| Data Type                       | Handler name                                 | Enable API                                        | Disable API                                         |
-|---------------------------------|----------------------------------------------|---------------------------------------------------|-----------------------------------------------------|
-| Messages                        | `.on_message_received`                       | `.enable_message_receive()`                       | `.disable_message_receive()`                        |
-| Method Requests                 | `.on_method_request_received`                | `.enable_method_request_receive()`                | `.disable_method_request_receive()`                 |
-| Twin Desired Properties Patches | `.on_twin_desired_properties_patch_received` | `.enable_twin_desired_properties_patch_receive()` | `.disable_twin_desired_properties_patch_receive()`  |
+| Data Type                       | Handler name                                 | Start Receive API                                | Stop Receive API                                |
+|---------------------------------|----------------------------------------------|--------------------------------------------------|-------------------------------------------------|
+| Messages                        | `.on_message_received`                       | `.start_message_receive()`                       | `.stop_message_receive()`                       |
+| Method Requests                 | `.on_method_request_received`                | `.start_method_request_receive()`                | `.stop_method_request_receive()`                |
+| Twin Desired Properties Patches | `.on_twin_desired_properties_patch_received` | `.start_twin_desired_properties_patch_receive()` | `.stop_twin_desired_properties_patch_receive()` |
 
 
 Finally, it should be clarified that the following receive APIs that were deprecated in V2 have been fully removed in V3:

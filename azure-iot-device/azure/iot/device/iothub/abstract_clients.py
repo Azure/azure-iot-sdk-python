@@ -372,27 +372,27 @@ class AbstractIoTHubClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def enable_message_receive(self):
+    def start_message_receive(self):
         pass
 
     @abc.abstractmethod
-    def disable_message_receive(self):
+    def stop_message_receive(self):
         pass
 
     @abc.abstractmethod
-    def enable_method_request_receive(self):
+    def start_method_request_receive(self):
         pass
 
     @abc.abstractmethod
-    def disable_method_request_receive(self):
+    def stop_method_request_receive(self):
         pass
 
     @abc.abstractmethod
-    def enable_twin_desired_properties_patch_receive(self):
+    def start_twin_desired_properties_patch_receive(self):
         pass
 
     @abc.abstractmethod
-    def disable_twin_desired_properties_patch_receive(self):
+    def stop_twin_desired_properties_patch_receive(self):
         pass
 
     @property

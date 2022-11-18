@@ -395,7 +395,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully patched twin")
 
-    def enable_method_request_receive(self):
+    def start_method_request_receive(self):
         """
         Enable the client's ability to receive method requests from IoTHub.
 
@@ -408,7 +408,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
             self._enable_feature(pipeline_constant.METHODS)
 
-    def disable_method_request_receive(self):
+    def stop_method_request_receive(self):
         """
         Disable the client's ability to receive method requests from IoTHub.
 
@@ -421,7 +421,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
             self._disable_feature(pipeline_constant.METHODS)
 
-    def enable_twin_desired_properties_patch_receive(self):
+    def start_twin_desired_properties_patch_receive(self):
         """
         Enable the client's ability to receive twin desired property patches from IoTHub.
 
@@ -434,7 +434,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
             self._enable_feature(pipeline_constant.TWIN_PATCHES)
 
-    def disable_twin_desired_properties_patch_receive(self):
+    def stop_twin_desired_properties_patch_receive(self):
         """
         Disable the client's ability to receive twin desired property patches from IoTHub.
 
@@ -504,7 +504,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         handle_result(callback)
         logger.info("Successfully notified blob upload status")
 
-    def enable_message_receive(self):
+    def start_message_receive(self):
         """
         Enable the client's ability to receive cloud-to-device messages from IoTHub.
 
@@ -517,7 +517,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
             self._enable_feature(pipeline_constant.C2D_MSG)
 
-    def disable_message_receive(self):
+    def stop_message_receive(self):
         """
         Disable the client's ability to receive cloud-to-device messages from IoTHub.
 
@@ -605,7 +605,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         logger.info("Successfully invoked method")
         return invoke_method_response
 
-    def enable_message_receive(self):
+    def start_message_receive(self):
         """
         Enable the client's ability to receive input messages from IoTHub.
 
@@ -618,7 +618,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
             self._enable_feature(pipeline_constant.INPUT_MSG)
 
-    def disable_message_receive(self):
+    def stop_message_receive(self):
         """
         Disable the client's ability to receive input messages from IoTHub.
 
