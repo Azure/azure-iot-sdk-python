@@ -87,6 +87,16 @@ Finally, it should be clarified that the following receive APIs that were deprec
 All receives should now be done using the handlers in the table above.
 
 
+## Modified Client Options - IoTHubDeviceClient/IoTHubModuleClient
+
+Some keyword arguments provided at client creation have changed or been removed
+
+| V2                          | V3          | Explanation                            |
+|-----------------------------|-------------|----------------------------------------|
+| `auto_connect`              | **REMOVED** | Initial manual connection now required |
+| `ensure_desired_properties` | **REMOVED** | No more implicit twin updates          |
+
+
 ## Shutting down - IoTHubDeviceClient/IoTHubModuleClient
 
 While using the `.shutdown()` method when you are completely finished with an instance of the client has been a highly recommended practice for some time, some early versions of V2 did not require it. As of V3, in order to ensure a graceful exit, you must make an explicit shutdown.
