@@ -88,10 +88,6 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.ConnectionStateStage())
             #
-            # OpTimeoutStage needs to be near the end because it is for low-level MQTT operations.
-            #
-            .append_stage(pipeline_stages_base.OpTimeoutStage())
-            #
             # MQTTTransportStage needs to be at the very end of the pipeline because this is where
             # operations turn into network traffic
             #
@@ -303,7 +299,6 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationCancelled`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
@@ -330,7 +325,6 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationCancelled`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
@@ -357,7 +351,6 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationCancelled`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
@@ -388,7 +381,6 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationCancelled`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
@@ -416,7 +408,6 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationCancelled`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """

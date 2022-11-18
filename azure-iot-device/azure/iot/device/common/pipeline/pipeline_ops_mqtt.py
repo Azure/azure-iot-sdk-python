@@ -26,7 +26,6 @@ class MQTTPublishOperation(PipelineOperation):
         super().__init__(callback=callback)
         self.topic = topic
         self.payload = payload
-        self.retry_timer = None
 
 
 class MQTTSubscribeOperation(PipelineOperation):
@@ -47,8 +46,6 @@ class MQTTSubscribeOperation(PipelineOperation):
         """
         super().__init__(callback=callback)
         self.topic = topic
-        self.timeout_timer = None
-        self.retry_timer = None
 
 
 class MQTTUnsubscribeOperation(PipelineOperation):
@@ -69,5 +66,3 @@ class MQTTUnsubscribeOperation(PipelineOperation):
         """
         super().__init__(callback=callback)
         self.topic = topic
-        self.timeout_timer = None
-        self.retry_timer = None
