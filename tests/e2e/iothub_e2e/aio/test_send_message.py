@@ -106,8 +106,9 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
 
-@pytest.mark.dropped_connection
 @pytest.mark.describe("Client send_message method with network failure (Connection Retry enabled)")
+@pytest.mark.dropped_connection
+@pytest.mark.connection_retry(True)
 @pytest.mark.keep_alive(5)
 class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
     @pytest.mark.it(
@@ -182,8 +183,9 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
 
 
 @pytest.mark.describe("Client send_message method with network failure (Connection Retry disabled)")
-@pytest.mark.keep_alive(5)
+@pytest.mark.dropped_connection
 @pytest.mark.connection_retry(False)
+@pytest.mark.keep_alive(5)
 class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
     @pytest.mark.it(
         "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"

@@ -112,8 +112,8 @@ class TestGetTwin(object):
     "Client Get Twin with network failure (Connection Retry enabled, Twin not yet enabled)"
 )
 @pytest.mark.dropped_connection
-@pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(True)
+@pytest.mark.keep_alive(5)
 class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
     async def test_network_failure_causes_disconnect(
@@ -186,8 +186,8 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object)
     "Client Get Twin with network failure (Connection Retry disabled, Twin not yet enabled)"
 )
 @pytest.mark.dropped_connection
-@pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(False)
+@pytest.mark.keep_alive(5)
 class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
     async def test_network_failure_causes_disconnect(
@@ -257,8 +257,8 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object
     "Client Get Twin with network failure (Connection Retry enabled, Twin already enabled)"
 )
 @pytest.mark.dropped_connection
-@pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(True)
+@pytest.mark.keep_alive(5)
 class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
     @pytest.mark.it(
         "Succeeds once network is restored and client automatically reconnects after having disconnected due to network failure"
@@ -348,8 +348,8 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(obj
     "Client Get Twin with network failure (Connection Retry disabled, Twin already enabled)"
 )
 @pytest.mark.dropped_connection
-@pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(False)
+@pytest.mark.keep_alive(5)
 class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
     @pytest.mark.it(
         "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
@@ -601,8 +601,8 @@ class TestReportedProperties(object):
     "Client Reported Properties with network failure (Connection Retry enabled, Twin not yet enabled)"
 )
 @pytest.mark.dropped_connection
-@pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(True)
+@pytest.mark.keep_alive(5)
 class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
     async def test_network_failure_causes_disconnect(
@@ -682,8 +682,8 @@ class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnab
     "Client Reported Properties with network failure (Connection Retry disabled, Twin not yet enabled)"
 )
 @pytest.mark.dropped_connection
-@pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(False)
+@pytest.mark.keep_alive(5)
 class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
     async def test_network_failure_causes_disconnect(
@@ -760,8 +760,8 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEna
     "Client Reported Properties with network failure (Connection Retry enabled, Twin already enabled)"
 )
 @pytest.mark.dropped_connection
-@pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(True)
+@pytest.mark.keep_alive(5)
 class TestReportedPropertiesTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
     @pytest.mark.it(
         "Succeeds once network is restored and client automatically reconnects after having disconnected due to network failure"
@@ -863,8 +863,8 @@ class TestReportedPropertiesTwinNetworkFailureConnectionRetryEnabledTwinPatchAlr
     "Client Reported Properties with network failure (Connection Retry disabled, Twin already enabled)"
 )
 @pytest.mark.dropped_connection
-@pytest.mark.keep_alive(5)
 @pytest.mark.connection_retry(False)
+@pytest.mark.keep_alive(5)
 class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
     @pytest.mark.it(
         "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
