@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.common.mqtt_transport import MQTTTransport, OperationManager
+from azure.iot.device.common.mqtt_transport import MQTTTransport, OperationManager, OperationType
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.common import transport_exceptions as errors
 from azure.iot.device.common import ProxyOptions
@@ -379,7 +379,11 @@ class TestInstantiation(object):
         transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
-        assert transport._op_manager._pending_operation_callbacks == {}
+        assert transport._op_manager._pending_operation_callbacks == {
+            OperationType.PUBLISH: {},
+            OperationType.SUBSCRIBE: {},
+            OperationType.UNSUBSCRIBE: {},
+        }
         assert transport._op_manager._unknown_operation_completions == {}
 
     @pytest.mark.it("Sets paho auto-reconnect interval to 2 hours")
@@ -982,6 +986,63 @@ class TestEventDisconnectCompleted(object):
         return request.param
 
     @pytest.mark.it(
+        "Triggers callbacks with a NoConnectionError for any in-flight subscribe or unsubscribes"
+    )
+    def test_inflight_subs_and_unsubs(self, mocker, mock_mqtt_client, transport):
+        sub_callback1 = mocker.MagicMock()
+        sub_callback2 = mocker.MagicMock()
+        unsub_callback1 = mocker.MagicMock()
+        unsub_callback2 = mocker.MagicMock()
+        mock_mqtt_client.subscribe.side_effect = [(0, 1), (0, 2)]
+        mock_mqtt_client.unsubscribe.side_effect = [(0, 3), (0, 4)]
+
+        # Initiate subscribes and unsubscribes
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=sub_callback1)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=sub_callback2)
+        transport.unsubscribe(topic=fake_topic, callback=unsub_callback1)
+        transport.unsubscribe(topic=fake_topic, callback=unsub_callback2)
+
+        # Check callbacks are not called yet
+        assert sub_callback1.call_count == 0
+        assert sub_callback2.call_count == 0
+        assert unsub_callback1.call_count == 0
+        assert unsub_callback2.call_count == 0
+
+        # Manually trigger Paho on_disconnect event_handler
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
+
+        # Check callbacks have now been called with the desired error
+        assert sub_callback1.call_count == 1
+        error1 = sub_callback1.call_args[1]["failure_with_cause"]
+        assert isinstance(error1, errors.NoConnectionError)
+        assert sub_callback2.call_count == 1
+        error2 = sub_callback2.call_args[1]["failure_with_cause"]
+        assert isinstance(error2, errors.NoConnectionError)
+        assert unsub_callback1.call_count == 1
+        error3 = unsub_callback1.call_args[1]["failure_with_cause"]
+        assert isinstance(error3, errors.NoConnectionError)
+        assert unsub_callback2.call_count == 1
+        error4 = unsub_callback2.call_args[1]["failure_with_cause"]
+        assert isinstance(error4, errors.NoConnectionError)
+
+    @pytest.mark.it("Does not trigger any callbacks for in-flight publishes")
+    def test_inflight_pubs(self, mocker, mock_mqtt_client, transport):
+        pub_callback = mocker.MagicMock()
+        mock_mqtt_client.return_value = (fake_rc, fake_mid)
+
+        # Initiate publish
+        transport.publish(topic=fake_topic, payload=fake_payload, qos=fake_qos)
+
+        # Check callback is not called yet
+        assert pub_callback.call_count == 0
+
+        # Manually trigger Paho on_disconnect event handler
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
+
+        # Callback has still not been called
+        assert pub_callback.call_count == 0
+
+    @pytest.mark.it(
         "Triggers on_mqtt_disconnected_handler event handler upon disconnect completion"
     )
     def test_calls_event_handler_callback_externally_driven(
@@ -993,7 +1054,7 @@ class TestEventDisconnectCompleted(object):
         # Initiate disconnect
         transport.disconnect()
 
-        # Manually trigger Paho on_connect event_handler
+        # Manually trigger Paho on_disconnect event_handler
         mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
 
         # Verify transport.on_mqtt_connected_handler was called
@@ -2047,11 +2108,17 @@ class TestPublish(object):
 
     # NOTE: this test tests for all possible return codes, even ones that shouldn't be
     # possible on a publish operation.
-    @pytest.mark.it("Raises a custom Exception if Paho publish returns a failing rc code")
+    @pytest.mark.it(
+        "Raises a custom Exception if Paho publish returns a failing rc code other than MQTT_ERR_NO_CONN"
+    )
     @pytest.mark.parametrize(
         "error_params",
-        operation_return_codes,
-        ids=["{}->{}".format(x["name"], x["error"].__name__) for x in operation_return_codes],
+        [x for x in operation_return_codes if x["rc"] != mqtt.MQTT_ERR_NO_CONN],
+        ids=[
+            "{}->{}".format(x["name"], x["error"].__name__)
+            for x in operation_return_codes
+            if x["rc"] != mqtt.MQTT_ERR_NO_CONN
+        ],
     )
     def test_client_returns_failing_rc_code(
         self, mocker, mock_mqtt_client, transport, error_params
@@ -2059,6 +2126,15 @@ class TestPublish(object):
         mock_mqtt_client.publish.return_value = (error_params["rc"], 0)
         with pytest.raises(error_params["error"]):
             transport.publish(topic=fake_topic, payload=fake_payload, callback=None)
+
+    @pytest.mark.it(
+        "Does not raise a Exception if Paho publish returns the failing rc code MQTT_ERR_NO_CONN"
+    )
+    def test_client_returns_rc4(self, mock_mqtt_client, transport):
+        mock_mqtt_client.publish.return_value = (mqtt.MQTT_ERR_NO_CONN, 0)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=None)
+
+        # No exception was raised
 
 
 @pytest.mark.describe("MQTTTransport - OCCURRENCE: Message Received")
@@ -2175,12 +2251,25 @@ class TestMisc(object):
         assert callback3.call_count == 1
 
 
+@pytest.fixture(params=["PUBLISH", "SUBSCRIBE", "UNSUBSCRIBE"])
+def op_type(request):
+    if request.param == "PUBLISH":
+        return OperationType.PUBLISH
+    elif request.param == "SUBSCRIBE":
+        return OperationType.SUBSCRIBE
+    elif request.param == "UNSUBSCRIBE":
+        return OperationType.UNSUBSCRIBE
+
+
 @pytest.mark.describe("OperationManager")
 class TestOperationManager(object):
     @pytest.mark.it("Instantiates with no operation tracking information")
     def test_instantiates_empty(self):
         manager = OperationManager()
-        assert len(manager._pending_operation_callbacks) == 0
+        assert len(manager._pending_operation_callbacks) == 3
+        assert len(manager._pending_operation_callbacks[OperationType.PUBLISH]) == 0
+        assert len(manager._pending_operation_callbacks[OperationType.SUBSCRIBE]) == 0
+        assert len(manager._pending_operation_callbacks[OperationType.UNSUBSCRIBE]) == 0
         assert len(manager._unknown_operation_completions) == 0
 
 
@@ -2199,84 +2288,84 @@ class TestOperationManagerEstablishOperation(object):
         [pytest.param(True, id="With callback"), pytest.param(False, id="No callback")],
         indirect=True,
     )
-    def test_no_early_completion(self, optional_callback):
+    def test_no_early_completion(self, optional_callback, op_type):
         manager = OperationManager()
         mid = 1
-        manager.establish_operation(mid, optional_callback)
+        manager.establish_operation(op_type, mid, optional_callback)
 
-        assert len(manager._pending_operation_callbacks) == 1
-        assert manager._pending_operation_callbacks[mid] is optional_callback
+        assert len(manager._pending_operation_callbacks[op_type]) == 1
+        assert manager._pending_operation_callbacks[op_type][mid] is optional_callback
 
     @pytest.mark.it(
         "Resolves operation tracking when MID corresponds to a previous unknown completion"
     )
-    def test_early_completion(self):
+    def test_early_completion(self, op_type):
         manager = OperationManager()
         mid = 1
 
         # Cause early completion of an unknown operation
-        manager.complete_operation(mid)
+        manager.complete_operation(op_type, mid)
         assert len(manager._unknown_operation_completions) == 1
         assert manager._unknown_operation_completions[mid]
 
         # Establish operation that was already completed
-        manager.establish_operation(mid)
+        manager.establish_operation(op_type, mid)
 
         assert len(manager._unknown_operation_completions) == 0
 
     @pytest.mark.it(
         "Triggers the callback if provided when MID corresponds to a previous unknown completion"
     )
-    def test_early_completion_with_callback(self, mocker):
+    def test_early_completion_with_callback(self, mocker, op_type):
         manager = OperationManager()
         mid = 1
         cb_mock = mocker.MagicMock()
 
         # Cause early completion of an unknown operation
-        manager.complete_operation(mid)
+        manager.complete_operation(op_type, mid)
 
         # Establish operation that was already completed
-        manager.establish_operation(mid, cb_mock)
+        manager.establish_operation(op_type, mid, cb_mock)
 
         assert cb_mock.call_count == 1
 
     @pytest.mark.it("Recovers from Exception thrown in callback")
-    def test_callback_raises_exception(self, mocker, arbitrary_exception):
+    def test_callback_raises_exception(self, mocker, op_type, arbitrary_exception):
         manager = OperationManager()
         mid = 1
         cb_mock = mocker.MagicMock(side_effect=arbitrary_exception)
 
         # Cause early completion of an unknown operation
-        manager.complete_operation(mid)
+        manager.complete_operation(op_type, mid)
 
         # Establish operation that was already completed
-        manager.establish_operation(mid, cb_mock)
+        manager.establish_operation(op_type, mid, cb_mock)
 
         # Callback was called, but exception did not propagate
         assert cb_mock.call_count == 1
 
     @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
-    def test_callback_raises_base_exception(self, mocker, arbitrary_base_exception):
+    def test_callback_raises_base_exception(self, mocker, op_type, arbitrary_base_exception):
         manager = OperationManager()
         mid = 1
         cb_mock = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
         # Cause early completion of an unknown operation
-        manager.complete_operation(mid)
+        manager.complete_operation(op_type, mid)
 
         # Establish operation that was already completed
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            manager.establish_operation(mid, cb_mock)
+            manager.establish_operation(op_type, mid, cb_mock)
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Does not trigger the callback until after thread lock has been released")
-    def test_callback_called_after_lock_release(self, mocker):
+    def test_callback_called_after_lock_release(self, mocker, op_type):
         manager = OperationManager()
         mid = 1
         cb_mock = mocker.MagicMock()
 
         # Cause early completion of an unknown operation
-        manager.complete_operation(mid)
+        manager.complete_operation(op_type, mid)
 
         # Set up mock tracking
         lock_spy = mocker.spy(manager, "_lock")
@@ -2298,7 +2387,7 @@ class TestOperationManagerEstablishOperation(object):
         lock_spy.__exit__.side_effect = stop_tracking_mocks
 
         # Establish operation that was already completed
-        manager.establish_operation(mid, cb_mock)
+        manager.establish_operation(op_type, mid, cb_mock)
 
         # Callback WAS called, but...
         assert cb_mock.call_count == 1
@@ -2310,76 +2399,76 @@ class TestOperationManagerEstablishOperation(object):
 @pytest.mark.describe("OperationManager - .complete_operation()")
 class TestOperationManagerCompleteOperation(object):
     @pytest.mark.it("Resolves a operation tracking when MID corresponds to a pending operation")
-    def test_complete_pending_operation(self):
+    def test_complete_pending_operation(self, op_type):
         manager = OperationManager()
         mid = 1
 
         # Establish a pending operation
-        manager.establish_operation(mid)
-        assert len(manager._pending_operation_callbacks) == 1
+        manager.establish_operation(op_type, mid)
+        assert len(manager._pending_operation_callbacks[op_type]) == 1
 
         # Complete pending operation
-        manager.complete_operation(mid)
-        assert len(manager._pending_operation_callbacks) == 0
+        manager.complete_operation(op_type, mid)
+        assert len(manager._pending_operation_callbacks[op_type]) == 0
 
     @pytest.mark.it("Triggers callback for a pending operation when resolving")
-    def test_complete_pending_operation_callback(self, mocker):
+    def test_complete_pending_operation_callback(self, mocker, op_type):
         manager = OperationManager()
         mid = 1
         cb_mock = mocker.MagicMock()
 
-        manager.establish_operation(mid, cb_mock)
+        manager.establish_operation(op_type, mid, cb_mock)
         assert cb_mock.call_count == 0
 
-        manager.complete_operation(mid)
+        manager.complete_operation(op_type, mid)
         assert cb_mock.call_count == 1
         assert cb_mock.call_args == mocker.call()
 
     @pytest.mark.it("Recovers from Exception thrown in callback")
-    def test_callback_raises_exception(self, mocker, arbitrary_exception):
+    def test_callback_raises_exception(self, mocker, op_type, arbitrary_exception):
         manager = OperationManager()
         mid = 1
         cb_mock = mocker.MagicMock(side_effect=arbitrary_exception)
 
-        manager.establish_operation(mid, cb_mock)
+        manager.establish_operation(op_type, mid, cb_mock)
         assert cb_mock.call_count == 0
 
-        manager.complete_operation(mid)
+        manager.complete_operation(op_type, mid)
         # Callback was called but exception did not propagate
         assert cb_mock.call_count == 1
 
     @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
-    def test_callback_raises_base_exception(self, mocker, arbitrary_base_exception):
+    def test_callback_raises_base_exception(self, mocker, op_type, arbitrary_base_exception):
         manager = OperationManager()
         mid = 1
         cb_mock = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
-        manager.establish_operation(mid, cb_mock)
+        manager.establish_operation(op_type, mid, cb_mock)
         assert cb_mock.call_count == 0
 
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            manager.complete_operation(mid)
+            manager.complete_operation(op_type, mid)
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
         "Begins tracking an unknown completion if MID does not correspond to a pending operation"
     )
-    def test_early_completion(self):
+    def test_early_completion(self, op_type):
         manager = OperationManager()
         mid = 1
 
-        manager.complete_operation(mid)
+        manager.complete_operation(op_type, mid)
         assert len(manager._unknown_operation_completions) == 1
         assert manager._unknown_operation_completions[mid]
 
     @pytest.mark.it("Does not trigger the callback until after thread lock has been released")
-    def test_callback_called_after_lock_release(self, mocker):
+    def test_callback_called_after_lock_release(self, mocker, op_type):
         manager = OperationManager()
         mid = 1
         cb_mock = mocker.MagicMock()
 
         # Set up an operation and save the callback
-        manager.establish_operation(mid, cb_mock)
+        manager.establish_operation(op_type, mid, cb_mock)
 
         # Set up mock tracking
         lock_spy = mocker.spy(manager, "_lock")
@@ -2401,7 +2490,7 @@ class TestOperationManagerCompleteOperation(object):
         lock_spy.__exit__.side_effect = stop_tracking_mocks
 
         # Complete the operation
-        manager.complete_operation(mid)
+        manager.complete_operation(op_type, mid)
 
         # Callback WAS called, but...
         assert cb_mock.call_count == 1
@@ -2411,6 +2500,169 @@ class TestOperationManagerCompleteOperation(object):
         assert mocker.call.cb() not in calls_during_lock
 
 
+@pytest.mark.describe("OperationManager - .fail_all_subs_and_unsubs()")
+class TestOperationManagerFailAllSubsAndUnsubs(object):
+    @pytest.mark.it("Removes all MID tracking for pending Subscribe and Unsubscribe operations")
+    def test_remove_pending_subs_and_unsubs(self, arbitrary_exception):
+        manager = OperationManager()
+
+        # Establish pending operations
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=4)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=5)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=6)
+        manager.establish_operation(op_type=OperationType.UNSUBSCRIBE, mid=7)
+        manager.establish_operation(op_type=OperationType.UNSUBSCRIBE, mid=8)
+        manager.establish_operation(op_type=OperationType.UNSUBSCRIBE, mid=9)
+        assert len(manager._pending_operation_callbacks[OperationType.SUBSCRIBE]) == 3
+        assert len(manager._pending_operation_callbacks[OperationType.UNSUBSCRIBE]) == 3
+
+        # Fail subs and unsubs
+        manager.fail_all_subs_and_unsubs(error_cls=type(arbitrary_exception), error_msg="Failed")
+        assert len(manager._pending_operation_callbacks[OperationType.SUBSCRIBE]) == 0
+        assert len(manager._pending_operation_callbacks[OperationType.UNSUBSCRIBE]) == 0
+
+    @pytest.mark.it("Does not affect MID tracking for pending Publish operations")
+    def test_publish_ops(self, arbitrary_exception):
+        manager = OperationManager()
+
+        # Establish pending operations
+        manager.establish_operation(op_type=OperationType.PUBLISH, mid=1)
+        manager.establish_operation(op_type=OperationType.PUBLISH, mid=2)
+        manager.establish_operation(op_type=OperationType.PUBLISH, mid=3)
+        assert len(manager._pending_operation_callbacks[OperationType.PUBLISH]) == 3
+
+        # Fail subs and unsubs
+        manager.fail_all_subs_and_unsubs(error_cls=type(arbitrary_exception), error_msg="Failed")
+        assert len(manager._pending_operation_callbacks[OperationType.PUBLISH]) == 3
+
+    @pytest.mark.it("Does not affect MID tracking for unknown operation completions")
+    def test_unknown_ops(self, arbitrary_exception):
+        manager = OperationManager()
+
+        # Add unknown operation completions
+        manager.complete_operation(op_type=OperationType.PUBLISH, mid=2111)
+        manager.complete_operation(op_type=OperationType.SUBSCRIBE, mid=30045)
+        manager.complete_operation(op_type=OperationType.UNSUBSCRIBE, mid=2345)
+        assert len(manager._unknown_operation_completions) == 3
+
+        # Fail subs and unsubs
+        manager.fail_all_subs_and_unsubs(error_cls=type(arbitrary_exception), error_msg="Failed")
+        assert len(manager._unknown_operation_completions) == 3
+
+    @pytest.mark.it(
+        "Triggers callbacks (if present), passing the specified error for each pending operation"
+    )
+    def test_op_callback_completion(self, mocker, arbitrary_exception):
+        manager = OperationManager()
+
+        # Establish pending operations
+        cb_mock1 = mocker.MagicMock()
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=1, callback=cb_mock1)
+        cb_mock2 = mocker.MagicMock()
+        manager.establish_operation(op_type=OperationType.UNSUBSCRIBE, mid=2, callback=cb_mock2)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=3, callback=None)
+        assert cb_mock1.call_count == 0
+        assert cb_mock2.call_count == 0
+
+        # Fail operations
+        error_cls = type(arbitrary_exception)
+        error_msg = "Arbitrary Failure"
+        manager.fail_all_subs_and_unsubs(error_cls=error_cls, error_msg=error_msg)
+
+        assert cb_mock1.call_count == 1
+        assert cb_mock1.call_args == mocker.call(failure_with_cause=mocker.ANY)
+        error1 = cb_mock1.call_args[1]["failure_with_cause"]
+        assert isinstance(error1, error_cls)
+        assert str(error1) == error_msg
+        assert cb_mock2.call_count == 1
+        assert cb_mock2.call_args == mocker.call(failure_with_cause=mocker.ANY)
+        error2 = cb_mock2.call_args[1]["failure_with_cause"]
+        assert isinstance(error2, error_cls)
+        assert str(error2) == error_msg
+
+    @pytest.mark.it("Recovers from Exception thrown in callback")
+    def test_callback_raises_exception(self, mocker, arbitrary_exception):
+        manager = OperationManager()
+
+        # Establish pending operation
+        cb_mock = mocker.MagicMock(side_effect=arbitrary_exception)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=1, callback=cb_mock)
+        assert cb_mock.call_count == 0
+
+        # Fail operations
+        manager.fail_all_subs_and_unsubs(error_cls=type(arbitrary_exception), error_msg="Failed")
+
+        # Callback was called but exception did not propagate
+        assert cb_mock.call_count == 1
+
+    @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
+    def test_callback_raises_base_exception(
+        self, mocker, arbitrary_base_exception, arbitrary_exception
+    ):
+        manager = OperationManager()
+
+        # Establish pending operation
+        cb_mock = mocker.MagicMock(side_effect=arbitrary_base_exception)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=1, callback=cb_mock)
+        assert cb_mock.call_count == 0
+
+        # When failing operations, Base Exception propagates
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
+            manager.fail_all_subs_and_unsubs(
+                error_cls=type(arbitrary_exception), error_msg="Failed"
+            )
+        assert e_info.value is arbitrary_base_exception
+
+    @pytest.mark.it("Does not trigger callbacks until after thread lock has been released")
+    def test_callback_called_after_lock_release(self, mocker, arbitrary_exception):
+        manager = OperationManager()
+        cb_mock1 = mocker.MagicMock()
+        cb_mock2 = mocker.MagicMock()
+
+        # Set up operations and save the callback
+        manager.establish_operation(op_type=OperationType.UNSUBSCRIBE, mid=1, callback=cb_mock1)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=2, callback=cb_mock2)
+
+        # Set up mock tracking
+        lock_spy = mocker.spy(manager, "_lock")
+        mock_tracker = mocker.MagicMock()
+        calls_during_lock = []
+
+        # When the lock enters, start recording calls to callback
+        # When the lock exits, copy the list of calls.
+
+        def track_mocks():
+            mock_tracker.attach_mock(cb_mock1, "cb1")
+            mock_tracker.attach_mock(cb_mock2, "cb2")
+
+        def stop_tracking_mocks(*args):
+            local_calls_during_lock = calls_during_lock  # do this for python2 compat
+            local_calls_during_lock += copy.copy(mock_tracker.mock_calls)
+            mock_tracker.reset_mock()
+
+        lock_spy.__enter__.side_effect = track_mocks
+        lock_spy.__exit__.side_effect = stop_tracking_mocks
+
+        # Fail operations
+        error_cls = type(arbitrary_exception)
+        error_msg = "Arbitrary Failure"
+        manager.fail_all_subs_and_unsubs(error_cls=error_cls, error_msg=error_msg)
+
+        # Callbacks WERE called, but...
+        assert cb_mock1.call_count == 1
+        assert cb_mock1.call_args == mocker.call(failure_with_cause=mocker.ANY)
+        error1 = cb_mock1.call_args[1]["failure_with_cause"]
+        assert isinstance(error1, error_cls)
+        assert cb_mock2.call_count == 1
+        assert cb_mock2.call_args == mocker.call(failure_with_cause=mocker.ANY)
+        error2 = cb_mock2.call_args[1]["failure_with_cause"]
+        assert isinstance(error2, error_cls)
+
+        # Callbacks WERE NOT called while the lock was held
+        assert mocker.call.cb1() not in calls_during_lock
+        assert mocker.call.cb2() not in calls_during_lock
+
+
 @pytest.mark.describe("OperationManager - .cancel_all_operations()")
 class TestOperationManagerCancelAllOperations(object):
     @pytest.mark.it("Removes all MID tracking for all pending operations")
@@ -2418,23 +2670,33 @@ class TestOperationManagerCancelAllOperations(object):
         manager = OperationManager()
 
         # Establish pending operations
-        manager.establish_operation(mid=1)
-        manager.establish_operation(mid=2)
-        manager.establish_operation(mid=3)
-        assert len(manager._pending_operation_callbacks) == 3
+        manager.establish_operation(op_type=OperationType.PUBLISH, mid=1)
+        manager.establish_operation(op_type=OperationType.PUBLISH, mid=2)
+        manager.establish_operation(op_type=OperationType.PUBLISH, mid=3)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=4)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=5)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=6)
+        manager.establish_operation(op_type=OperationType.UNSUBSCRIBE, mid=7)
+        manager.establish_operation(op_type=OperationType.UNSUBSCRIBE, mid=8)
+        manager.establish_operation(op_type=OperationType.UNSUBSCRIBE, mid=9)
+        assert len(manager._pending_operation_callbacks[OperationType.PUBLISH]) == 3
+        assert len(manager._pending_operation_callbacks[OperationType.SUBSCRIBE]) == 3
+        assert len(manager._pending_operation_callbacks[OperationType.UNSUBSCRIBE]) == 3
 
         # Cancel operations
         manager.cancel_all_operations()
-        assert len(manager._pending_operation_callbacks) == 0
+        assert len(manager._pending_operation_callbacks[OperationType.PUBLISH]) == 0
+        assert len(manager._pending_operation_callbacks[OperationType.SUBSCRIBE]) == 0
+        assert len(manager._pending_operation_callbacks[OperationType.UNSUBSCRIBE]) == 0
 
     @pytest.mark.it("Removes all MID tracking for unknown operation completions")
     def test_remove_unknown_completions(self):
         manager = OperationManager()
 
         # Add unknown operation completions
-        manager.complete_operation(mid=2111)
-        manager.complete_operation(mid=30045)
-        manager.complete_operation(mid=2345)
+        manager.complete_operation(op_type=OperationType.PUBLISH, mid=2111)
+        manager.complete_operation(op_type=OperationType.SUBSCRIBE, mid=30045)
+        manager.complete_operation(op_type=OperationType.UNSUBSCRIBE, mid=2345)
         assert len(manager._unknown_operation_completions) == 3
 
         # Cancel operations
@@ -2447,10 +2709,10 @@ class TestOperationManagerCancelAllOperations(object):
 
         # Establish pending operations
         cb_mock1 = mocker.MagicMock()
-        manager.establish_operation(mid=1, callback=cb_mock1)
+        manager.establish_operation(op_type=OperationType.PUBLISH, mid=1, callback=cb_mock1)
         cb_mock2 = mocker.MagicMock()
-        manager.establish_operation(mid=2, callback=cb_mock2)
-        manager.establish_operation(mid=3, callback=None)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=2, callback=cb_mock2)
+        manager.establish_operation(op_type=OperationType.UNSUBSCRIBE, mid=3, callback=None)
         assert cb_mock1.call_count == 0
         assert cb_mock2.call_count == 0
 
@@ -2467,7 +2729,7 @@ class TestOperationManagerCancelAllOperations(object):
 
         # Establish pending operation
         cb_mock = mocker.MagicMock(side_effect=arbitrary_exception)
-        manager.establish_operation(mid=1, callback=cb_mock)
+        manager.establish_operation(op_type=OperationType.PUBLISH, mid=1, callback=cb_mock)
         assert cb_mock.call_count == 0
 
         # Cancel operations
@@ -2482,7 +2744,7 @@ class TestOperationManagerCancelAllOperations(object):
 
         # Establish pending operation
         cb_mock = mocker.MagicMock(side_effect=arbitrary_base_exception)
-        manager.establish_operation(mid=1, callback=cb_mock)
+        manager.establish_operation(op_type=OperationType.PUBLISH, mid=1, callback=cb_mock)
         assert cb_mock.call_count == 0
 
         # When cancelling operations, Base Exception propagates
@@ -2497,8 +2759,8 @@ class TestOperationManagerCancelAllOperations(object):
         cb_mock2 = mocker.MagicMock()
 
         # Set up operations and save the callback
-        manager.establish_operation(mid=1, callback=cb_mock1)
-        manager.establish_operation(mid=2, callback=cb_mock2)
+        manager.establish_operation(op_type=OperationType.PUBLISH, mid=1, callback=cb_mock1)
+        manager.establish_operation(op_type=OperationType.SUBSCRIBE, mid=2, callback=cb_mock2)
 
         # Set up mock tracking
         lock_spy = mocker.spy(manager, "_lock")

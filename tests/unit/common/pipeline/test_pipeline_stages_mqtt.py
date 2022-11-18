@@ -1165,37 +1165,6 @@ class TestMQTTTransportStageOnDisconnectedUnexpectedNoPendingConnectionOp(
         else:
             return None
 
-    @pytest.mark.it(
-        "Cancels all in-flight operations in the transport, if connection retry has been disabled"
-    )
-    def test_inflight_no_retry(self, mocker, stage, cause):
-        stage.transport._op_manager = mocker.MagicMock()
-        mock_cancel = stage.transport._op_manager.cancel_all_operations
-        stage.nucleus.pipeline_configuration.connection_retry = False
-        assert stage._pending_connection_op is None
-        assert mock_cancel.call_count == 0
-
-        # Trigger disconnect
-        stage.transport.on_mqtt_disconnected_handler(cause)
-
-        assert mock_cancel.call_count == 1
-        assert mock_cancel.call_args == mocker.call()
-
-    @pytest.mark.it(
-        "Does not cancel any in-flight operations in the transport if connection retry has been enabled"
-    )
-    def test_inflight_unexpected_with_retry(self, mocker, stage, cause):
-        stage.transport._op_manager = mocker.MagicMock()
-        mock_cancel = stage.transport._op_manager.cancel_all_operations
-        stage.nucleus.pipeline_configuration.connection_retry = True
-        assert stage._pending_connection_op is None
-        assert mock_cancel.call_count == 0
-
-        # Trigger disconnect
-        stage.transport.on_mqtt_disconnected_handler(cause)
-
-        assert mock_cancel.call_count == 0
-
     @pytest.mark.it("Raises a ConnectionDroppedError as a background exception")
     def test_background_exception_raised(self, stage, cause):
         assert stage._pending_connection_op is None

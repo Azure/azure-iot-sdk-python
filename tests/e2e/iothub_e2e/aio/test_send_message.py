@@ -6,26 +6,32 @@ import pytest
 import logging
 import json
 import dev_utils
-from azure.iot.device.exceptions import OperationCancelled, ClientError, NoConnectionError
+from azure.iot.device.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
 pytestmark = pytest.mark.asyncio
 
+PACKET_DROP = "Packet Drop"
+PACKET_REJECT = "Packet Reject"
+
+
+@pytest.fixture(params=[PACKET_DROP, PACKET_REJECT])
+def failure_type(request):
+    return request.param
+
 
 @pytest.mark.describe("Client send_message method")
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
     @pytest.mark.quicktest_suite
-    async def test_send_simple_message(self, client, random_message, service_helper, leak_tracker):
-
+    async def test_send_message_simple(self, client, random_message, service_helper, leak_tracker):
         leak_tracker.set_initial_object_list()
 
         await client.send_message(random_message)
 
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
-        assert event.system_properties["message-id"] == random_message.message_id
         assert json.dumps(event.message_body) == random_message.data
 
         leak_tracker.check_for_leaks()
@@ -45,7 +51,7 @@ class TestSendMessage(object):
         del e_info
         # TODO: Why does this need a sleep, but the sync test doesn't?
         # There might be something here, investigate further
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.1)
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
@@ -74,47 +80,61 @@ class TestSendMessage(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises NoConnectionError if there is no connection")
+    @pytest.mark.it("Waits until a connection is established to send if there is no connection")
     async def test_fails_if_no_connection(
-        self, client, random_message, flush_messages, leak_tracker
+        self, client, random_message, service_helper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
         await client.disconnect()
         assert not client.connected
 
-        with pytest.raises(NoConnectionError):
-            await client.send_message(random_message)
-        assert not client.connected
+        # Attempt to send a message
+        send_task = asyncio.ensure_future(client.send_message(random_message))
+        await asyncio.sleep(1)
+        # Still not done
+        assert not send_task.done()
+        # Connect
+        await client.connect()
+        await asyncio.sleep(0.5)
+        # Task is now done
+        assert send_task.done()
 
-        await flush_messages()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert json.dumps(event.message_body) == random_message.data
+
         leak_tracker.check_for_leaks()
 
 
+@pytest.mark.describe("Client send_message method with network failure (Connection Retry enabled)")
 @pytest.mark.dropped_connection
-@pytest.mark.describe(
-    "Client send_message method with dropped connection (Connection Retry enabled)"
-)
+@pytest.mark.connection_retry(True)
 @pytest.mark.keep_alive(5)
-class TestSendMessageDroppedConnectionRetryEnabled(object):
-    @pytest.mark.it("Sends message once connection is restored after dropping outgoing packets")
+class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
+    @pytest.mark.it(
+        "Succeeds once network is restored and client automatically reconnects after having disconnected due to network failure"
+    )
     @pytest.mark.uses_iptables
-    async def test_sends_if_drop_and_restore(
-        self, client, random_message, dropper, service_helper, leak_tracker
+    async def test_network_failure_causes_disconnect(
+        self, client, random_message, failure_type, dropper, service_helper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Drop outgoing packets
-        dropper.drop_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
         # Attempt to send a message
         send_task = asyncio.ensure_future(client.send_message(random_message))
 
-        # Wait for client to realize connection has dropped
+        # Wait for client to disconnect
         while client.connected:
+            assert not send_task.done()
             await asyncio.sleep(0.5)
-        # Even though the connection has dropped, the message send has not completed
+        # Client has now disconnected and task will not finish until reconnection
         assert not send_task.done()
 
         # Restore outgoing packet functionality and wait for client to reconnect
@@ -130,31 +150,29 @@ class TestSendMessageDroppedConnectionRetryEnabled(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Sends message once connection is restored after rejecting outgoing packets")
-    @pytest.mark.uses_iptables
-    async def test_sends_if_reject_and_restore(
-        self, client, random_message, dropper, service_helper, leak_tracker
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    async def test_network_failure_no_disconnect(
+        self, client, random_message, failure_type, dropper, service_helper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Reject outgoing packets
-        dropper.reject_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
         # Attempt to send a message
         send_task = asyncio.ensure_future(client.send_message(random_message))
 
-        # Wait for client to realize connection has dropped
-        while client.connected:
-            await asyncio.sleep(0.5)
-        # Even though the connection has dropped, the message send has not completed
+        # Has not been able to succeed due to network failure, but client is still connected
+        await asyncio.sleep(1)
         assert not send_task.done()
+        assert client.connected
 
-        # Restore outgoing packet functionality and wait for client to reconnect
+        # Restore network, and operation succeeds
         dropper.restore_all()
-        while not client.connected:
-            await asyncio.sleep(0.5)
-        # Wait for the send task to complete now that the client has reconnected
         await send_task
 
         # Ensure the sent message was received by the service
@@ -164,66 +182,78 @@ class TestSendMessageDroppedConnectionRetryEnabled(object):
         leak_tracker.check_for_leaks()
 
 
-@pytest.mark.describe(
-    "Client send_message method with dropped connection (Connection Retry disabled)"
-)
-@pytest.mark.keep_alive(5)
+@pytest.mark.describe("Client send_message method with network failure (Connection Retry disabled)")
+@pytest.mark.dropped_connection
 @pytest.mark.connection_retry(False)
-class TestSendMessageDroppedConnectionRetryDisabled(object):
-    @pytest.mark.it("Raises OperationCancelled after dropping outgoing packets")
-    @pytest.mark.uses_iptables
-    async def test_raises_op_cancelled_if_drop(
-        self, client, random_message, flush_messages, dropper, leak_tracker
+@pytest.mark.keep_alive(5)
+class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
+    @pytest.mark.it(
+        "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
+    )
+    async def test_network_failure_causes_disconnect(
+        self, client, random_message, failure_type, service_helper, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Drop outgoing packets
-        dropper.drop_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
         # Attempt to send a message
         send_task = asyncio.ensure_future(client.send_message(random_message))
 
-        # Wait for client to realize connection has dropped
+        # Wait for client disconnect
         while client.connected:
             assert not send_task.done()
             await asyncio.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        await asyncio.sleep(0.1)
-        assert send_task.done()
-        with pytest.raises(OperationCancelled):
-            await send_task
+        # Client has now disconnected and task will not finish until reconnection
+        assert not send_task.done()
+        await asyncio.sleep(1)
+        assert not send_task.done()
 
-        del send_task
+        # Restore network and manually connect
         dropper.restore_all()
-        await flush_messages()
+        await client.connect()
+
+        await send_task
+
+        # Ensure the sent message was received by the service
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert json.dumps(event.message_body) == random_message.data
+
+        dropper.restore_all()
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises OperationCancelled after rejecting outgoing packets")
-    @pytest.mark.uses_iptables
-    async def test_raises_op_cancelled_if_reject(
-        self, client, random_message, flush_messages, dropper, leak_tracker
+    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
+    async def test_network_failure_no_disconnect(
+        self, client, random_message, failure_type, service_helper, dropper, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
 
-        # Drop outgoing packets
-        dropper.reject_outgoing()
+        # Disrupt network
+        if failure_type == PACKET_DROP:
+            dropper.drop_outgoing()
+        elif failure_type == PACKET_REJECT:
+            dropper.reject_outgoing()
 
         # Attempt to send a message
         send_task = asyncio.ensure_future(client.send_message(random_message))
 
-        # Wait for client to realize connection has dropped
-        while client.connected:
-            assert not send_task.done()
-            await asyncio.sleep(0.5)
-        # (Almost) Immediately upon connection drop, the task is cancelled
-        await asyncio.sleep(0.1)
-        assert send_task.done()
-        with pytest.raises(OperationCancelled):
-            await send_task
+        # Has not been able to succeed due to network failure, but client is still connected
+        await asyncio.sleep(1)
+        assert not send_task.done()
+        assert client.connected
 
-        del send_task
+        # Restore network, and operation succeeds
         dropper.restore_all()
-        await flush_messages()
+        await send_task
+
+        # Ensure the sent message was received by the service
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert json.dumps(event.message_body) == random_message.data
+
         leak_tracker.check_for_leaks()

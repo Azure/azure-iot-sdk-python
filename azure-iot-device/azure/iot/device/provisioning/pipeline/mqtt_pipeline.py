@@ -80,10 +80,6 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.ConnectionStateStage())
             #
-            # OpTimeoutStage needs to be near the end because it is for low-level MQTT operations.
-            #
-            .append_stage(pipeline_stages_base.OpTimeoutStage())
-            #
             # MQTTTransportStage needs to be at the very end of the pipeline because this is where
             # operations turn into network traffic
             #
