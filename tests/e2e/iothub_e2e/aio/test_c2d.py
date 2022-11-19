@@ -35,7 +35,7 @@ class TestReceiveC2d(object):
             event_loop.call_soon_threadsafe(received.set)
 
         client.on_message_received = handle_on_message_received
-        await client.enable_message_receive()
+        await client.start_message_receive()
 
         await service_helper.send_c2d(message, {})
 

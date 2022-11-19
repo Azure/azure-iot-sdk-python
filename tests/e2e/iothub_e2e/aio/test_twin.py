@@ -981,7 +981,7 @@ class TestDesiredProperties(object):
             event_loop.call_soon_threadsafe(received.set)
 
         client.on_twin_desired_properties_patch_received = handle_on_patch_received
-        await client.enable_twin_desired_properties_patch_receive()
+        await client.start_twin_desired_properties_patch_receive()
 
         random_dict = get_random_dict()
         await service_helper.set_desired_properties(

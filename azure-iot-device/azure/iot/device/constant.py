@@ -6,7 +6,7 @@
 """This module defines constants for use across the azure-iot-device package
 """
 
-VERSION = "2.12.0"
+VERSION = "3.0.0b1"
 IOTHUB_IDENTIFIER = "azure-iot-device-iothub-py"
 PROVISIONING_IDENTIFIER = "azure-iot-device-provisioning-py"
 IOTHUB_API_VERSION = "2019-10-01"

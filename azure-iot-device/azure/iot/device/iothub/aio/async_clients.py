@@ -204,9 +204,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
     async def disconnect(self):
         """Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub instance.
 
-        It is recommended that you make sure to call this coroutine when you are completely done
-        with the your client instance.
-
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -290,9 +287,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
     async def send_message(self, message):
         """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
 
-        If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
-
         :param message: The actual message to send. Anything passed that is not an instance of the
             Message class will be converted to Message object.
         :type message: :class:`azure.iot.device.Message` or str
@@ -320,9 +314,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     async def send_method_response(self, method_response):
         """Send a response to a method request via the Azure IoT Hub or Azure IoT Edge Hub.
-
-        If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
 
         :param method_response: The MethodResponse to send
         :type method_response: :class:`azure.iot.device.MethodResponse`
@@ -404,9 +395,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent twin patch")
 
-    async def enable_method_request_receive(self):
+    async def start_method_request_receive(self):
         """
-        Enable the client's ability to receive method requests from IoTHub.
+        Start receiving method requests from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -417,9 +408,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
             await self._enable_feature(pipeline_constant.METHODS)
 
-    async def disable_method_request_receive(self):
+    async def stop_method_request_receive(self):
         """
-        Disable the client's ability to receive method requests from IoTHub.
+        Stop receiving method requests from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -430,9 +421,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
             await self._disable_feature(pipeline_constant.METHODS)
 
-    async def enable_twin_desired_properties_patch_receive(self):
+    async def start_twin_desired_properties_patch_receive(self):
         """
-        Enable the client's ability to receive twin desired property patches from IoTHub.
+        Start receiving twin desired property patches from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -443,9 +434,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
             await self._enable_feature(pipeline_constant.TWIN_PATCHES)
 
-    async def disable_twin_desired_properties_patch_receive(self):
+    async def stop_twin_desired_properties_patch_receive(self):
         """
-        Disable the client's ability to receive twin desired property patches from IoTHub.
+        Stop receiving twin desired property patches from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -514,9 +505,9 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         await handle_result(callback)
         logger.info("Successfully notified blob upload status")
 
-    async def enable_message_receive(self):
+    async def start_message_receive(self):
         """
-        Enable the client's ability to receive cloud-to-device messages from IoTHub.
+        Start receiving cloud-to-device messages from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -527,9 +518,9 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
             await self._enable_feature(pipeline_constant.C2D_MSG)
 
-    async def disable_message_receive(self):
+    async def stop_message_receive(self):
         """
-        Disable the client's ability to receive cloud-to-device messages from IoTHub.
+        Stop receiving cloud-to-device messages from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -560,9 +551,6 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         """Sends an event/message to the given module output.
 
         These are outgoing events and are meant to be "output events"
-
-        If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
 
         :param message: Message to send to the given output. Anything passed that is not an
             instance of the Message class will be converted to Message object.
@@ -617,9 +605,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         logger.info("Successfully invoked method")
         return method_response
 
-    async def enable_message_receive(self):
+    async def start_message_receive(self):
         """
-        Enable the client's ability to receive input messages from IoTHub.
+        Start receiving input messages from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected
@@ -630,9 +618,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
             await self._enable_feature(pipeline_constant.INPUT_MSG)
 
-    async def disable_message_receive(self):
+    async def stop_message_receive(self):
         """
-        Disable the client's ability to receive input messages from IoTHub.
+        Stop receiving input messages from IoTHub.
 
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected

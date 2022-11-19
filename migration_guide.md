@@ -1,144 +1,164 @@
 # IoTHub Python SDK Migration Guide
 
-This guide details the migration plan to move from the IoTHub Python v1 code base to the new and improved v2 
-code base. Note that this guide assumes the use of asynchronous code.
+This guide details how to update existing code that uses an `azure-iot-device` V2 release to use a V3 release instead. While the APIs remain mostly the same, there are a few differences you may need to account for in your application, as we have removed some of the implicit behaviors present in V2 in order to provide a more reliable and consistent user experience.
 
-## Installing the IoTHub Python SDK
+## Connecting to IoTHub
+One of the primary changes in V3 is the removal of automatic connections when invoking other APIs on the `IoTHubDeviceClient` and `IoTHubModuleClient`. You must now make an explicit manual connection before sending or receiving any data.
 
-- v1
+### V2
+```python
+from azure.iot.device import IoTHubDeviceClient
 
-```Shell
-pip install azure-iothub-device-client
-
+client = IoTHubDeviceClient.create_from_connection_string("<Your Connection String>")
+client.send_message("some message")
 ```
 
-- v2
+### V3
+```python
+from azure.iot.device import IoTHubDeviceClient
 
-```Shell
-pip install azure-iot-device
+client = IoTHubDeviceClient.create_from_connection_string("<Your Connection String>")
+client.connect()
+client.send_message("some message")
 ```
 
-## Creating a device client
+Note that many people using V2 may already have been doing manual connects, as for some time, this has been our recommended practice.
 
-When creating a device client on the V1 client the protocol was specified on in the constructor.  With the v2 SDK we are
-currently only supporting the MQTT protocol so it only requires to supply the connection string when you create the client.
+Note also that this change does *not* affect automatic reconnection attempts in the case of network failure. Once the manual connect has been successful, the client will (under default settings) still attempt to retain that connected state as it did in V2.
 
-### Symmetric Key authentication
 
-- v1
+## Receiving data from IoTHub
+Similarly to the above, there is an additional explicit step you must now make when trying to receive data. In addition to setting your handler, you must explicitly start/stop receiving. Note also that the above step of manually connecting must also be done before starting to receive data.
 
-```Python
-    from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvider, IoTHubClientResult
-    from iothub_client import IoTHubMessage, IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
+### V2
+```python
+from azure.iot.device import IoTHubDeviceClient
 
-    client = IoTHubClient(connection_string, IoTHubTransportProvider.MQTT)
+client = IoTHubDeviceClient.create_from_connection_string("<Your Connection String>")
+
+# define behavior for receiving a message
+def message_handler(message):
+    print("the data in the message received was ")
+    print(message.data)
+    print("custom properties are")
+    print(message.custom_properties)
+
+# set the message handler on the client
+client.on_message_received = message_handler
 ```
 
-- v2
+### V3
+```python
+from azure.iot.device import IoTHubDeviceClient
 
-```Python
-    from azure.iot.device.aio import IoTHubDeviceClient
-    from azure.iot.device import Message
+client = IoTHubDeviceClient.create_from_connection_string("<Your Connection String>")
 
-    client = IoTHubDeviceClient.create_from_connection_string(connection_string)
-    await device_client.connect()
+# define behavior for receiving a message
+def message_handler(message):
+    print("the data in the message received was ")
+    print(message.data)
+    print("custom properties are")
+    print(message.custom_properties)
+
+# set the message handler on the client
+client.on_message_received = message_handler
+
+# connect and start receiving messages
+client.connect()
+client.start_message_receive()
 ```
 
-### x.509 authentication
+Note that this must be done not just for receiving messages, but receiving any data. Consult the chart below to see which APIs you will need for the type of data you are receiving.
 
-For x.509 device the v1 SDK required the user to supply the certificates in a call to set_options.  Moving forward in the v2
-SDK, we only require for the user to call the create function with an x.509 object containing the path to the x.509 file and
-key file with the optional pass phrase if necessary.
 
-- v1
+| Data Type                       | Handler name                                 | Start Receive API                                | Stop Receive API                                |
+|---------------------------------|----------------------------------------------|--------------------------------------------------|-------------------------------------------------|
+| Messages                        | `.on_message_received`                       | `.start_message_receive()`                       | `.stop_message_receive()`                       |
+| Method Requests                 | `.on_method_request_received`                | `.start_method_request_receive()`                | `.stop_method_request_receive()`                |
+| Twin Desired Properties Patches | `.on_twin_desired_properties_patch_received` | `.start_twin_desired_properties_patch_receive()` | `.stop_twin_desired_properties_patch_receive()` |
 
-```Python
-    from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvider, IoTHubClientResult
-    from iothub_client import IoTHubMessage, IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
 
-    client = IoTHubClient(connection_string, IoTHubTransportProvider.MQTT)
-    # Get the x.509 certificate information
-    client.set_option("x509certificate", X509_CERTIFICATE)
-    client.set_option("x509privatekey", X509_PRIVATEKEY)
+Finally, it should be clarified that the following receive APIs that were deprecated in V2 have been fully removed in V3:
+* `.receive_message()`
+* `.receive_message_on_input()`
+* `.receive_method_request()`
+* `.receive_twin_desired_properties_patch()`
+
+All receives should now be done using the handlers in the table above.
+
+
+## Modified Client Options - IoTHubDeviceClient/IoTHubModuleClient
+
+Some keyword arguments provided at client creation have changed or been removed
+
+| V2                          | V3          | Explanation                            |
+|-----------------------------|-------------|----------------------------------------|
+| `auto_connect`              | **REMOVED** | Initial manual connection now required |
+| `ensure_desired_properties` | **REMOVED** | No more implicit twin updates          |
+
+
+## Shutting down - IoTHubDeviceClient/IoTHubModuleClient
+
+While using the `.shutdown()` method when you are completely finished with an instance of the client has been a highly recommended practice for some time, some early versions of V2 did not require it. As of V3, in order to ensure a graceful exit, you must make an explicit shutdown.
+
+### V2
+```python
+from azure.iot.device import IoTHubDeviceClient
+
+client = IoTHubDeviceClient.create_from_connection_string("<Your Connection String>")
+
+# ...
+#<do things>
+# ...
 ```
 
-- v2
+### V3
+```python
+from azure.iot.device import IoTHubDeviceClient
 
-```Python
-    from azure.iot.device.aio import IoTHubDeviceClient
-    from azure.iot.device import Message
+client = IoTHubDeviceClient.create_from_connection_string("<Your Connection String>")
 
-    # Get the x.509 certificate path from the environment
-    x509 = X509(
-        cert_file=os.getenv("X509_CERT_FILE"),
-        key_file=os.getenv("X509_KEY_FILE"),
-        pass_phrase=os.getenv("X509_PASS_PHRASE")
+# ...
+#<do things>
+# ...
+
+client.shutdown()
+```
+
+
+## Shutting down - ProvisioningDeviceClient
+
+As with the IoTHub clients mentioned above, the Provisioning clients now also require shutdown. This was implicit in V2, but now it must be explicit and manual to ensure graceful exit.
+
+### V2
+```python
+from azure.iot.device import ProvisioningDeviceClient
+
+client = ProvisioningDeviceClient.create_from_symmetric_key(
+        provisioning_host="<Your provisioning host>",
+        registration_id="<Your registration id>",
+        id_scope="<Your id scope>",
+        symmetric_key="<Your symmetric key">,
     )
-    client = IoTHubDeviceClient.create_from_x509_certificate(hostname=hostname, device_id=device_id, x509=x509)
-    await device_client.connect()
+
+registration_result = client.register()
+
+# Shutdown is implicit upon successful registration
 ```
 
-## Sending Telemetry to IoTHub
+### V3
+```python
+from azure.iot.device import ProvisioningDeviceClient
 
-- v1
+client = ProvisioningDeviceClient.create_from_symmetric_key(
+        provisioning_host="<Your provisioning host>",
+        registration_id="<Your registration id>",
+        id_scope="<Your id scope>",
+        symmetric_key="<Your symmetric key">,
+    )
 
-```Python
-    # create the device client
+registration_result = client.register()
 
-    message = IoTHubMessage("telemetry message")
-    message.message_id = "message id"
-    message.correlation_id = "correlation-id"
-
-    prop_map = message.properties()
-    prop_map.add("property", "property_value")
-    client.send_event_async(message, send_confirmation_callback, user_ctx)
-```
-
-- v2
-
-```Python
-    # create the device client
-
-    message = Message("telemetry message")
-    message.message_id = "message id"
-    message.correlation_id = "correlation id"
-
-    message.custom_properties["property"] = "property_value"
-    await client.send_message(message)
-```
-
-## Receiving a Message from IoTHub
-
-- v1
-
-```Python
-    # create the device client
-
-    def receive_message_callback(message, counter):
-        global RECEIVE_CALLBACKS
-        message = message.get_bytearray()
-        size = len(message_buffer)
-        print ( "the data in the message received was : <<<%s>>> & Size=%d" % (message_buffer[:size].decode('utf-8'), size) )
-        map_properties = message.properties()
-        key_value_pair = map_properties.get_internals()
-        print ( "custom properties are: %s" % key_value_pair )
-        return IoTHubMessageDispositionResult.ACCEPTED
-
-    client.set_message_callback(message_listener_callback, RECEIVE_CONTEXT)
-```
-
-- v2
-
-```Python
-    # create the device client
-
-    # define behavior for receiving a message
-    def message_handler(message):
-        print("the data in the message received was ")
-        print(message.data)
-        print("custom properties are")
-        print(message.custom_properties)
-
-    # set the message handler on the client
-    client.on_message_received = message_handler
+# Manual shutdown for graceful exit
+client.shutdown()
 ```

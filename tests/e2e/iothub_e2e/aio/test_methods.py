@@ -63,7 +63,7 @@ class TestMethods(object):
             )
 
         client.on_method_request_received = handle_on_method_request_received
-        await client.enable_method_request_receive()
+        await client.start_method_request_receive()
 
         # invoke the method call
         method_response = await service_helper.invoke_method(method_name, request_payload)

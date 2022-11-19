@@ -16,11 +16,47 @@ def execute_patch_for_async():
     connect.__doc__ = IoTHubDeviceClient.connect.__doc__
     setattr(IoTHubDeviceClient, "connect", connect)
 
+    async def stop_method_request_receive(self):
+        return await super(IoTHubDeviceClient, self).stop_method_request_receive()
+
+    stop_method_request_receive.__doc__ = IoTHubDeviceClient.stop_method_request_receive.__doc__
+    setattr(IoTHubDeviceClient, "stop_method_request_receive", stop_method_request_receive)
+
+    async def stop_twin_desired_properties_patch_receive(self):
+        return await super(IoTHubDeviceClient, self).stop_twin_desired_properties_patch_receive()
+
+    stop_twin_desired_properties_patch_receive.__doc__ = (
+        IoTHubDeviceClient.stop_twin_desired_properties_patch_receive.__doc__
+    )
+    setattr(
+        IoTHubDeviceClient,
+        "stop_twin_desired_properties_patch_receive",
+        stop_twin_desired_properties_patch_receive,
+    )
+
     async def disconnect(self):
         return await super(IoTHubDeviceClient, self).disconnect()
 
     disconnect.__doc__ = IoTHubDeviceClient.disconnect.__doc__
     setattr(IoTHubDeviceClient, "disconnect", disconnect)
+
+    async def start_method_request_receive(self):
+        return await super(IoTHubDeviceClient, self).start_method_request_receive()
+
+    start_method_request_receive.__doc__ = IoTHubDeviceClient.start_method_request_receive.__doc__
+    setattr(IoTHubDeviceClient, "start_method_request_receive", start_method_request_receive)
+
+    async def start_twin_desired_properties_patch_receive(self):
+        return await super(IoTHubDeviceClient, self).start_twin_desired_properties_patch_receive()
+
+    start_twin_desired_properties_patch_receive.__doc__ = (
+        IoTHubDeviceClient.start_twin_desired_properties_patch_receive.__doc__
+    )
+    setattr(
+        IoTHubDeviceClient,
+        "start_twin_desired_properties_patch_receive",
+        start_twin_desired_properties_patch_receive,
+    )
 
     async def get_twin(self):
         return await super(IoTHubDeviceClient, self).get_twin()
@@ -130,11 +166,47 @@ def execute_patch_for_async():
     connect.__doc__ = IoTHubModuleClient.connect.__doc__
     setattr(IoTHubModuleClient, "connect", connect)
 
+    async def stop_method_request_receive(self):
+        return await super(IoTHubModuleClient, self).stop_method_request_receive()
+
+    stop_method_request_receive.__doc__ = IoTHubModuleClient.stop_method_request_receive.__doc__
+    setattr(IoTHubModuleClient, "stop_method_request_receive", stop_method_request_receive)
+
+    async def stop_twin_desired_properties_patch_receive(self):
+        return await super(IoTHubModuleClient, self).stop_twin_desired_properties_patch_receive()
+
+    stop_twin_desired_properties_patch_receive.__doc__ = (
+        IoTHubModuleClient.stop_twin_desired_properties_patch_receive.__doc__
+    )
+    setattr(
+        IoTHubModuleClient,
+        "stop_twin_desired_properties_patch_receive",
+        stop_twin_desired_properties_patch_receive,
+    )
+
     async def disconnect(self):
         return await super(IoTHubModuleClient, self).disconnect()
 
     disconnect.__doc__ = IoTHubModuleClient.disconnect.__doc__
     setattr(IoTHubModuleClient, "disconnect", disconnect)
+
+    async def start_method_request_receive(self):
+        return await super(IoTHubModuleClient, self).start_method_request_receive()
+
+    start_method_request_receive.__doc__ = IoTHubModuleClient.start_method_request_receive.__doc__
+    setattr(IoTHubModuleClient, "start_method_request_receive", start_method_request_receive)
+
+    async def start_twin_desired_properties_patch_receive(self):
+        return await super(IoTHubModuleClient, self).start_twin_desired_properties_patch_receive()
+
+    start_twin_desired_properties_patch_receive.__doc__ = (
+        IoTHubModuleClient.start_twin_desired_properties_patch_receive.__doc__
+    )
+    setattr(
+        IoTHubModuleClient,
+        "start_twin_desired_properties_patch_receive",
+        start_twin_desired_properties_patch_receive,
+    )
 
     async def get_twin(self):
         return await super(IoTHubModuleClient, self).get_twin()
