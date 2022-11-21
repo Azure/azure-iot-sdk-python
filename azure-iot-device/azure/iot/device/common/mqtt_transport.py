@@ -14,6 +14,7 @@ import socket
 from . import transport_exceptions as exceptions
 from enum import Enum
 import socks
+import dataclasses
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,43 @@ paho_rc_to_error = {
     mqtt.MQTT_ERR_QUEUE_SIZE: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_KEEPALIVE: exceptions.ConnectionDroppedError,
 }
+
+
+@dataclasses.dataclass
+class TransportStats(object):
+    connect_rc_codes: dict = dataclasses.field(default_factory=dict)
+    on_connect_rc_codes: dict = dataclasses.field(default_factory=dict)
+    connect_exceptions: dict = dataclasses.field(default_factory=dict)
+
+    disconnect_rc_codes: dict = dataclasses.field(default_factory=dict)
+    on_disconnect_rc_codes: dict = dataclasses.field(default_factory=dict)
+    disconnect_exceptions: dict = dataclasses.field(default_factory=dict)
+
+    publish_rc_codes: dict = dataclasses.field(default_factory=dict)
+    publish_exceptions: dict = dataclasses.field(default_factory=dict)
+
+    subscribe_rc_codes: dict = dataclasses.field(default_factory=dict)
+    subscribe_exceptions: dict = dataclasses.field(default_factory=dict)
+
+    unsubscribe_rc_codes: dict = dataclasses.field(default_factory=dict)
+    unsubscribe_exceptions: dict = dataclasses.field(default_factory=dict)
+
+    count_message_received: int = 0
+
+    count_subscribe: int = 0
+    count_suback: int = 0
+
+    count_unsubscribe: int = 0
+    count_unsuback: int = 0
+
+    count_publish: int = 0
+    count_puback: int = 0
+
+
+def add_count_to_dict(dikt, key):
+    if isinstance(key, Exception):
+        key = type(key).__name__
+    dikt[key] = dikt.get(key, 0) + 1
 
 
 def _create_error_from_connack_rc_code(rc):
@@ -131,6 +169,8 @@ class MQTTTransport(object):
 
         self._mqtt_client = self._create_mqtt_client()
 
+        self.stats = TransportStats()
+
     def _create_mqtt_client(self):
         """
         Create the MQTT client object and assign all necessary event handler callbacks.
@@ -176,6 +216,8 @@ class MQTTTransport(object):
             this = self_weakref()
             logger.info("connected with result code: {}".format(rc))
 
+            add_count_to_dict(this.stats.on_connect_rc_codes, rc)
+
             if rc:  # i.e. if there is an error
                 if this.on_mqtt_connection_failure_handler:
                     try:
@@ -203,6 +245,8 @@ class MQTTTransport(object):
         def on_disconnect(client, userdata, rc):
             this = self_weakref()
             logger.info("disconnected with result code: {}".format(rc))
+
+            add_count_to_dict(this.stats.on_disconnect_rc_codes, rc)
 
             cause = None
             if rc:  # i.e. if there is an error
@@ -239,6 +283,7 @@ class MQTTTransport(object):
         def on_subscribe(client, userdata, mid, granted_qos):
             this = self_weakref()
             logger.info("suback received for {}".format(mid))
+            this.stats.count_suback += 1
             # subscribe failures are returned from the subscribe() call.  This is just
             # a notification that a SUBACK was received, so there is no failure case here
             this._op_manager.complete_operation(OperationType.SUBSCRIBE, mid)
@@ -246,6 +291,7 @@ class MQTTTransport(object):
         def on_unsubscribe(client, userdata, mid):
             this = self_weakref()
             logger.info("UNSUBACK received for {}".format(mid))
+            this.stats.count_unsuback += 1
             # unsubscribe failures are returned from the unsubscribe() call.  This is just
             # a notification that a SUBACK was received, so there is no failure case here
             this._op_manager.complete_operation(OperationType.UNSUBSCRIBE, mid)
@@ -253,6 +299,7 @@ class MQTTTransport(object):
         def on_publish(client, userdata, mid):
             this = self_weakref()
             logger.info("payload published for {}".format(mid))
+            this.stats.count_puback += 1
             # publish failures are returned from the publish() call.  This is just
             # a notification that a PUBACK was received, so there is no failure case here
             this._op_manager.complete_operation(OperationType.PUBLISH, mid)
@@ -260,6 +307,7 @@ class MQTTTransport(object):
         def on_message(client, userdata, mqtt_message):
             this = self_weakref()
             logger.info("message received on {}".format(mqtt_message.topic))
+            this.stats.count_message_received += 1
 
             if this.on_mqtt_message_received_handler:
                 try:
@@ -405,7 +453,9 @@ class MQTTTransport(object):
                 rc = self._mqtt_client.connect(
                     host=self._hostname, port=8883, keepalive=self._keep_alive
                 )
+            add_count_to_dict(self.stats.connect_rc_codes, rc)
         except socket.error as e:
+            add_count_to_dict(self.stats.connect_exceptions, e)
             self._force_transport_disconnect_and_cleanup()
 
             # Only this type will raise a special error
@@ -428,6 +478,7 @@ class MQTTTransport(object):
                 raise exceptions.ConnectionFailedError() from e
 
         except Exception as e:
+            add_count_to_dict(self.stats.connect_exceptions, e)
             self._force_transport_disconnect_and_cleanup()
 
             raise exceptions.ProtocolClientError("Unexpected Paho failure during connect") from e
@@ -451,6 +502,7 @@ class MQTTTransport(object):
         try:
             rc = self._mqtt_client.disconnect()
         except Exception as e:
+            add_count_to_dict(self.stats.disconnect_exceptions, e)
             raise exceptions.ProtocolClientError("Unexpected Paho failure during disconnect") from e
         finally:
             self._mqtt_client.loop_stop()
@@ -458,6 +510,8 @@ class MQTTTransport(object):
             if threading.current_thread() == self._mqtt_client._thread:
                 logger.debug("in paho thread.  nulling _thread")
                 self._mqtt_client._thread = None
+
+        add_count_to_dict(self.stats.disconnect_rc_codes, rc)
 
         logger.debug("_mqtt_client.disconnect returned rc={}".format(rc))
         if rc:
@@ -488,14 +542,18 @@ class MQTTTransport(object):
         :raises: ProtocolClientError if there is some other client error.
         :raises: NoConnectionError if the client isn't actually connected.
         """
+        self.stats.count_subscribe += 1
         logger.info("subscribing to {} with qos {}".format(topic, qos))
         try:
             (rc, mid) = self._mqtt_client.subscribe(topic, qos=qos)
-        except ValueError:
+        except ValueError as e:
+            add_count_to_dict(self.stats.subscribe_exceptions, e)
             raise
         except Exception as e:
+            add_count_to_dict(self.stats.subscribe_exceptions, e)
             raise exceptions.ProtocolClientError("Unexpected Paho failure during subscribe") from e
         logger.debug("_mqtt_client.subscribe returned rc={}".format(rc))
+        add_count_to_dict(self.stats.subscribe_rc_codes, rc)
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
             raise _create_error_from_rc_code(rc)
@@ -513,16 +571,20 @@ class MQTTTransport(object):
         :raises: ProtocolClientError if there is some other client error.
         :raises: NoConnectionError if the client isn't actually connected.
         """
+        self.stats.count_unsubscribe += 1
         logger.info("unsubscribing from {}".format(topic))
         try:
             (rc, mid) = self._mqtt_client.unsubscribe(topic)
-        except ValueError:
+        except ValueError as e:
+            add_count_to_dict(self.stats.unsubscribe_exceptions, e)
             raise
         except Exception as e:
+            add_count_to_dict(self.stats.unsubscribe_exceptions, e)
             raise exceptions.ProtocolClientError(
                 "Unexpected Paho failure during unsubscribe"
             ) from e
         logger.debug("_mqtt_client.unsubscribe returned rc={}".format(rc))
+        add_count_to_dict(self.stats.unsubscribe_rc_codes, rc)
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
             raise _create_error_from_rc_code(rc)
@@ -546,16 +608,18 @@ class MQTTTransport(object):
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
         """
+        self.stats.count_publish += 1
         logger.info("publishing on {}".format(topic))
         try:
             (rc, mid) = self._mqtt_client.publish(topic=topic, payload=payload, qos=qos)
-        except ValueError:
-            raise
-        except TypeError:
+        except (ValueError, TypeError) as e:
+            add_count_to_dict(self.stats.publish_exceptions, e)
             raise
         except Exception as e:
+            add_count_to_dict(self.stats.publish_exceptions, e)
             raise exceptions.ProtocolClientError("Unexpected Paho failure during publish") from e
         logger.debug("_mqtt_client.publish returned rc={}".format(rc))
+        add_count_to_dict(self.stats.publish_rc_codes, rc)
         if rc:
             # Even though Paho returns a rc code indicating an error, it still stores the message
             # and will publish on connect, so this isn't really a failure - it just hangs.

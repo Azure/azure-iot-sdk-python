@@ -231,6 +231,7 @@ class ClientStatus(object):
     iothub_client_status: IoTHubClientStatus
     iothub_client_config: IoTHubClientConfig
     send_message: SendMessageStatus
+    transport_stats: dataclasses.dataclass
     heap_history: HeapHistoryStatus
 
     start_time: int = 0
@@ -248,6 +249,7 @@ class ClientStatus(object):
         self.iothub_client_config = IoTHubClientConfig()
         self.send_message = SendMessageStatus()
         self.heap_history = HeapHistoryStatus()
+        self.transport_class = None
 
 
 def wrap_in_try_catch(func):
@@ -268,12 +270,16 @@ def get_type_name(e):
     return type(e).__name__
 
 
-def get_paho_from_device_client(device_client):
+def get_transport_from_device_client(device_client):
     pipeline_root = device_client._mqtt_pipeline._pipeline
     stage = pipeline_root
     while stage.next:
         stage = stage.next
-    return stage.transport._mqtt_client
+    return stage.transport
+
+
+def get_paho_from_device_client(device_client):
+    return get_transport_from_device_client(device_client)._mqtt_client
 
 
 def get_paho_config(paho_client):
@@ -288,7 +294,7 @@ def get_paho_config(paho_client):
     config.host = paho_client._host
     config.port = paho_client._port
     config.proxy_args = paho_client._proxy
-    config.socket_class = str(type(paho_client.socket()))
+    config.socket_class = get_type_name(paho_client.socket())
     config.socket_name = (
         str(paho_client.socket().getsockname()) if paho_client.socket() else "No socket"
     )
@@ -326,7 +332,7 @@ def get_iothub_client_config(iothub_client):
     internal_config_object = iothub_client._mqtt_pipeline._nucleus.pipeline_configuration
     config = IoTHubClientConfig()
 
-    config.client_class = str(type(iothub_client))
+    config.client_class = get_type_name(iothub_client)
     config.server_verification_cert = (
         True if internal_config_object.server_verification_cert else False
     )
@@ -343,9 +349,11 @@ def get_iothub_client_config(iothub_client):
     config.x509 = True if internal_config_object.x509 else False
     sastoken = internal_config_object.sastoken
     config.sastoken_ttl = sastoken.ttl if sastoken else 0
-    config.sastoken_class = str(type(sastoken)) if sastoken else None
+    config.sastoken_class = get_type_name(sastoken) if sastoken else None
     config.sastoken_signing_mechanism_class = (
-        str(type(sastoken._signing_mechanism)) if sastoken and sastoken._signing_mechanism else None
+        get_type_name(sastoken._signing_mechanism)
+        if sastoken and sastoken._signing_mechanism
+        else None
     )
 
     return config
@@ -481,6 +489,7 @@ class Client(object):
             self.status.paho_status = get_paho_status(self.paho)
             self.status.iothub_client_config = get_iothub_client_config(self.device_client)
             self.status.iothub_client_status = get_iothub_client_status(self.device_client)
+            self.status.transport_stats = get_transport_from_device_client(self.device_client).stats
 
             self.status.reconnect.time_since_last_connect = format_time_delta(
                 self.status.reconnect.last_connect_time
