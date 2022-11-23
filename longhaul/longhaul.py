@@ -112,6 +112,13 @@ except AttributeError:
     time_func = time.time
 
 
+def format_time_delta(s):
+    if s:
+        return str(datetime.timedelta(seconds=time_func() - s))
+    else:
+        return "infinity"
+
+
 @dataclasses.dataclass
 class HeapHistoryItem(object):
     time: str
@@ -153,42 +160,6 @@ class ExceptionStatus(object):
 
 
 @dataclasses.dataclass(order=True)
-class PahoStatus(object):
-    time_since_last_paho_traffic_in: str = ""
-    time_since_last_paho_traffic_out: str = ""
-    client_object_id: int = 0
-    thread_name: str = ""
-    thread_is_alive: bool = False
-    len_out_mesage_queue: int = 0
-    len_in_message_queue: int = 0
-    len_out_pakcet_queue: int = 0
-    thread_terminate: bool = False
-    connection_state: int = 0
-
-    def to_dict(self):
-        return dataclasses.asdict(self)
-
-
-@dataclasses.dataclass(order=True)
-class PahoConfig(object):
-    transport: str = ""
-    protocol: str = ""
-    keepalive: int = 0
-    connect_timeout: int = 0
-    reconnect_on_failure: bool = False
-    reconnect_delay_min: int = 0
-    reconnect_delay_max: int = 0
-    host: str = ""
-    port: int = 0
-    proxy_args: dict = dataclasses.field(default_factory=dict)
-    socket_class: str = ""
-    socket_name: str = ""
-
-    def to_dict(self):
-        return dataclasses.asdict(self)
-
-
-@dataclasses.dataclass(order=True)
 class IoTHubClientConfig(object):
     client_class: str = ""
     server_verification_cert: bool = False
@@ -226,12 +197,11 @@ class SendMessageStatus(object):
 class ClientStatus(object):
     reconnect: ReconnectStatus
     exception: ExceptionStatus
-    paho_status: PahoStatus
-    paho_config: PahoConfig
+    paho_status: dataclasses.dataclass
+    paho_config: dataclasses.dataclass
     iothub_client_status: IoTHubClientStatus
     iothub_client_config: IoTHubClientConfig
     send_message: SendMessageStatus
-    transport_stats: dataclasses.dataclass
     heap_history: HeapHistoryStatus
 
     start_time: int = 0
@@ -243,13 +213,12 @@ class ClientStatus(object):
         super(ClientStatus, self).__init__()
         self.reconnect = ReconnectStatus()
         self.exception = ExceptionStatus()
-        self.paho_status = PahoStatus()
-        self.paho_config = PahoConfig()
+        self.paho_status = None
+        self.paho_config = None
         self.iothub_client_status = IoTHubClientStatus()
         self.iothub_client_config = IoTHubClientConfig()
         self.send_message = SendMessageStatus()
         self.heap_history = HeapHistoryStatus()
-        self.transport_class = None
 
 
 def wrap_in_try_catch(func):
@@ -276,56 +245,6 @@ def get_transport_from_device_client(device_client):
     while stage.next:
         stage = stage.next
     return stage.transport
-
-
-def get_paho_from_device_client(device_client):
-    return get_transport_from_device_client(device_client)._mqtt_client
-
-
-def get_paho_config(paho_client):
-    config = PahoConfig()
-    config.transport = paho_client._transport
-    config.protocol = str(paho_client._protocol)
-    config.keepalive = paho_client._keepalive
-    config.connect_timeout = paho_client._connect_timeout
-    config.reconnect_on_failure = paho_client._reconnect_on_failure
-    config.reconnect_delay_min = paho_client._reconnect_min_delay
-    config.reconnect_delay_max = paho_client._reconnect_max_delay
-    config.host = paho_client._host
-    config.port = paho_client._port
-    config.proxy_args = paho_client._proxy
-    config.socket_class = get_type_name(paho_client.socket())
-    config.socket_name = (
-        str(paho_client.socket().getsockname()) if paho_client.socket() else "No socket"
-    )
-    return config
-
-
-def format_time_delta(s):
-    if s:
-        return str(datetime.timedelta(seconds=time_func() - s))
-    else:
-        return "infinity"
-
-
-def get_paho_status(paho_client):
-    status = PahoStatus()
-
-    status.time_since_last_paho_traffic_in = format_time_delta(paho_client._last_msg_in)
-    status.time_since_last_paho_traffic_out = format_time_delta(paho_client._last_msg_out)
-
-    status.client_object_id = id(paho_client)
-    status.thread_name = paho_client._thread.name if paho_client._thread else "None"
-    status.thread_is_alive = (
-        str(paho_client._thread.is_alive()) if paho_client._thread else "No thread"
-    )
-    status.len_out_mesage_queue = len(paho_client._out_messages)
-    status.len_in_message_queue = len(paho_client._in_messages)
-    status.len_out_pakcet_queue = len(paho_client._out_packet)
-    status.thread_terminate = paho_client._thread_terminate
-    status.connection_state = paho_client._state
-
-    return status
 
 
 def get_iothub_client_config(iothub_client):
@@ -474,8 +393,8 @@ class Client(object):
                     )
 
     @property
-    def paho(self):
-        return get_paho_from_device_client(self.device_client)
+    def transport(self):
+        return get_transport_from_device_client(self.device_client)
 
     @wrap_in_try_catch
     async def display_loop(self):
@@ -485,11 +404,10 @@ class Client(object):
 
             self.status.time_since_start = format_time_delta(self.status.start_time)
 
-            self.status.paho_config = get_paho_config(self.paho)
-            self.status.paho_status = get_paho_status(self.paho)
+            self.status.paho_config = self.transport.get_debug_config()
+            self.status.paho_status = self.transport.get_debug_status()
             self.status.iothub_client_config = get_iothub_client_config(self.device_client)
             self.status.iothub_client_status = get_iothub_client_status(self.device_client)
-            self.status.transport_stats = get_transport_from_device_client(self.device_client).stats
 
             self.status.reconnect.time_since_last_connect = format_time_delta(
                 self.status.reconnect.last_connect_time
