@@ -64,28 +64,39 @@ def transport_to_port(transport):
         )
 
 
-def disconnect_output_port(disconnect_type, transport, host):
+def disconnect_output_port(disconnect_type, transport, host=None):
     """
     Disconnect the port for a given transport.  disconnect_type can either be "DROP" to drop
     packets sent to that port, or it can be "REJECT" to reject packets sent to that port.
     """
     # sudo -n iptables -A OUTPUT -p tcp --dport 8883 --destination 20.21.22.23 -j DROP
-    ip = get_ip(host)
     port = transport_to_port(transport)
-    run_shell_command(
-        "{}iptables -A OUTPUT -p tcp --dport {} --destination {} -j {}".format(
-            get_sudo_prefix(), port, ip, disconnect_type
+
+    if host:
+        ip = get_ip(host)
+        run_shell_command(
+            "{}iptables -A OUTPUT -p tcp --dport {} --destination {} -j {}".format(
+                get_sudo_prefix(), port, ip, disconnect_type
+            )
         )
-    )
+    else:
+        run_shell_command(
+            "{}iptables -A OUTPUT -p tcp --dport {} -j {}".format(
+                get_sudo_prefix(), port, disconnect_type
+            )
+        )
 
 
-def reconnect_all(transport, host):
+def reconnect_all(transport, host=None):
     """
     Reconnect all disconnects for this host and transport.  Effectively, clean up
     anything that this module may have done.
     """
     if not sys.platform.startswith("win"):
-        ip = get_ip(host)
+        if host:
+            ip = get_ip(host)
+        else:
+            ip = ""
         port = transport_to_port(transport)
         for disconnect_type in all_disconnect_types:
             # sudo -n iptables -L OUTPUT -n -v --line-numbers
