@@ -6,6 +6,7 @@
 
 import paho.mqtt.client as mqtt
 from v3_async_wip import transport_helper
+from dev_utils import iptables
 import datetime
 import os
 import logging
@@ -25,6 +26,14 @@ CONNECTED_EVENT = threading.Event()
 DISCONNECTED_EVENT = threading.Event()
 
 # NOTE: time.sleep does ~NOT~ block paho handler threads. Feel free to use it. It will not affect paho.
+
+
+def drop_packets():
+    iptables.disconnect_output_port("DROP", "mqtt", HOSTNAME)
+
+
+def restore_packets():
+    iptables.reconnect_all("mqtt", HOSTNAME)
 
 
 def create_client(reconnect_on_failure=True):
@@ -130,8 +139,25 @@ def reconnect_while_connected():
     # WARNING: THIS IS ONLY TRUE IF reconnect_on_failure IS TRUE
 
 
-def reconnect_after_drop():
-    pass
+def manual_reconnect_after_drop():
+    restore_packets()
+    client = create_client(reconnect_on_failure=False)
+    print("Connect")
+    client.connect(host=HOSTNAME, port=PORT, keepalive=10)
+    client.loop_start()
+    CONNECTED_EVENT.wait()
+    print("Dropping network")
+    drop_packets()
+    DISCONNECTED_EVENT.wait()
+    restore_packets()
+    print("Manual reconnect")
+    client.reconnect()
+    CONNECTED_EVENT.wait(timeout=10)
+    print("Disconnect")
+    client.disconnect()
+    DISCONNECTED_EVENT.wait(timeout=10)
+    # RESULT: This really doesn't do anything. I think reconnect is only
+    # for when already connected?
 
 
 def use_expired_credentials():
@@ -296,4 +322,4 @@ reconnect_on_failure is enabled, that's kinda weird.
 # TODO: does the CONACK not coming through mean the password wasn't updated for the connection though?
 
 if __name__ == "__main__":
-    pass
+    manual_reconnect_after_drop()
