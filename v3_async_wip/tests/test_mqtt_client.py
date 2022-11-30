@@ -4,12 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from v3_async_wip.mqtt_transport import MQTTTransport
+from v3_async_wip.mqtt_client import MQTTClient
 from azure.iot.device.common import ProxyOptions
 import paho.mqtt.client as mqtt
 import pytest
 import logging
-import threading
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -148,38 +147,31 @@ operation_return_codes = [
 
 
 @pytest.fixture
-def mock_mqtt_client(mocker, fake_paho_thread):
+def mock_paho(mocker, fake_paho_thread):
     mock = mocker.patch.object(mqtt, "Client")
-    mock_mqtt_client = mock.return_value
-    mock_mqtt_client.subscribe = mocker.MagicMock(return_value=(fake_rc, fake_mid))
-    mock_mqtt_client.unsubscribe = mocker.MagicMock(return_value=(fake_rc, fake_mid))
-    mock_mqtt_client.publish = mocker.MagicMock(return_value=(fake_rc, fake_mid))
-    mock_mqtt_client.connect.return_value = 0
-    mock_mqtt_client.reconnect.return_value = 0
-    mock_mqtt_client.disconnect.return_value = 0
-    mock_mqtt_client._thread = fake_paho_thread
-    return mock_mqtt_client
+    mock_paho = mock.return_value
+    mock_paho.subscribe = mocker.MagicMock(return_value=(fake_rc, fake_mid))
+    mock_paho.unsubscribe = mocker.MagicMock(return_value=(fake_rc, fake_mid))
+    mock_paho.publish = mocker.MagicMock(return_value=(fake_rc, fake_mid))
+
+    def connect(*args, **kwargs):
+        mock_paho.on_connect(client=mock_paho, userdata=None, flags=None, rc=0)
+        return 0
+
+    mock_paho.connect.side_effect = connect
+    mock_paho.reconnect.return_value = 0
+    mock_paho.disconnect.return_value = 0
+    mock_paho._thread = fake_paho_thread
+    return mock_paho
 
 
 @pytest.fixture
-def transport(mock_mqtt_client):
-    # Implicitly imports the mocked Paho MQTT Client from mock_mqtt_client
-    return MQTTTransport(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+async def client(mock_paho):
+    # Implicitly imports the mocked Paho MQTT Client from mock_paho
+    return MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
 
 
-@pytest.fixture
-def fake_paho_thread(mocker):
-    thread = mocker.MagicMock(spec=threading.Thread)
-    thread.name = "_fake_paho_thread_"
-    return thread
-
-
-@pytest.fixture
-def mock_paho_thread_current(mocker, fake_paho_thread):
-    return mocker.patch.object(threading, "current_thread", return_value=fake_paho_thread)
-
-
-@pytest.mark.describe("MQTTTransport - Instantiation")
+@pytest.mark.describe("MQTTClient - Instantiation")
 class TestInstantiation(object):
     @pytest.fixture(
         params=["HTTP - No Auth", "HTTP - Auth", "SOCKS4", "SOCKS5 - No Auth", "SOCKS5 - Auth"]
@@ -205,100 +197,101 @@ class TestInstantiation(object):
         return proxy
 
     @pytest.fixture(params=["TCP", "WebSockets"])
-    def transport_type(self, request):
+    def transport(self, request):
         return request.param.lower()
 
     @pytest.mark.it("Stores the provided hostname value")
     def test_hostname(self, mocker):
         mocker.patch.object(mqtt, "Client")
-        transport = MQTTTransport(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
-        assert transport._hostname == fake_hostname
+        client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+        assert client._hostname == fake_hostname
 
     @pytest.mark.it("Stores the provided port value")
     def test_port(self, mocker):
         mocker.patch.object(mqtt, "Client")
-        transport = MQTTTransport(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
-        assert transport._port == fake_port
+        client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+        assert client._port == fake_port
 
     @pytest.mark.it("Stores the provided keepalive value (if provided)")
     def test_keepalive(self, mocker):
         mocker.patch.object(mqtt, "Client")
-        transport = MQTTTransport(
+        client = MQTTClient(
             client_id=fake_device_id,
             hostname=fake_hostname,
             port=fake_port,
             keep_alive=fake_keepalive,
         )
-        assert transport._keep_alive == fake_keepalive
+        assert client._keep_alive == fake_keepalive
 
     @pytest.mark.it("Creates and stores an instance of the Paho MQTT Client")
-    def test_instantiates_mqtt_client(self, mocker, transport_type):
-        mock_mqtt_client_constructor = mocker.patch.object(mqtt, "Client")
+    def test_instantiates_mqtt_client(self, mocker, transport):
+        mock_paho_constructor = mocker.patch.object(mqtt, "Client")
 
-        transport = MQTTTransport(
+        client = MQTTClient(
             client_id=fake_device_id,
             hostname=fake_hostname,
             port=fake_port,
-            transport=transport_type,
+            transport=transport,
         )
 
-        assert mock_mqtt_client_constructor.call_count == 1
-        assert mock_mqtt_client_constructor.call_args == mocker.call(
+        assert mock_paho_constructor.call_count == 1
+        assert mock_paho_constructor.call_args == mocker.call(
             client_id=fake_device_id,
             clean_session=False,
             protocol=mqtt.MQTTv311,
-            transport=transport_type,
+            transport=transport,
+            reconnect_on_failure=False,
         )
-        assert transport._mqtt_client is mock_mqtt_client_constructor.return_value
+        assert client._mqtt_client is mock_paho_constructor.return_value
 
     @pytest.mark.it("Uses the provided SSLContext with the Paho MQTT Client")
-    def test_ssl_context(self, mocker, transport_type):
-        mock_mqtt_client = mocker.patch.object(mqtt, "Client").return_value
+    def test_ssl_context(self, mocker, transport):
+        mock_paho = mocker.patch.object(mqtt, "Client").return_value
         mock_ssl_context = mocker.MagicMock()
 
-        MQTTTransport(
+        MQTTClient(
             client_id=fake_device_id,
             hostname=fake_hostname,
             port=fake_port,
-            transport=transport_type,
+            transport=transport,
             ssl_context=mock_ssl_context,
         )
 
-        assert mock_mqtt_client.tls_set_context.call_count == 1
-        assert mock_mqtt_client.tls_set_context.call_args == mocker.call(context=mock_ssl_context)
+        assert mock_paho.tls_set_context.call_count == 1
+        assert mock_paho.tls_set_context.call_args == mocker.call(context=mock_ssl_context)
 
     @pytest.mark.it(
         "Uses a default SSLContext with the Paho MQTT Client if no SSLContext is provided"
     )
-    def test_ssl_context_default(self, mocker, transport_type):
-        mock_mqtt_client = mocker.patch.object(mqtt, "Client").return_value
+    def test_ssl_context_default(self, mocker, transport):
+        mock_paho = mocker.patch.object(mqtt, "Client").return_value
 
-        MQTTTransport(
+        MQTTClient(
             client_id=fake_device_id,
             hostname=fake_hostname,
             port=fake_port,
-            transport=transport_type,
+            transport=transport,
         )
 
         # NOTE: calling tls_set_context with None == using default context
-        assert mock_mqtt_client.tls_set_context.call_count == 1
-        assert mock_mqtt_client.tls_set_context.call_args == mocker.call(context=None)
+        assert mock_paho.tls_set_context.call_count == 1
+        assert mock_paho.tls_set_context.call_args == mocker.call(context=None)
 
     @pytest.mark.it("Sets proxy using the provided ProxyOptions with the Paho MQTT Client")
-    def test_proxy_options(self, mocker, proxy_options, transport_type):
-        mock_mqtt_client = mocker.patch.object(mqtt, "Client").return_value
+    def test_proxy_options(self, mocker, proxy_options, transport):
+        mock_paho = mocker.patch.object(mqtt, "Client").return_value
 
-        MQTTTransport(
+        MQTTClient(
             client_id=fake_device_id,
             hostname=fake_hostname,
             port=fake_port,
-            transport=transport_type,
+            transport=transport,
             proxy_options=proxy_options,
         )
 
         # Verify proxy has been set
-        assert mock_mqtt_client.proxy_set.call_count == 1
-        assert mock_mqtt_client.proxy_set.call_args == mocker.call(
+        assert mock_paho.proxy_set.call_count == 1
+        assert mock_paho.proxy_set.call_args == mocker.call(
             proxy_type=proxy_options.proxy_type_socks,
             proxy_addr=proxy_options.proxy_address,
             proxy_port=proxy_options.proxy_port,
@@ -307,24 +300,24 @@ class TestInstantiation(object):
         )
 
     @pytest.mark.it("Does not set any proxy if no ProxyOptions is provided")
-    def test_no_proxy_options(self, mocker, transport_type):
-        mock_mqtt_client = mocker.patch.object(mqtt, "Client").return_value
+    def test_no_proxy_options(self, mocker, transport):
+        mock_paho = mocker.patch.object(mqtt, "Client").return_value
 
-        MQTTTransport(
+        MQTTClient(
             client_id=fake_device_id,
             hostname=fake_hostname,
             port=fake_port,
-            transport=transport_type,
+            transport=transport,
         )
 
         # Proxy was not set
-        assert mock_mqtt_client.proxy_set.call_count == 0
+        assert mock_paho.proxy_set.call_count == 0
 
     @pytest.mark.it("Sets the websockets path using the provided value if using websockets")
     def test_ws_path(self, mocker):
-        mock_mqtt_client = mocker.patch.object(mqtt, "Client").return_value
+        mock_paho = mocker.patch.object(mqtt, "Client").return_value
 
-        MQTTTransport(
+        MQTTClient(
             client_id=fake_device_id,
             hostname=fake_hostname,
             port=fake_port,
@@ -333,25 +326,25 @@ class TestInstantiation(object):
         )
 
         # Websockets path was set
-        assert mock_mqtt_client.ws_set_options.call_count == 1
-        assert mock_mqtt_client.ws_set_options.call_args == mocker.call(path=fake_ws_path)
+        assert mock_paho.ws_set_options.call_count == 1
+        assert mock_paho.ws_set_options.call_args == mocker.call(path=fake_ws_path)
 
     @pytest.mark.it("Does not set the websocket path if it is not provided")
     def test_no_ws_path(self, mocker):
-        mock_mqtt_client = mocker.patch.object(mqtt, "Client").return_value
+        mock_paho = mocker.patch.object(mqtt, "Client").return_value
 
-        MQTTTransport(
+        MQTTClient(
             client_id=fake_device_id, hostname=fake_hostname, port=fake_port, transport="websockets"
         )
 
         # Websockets path was not set
-        assert mock_mqtt_client.ws_set_options.call_count == 0
+        assert mock_paho.ws_set_options.call_count == 0
 
     @pytest.mark.it("Does not set the websocket path if not using websockets")
     def test_ws_path_no_ws(self, mocker):
-        mock_mqtt_client = mocker.patch.object(mqtt, "Client").return_value
+        mock_paho = mocker.patch.object(mqtt, "Client").return_value
 
-        MQTTTransport(
+        MQTTClient(
             client_id=fake_device_id,
             hostname=fake_hostname,
             port=fake_port,
@@ -360,79 +353,47 @@ class TestInstantiation(object):
         )
 
         # Websockets path was not set
-        assert mock_mqtt_client.ws_set_options.call_count == 0
+        assert mock_paho.ws_set_options.call_count == 0
 
-    # @pytest.mark.it("Sets Paho MQTT Client callbacks")
-    # def test_sets_paho_callbacks(self, mocker):
-    #     mock_mqtt_client = mocker.patch.object(mqtt, "Client").return_value
-
-    #     MQTTTransport(client_id=fake_device_id, hostname=fake_hostname, username=fake_username)
-
-    #     assert callable(mock_mqtt_client.on_connect)
-    #     assert callable(mock_mqtt_client.on_disconnect)
-    #     assert callable(mock_mqtt_client.on_subscribe)
-    #     assert callable(mock_mqtt_client.on_unsubscribe)
-    #     assert callable(mock_mqtt_client.on_publish)
-    #     assert callable(mock_mqtt_client.on_message)
-
-    # @pytest.mark.it("Initializes event handlers to 'None'")
-    # def test_handler_callbacks_set_to_none(self, mocker):
-    #     mocker.patch.object(mqtt, "Client")
-
-    #     transport = MQTTTransport(
-    #         client_id=fake_device_id, hostname=fake_hostname, username=fake_username
-    #     )
-
-    #     assert transport.on_mqtt_connected_handler is None
-    #     assert transport.on_mqtt_disconnected_handler is None
-    #     assert transport.on_mqtt_message_received_handler is None
-
-    # @pytest.mark.it("Initializes internal operation tracking structures")
-    # def test_operation_infrastructure_set_up(self, mocker):
-    #     transport = MQTTTransport(
-    #         client_id=fake_device_id, hostname=fake_hostname, username=fake_username
-    #     )
-    #     assert transport._op_manager._pending_operation_callbacks == {
-    #         OperationType.PUBLISH: {},
-    #         OperationType.SUBSCRIBE: {},
-    #         OperationType.UNSUBSCRIBE: {},
-    #     }
-    #     assert transport._op_manager._unknown_operation_completions == {}
-
-    # @pytest.mark.it("Sets paho auto-reconnect interval to 2 hours")
-    # def test_sets_reconnect_interval(self, mocker, transport, mock_mqtt_client):
-    #     MQTTTransport(client_id=fake_device_id, hostname=fake_hostname, username=fake_username)
-
-    #     # called once by the mqtt_client constructor and once by mqtt_transport.py
-    #     assert mock_mqtt_client.reconnect_delay_set.call_count == 2
-    #     assert mock_mqtt_client.reconnect_delay_set.call_args == mocker.call(120 * 60)
+    # TODO: May need public conditions tests (assuming they stay public)
 
 
-@pytest.mark.describe("MQTTTransport - .set_credentials()")
+@pytest.mark.describe("MQTTClient - .set_credentials()")
 class TestSetCredentials(object):
     @pytest.mark.it("Sets a username only")
-    def test_username(self, transport, mock_mqtt_client, mocker):
-        assert mock_mqtt_client.username_pw_set.call_count == 0
+    def test_username(self, client, mock_paho, mocker):
+        assert mock_paho.username_pw_set.call_count == 0
 
-        transport.set_credentials(fake_username)
+        client.set_credentials(fake_username)
 
-        assert mock_mqtt_client.username_pw_set.call_count == 1
-        assert mock_mqtt_client.username_pw_set.call_args == mocker.call(
+        assert mock_paho.username_pw_set.call_count == 1
+        assert mock_paho.username_pw_set.call_args == mocker.call(
             username=fake_username, password=None
         )
 
     @pytest.mark.it("Sets a username and password combination")
-    def test_username_password(self, transport, mock_mqtt_client, mocker):
-        assert mock_mqtt_client.username_pw_set.call_count == 0
+    def test_username_password(self, client, mock_paho, mocker):
+        assert mock_paho.username_pw_set.call_count == 0
 
-        transport.set_credentials(fake_username, fake_password)
+        client.set_credentials(fake_username, fake_password)
 
-        assert mock_mqtt_client.username_pw_set.call_count == 1
-        assert mock_mqtt_client.username_pw_set.call_args == mocker.call(
+        assert mock_paho.username_pw_set.call_count == 1
+        assert mock_paho.username_pw_set.call_args == mocker.call(
             username=fake_username, password=fake_password
         )
 
 
-@pytest.mark.describe("MQTTTransport - .connect()")
+@pytest.mark.describe("MQTTClient - .connect()")
 class TestConnect(object):
-    pass
+    @pytest.mark.it(
+        "Invokes an MQTT connect via Paho using stored values, if not already connected"
+    )
+    async def test_not_connected(self, mocker, client, mock_paho):
+        assert mock_paho.connect.call_count == 0
+
+        await client.connect()
+
+        assert mock_paho.call_count == 1
+        assert mock_paho.call_args == mocker.call(
+            host=client._hostname, port=client._port, keepalive=client._keep_alive
+        )
