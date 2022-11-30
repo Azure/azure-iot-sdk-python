@@ -4,8 +4,6 @@
 import pytest
 import uuid
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.mark.describe("ServiceHelper object")
 class TestServiceHelper(object):

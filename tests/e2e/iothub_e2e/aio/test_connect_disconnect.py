@@ -9,8 +9,6 @@ import parametrize
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.mark.describe("Client object")
 class TestConnectDisconnect(object):

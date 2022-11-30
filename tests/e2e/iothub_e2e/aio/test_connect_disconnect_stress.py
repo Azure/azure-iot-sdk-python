@@ -10,8 +10,6 @@ import random
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.mark.stress
 @pytest.mark.describe("Client object connect/disconnect stress")

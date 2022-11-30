@@ -10,8 +10,6 @@ from dev_utils import get_random_dict
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 # TODO: add tests for various application properties
 # TODO: is there a way to call send_c2d so it arrives as an object rather than a JSON string?
 
