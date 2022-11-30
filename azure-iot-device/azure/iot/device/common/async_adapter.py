@@ -5,10 +5,10 @@
 # --------------------------------------------------------------------------
 """This module contains tools for adapting sync code for use in async coroutines."""
 
+import asyncio
 import functools
 import logging
 import traceback
-import azure.iot.device.common.asyncio_compat as asyncio_compat
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def emulate_async(fn):
 
     @functools.wraps(fn)
     async def async_fn_wrapper(*args, **kwargs):
-        loop = asyncio_compat.get_running_loop()
+        loop = asyncio.get_running_loop()
 
         # Run fn in default ThreadPoolExecutor (CPU * 5 threads)
         return await loop.run_in_executor(None, functools.partial(fn, *args, **kwargs))
@@ -44,7 +44,7 @@ class AwaitableCallback(object):
         if return_arg_name and not isinstance(return_arg_name, str):
             raise TypeError("internal error: return_arg_name must be a string")
 
-        loop = asyncio_compat.get_running_loop()
+        loop = asyncio.get_running_loop()
         self.future = loop.create_future()
 
         def wrapping_callback(*args, **kwargs):
