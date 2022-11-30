@@ -15,7 +15,7 @@ class ServiceHelper:
         event_loop=None,
         executor=None,
     ):
-        self._event_loop = event_loop or asyncio.get_event_loop()
+        self._event_loop = event_loop or asyncio.get_running_loop()
         self._executor = executor or concurrent.futures.ThreadPoolExecutor()
         self._inner_object = ServiceHelperSync(
             iothub_connection_string, eventhub_connection_string, eventhub_consumer_group

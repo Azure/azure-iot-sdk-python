@@ -57,8 +57,8 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.get_event_loop()
+async def event_loop():
+    loop = asyncio.get_running_loop()
     yield loop
     loop.close()
 
