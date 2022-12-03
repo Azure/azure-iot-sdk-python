@@ -31,6 +31,8 @@ class Dropper(object):
         iptables.reconnect_all(self.transport, test_env.IOTHUB_HOSTNAME)
 
 
+# NOTE: Make sure to list this fixture among the first in a relevant test
+# Fixtures are evaluated from left to right, and you want to make sure this goes first
 @pytest.fixture(scope="function")
 def dropper(transport):
     dropper = Dropper(transport)

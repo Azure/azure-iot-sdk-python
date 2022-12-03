@@ -175,7 +175,7 @@ class TestConnectDisconnect(object):
 @pytest.mark.keep_alive(5)
 class TestConnectDisconnectDroppedConnection(object):
     @pytest.mark.it("disconnects when network drops all outgoing packets")
-    def test_sync_disconnect_on_drop_outgoing(self, client, dropper, leak_tracker):
+    def test_sync_disconnect_on_drop_outgoing(self, dropper, client, leak_tracker):
         """
         This test verifies that the client will disconnect (eventually) if the network starts
         dropping packets
@@ -198,7 +198,7 @@ class TestConnectDisconnectDroppedConnection(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("disconnects when network rejects all outgoing packets")
-    def test_sync_disconnect_on_reject_outgoing(self, client, dropper, leak_tracker):
+    def test_sync_disconnect_on_reject_outgoing(self, dropper, client, leak_tracker):
         """
         This test verifies that the client will disconnect (eventually) if the network starts
         rejecting packets

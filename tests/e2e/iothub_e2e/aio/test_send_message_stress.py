@@ -285,10 +285,10 @@ class TestSendMessageStress(object):
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
     async def test_stress_send_message_with_flaky_network(
         self,
-        client,
-        service_helper,
         dropper,
         leak_tracker,
+        client,
+        service_helper,
         messages_per_second=SEND_TELEMETRY_FLAKY_NETWORK_MESSAGES_PER_SECOND,
         test_length_in_seconds=SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION,
     ):

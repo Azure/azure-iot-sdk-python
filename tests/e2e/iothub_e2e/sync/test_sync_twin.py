@@ -40,7 +40,7 @@ class TestGetTwin(object):
         ],
     )
     @pytest.mark.quicktest_suite
-    def test_sync_simple_get_twin(self, client, twin_enabled, service_helper, leak_tracker):
+    def test_sync_simple_get_twin(self, leak_tracker, service_helper, client, twin_enabled):
         leak_tracker.set_initial_object_list()
 
         if twin_enabled:
@@ -58,7 +58,7 @@ class TestGetTwin(object):
 
     @pytest.mark.it("Raises NoConnectionError if there is no connection (Twin not yet enabled)")
     @pytest.mark.quicktest_suite
-    def test_sync_no_connection_twin_not_enabled(self, client, leak_tracker):
+    def test_sync_no_connection_twin_not_enabled(self, leak_tracker, client):
         leak_tracker.set_initial_object_list()
 
         client.disconnect()
@@ -74,7 +74,7 @@ class TestGetTwin(object):
         "Waits to complete until a connection is established if there is no connection (Twin already enabled)"
     )
     @pytest.mark.quicktest_suite
-    def test_sync_no_connection_twin_enabled(self, client, service_helper, executor, leak_tracker):
+    def test_sync_no_connection_twin_enabled(self, executor, leak_tracker, service_helper, client):
         leak_tracker.set_initial_object_list()
 
         client._enable_feature("twin")
@@ -89,9 +89,7 @@ class TestGetTwin(object):
         assert not get_task.done()
         # Connect
         client.connect()
-        time.sleep(0.5)
-        # Task is now done
-        assert get_task.done()
+        # Task can now finish
         twin1 = get_task.result()
 
         # Validate twin with service
@@ -113,7 +111,7 @@ class TestGetTwin(object):
 class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
     def test_sync_network_failure_causes_disconnect(
-        self, client, failure_type, dropper, executor, leak_tracker
+        self, dropper, executor, leak_tracker, client, failure_type
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -143,7 +141,7 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object)
 
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     def test_sync_network_failure_no_disconnect(
-        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+        self, dropper, executor, leak_tracker, service_helper, client, failure_type
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -185,7 +183,7 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object)
 class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
     def test_sync_network_failure_causes_disconnect(
-        self, client, failure_type, dropper, executor, leak_tracker
+        self, dropper, executor, leak_tracker, client, failure_type
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -207,12 +205,13 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object
         with pytest.raises(NoConnectionError):
             get_task.result()
 
+        dropper.restore_all()
         del get_task
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     def test_sync_network_failure_no_disconnect(
-        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+        self, dropper, executor, leak_tracker, client, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -256,7 +255,13 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(obj
         "Succeeds once network is restored and client automatically reconnects after having disconnected due to network failure"
     )
     def test_sync_network_failure_causes_disconnect(
-        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+        self,
+        dropper,
+        executor,
+        leak_tracker,
+        client,
+        failure_type,
+        service_helper,
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -299,7 +304,7 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(obj
 
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     def test_sync_network_failure_no_disconnect(
-        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+        self, dropper, executor, leak_tracker, client, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -346,7 +351,7 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(ob
         "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
     )
     def test_sync_network_failure_causes_disconnect(
-        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+        self, dropper, executor, leak_tracker, client, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -389,7 +394,7 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(ob
 
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     def test_sync_network_failure_no_disconnect(
-        self, client, failure_type, service_helper, dropper, executor, leak_tracker
+        self, dropper, executor, leak_tracker, client, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -437,7 +442,7 @@ class TestReportedProperties(object):
     )
     @pytest.mark.quicktest_suite
     def test_sync_sends_simple_reported_patch(
-        self, client, twin_enabled, random_reported_props, service_helper, leak_tracker
+        self, leak_tracker, client, twin_enabled, random_reported_props, service_helper
     ):
         leak_tracker.set_initial_object_list()
 
@@ -468,7 +473,7 @@ class TestReportedProperties(object):
             pytest.param(True, id="Twin already enabled"),
         ],
     )
-    def test_sync_bad_reported_patch_raises(self, client, twin_enabled, leak_tracker):
+    def test_sync_bad_reported_patch_raises(self, leak_tracker, client, twin_enabled):
         leak_tracker.set_initial_object_list()
 
         if twin_enabled:
@@ -495,7 +500,7 @@ class TestReportedProperties(object):
     )
     @pytest.mark.quicktest_suite
     def test_sync_clear_property(
-        self, client, twin_enabled, random_reported_props, service_helper, leak_tracker
+        self, leak_tracker, client, twin_enabled, random_reported_props, service_helper
     ):
         leak_tracker.set_initial_object_list()
 
@@ -526,7 +531,7 @@ class TestReportedProperties(object):
 
     @pytest.mark.it("Raises NoConnectionError if there is no connection (Twin not yet enabled)")
     @pytest.mark.quicktest_suite
-    def test_sync_no_connection_twin_not_enabled(self, client, random_reported_props, leak_tracker):
+    def test_sync_no_connection_twin_not_enabled(self, leak_tracker, client, random_reported_props):
         leak_tracker.set_initial_object_list()
 
         client.disconnect()
@@ -543,7 +548,7 @@ class TestReportedProperties(object):
     )
     @pytest.mark.quicktest_suite
     def test_sync_no_connection_twin_enabled(
-        self, client, service_helper, random_reported_props, executor, leak_tracker
+        self, leak_tracker, executor, client, service_helper, random_reported_props
     ):
         leak_tracker.set_initial_object_list()
 
@@ -559,9 +564,8 @@ class TestReportedProperties(object):
         assert not patch_task.done()
         # Connect
         client.connect()
-        time.sleep(0.5)
-        # Task is now done
-        assert patch_task.done()
+        # Task can now finish
+        patch_task.result()
 
         # wait for patch to arrive at service and verify
         received_patch = service_helper.get_next_reported_patch_arrival()
@@ -586,7 +590,7 @@ class TestReportedProperties(object):
 class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
     def test_sync_network_failure_causes_disconnect(
-        self, client, random_reported_props, failure_type, dropper, executor, leak_tracker
+        self, dropper, executor, leak_tracker, client, random_reported_props, failure_type
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -617,13 +621,13 @@ class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnab
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     def test_sync_network_failure_no_disconnect(
         self,
+        dropper,
+        executor,
+        leak_tracker,
         client,
         random_reported_props,
         failure_type,
         service_helper,
-        dropper,
-        executor,
-        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -669,7 +673,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnab
 class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object):
     @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
     def test_sync_network_failure_causes_disconnect(
-        self, client, random_reported_props, failure_type, dropper, executor, leak_tracker
+        self, dropper, executor, leak_tracker, client, random_reported_props, failure_type
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -691,19 +695,20 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEna
         with pytest.raises(NoConnectionError):
             patch_task.result()
 
+        dropper.restore_all()
         del patch_task
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     def test_sync_network_failure_no_disconnect(
         self,
+        dropper,
+        executor,
+        leak_tracker,
         client,
         random_reported_props,
         failure_type,
         service_helper,
-        dropper,
-        executor,
-        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -752,13 +757,13 @@ class TestReportedPropertiesTwinNetworkFailureConnectionRetryEnabledTwinPatchAlr
     )
     def test_sync_network_failure_causes_disconnect(
         self,
+        dropper,
+        executor,
+        leak_tracker,
         client,
         random_reported_props,
         failure_type,
         service_helper,
-        dropper,
-        executor,
-        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -806,13 +811,13 @@ class TestReportedPropertiesTwinNetworkFailureConnectionRetryEnabledTwinPatchAlr
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     def test_sync_network_failure_no_disconnect(
         self,
+        dropper,
+        executor,
+        leak_tracker,
         client,
         random_reported_props,
         failure_type,
         service_helper,
-        dropper,
-        executor,
-        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -864,13 +869,13 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlread
     )
     def test_sync_network_failure_causes_disconnect(
         self,
+        dropper,
+        executor,
+        leak_tracker,
         client,
         random_reported_props,
         failure_type,
         service_helper,
-        dropper,
-        executor,
-        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -918,13 +923,13 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlread
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     def test_sync_network_failure_no_disconnect(
         self,
+        dropper,
+        executor,
+        leak_tracker,
         client,
         random_reported_props,
         failure_type,
         service_helper,
-        dropper,
-        executor,
-        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -968,7 +973,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlread
 class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
     @pytest.mark.quicktest_suite
-    def test_sync_receives_simple_desired_patch(self, client, service_helper, leak_tracker):
+    def test_sync_receives_simple_desired_patch(self, leak_tracker, client, service_helper):
         received_patches = queue.Queue()
         leak_tracker.set_initial_object_list()
 

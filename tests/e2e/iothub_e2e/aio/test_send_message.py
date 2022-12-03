@@ -25,7 +25,7 @@ def failure_type(request):
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
     @pytest.mark.quicktest_suite
-    async def test_send_message_simple(self, client, random_message, service_helper, leak_tracker):
+    async def test_send_message_simple(self, leak_tracker, client, random_message, service_helper):
         leak_tracker.set_initial_object_list()
 
         await client.send_message(random_message)
@@ -36,7 +36,7 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises correct exception for un-serializable payload")
-    async def test_bad_payload_raises(self, client, leak_tracker):
+    async def test_bad_payload_raises(self, leak_tracker, client):
         leak_tracker.set_initial_object_list()
 
         # There's no way to serialize a function.
@@ -54,7 +54,7 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
-    async def test_sends_json_string(self, client, service_helper, leak_tracker):
+    async def test_sends_json_string(self, leak_tracker, client, service_helper):
         leak_tracker.set_initial_object_list()
 
         message = json.dumps(dev_utils.get_random_dict())
@@ -67,7 +67,7 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can send a random string that isn't wrapped in a Message object")
-    async def test_sends_random_string(self, client, service_helper, leak_tracker):
+    async def test_sends_random_string(self, leak_tracker, client, service_helper):
         leak_tracker.set_initial_object_list()
 
         message = dev_utils.get_random_string(16)
@@ -81,7 +81,7 @@ class TestSendMessage(object):
 
     @pytest.mark.it("Waits until a connection is established to send if there is no connection")
     async def test_fails_if_no_connection(
-        self, client, random_message, service_helper, leak_tracker
+        self, leak_tracker, client, random_message, service_helper
     ):
         leak_tracker.set_initial_object_list()
 
@@ -115,7 +115,7 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
     )
     @pytest.mark.uses_iptables
     async def test_network_failure_causes_disconnect(
-        self, client, random_message, failure_type, dropper, service_helper, leak_tracker
+        self, dropper, leak_tracker, client, random_message, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -151,7 +151,7 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
 
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     async def test_network_failure_no_disconnect(
-        self, client, random_message, failure_type, dropper, service_helper, leak_tracker
+        self, dropper, leak_tracker, client, random_message, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -190,7 +190,7 @@ class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
         "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
     )
     async def test_network_failure_causes_disconnect(
-        self, client, random_message, failure_type, service_helper, dropper, leak_tracker
+        self, dropper, leak_tracker, client, random_message, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -228,7 +228,7 @@ class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
 
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     async def test_network_failure_no_disconnect(
-        self, client, random_message, failure_type, service_helper, dropper, leak_tracker
+        self, dropper, leak_tracker, client, random_message, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
