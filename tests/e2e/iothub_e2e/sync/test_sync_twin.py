@@ -205,7 +205,6 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object
         with pytest.raises(NoConnectionError):
             get_task.result()
 
-        dropper.restore_all()
         del get_task
         leak_tracker.check_for_leaks()
 
@@ -695,7 +694,6 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEna
         with pytest.raises(NoConnectionError):
             patch_task.result()
 
-        dropper.restore_all()
         del patch_task
         leak_tracker.check_for_leaks()
 

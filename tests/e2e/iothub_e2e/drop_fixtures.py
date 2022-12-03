@@ -39,4 +39,4 @@ def dropper(transport):
     logger.info("restoring all")
     dropper.restore_all()
     # Make sure there's time for the restoration
-    time.sleep(0.5)
+    time.sleep(1)

@@ -223,7 +223,6 @@ class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
-        dropper.restore_all()
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
