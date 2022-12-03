@@ -166,8 +166,6 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object)
 
         # Restore network, and operation succeeds
         dropper.restore_all()
-        await asyncio.sleep(1)
-        assert get_task.done()
         twin1 = await get_task
 
         # Get the twin from the service to compare
@@ -237,8 +235,6 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object
 
         # Restore network, and operation succeeds
         dropper.restore_all()
-        await asyncio.sleep(1)
-        assert get_task.done()
         twin1 = await get_task
 
         # Get the twin from the service to compare
@@ -328,8 +324,6 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(obj
 
         # Restore network, and operation succeeds
         dropper.restore_all()
-        await asyncio.sleep(1)
-        assert get_task.done()
         twin1 = await get_task
 
         # Get the twin from the service to compare
@@ -419,8 +413,6 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(ob
 
         # Restore network, and operation succeeds
         dropper.restore_all()
-        await asyncio.sleep(1)
-        assert get_task.done()
         twin1 = await get_task
 
         # Get the twin from the service to compare
@@ -659,8 +651,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnab
 
         # Restore network, and operation succeeds
         dropper.restore_all()
-        await asyncio.sleep(1)
-        assert patch_task.done()
+        await patch_task
 
         # wait for patch to arrive at service and verify
         received_patch = await service_helper.get_next_reported_patch_arrival()
@@ -737,8 +728,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEna
 
         # Restore network, and operation succeeds
         dropper.restore_all()
-        await asyncio.sleep(1)
-        assert patch_task.done()
+        await patch_task
 
         # wait for patch to arrive at service and verify
         received_patch = await service_helper.get_next_reported_patch_arrival()
@@ -840,8 +830,7 @@ class TestReportedPropertiesTwinNetworkFailureConnectionRetryEnabledTwinPatchAlr
 
         # Restore network, and operation succeeds
         dropper.restore_all()
-        await asyncio.sleep(1)
-        assert patch_task.done()
+        await patch_task
 
         # wait for patch to arrive at service and verify
         received_patch = await service_helper.get_next_reported_patch_arrival()
@@ -943,8 +932,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlread
 
         # Restore network, and operation succeeds
         dropper.restore_all()
-        await asyncio.sleep(1)
-        assert patch_task.done()
+        await patch_task
 
         # wait for patch to arrive at service and verify
         received_patch = await service_helper.get_next_reported_patch_arrival()
