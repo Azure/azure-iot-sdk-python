@@ -389,7 +389,7 @@ async def main():
             workingset_msg3 = {"workingSet": random.randrange(1, 100)}
             await send_telemetry_from_temp_controller(device_client, workingset_msg3)
 
-    send_telemetry_task = asyncio.ensure_future(send_telemetry())
+    send_telemetry_task = asyncio.create_task(send_telemetry())
 
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()

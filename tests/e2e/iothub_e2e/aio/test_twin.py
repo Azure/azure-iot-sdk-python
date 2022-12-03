@@ -85,7 +85,7 @@ class TestGetTwin(object):
         assert not client.connected
 
         # Attempt to get twin
-        get_twin_task = asyncio.ensure_future(client.get_twin())
+        get_twin_task = asyncio.create_task(client.get_twin())
         await asyncio.sleep(1)
         # Still not done
         assert not get_twin_task.done()
@@ -125,7 +125,7 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object)
             dropper.reject_outgoing()
 
         # Attempt to get twin (implicitly enabling twin first)
-        get_task = asyncio.ensure_future(client.get_twin())
+        get_task = asyncio.create_task(client.get_twin())
         # Wait for client disconnect
         while client.connected:
             assert not get_task.done()
@@ -155,7 +155,7 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object)
             dropper.reject_outgoing()
 
         # Attempt to get twin (implicitly enabling twin first)
-        get_task = asyncio.ensure_future(client.get_twin())
+        get_task = asyncio.create_task(client.get_twin())
 
         # Has not been able to succeed due to network failure, but client is still connected
         await asyncio.sleep(1)
@@ -197,7 +197,7 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object
             dropper.reject_outgoing()
 
         # Attempt to get twin (implicitly enabling twin first)
-        get_task = asyncio.ensure_future(client.get_twin())
+        get_task = asyncio.create_task(client.get_twin())
         # Wait for client disconnect
         while client.connected:
             assert not get_task.done()
@@ -229,7 +229,7 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object
             dropper.reject_outgoing()
 
         # Attempt to get twin (implicitly enabling twin first)
-        get_task = asyncio.ensure_future(client.get_twin())
+        get_task = asyncio.create_task(client.get_twin())
 
         # Has not been able to succeed due to network failure, but client is still connected
         await asyncio.sleep(1)
@@ -276,7 +276,7 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(obj
             dropper.reject_outgoing()
 
         # Attempt to get twin
-        get_task = asyncio.ensure_future(client.get_twin())
+        get_task = asyncio.create_task(client.get_twin())
         # Wait for client disconnect
         while client.connected:
             assert not get_task.done()
@@ -318,7 +318,7 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(obj
             dropper.reject_outgoing()
 
         # Attempt to get twin
-        get_task = asyncio.ensure_future(client.get_twin())
+        get_task = asyncio.create_task(client.get_twin())
 
         # Has not been able to succeed due to network failure, but client is still connected
         await asyncio.sleep(1)
@@ -365,7 +365,7 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(ob
             dropper.reject_outgoing()
 
         # Attempt to get twin
-        get_task = asyncio.ensure_future(client.get_twin())
+        get_task = asyncio.create_task(client.get_twin())
         # Wait for client disconnect
         while client.connected:
             assert not get_task.done()
@@ -407,7 +407,7 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(ob
             dropper.reject_outgoing()
 
         # Attempt to get twin
-        get_task = asyncio.ensure_future(client.get_twin())
+        get_task = asyncio.create_task(client.get_twin())
 
         # Has not been able to succeed due to network failure, but client is still connected
         await asyncio.sleep(1)
@@ -564,7 +564,7 @@ class TestReportedProperties(object):
         assert not client.connected
 
         # Attempt to patch
-        patch_task = asyncio.ensure_future(
+        patch_task = asyncio.create_task(
             client.patch_twin_reported_properties(random_reported_props)
         )
         await asyncio.sleep(1)
@@ -610,7 +610,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnab
             dropper.reject_outgoing()
 
         # Attempt to patch twin (implicitly enabling twin first)
-        patch_task = asyncio.ensure_future(
+        patch_task = asyncio.create_task(
             client.patch_twin_reported_properties(random_reported_props)
         )
         # Wait for client disconnect
@@ -642,7 +642,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnab
             dropper.reject_outgoing()
 
         # Attempt to patch twin (implicitly enabling twin first)
-        patch_task = asyncio.ensure_future(
+        patch_task = asyncio.create_task(
             client.patch_twin_reported_properties(random_reported_props)
         )
 
@@ -690,7 +690,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEna
             dropper.reject_outgoing()
 
         # Attempt to patch twin (implicitly enabling twin first)
-        patch_task = asyncio.ensure_future(
+        patch_task = asyncio.create_task(
             client.patch_twin_reported_properties(random_reported_props)
         )
         # Wait for client disconnect
@@ -719,7 +719,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEna
             dropper.reject_outgoing()
 
         # Attempt to patch twin (implicitly enabling twin first)
-        patch_task = asyncio.ensure_future(
+        patch_task = asyncio.create_task(
             client.patch_twin_reported_properties(random_reported_props)
         )
 
@@ -772,7 +772,7 @@ class TestReportedPropertiesTwinNetworkFailureConnectionRetryEnabledTwinPatchAlr
             dropper.reject_outgoing()
 
         # Attempt to patch twin
-        patch_task = asyncio.ensure_future(
+        patch_task = asyncio.create_task(
             client.patch_twin_reported_properties(random_reported_props)
         )
 
@@ -821,7 +821,7 @@ class TestReportedPropertiesTwinNetworkFailureConnectionRetryEnabledTwinPatchAlr
             dropper.reject_outgoing()
 
         # Attempt to patch twin
-        patch_task = asyncio.ensure_future(
+        patch_task = asyncio.create_task(
             client.patch_twin_reported_properties(random_reported_props)
         )
 
@@ -874,7 +874,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlread
             dropper.reject_outgoing()
 
         # Attempt to patch twin
-        patch_task = asyncio.ensure_future(
+        patch_task = asyncio.create_task(
             client.patch_twin_reported_properties(random_reported_props)
         )
 
@@ -923,7 +923,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlread
             dropper.reject_outgoing()
 
         # Attempt to patch twin
-        patch_task = asyncio.ensure_future(
+        patch_task = asyncio.create_task(
             client.patch_twin_reported_properties(random_reported_props)
         )
 

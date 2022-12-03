@@ -89,7 +89,7 @@ class TestSendMessage(object):
         assert not client.connected
 
         # Attempt to send a message
-        send_task = asyncio.ensure_future(client.send_message(random_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
         await asyncio.sleep(1)
         # Still not done
         assert not send_task.done()
@@ -127,7 +127,7 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
             dropper.reject_outgoing()
 
         # Attempt to send a message
-        send_task = asyncio.ensure_future(client.send_message(random_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
 
         # Wait for client to disconnect
         while client.connected:
@@ -163,7 +163,7 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
             dropper.reject_outgoing()
 
         # Attempt to send a message
-        send_task = asyncio.ensure_future(client.send_message(random_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
 
         # Has not been able to succeed due to network failure, but client is still connected
         await asyncio.sleep(1)
@@ -202,7 +202,7 @@ class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
             dropper.reject_outgoing()
 
         # Attempt to send a message
-        send_task = asyncio.ensure_future(client.send_message(random_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
 
         # Wait for client disconnect
         while client.connected:
@@ -239,7 +239,7 @@ class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
             dropper.reject_outgoing()
 
         # Attempt to send a message
-        send_task = asyncio.ensure_future(client.send_message(random_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
 
         # Has not been able to succeed due to network failure, but client is still connected
         await asyncio.sleep(1)
