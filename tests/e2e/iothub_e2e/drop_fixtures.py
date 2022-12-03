@@ -3,6 +3,7 @@
 # license information.
 import pytest
 import logging
+import time
 from dev_utils import iptables, test_env
 
 logger = logging.getLogger(__name__)
@@ -31,11 +32,11 @@ class Dropper(object):
         iptables.reconnect_all(self.transport, test_env.IOTHUB_HOSTNAME)
 
 
-# NOTE: Make sure to list this fixture among the first in a relevant test
-# Fixtures are evaluated from left to right, and you want to make sure this goes first
 @pytest.fixture(scope="function")
 def dropper(transport):
     dropper = Dropper(transport)
     yield dropper
     logger.info("restoring all")
     dropper.restore_all()
+    # Make sure there's time for the restoration
+    time.sleep(0.5)
