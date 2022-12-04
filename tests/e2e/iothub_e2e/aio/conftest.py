@@ -102,7 +102,7 @@ async def client(brand_new_client):
     try:
         await client.connect()
     except (exceptions.ConnectionFailedError, exceptions.ConnectionDroppedError):
-        await asyncio.sleep(1)
+        await asyncio.sleep(5)
         logger.debug("Connection Failed in setup. Trying one more time")
         await client.connect()
 
