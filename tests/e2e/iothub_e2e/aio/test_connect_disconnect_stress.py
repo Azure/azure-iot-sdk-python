@@ -10,8 +10,6 @@ import random
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.mark.stress
 @pytest.mark.describe("Client object connect/disconnect stress")
@@ -37,15 +35,15 @@ class TestConnectDisconnectStress(object):
     ):
         leak_tracker.set_initial_object_list()
 
-        futures = []
+        tasks = []
         for _ in range(iteration_count):
-            futures.append(asyncio.ensure_future(client.connect()))
-            futures.append(asyncio.ensure_future(client.disconnect()))
+            tasks.append(asyncio.create_task(client.connect()))
+            tasks.append(asyncio.create_task(client.disconnect()))
 
         try:
-            await asyncio.gather(*futures)
+            await asyncio.gather(*tasks)
         finally:
-            await task_cleanup.cleanup_tasks(futures)
+            await task_cleanup.cleanup_tasks(tasks)
 
         leak_tracker.check_for_leaks()
 
@@ -57,16 +55,16 @@ class TestConnectDisconnectStress(object):
     ):
         leak_tracker.set_initial_object_list()
 
-        futures = []
+        tasks = []
         for _ in range(iteration_count):
             if random.random() > 0.5:
-                futures.append(asyncio.ensure_future(client.connect()))
+                tasks.append(asyncio.create_task(client.connect()))
             else:
-                futures.append(asyncio.ensure_future(client.disconnect()))
+                tasks.append(asyncio.create_task(client.disconnect()))
 
         try:
-            await asyncio.gather(*futures)
+            await asyncio.gather(*tasks)
         finally:
-            await task_cleanup.cleanup_tasks(futures)
+            await task_cleanup.cleanup_tasks(tasks)
 
         leak_tracker.check_for_leaks()

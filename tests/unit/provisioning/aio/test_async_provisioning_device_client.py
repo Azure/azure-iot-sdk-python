@@ -20,7 +20,6 @@ from ..shared_client_tests import (
 
 
 logging.basicConfig(level=logging.DEBUG)
-pytestmark = pytest.mark.asyncio
 
 
 # NOTE: Not all of these errors are possible in practice on all pipeline operations.

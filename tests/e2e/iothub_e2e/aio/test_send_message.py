@@ -11,7 +11,6 @@ from azure.iot.device.exceptions import ClientError
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
 
 PACKET_DROP = "Packet Drop"
 PACKET_REJECT = "Packet Reject"
@@ -26,7 +25,7 @@ def failure_type(request):
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
     @pytest.mark.quicktest_suite
-    async def test_send_message_simple(self, client, random_message, service_helper, leak_tracker):
+    async def test_send_message_simple(self, leak_tracker, client, random_message, service_helper):
         leak_tracker.set_initial_object_list()
 
         await client.send_message(random_message)
@@ -37,7 +36,7 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises correct exception for un-serializable payload")
-    async def test_bad_payload_raises(self, client, leak_tracker):
+    async def test_bad_payload_raises(self, leak_tracker, client):
         leak_tracker.set_initial_object_list()
 
         # There's no way to serialize a function.
@@ -55,7 +54,7 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
-    async def test_sends_json_string(self, client, service_helper, leak_tracker):
+    async def test_sends_json_string(self, leak_tracker, client, service_helper):
         leak_tracker.set_initial_object_list()
 
         message = json.dumps(dev_utils.get_random_dict())
@@ -68,7 +67,7 @@ class TestSendMessage(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can send a random string that isn't wrapped in a Message object")
-    async def test_sends_random_string(self, client, service_helper, leak_tracker):
+    async def test_sends_random_string(self, leak_tracker, client, service_helper):
         leak_tracker.set_initial_object_list()
 
         message = dev_utils.get_random_string(16)
@@ -82,7 +81,7 @@ class TestSendMessage(object):
 
     @pytest.mark.it("Waits until a connection is established to send if there is no connection")
     async def test_fails_if_no_connection(
-        self, client, random_message, service_helper, leak_tracker
+        self, leak_tracker, client, random_message, service_helper
     ):
         leak_tracker.set_initial_object_list()
 
@@ -90,7 +89,7 @@ class TestSendMessage(object):
         assert not client.connected
 
         # Attempt to send a message
-        send_task = asyncio.ensure_future(client.send_message(random_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
         await asyncio.sleep(1)
         # Still not done
         assert not send_task.done()
@@ -116,7 +115,7 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
     )
     @pytest.mark.uses_iptables
     async def test_network_failure_causes_disconnect(
-        self, client, random_message, failure_type, dropper, service_helper, leak_tracker
+        self, dropper, leak_tracker, client, random_message, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -128,7 +127,7 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
             dropper.reject_outgoing()
 
         # Attempt to send a message
-        send_task = asyncio.ensure_future(client.send_message(random_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
 
         # Wait for client to disconnect
         while client.connected:
@@ -140,6 +139,7 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
         # Restore outgoing packet functionality and wait for client to reconnect
         dropper.restore_all()
         while not client.connected:
+            assert not send_task.done()
             await asyncio.sleep(0.5)
         # Wait for the send task to complete now that the client has reconnected
         await send_task
@@ -152,7 +152,7 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
 
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     async def test_network_failure_no_disconnect(
-        self, client, random_message, failure_type, dropper, service_helper, leak_tracker
+        self, dropper, leak_tracker, client, random_message, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -164,7 +164,7 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
             dropper.reject_outgoing()
 
         # Attempt to send a message
-        send_task = asyncio.ensure_future(client.send_message(random_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
 
         # Has not been able to succeed due to network failure, but client is still connected
         await asyncio.sleep(1)
@@ -191,7 +191,7 @@ class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
         "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
     )
     async def test_network_failure_causes_disconnect(
-        self, client, random_message, failure_type, service_helper, dropper, leak_tracker
+        self, dropper, leak_tracker, client, random_message, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -203,7 +203,7 @@ class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
             dropper.reject_outgoing()
 
         # Attempt to send a message
-        send_task = asyncio.ensure_future(client.send_message(random_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
 
         # Wait for client disconnect
         while client.connected:
@@ -224,12 +224,11 @@ class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
-        dropper.restore_all()
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
     async def test_network_failure_no_disconnect(
-        self, client, random_message, failure_type, service_helper, dropper, leak_tracker
+        self, dropper, leak_tracker, client, random_message, failure_type, service_helper
     ):
         leak_tracker.set_initial_object_list()
         assert client.connected
@@ -241,7 +240,7 @@ class TestSendMessageNetworkFailureConnectionRetryDisabled(object):
             dropper.reject_outgoing()
 
         # Attempt to send a message
-        send_task = asyncio.ensure_future(client.send_message(random_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
 
         # Has not been able to succeed due to network failure, but client is still connected
         await asyncio.sleep(1)

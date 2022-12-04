@@ -16,23 +16,23 @@ jobs:
         transport: 'mqttws'
         imageName: 'windows-latest'
         consumerGroup: 'cg2'
-      py36_linux_mqtt:
-        pv: '3.6'
-        transport: 'mqtt'
-        imageName: 'Ubuntu 20.04'
-        consumerGroup: 'cg3'
       py37_linux_mqttws:
         pv: '3.7'
         transport: 'mqttws'
         imageName: 'Ubuntu 20.04'
-        consumerGroup: 'cg4'
+        consumerGroup: 'cg3'
       py38_linux_mqtt:
         pv: '3.8'
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
-        consumerGroup: 'cg5'
+        consumerGroup: 'cg4'
       py310_linux_mqtt:
         pv: '3.10'
+        transport: 'mqtt'
+        imageName: 'Ubuntu 20.04'
+        consumerGroup: 'cg5'
+      py311_linux_mqtt:
+        pv: '3.11'
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
         consumerGroup: 'cg6'

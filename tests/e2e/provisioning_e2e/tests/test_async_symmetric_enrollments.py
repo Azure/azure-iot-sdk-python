@@ -13,7 +13,6 @@ import logging
 import os
 import uuid
 
-pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
 
 
