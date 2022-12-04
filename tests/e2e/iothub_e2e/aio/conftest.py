@@ -9,7 +9,8 @@ import datetime
 import json
 import retry_async
 from utils import create_client_object
-from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
+from azure.iot.device.aio import IoTHubDeviceClient, IoTHubModuleClient
+from azure.iot.device import exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -58,7 +59,8 @@ def pytest_sessionfinish(session, exitstatus):
 
 @pytest.fixture(scope="session")
 def event_loop():
-    loop = asyncio.get_event_loop()
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
     yield loop
     loop.close()
 
@@ -95,7 +97,14 @@ async def brand_new_client(device_identity, client_kwargs, service_helper, devic
 async def client(brand_new_client):
     client = brand_new_client
 
-    await client.connect()
+    # TODO: Why is the below retry necessary at all?
+    # TODO: And even if it is necessary, why is ConnectionDroppedError showing up? (MQTTWS)
+    try:
+        await client.connect()
+    except (exceptions.ConnectionFailedError, exceptions.ConnectionDroppedError):
+        await asyncio.sleep(5)
+        logger.debug("Connection Failed in setup. Trying one more time")
+        await client.connect()
 
     yield client
 

@@ -83,7 +83,7 @@ def main():
     signal.signal(signal.SIGTERM, module_termination_handler)
 
     # Run the sample
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         loop.run_until_complete(run_sample(client))
     except Exception as e:

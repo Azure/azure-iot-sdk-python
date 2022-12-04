@@ -12,8 +12,6 @@ from retry_async import retry_exponential_backoff_with_jitter
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.fixture
 def toxic():

@@ -15,8 +15,6 @@ from retry_async import retry_exponential_backoff_with_jitter
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 # Settings that apply to all tests in this module
 TELEMETRY_PAYLOAD_SIZE = 16 * 1024
 
@@ -83,17 +81,17 @@ class TestSendMessageStress(object):
         """
 
         # We use `self.outstanding_message_ids` for logging.
-        # And we use `futures` to know when all tasks have been completed.
+        # And we use `tasks` to know when all tasks have been completed.
         self.outstanding_message_ids = set()
         test_end = time.time() + test_length_in_seconds
-        futures = list()
+        tasks = list()
 
         done_sending = False
         sleep_interval = 1 / messages_per_second
 
         try:
-            # go until time runs out and our list of futures is empty.
-            while not done_sending or len(futures) > 0:
+            # go until time runs out and our list of tasks is empty.
+            while not done_sending or len(tasks) > 0:
 
                 # When time runs out, stop sending, and slow down out loop so we call
                 # asyncio.gather much less often.
@@ -103,21 +101,21 @@ class TestSendMessageStress(object):
 
                 # if the test is still running, send another message
                 if not done_sending:
-                    task = asyncio.ensure_future(
+                    task = asyncio.create_task(
                         self.send_and_verify_single_telemetry_message(
                             client=client,
                             service_helper=service_helper,
                         )
                     )
-                    futures.append(task)
+                    tasks.append(task)
 
                 # see which tasks are done.
                 done, pending = await asyncio.wait(
-                    futures, timeout=sleep_interval, return_when=asyncio.ALL_COMPLETED
+                    tasks, timeout=sleep_interval, return_when=asyncio.ALL_COMPLETED
                 )
                 logger.info(
-                    "From {} futures, {} are done and {} are pending".format(
-                        len(futures), len(done), len(pending)
+                    "From {} tasks, {} are done and {} are pending".format(
+                        len(tasks), len(done), len(pending)
                     )
                 )
 
@@ -127,16 +125,16 @@ class TestSendMessageStress(object):
                     logger.warning("Not received: {}".format(self.outstanding_message_ids))
 
                 # Use `asyncio.gather` to reraise any exceptions that might have been raised inside our
-                # futures.
+                # tasks.
                 await asyncio.gather(*done)
 
-                # And loop again, but we only need to worry about incomplete futures.
-                futures = list(pending)
+                # And loop again, but we only need to worry about incomplete tasks.
+                tasks = list(pending)
 
         finally:
             # Clean up any (possibly) running tasks to avoid "Task exception was never retrieved" errors
-            if len(futures):
-                await task_cleanup.cleanup_tasks(futures)
+            if len(tasks):
+                await task_cleanup.cleanup_tasks(tasks)
 
     async def send_and_verify_many_telemetry_messages(self, client, service_helper, message_count):
         """
@@ -144,8 +142,8 @@ class TestSendMessageStress(object):
         """
         sleep_interval = 5
         self.outstanding_message_ids = set()
-        futures = [
-            asyncio.ensure_future(
+        tasks = [
+            asyncio.create_task(
                 self.send_and_verify_single_telemetry_message(
                     client=client,
                     service_helper=service_helper,
@@ -155,14 +153,14 @@ class TestSendMessageStress(object):
         ]
 
         try:
-            while len(futures):
+            while len(tasks):
                 # see which tasks are done.
                 done, pending = await asyncio.wait(
-                    futures, timeout=sleep_interval, return_when=asyncio.ALL_COMPLETED
+                    tasks, timeout=sleep_interval, return_when=asyncio.ALL_COMPLETED
                 )
                 logger.info(
-                    "From {} futures, {} are done and {} are pending".format(
-                        len(futures), len(done), len(pending)
+                    "From {} tasks, {} are done and {} are pending".format(
+                        len(tasks), len(done), len(pending)
                     )
                 )
 
@@ -172,16 +170,16 @@ class TestSendMessageStress(object):
                     logger.warning("Not received: {}".format(self.outstanding_message_ids))
 
                 # Use `asyncio.gather` to reraise any exceptions that might have been raised inside our
-                # futures.
+                # tasks.
                 await asyncio.gather(*done)
 
-                # And loop again, but we only need to worry about incomplete futures.
-                futures = list(pending)
+                # And loop again, but we only need to worry about incomplete tasks.
+                tasks = list(pending)
 
         finally:
             # Clean up any (possibly) running tasks to avoid "Task exception was never retrieved" errors
-            if len(futures):
-                await task_cleanup.cleanup_tasks(futures)
+            if len(tasks):
+                await task_cleanup.cleanup_tasks(tasks)
 
     async def do_periodic_network_disconnects(
         self,
@@ -287,10 +285,10 @@ class TestSendMessageStress(object):
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
     async def test_stress_send_message_with_flaky_network(
         self,
-        client,
-        service_helper,
         dropper,
         leak_tracker,
+        client,
+        service_helper,
         messages_per_second=SEND_TELEMETRY_FLAKY_NETWORK_MESSAGES_PER_SECOND,
         test_length_in_seconds=SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION,
     ):
