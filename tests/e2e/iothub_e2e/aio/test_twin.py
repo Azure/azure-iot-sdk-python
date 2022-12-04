@@ -372,8 +372,10 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(ob
         assert not get_task.done()
         await asyncio.sleep(1)
         assert not get_task.done()
+
+        # Restore and manually reconnect
         dropper.restore_all()
-        # Manually reconnect
+        await asyncio.sleep(1)
         await client.connect()
 
         # Once connection is returned, the task will finish
@@ -882,8 +884,10 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlread
         assert not patch_task.done()
         await asyncio.sleep(1)
         assert not patch_task.done()
+
+        # Restore and manually reconnect
         dropper.restore_all()
-        # Manually reconnect
+        await asyncio.sleep(1)
         await client.connect()
 
         # Once connection is returned, the task will finish
