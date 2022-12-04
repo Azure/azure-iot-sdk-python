@@ -48,6 +48,7 @@ def client(brand_new_client):
     try:
         client.connect()
     except exceptions.ConnectionDroppedError:
+        time.sleep(1)
         logger.debug("Connection Failed in setup. Trying one more time")
         client.connect()
 
