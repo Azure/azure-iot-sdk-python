@@ -9,7 +9,8 @@ import datetime
 import json
 import retry_async
 from utils import create_client_object
-from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
+from azure.iot.device.aio import IoTHubDeviceClient, IoTHubModuleClient
+from azure.iot.device import exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -96,7 +97,11 @@ async def brand_new_client(device_identity, client_kwargs, service_helper, devic
 async def client(brand_new_client):
     client = brand_new_client
 
-    await client.connect()
+    try:
+        await client.connect()
+    except exceptions.ConnectionDroppedError:
+        logger.debug("Connection Failed in setup. Trying one more time")
+        await client.connect()
 
     yield client
 

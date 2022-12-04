@@ -7,7 +7,7 @@ from dev_utils import test_env, ServiceHelperSync
 import logging
 import datetime
 from utils import create_client_object
-from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
+from azure.iot.device import IoTHubDeviceClient, IoTHubModuleClient, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -45,7 +45,11 @@ def brand_new_client(device_identity, client_kwargs, service_helper, device_id, 
 def client(brand_new_client):
     client = brand_new_client
 
-    client.connect()
+    try:
+        client.connect()
+    except exceptions.ConnectionDroppedError:
+        logger.debug("Connection Failed in setup. Trying one more time")
+        client.connect()
 
     yield client
 
