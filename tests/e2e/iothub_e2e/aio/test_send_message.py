@@ -139,6 +139,7 @@ class TestSendMessageNetworkFailureConnectionRetryEnabled(object):
         # Restore outgoing packet functionality and wait for client to reconnect
         dropper.restore_all()
         while not client.connected:
+            assert not send_task.done()
             await asyncio.sleep(0.5)
         # Wait for the send task to complete now that the client has reconnected
         await send_task

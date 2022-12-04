@@ -3,7 +3,6 @@
 # license information.
 import pytest
 import logging
-import time
 from dev_utils import iptables, test_env
 
 logger = logging.getLogger(__name__)
@@ -38,5 +37,3 @@ def dropper(transport):
     yield dropper
     logger.info("restoring all")
     dropper.restore_all()
-    # Make sure there's time for the restoration
-    time.sleep(1)

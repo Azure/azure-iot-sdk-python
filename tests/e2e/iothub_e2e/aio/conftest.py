@@ -97,9 +97,11 @@ async def brand_new_client(device_identity, client_kwargs, service_helper, devic
 async def client(brand_new_client):
     client = brand_new_client
 
+    # TODO: Why is the below retry necessary at all?
+    # TODO: And even if it is necessary, why is ConnectionDroppedError showing up? (MQTTWS)
     try:
         await client.connect()
-    except exceptions.ConnectionDroppedError:
+    except (exceptions.ConnectionFailedError, exceptions.ConnectionDroppedError):
         await asyncio.sleep(1)
         logger.debug("Connection Failed in setup. Trying one more time")
         await client.connect()

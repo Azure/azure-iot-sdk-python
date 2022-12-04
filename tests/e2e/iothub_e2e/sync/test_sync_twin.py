@@ -129,7 +129,6 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object)
             assert not get_task.done()
             time.sleep(0.5)
         # Client has now disconnected
-        assert get_task.done()
         with pytest.raises(NoConnectionError):
             get_task.result()
 
@@ -201,7 +200,6 @@ class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object
             assert not get_task.done()
             time.sleep(0.5)
         # Client has now disconnected
-        assert get_task.done()
         with pytest.raises(NoConnectionError):
             get_task.result()
 
@@ -607,7 +605,6 @@ class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnab
             assert not patch_task.done()
             time.sleep(0.5)
         # Client has now disconnected
-        assert patch_task.done()
         with pytest.raises(NoConnectionError):
             patch_task.result()
 
@@ -690,7 +687,6 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEna
             assert not patch_task.done()
             time.sleep(0.5)
         # Client has now disconnected
-        assert patch_task.done()
         with pytest.raises(NoConnectionError):
             patch_task.result()
 
