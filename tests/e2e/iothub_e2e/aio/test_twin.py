@@ -134,9 +134,9 @@ class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object)
         with pytest.raises(NoConnectionError):
             await get_task
 
-        # Restore and wait so any background operations can resolve before leak checking
+        # Restore and manual disconnect to resolve connection retry before leak checking
         dropper.restore_all()
-        await asyncio.sleep(1)
+        await client.disconnect()
         del get_task
         leak_tracker.check_for_leaks()
 
@@ -619,9 +619,9 @@ class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnab
         with pytest.raises(NoConnectionError):
             await patch_task
 
-        # Restore and wait so any background operations can resolve before leak checking
+        # Restore and manual disconnect to resolve connection retry before leak checking
         dropper.restore_all()
-        await asyncio.sleep(1)
+        await client.disconnect()
         del patch_task
         leak_tracker.check_for_leaks()
 
@@ -785,7 +785,7 @@ class TestReportedPropertiesTwinNetworkFailureConnectionRetryEnabledTwinPatchAlr
             await asyncio.sleep(0.5)
 
         # Once connection is returned, the task will finish
-        patch_task
+        await patch_task
 
         # wait for patch to arrive at service and verify
         received_patch = await service_helper.get_next_reported_patch_arrival()
@@ -887,7 +887,7 @@ class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlread
         await client.connect()
 
         # Once connection is returned, the task will finish
-        patch_task
+        await patch_task
 
         # wait for patch to arrive at service and verify
         received_patch = await service_helper.get_next_reported_patch_arrival()
