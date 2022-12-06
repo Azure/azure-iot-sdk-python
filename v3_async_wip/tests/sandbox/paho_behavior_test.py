@@ -45,7 +45,7 @@ def create_client(reconnect_on_failure=True):
         client_id=client_id,
         clean_session=False,
         protocol=mqtt.MQTTv311,
-        transport="tcp",
+        transport=TRANSPORT,
         reconnect_on_failure=reconnect_on_failure,
     )
 
