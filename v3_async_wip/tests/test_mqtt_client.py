@@ -780,14 +780,13 @@ class TestDisconnectWithClientConnectionDrop(object):
         assert mock_paho.disconnect.call_count == 1
         assert mock_paho.disconnect.call_args == mocker.call()
 
-    # NOTE: It doesn't have to, because it is already stopped
-    @pytest.mark.it("Does not stop the Paho network loop")
+    @pytest.mark.it("Stops the Paho network loop")
     async def test_network_loop(self, client, mock_paho):
         assert mock_paho.loop_stop.call_count == 0
 
         await client.disconnect()
 
-        assert mock_paho.loop_stop.call_count == 0
+        assert mock_paho.loop_stop.call_count == 1
 
     @pytest.mark.it("Leaves the client in a disconnected state")
     async def test_state(self, client, mock_paho):
@@ -860,7 +859,7 @@ class TestUnexpectedDisconnect(object):
 
         assert not client.is_connected()
 
-    @pytest.mark.it("Stops the Paho network loop")
+    @pytest.mark.it("Does not stop the Paho network loop")
     async def test_network_loop(self, client, mock_paho):
         client_set_connected(client)
         assert mock_paho.loop_stop.call_count == 0
@@ -868,7 +867,7 @@ class TestUnexpectedDisconnect(object):
         mock_paho.trigger_disconnect(rc=7)
         await asyncio.sleep(0.1)
 
-        assert mock_paho.loop_stop.call_count == 1
+        assert mock_paho.loop_stop.call_count == 0
 
 
 @pytest.mark.describe("MQTTClient - Connection Lock")

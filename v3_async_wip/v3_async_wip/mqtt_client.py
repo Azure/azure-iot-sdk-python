@@ -167,38 +167,12 @@ class MQTTClient(object):
             this = self_weakref()
             message = mqtt.error_string(rc)
 
-            # Flags indicating tasks to run
-            do_stop_loop = False
-            do_state_change = False
-
             if this.is_connected():
                 if this._should_be_connected():
                     logger.debug("Unexpected Disconnect: rc {} - {}".format(rc, message))
-                    do_stop_loop = True
-                    do_state_change = True
                 else:
                     logger.debug("Disconnect Response: rc {} - {}".format(rc, message))
-                    do_stop_loop = True
-                    do_state_change = True
-            else:
-                if this._connection_lock.connection_type == OP_TYPE_CONNECT:
-                    # Sometimes when Paho receives a failure response to a connect, the disconnect
-                    # handler is also called. Why? Who knows.
-                    # But we don't wish to issue spurious notifications or network loop stoppage.
-                    logger.debug(
-                        "Connect Failure Disconnect Response: rc {} - {}".format(rc, message)
-                    )
-                    do_stop_loop = False
-                    do_state_change = False
-                else:
-                    # Double disconnect. Suppress.
-                    # Sometimes Paho disconnects twice. Why? Who knows.
-                    # But we don't wish to issue spurious notifications or network loop stoppage.
-                    logger.debug("Double Disconnect Response: rc {} - {}".format(rc, message))
-                    do_stop_loop = False
-                    do_state_change = False
 
-            if do_state_change:
                 # Change state and notify tasks waiting on disconnect
                 async def notify_disconnected():
                     logger.debug("Client State: DISCONNECTED")
@@ -211,18 +185,19 @@ class MQTTClient(object):
                 # Paho handler invoke until we know the state is correct.
                 f.result()
 
-            # Stop the loop last. This must be the last thing, because otherwise it hangs.
-            # .loop_stop() will hang until the loop has stopped, and the loop can't stop
-            # until this callback is finished executing (because it's happening on the loop)
-            if do_stop_loop:
-                # Stop the network loop. Call this back on the event loop, since calling it from
-                # within the network loop thread will not properly stop the thread.
-                async def _stop_network_loop():
-                    logger.debug("Stopping Paho network loop...")
-                    client.loop_stop()
-                    logger.debug("Paho network loop stopped")
-
-                asyncio.run_coroutine_threadsafe(_stop_network_loop(), this._loop)
+            else:
+                if this._connection_lock.connection_type == OP_TYPE_CONNECT:
+                    # Sometimes when Paho receives a failure response to a connect, the disconnect
+                    # handler is also called. Why? Who knows.
+                    # But we don't wish to issue spurious notifications or network loop stoppage.
+                    logger.debug(
+                        "Connect Failure Disconnect Response: rc {} - {}".format(rc, message)
+                    )
+                else:
+                    # Double disconnect. Suppress.
+                    # Sometimes Paho disconnects twice. Why? Who knows.
+                    # But we don't wish to issue spurious notifications or network loop stoppage.
+                    logger.debug("Double Disconnect Response: rc {} - {}".format(rc, message))
 
         def on_subscribe(client, userdata, mid):
             pass
@@ -237,41 +212,44 @@ class MQTTClient(object):
 
         return mqtt_client
 
-    # async def _reconnect_loop(self):
-    #     logger.debug("Reconnect Daemon starting...")
-    #     try:
-    #         while True:
-    #             await asyncio.sleep(5)
-    #     except asyncio.CancelledError:
-    #         logger.debug("Reconnect Daemon was cancelled")
+    async def _reconnect_loop(self):
+        logger.debug("Reconnect Daemon starting...")
+        try:
+            while True:
+                logger.debug("Reconnect Daemon waiting for unexpected disconnect...")
+                # Wait for unexpected disconnect notification
+                async with self.disconnected_cond:
+                    await self.disconnected_cond.wait_for(
+                        lambda: not self.is_connected() and self._should_be_connected()
+                    )
+                logger.debug("Reconnect Daemon awoke due to unexpected disconnect!")
 
-    # try:
-    #     while True:
-    #         logger.debug("Reconnect Daemon waiting for unexpected disconnect...")
-    #         # Wait for disconnect notification
-    #         async with self.disconnected_cond:
-    #             await self.disconnected_cond.wait_for(self._should_be_connected)
-
-    #         logger.debug("Reconnect Daemon awoke due to unexpected disconnect!")
-    #         # Try to reconnect until connection is restored, or until
-    #         # the connection is no longer desired.
-    #         while not self.is_connected() and self._should_be_connected():
-    #             logger.debug("Reconnect Daemon attempting to reconnect...")
-    #             try:
-    #                 await self.connect()
-    #                 logger.debug("Reconnect Daemon reconnect attempt succeeded")
-    #             except exceptions.ConnectionFailedError:
-    #                 # Try again after the interval
-    #                 interval = self._reconnect_interval
-    #                 logger.debug("Reconnect Daemon reconnect attempt failed. Trying again in {} seconds".format(interval))
-    #                 await asyncio.sleep(interval)
-
-    #         logger.debug("Reconnect Daemon done reconnecting. Connected: {}, Should Be Connected: {}".format(
-    #             self.is_connected(), self._should_be_connected()
-    #         ))
-    # except asyncio.CancelledError:
-    #     logger.debug("Reconnect Daemon was cancelled")
-    #     raise
+                # Try to reconnect until connection is restored, or until the connection
+                # is no longer desired
+                while not self.is_connected() and self._should_be_connected():
+                    logger.debug("FAKE RECONNECT ATTEMPT...")
+                    # Do nothing. It's fake.
+                    logger.debug(
+                        "FAKE RECONNECT TRYING AGAIN IN {} SECONDS".format(self._reconnect_interval)
+                    )
+                    await asyncio.sleep(self._reconnect_interval)
+                    # logger.debug("Reconnect Daemon attempting to reconnect...")
+                    # try:
+                    #     await self.connect()
+                    #     logger.debug("Reconnect Daemon reconnect attempt succeeded")
+                    # except exceptions.ConnectionFailedError:
+                    #     # Try again after the interval
+                    #     interval = self._reconnect_interval
+                    #     logger.debug("Reconnect Daemon reconnect attempt failed. Trying again in {} seconds".format(interval))
+                    #     await asyncio.sleep(interval)
+                logger.debug(
+                    "Reconnect Daemon done reconnecting. Connected: {}, Should Be Connected: {}".format(
+                        self.is_connected(), self._should_be_connected()
+                    )
+                )
+        except asyncio.CancelledError:
+            logger.debug("Reconnect Daemon was cancelled")
+            raise
 
     def _should_be_connected(self):
         """Returns a boolean indicating whether we expect to be connected"""
@@ -325,8 +303,9 @@ class MQTTClient(object):
                 success = asyncio.create_task(wait_for_success())
                 failure = asyncio.create_task(wait_for_failure())
 
-                # Start the reconnect daemon
-                # self._reconnect_daemon = asyncio.create_task(self._reconnect_loop())
+                # Start the reconnect daemon (if it is not already running)
+                if self._auto_reconnect and not self._reconnect_daemon:
+                    self._reconnect_daemon = asyncio.create_task(self._reconnect_loop())
 
                 # Paho Connect
                 logger.debug("Attempting connect using port {}".format(self._port))
@@ -409,9 +388,10 @@ class MQTTClient(object):
                         await self.disconnected_cond.wait()
 
                 disconnect_done = asyncio.create_task(wait_for_disconnect())
-                # await asyncio.sleep(1)
 
-                # self._reconnect_daemon.cancel()
+                # Cancel reconnection attempts
+                if self._reconnect_daemon:
+                    self._reconnect_daemon.cancel()
 
                 # Paho Disconnect
                 # NOTE: Paho disconnect shouldn't raise any exceptions
@@ -437,8 +417,10 @@ class MQTTClient(object):
                     logger.error("Unexpected result from Paho disconnect. Doing nothing.")
                     disconnect_done.cancel()
 
-                # NOTE: Paho's network loop will be stopped in the on_disconnect handler.
-                # This is because we want to stop it whether the disconnect is expected or not.
+                # Stop the network loop. If already stopped, this will return a fail code,
+                # but we don't really care - no harm, no foul. Shouldn't even be able to
+                # happen in the first place though.
+                self._mqtt_client.loop_stop()
 
             else:
                 logger.debug("Already disconnected!")
