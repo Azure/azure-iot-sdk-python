@@ -40,7 +40,7 @@ PAHO_STATE_CONNECTION_LOST = "CONNECTION_LOST"
 @pytest.fixture(scope="module")
 def paho_threadpool():
     # TODO: verify
-    # Paho has a single network loop thread it invokes handlers on
+    # Paho has a single thread it invokes handlers on
     tpe = ThreadPoolExecutor(max_workers=1)
     yield tpe
     tpe.shutdown()
