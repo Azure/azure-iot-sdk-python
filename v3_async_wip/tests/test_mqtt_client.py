@@ -15,23 +15,26 @@ from concurrent.futures import ThreadPoolExecutor
 
 logging.basicConfig(level=logging.DEBUG)
 
-fake_hostname = "fake.hostname"
-fake_ws_path = "/fake/path"
+
 fake_device_id = "MyDevice"
+fake_hostname = "fake.hostname"
 fake_password = "fake_password"
 fake_username = fake_hostname + "/" + fake_device_id
-new_fake_password = "new fake password"
-fake_topic = "fake_topic"
-fake_payload = "some payload"
-fake_cipher = "DHE-RSA-AES128-SHA"
 fake_port = 443
-fake_qos = 1
+fake_keepalive = 1234
+fake_ws_path = "/fake/path"
 fake_mid = 52
 fake_rc = 0
-fake_success_rc = 0
-fake_failed_rc = mqtt.MQTT_ERR_PROTOCOL
-failed_connack_rc = mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED
-fake_keepalive = 1234
+
+PAHO_STATE_DISCONNECTED = "DISCONNECTED"
+PAHO_STATE_CONNECTED = "CONNECTED"
+PAHO_STATE_CONNECTION_LOST = "CONNECTION_LOST"
+
+# Worth noting that in the real Paho implementation this is not a binary value, but has
+# several states. However, the additional states are superfluous to mocking the behavior
+# relevant to testing the MQTTClient.
+
+# This state represents the "desired" state.
 
 
 @pytest.fixture(scope="module")
@@ -41,7 +44,6 @@ def paho_threadpool():
     tpe.shutdown()
 
 
-# TODO: enhance this to avoid the need to rely on ._method_rc as much
 # TODO: might want some more advanced network loop checks
 @pytest.fixture
 def mock_paho(mocker, paho_threadpool):
@@ -49,21 +51,29 @@ def mock_paho(mocker, paho_threadpool):
     capture some of the weirder Paho behaviors"""
     mock_paho = mocker.MagicMock()
     # Define a fake internal connection state for Paho.
-    # This state represents the "desired" state.
-    # It is NOT TO BE CONFUSED with the client's ._connected attribute
-    # which represents the true connection state.
     # You should not ever have to touch this manually. Please don't.
-    mock_paho._connected = False
+    #
+    # It is further worth noting that this state is different from the one used in
+    # the real implementation, because Paho doesn't store true connection state, just a
+    # "desired" connection state. The true connection is derived by other means (sockets).
+    # For simplicity, I've rolled all the information relevant to mocking behavior into a
+    # 3-state value.
+    mock_paho._state = PAHO_STATE_DISCONNECTED
     # Indicates whether or not invocations should immediately trigger completions
     mock_paho._manual_mode = False
     # Default rc value to return on invocations of method mocks
-    mock_paho._method_rc = 0
+    mock_paho._connect_rc = 0
+    mock_paho._publish_rc = 0
+    mock_paho._subscribe_rc = 0
+    mock_paho._unsubscribe_rc = 0
+    # NOTE: There is no _disconnect_rc because disconnect return values are deterministic
+    # See the implementation of trigger_disconnect and the mock disconnect below.
 
     # Utility helpers
     def trigger_connect(rc=0):
         if rc == 0:
             # State is only set to connected if successfully connecting
-            mock_paho._connected = True
+            mock_paho._state = PAHO_STATE_CONNECTED
         paho_threadpool.submit(
             mock_paho.on_connect, client=mock_paho, userdata=None, flags=None, rc=rc
         )
@@ -71,6 +81,8 @@ def mock_paho(mocker, paho_threadpool):
     mock_paho.trigger_connect = trigger_connect
 
     def trigger_disconnect(rc=0):
+        if mock_paho._state == PAHO_STATE_CONNECTED:
+            mock_paho._state = PAHO_STATE_CONNECTION_LOST
         paho_threadpool.submit(mock_paho.on_disconnect, client=mock_paho, userdata=None, rc=rc)
 
     mock_paho.trigger_disconnect = trigger_disconnect
@@ -79,24 +91,29 @@ def mock_paho(mocker, paho_threadpool):
     def is_connected(*args, **kwargs):
         """
         NOT TO BE CONFUSED WITH MQTTClient.is_connected()!!!!
-        This is Paho's inner state.
+        This is Paho's inner state. It returns True even if connection has been lost.
         """
-        return mock_paho._connected
+        return mock_paho._state != PAHO_STATE_DISCONNECTED
 
     def connect(*args, **kwargs):
         # Only trigger completion if not in manual mode
         # Only trigger completion if returning rc=0
-        if not mock_paho._manual_mode and mock_paho._method_rc == 0:
+        if not mock_paho._manual_mode and mock_paho._connect_rc == 0:
             mock_paho.trigger_connect()
-        return mock_paho._method_rc
+        return mock_paho._connect_rc
 
     def disconnect(*args, **kwargs):
-        # State is always set to disconnected, even if failure happens
-        mock_paho._connected = False
-        # Only trigger completion if not in manual mode
-        if not mock_paho._manual_mode:
-            mock_paho.trigger_disconnect()
-        return mock_paho._method_rc
+        # NOTE: THERE IS NO WAY TO OVERRIDE THIS RETURN VALUE AS IT IS DETERMINISTIC
+        # BASED ON THE PAHO STATE
+        if mock_paho._state == PAHO_STATE_CONNECTED:
+            mock_paho._state = PAHO_STATE_DISCONNECTED
+            if not mock_paho._manual_mode:
+                mock_paho.trigger_disconnect()
+            rc = 0
+        else:
+            mock_paho._state = PAHO_STATE_DISCONNECTED
+            rc = 4
+        return rc
 
     mock_paho.is_connected.side_effect = is_connected
     mock_paho.connect.side_effect = connect
@@ -123,17 +140,6 @@ async def fresh_client(mock_paho):
 
     # Reset any mock paho settings that might affect ability to disconnect
     mock_paho._manual_mode = False
-    # Ensure mocks behave correctly based on the state the client was left in
-    if client.is_connected():
-        # Connected
-        mock_paho._method_rc = 0
-    elif client._should_be_connected():
-        # Dropped Connection
-        mock_paho._method_rc = 4
-    else:
-        # Disconnected
-        mock_paho._method_rc = 4
-    # Disconnect
     await client.disconnect()
 
 
@@ -146,18 +152,18 @@ async def client(fresh_client):
 # Always use these to set the state during tests so that the client state and Paho state
 # do not get out of sync
 def client_set_connected(client):
-    client._connected = True  # Actual state
-    client._mqtt_client._connected = True  # Paho desired state
+    client._connected = True
+    client._mqtt_client._state = PAHO_STATE_CONNECTED
 
 
 def client_set_disconnected(client):
-    client._connected = False  # Actual state
-    client._mqtt_client._connected = False  # Paho desired state
+    client._connected = False
+    client._mqtt_client._state = PAHO_STATE_DISCONNECTED
 
 
 def client_set_connection_dropped(client):
-    client._connected = False  # Actual state
-    client._mqtt_client._connected = True  # Paho desired state
+    client._connected = False
+    client._mqtt_client._state = PAHO_STATE_CONNECTION_LOST
 
 
 @pytest.mark.describe("MQTTClient - Instantiation")
@@ -427,7 +433,7 @@ class ConnectWithClientNotConnectedTests(object):
         "Raises a ConnectionFailedError if invoking Paho's connect returns a failed status"
     )
     async def test_fail_status(self, client, mock_paho):
-        mock_paho._method_rc = 1
+        mock_paho._connect_rc = 1
 
         with pytest.raises(exceptions.ConnectionFailedError):
             await client.connect()
@@ -454,7 +460,7 @@ class ConnectWithClientNotConnectedTests(object):
     @pytest.mark.it("Does not start the Paho network loop if the connect returns a failed status")
     async def test_network_loop_connect_fail_status(self, client, mock_paho):
         assert mock_paho.loop_start.call_count == 0
-        mock_paho._method_rc = 1
+        mock_paho._connect_rc = 1
 
         with pytest.raises(exceptions.ConnectionFailedError):
             await client.connect()
@@ -533,7 +539,7 @@ class ConnectWithClientNotConnectedTests(object):
     )
     async def test_state_fail_status(self, client, mock_paho):
         # Return a fail status
-        mock_paho._method_rc = 1
+        mock_paho._connect_rc = 1
         assert not client.is_connected()
 
         with pytest.raises(exceptions.ConnectionFailedError):
@@ -755,8 +761,6 @@ class TestDisconnectWithClientConnected(object):
         assert not client.is_connected()
 
 
-# NOTE: Paho's .disconnect() method will always return error (rc = 4) when the client is
-# not connected. As such, all test cases here only cover rc = 4
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Connection Dropped")
 class TestDisconnectWithClientConnectionDrop(object):
     @pytest.fixture
@@ -767,7 +771,6 @@ class TestDisconnectWithClientConnectionDrop(object):
 
     @pytest.mark.it("Invokes an MQTT disconnect via Paho")
     async def test_paho_invocation(self, mocker, client, mock_paho):
-        mock_paho._method_rc = 4
         assert mock_paho.disconnect.call_count == 0
 
         await client.disconnect()
@@ -778,7 +781,6 @@ class TestDisconnectWithClientConnectionDrop(object):
     # NOTE: It doesn't have to, because it is already stopped
     @pytest.mark.it("Does not stop the Paho network loop")
     async def test_network_loop(self, client, mock_paho):
-        mock_paho._method_rc = 4
         assert mock_paho.loop_stop.call_count == 0
 
         await client.disconnect()
@@ -787,7 +789,6 @@ class TestDisconnectWithClientConnectionDrop(object):
 
     @pytest.mark.it("Leaves the client in a disconnected state")
     async def test_state(self, client, mock_paho):
-        mock_paho._method_rc = 4
         assert not client.is_connected()
 
         await client.disconnect()
@@ -796,7 +797,6 @@ class TestDisconnectWithClientConnectionDrop(object):
 
     @pytest.mark.it("Does not wait for a response before returning")
     async def test_return(self, client, mock_paho):
-        mock_paho._method_rc = 4
         # Require manual completion
         mock_paho._manual_mode = True
         # Attempt disconnect
