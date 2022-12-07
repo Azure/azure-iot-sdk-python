@@ -8,7 +8,6 @@ import asyncio
 import functools
 import logging
 import paho.mqtt.client as mqtt
-import threading
 import weakref
 from v3_async_wip import exceptions
 
@@ -79,7 +78,10 @@ class MQTTClient(object):
             client_id, transport, ssl_context, proxy_options, websockets_path
         )
 
-        # Info
+        # Connection State
+        # NOTE: This doesn't need a lock to protect it. State is only changed via Paho handlers.
+        # Those handlers cannot be run simultaneously.
+        # TODO: is this actually true though? Sure, it's only written from one place, but what about reads?
         self._connected = False
 
         # Synchronization
@@ -87,13 +89,9 @@ class MQTTClient(object):
         self.disconnected_cond = asyncio.Condition()
         self._connect_failed_cond = asyncio.Condition()
         self._connection_lock = ConnectionLock()
-        # TODO: should this be used everywhere?
-        # TODO: what exactly is this lock for? Currently just on_disconnect handler...
-        self._state_lock = threading.Lock()
 
         # Tasks
         self._reconnect_task = None
-        # self._reconnect_daemon = None
 
         # Event Loop
         self._loop = asyncio.get_running_loop()
@@ -152,8 +150,10 @@ class MQTTClient(object):
                     async with this.connected_cond:
                         this.connected_cond.notify_all()
 
-                asyncio.run_coroutine_threadsafe(state_change_connected(), this._loop)
-
+                f = asyncio.run_coroutine_threadsafe(state_change_connected(), this._loop)
+                # Need to wait for this one to finish since we don't want to let another
+                # Paho handler invoke until we know the state is correct.
+                f.result()
             else:
 
                 # Notify tasks waiting on failed connection
@@ -170,10 +170,6 @@ class MQTTClient(object):
             # Flags indicating tasks to run
             do_stop_loop = False
             do_state_change = False
-
-            # Acquire state lock here.
-            # It will be released after state is changed, or determined to be unnecessary.
-            this._state_lock.acquire()
 
             if this.is_connected():
                 if this._should_be_connected():
@@ -215,13 +211,13 @@ class MQTTClient(object):
                 async def notify_disconnected():
                     logger.debug("Client State: DISCONNECTED")
                     this._connected = False
-                    this._state_lock.release()
                     async with this.disconnected_cond:
                         this.disconnected_cond.notify_all()
 
-                asyncio.run_coroutine_threadsafe(notify_disconnected(), this._loop)
-            else:
-                this._state_lock.release()
+                f = asyncio.run_coroutine_threadsafe(notify_disconnected(), this._loop)
+                # Need to wait for this one to finish since we don't want to let another
+                # Paho handler invoke until we know the state is correct.
+                f.result()
 
         def on_subscribe(client, userdata, mid):
             pass
