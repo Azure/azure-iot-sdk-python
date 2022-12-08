@@ -26,15 +26,10 @@ fake_ws_path = "/fake/path"
 fake_mid = 52
 fake_rc = 0
 
+PAHO_STATE_NEW = "NEW"
 PAHO_STATE_DISCONNECTED = "DISCONNECTED"
 PAHO_STATE_CONNECTED = "CONNECTED"
 PAHO_STATE_CONNECTION_LOST = "CONNECTION_LOST"
-
-# Worth noting that in the real Paho implementation this is not a binary value, but has
-# several states. However, the additional states are superfluous to mocking the behavior
-# relevant to testing the MQTTClient.
-
-# This state represents the "desired" state.
 
 
 @pytest.fixture(scope="module")
@@ -136,9 +131,6 @@ async def fresh_client(mock_paho):
     client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
     assert client._mqtt_client is mock_paho
     yield client
-
-    # NOTE: Cleanup here isn't strictly NECESSARY, but is useful to show that nothing locks up
-    # TODO: This will probably become necessary soon
 
     # Reset any mock paho settings that might affect ability to disconnect
     mock_paho._manual_mode = False

@@ -144,15 +144,15 @@ class MQTTClient(object):
             if rc == mqtt.CONNACK_ACCEPTED:
 
                 # Notify tasks waiting on successful connection
-                async def state_change_connected():
+                async def set_connected():
                     logger.debug("Client State: CONNECTED")
                     this._connected = True
                     async with this.connected_cond:
                         this.connected_cond.notify_all()
 
-                f = asyncio.run_coroutine_threadsafe(state_change_connected(), this._loop)
+                f = asyncio.run_coroutine_threadsafe(set_connected(), this._loop)
                 # Need to wait for this one to finish since we don't want to let another
-                # Paho handler invoke until we know the state is correct.
+                # Paho handler invoke until we know the connection state has been set.
                 f.result()
             else:
 
@@ -167,6 +167,13 @@ class MQTTClient(object):
             this = self_weakref()
             message = mqtt.error_string(rc)
 
+            # NOTE: It's not generally safe to use .is_connected() to determine what to do, since
+            # the value could change at any time. However, it IS safe to do so here.
+            # This handler, as well as .on_connect() above, are the only two functions that can
+            # change the value. They are both invoked on Paho's network loop, which is
+            # single-threaded. This means there cannot be overlapping invocations that would
+            # change the value, and thus that the value will not change during execution of this
+            # block.
             if this.is_connected():
                 if this._should_be_connected():
                     logger.debug("Unexpected Disconnect: rc {} - {}".format(rc, message))
@@ -174,15 +181,15 @@ class MQTTClient(object):
                     logger.debug("Disconnect Response: rc {} - {}".format(rc, message))
 
                 # Change state and notify tasks waiting on disconnect
-                async def notify_disconnected():
+                async def set_disconnected():
                     logger.debug("Client State: DISCONNECTED")
                     this._connected = False
                     async with this.disconnected_cond:
                         this.disconnected_cond.notify_all()
 
-                f = asyncio.run_coroutine_threadsafe(notify_disconnected(), this._loop)
+                f = asyncio.run_coroutine_threadsafe(set_disconnected(), this._loop)
                 # Need to wait for this one to finish since we don't want to let another
-                # Paho handler invoke until we know the state is correct.
+                # Paho handler invoke until we know the connection state has been set.
                 f.result()
 
             else:
@@ -216,52 +223,49 @@ class MQTTClient(object):
         logger.debug("Reconnect Daemon starting...")
         try:
             while True:
-                logger.debug("Reconnect Daemon waiting for unexpected disconnect...")
-                # Wait for unexpected disconnect notification
                 async with self.disconnected_cond:
+                    # NOTE: is_connected() MUST be evaluated first
                     await self.disconnected_cond.wait_for(
                         lambda: not self.is_connected() and self._should_be_connected()
                     )
-                logger.debug("Reconnect Daemon awoke due to unexpected disconnect!")
-
-                # Try to reconnect until connection is restored, or until the connection
-                # is no longer desired
-                while not self.is_connected() and self._should_be_connected():
-                    logger.debug("FAKE RECONNECT ATTEMPT...")
-                    # Do nothing. It's fake.
+                try:
+                    logger.debug("Reconnect Daemon attempting to reconnect...")
+                    logger.debug("FAKE RECONNECT")
+                    raise exceptions.ConnectionFailedError
+                    # # TODO: This changes Paho's internal state and breaks the code
+                    # await self.connect()
+                    # logger.debug("Reconnect Daemon reconnect attempt succeeded")
+                except exceptions.ConnectionFailedError:
+                    interval = self._reconnect_interval
                     logger.debug(
-                        "FAKE RECONNECT TRYING AGAIN IN {} SECONDS".format(self._reconnect_interval)
+                        "Reconnect Daemon reconnect attempt failed. Trying again in {} seconds".format(
+                            interval
+                        )
                     )
-                    await asyncio.sleep(self._reconnect_interval)
-                    # logger.debug("Reconnect Daemon attempting to reconnect...")
-                    # try:
-                    #     await self.connect()
-                    #     logger.debug("Reconnect Daemon reconnect attempt succeeded")
-                    # except exceptions.ConnectionFailedError:
-                    #     # Try again after the interval
-                    #     interval = self._reconnect_interval
-                    #     logger.debug("Reconnect Daemon reconnect attempt failed. Trying again in {} seconds".format(interval))
-                    #     await asyncio.sleep(interval)
-                logger.debug(
-                    "Reconnect Daemon done reconnecting. Connected: {}, Should Be Connected: {}".format(
-                        self.is_connected(), self._should_be_connected()
-                    )
-                )
+                    await asyncio.sleep(interval)
         except asyncio.CancelledError:
             logger.debug("Reconnect Daemon was cancelled")
             raise
 
     def _should_be_connected(self):
-        """Returns a boolean indicating whether we expect to be connected"""
+        """Returns a boolean indicating whether we expect to be connected
+
+        Note that while this value is only accurate as of the time it returns, it is generally
+        safer to use than the below .is_connected(). It can't just change at any time, it can
+        only be changed by invocations into Paho.
+        """
         # Counter-intuitively, Paho's .is_connected() does not indicate the true connection state.
         # Rather, it returns whether Paho *thinks* it should be connected.
-        # Fortunately, this is still pretty useful information for identifying
-        # unexpected disconnects. We alias it here for more readable code.
+        # Fortunately, this is still pretty useful information for identifying unexpected
+        # disconnects. We alias it here for more readable code.
         return self._mqtt_client.is_connected()
 
     def is_connected(self):
         """
         Returns a boolean indicating whether the MQTT client is currently connected.
+
+        Note that this value is only accurate as of the time it returns. It could change at
+        any point.
         """
         return self._connected
 
@@ -269,7 +273,7 @@ class MQTTClient(object):
         """
         Set a username and optionally a password for broker authentication.
 
-        Must be called before connect() to have any effect.
+        Must be called before .connect() to have any effect.
 
         :param str username: The username for broker authentication
         :param str password: The password for broker authentication (Optional)
@@ -284,6 +288,13 @@ class MQTTClient(object):
         """
         # Wait for permission to alter the connection
         async with self._connection_lock:
+            # NOTE: It's not generally safe to use .is_connected() to determine what to do, since
+            # the value could change at any time. However, it IS safe to do so here. The only way
+            # to become connected is to invoke a Paho .connect() and wait for a success. Due to the
+            # fact that this is the only method that can invoke Paho's .connect(), it does not
+            # return until a response is received, and it is protected by the ConnectionLock,
+            # we can be sure that there can't be overlapping invocations of Paho .connect().
+            # Thus, we know that the state will not be changing on us within this block.
             if not self.is_connected():
                 # Record the type of operation in progress
                 self._connection_lock.connection_type = OP_TYPE_CONNECT
@@ -303,9 +314,12 @@ class MQTTClient(object):
                 success = asyncio.create_task(wait_for_success())
                 failure = asyncio.create_task(wait_for_failure())
 
-                # Start the reconnect daemon (if it is not already running)
+                # Start the reconnect daemon (if enabled and not already running)
                 if self._auto_reconnect and not self._reconnect_daemon:
                     self._reconnect_daemon = asyncio.create_task(self._reconnect_loop())
+
+                # Make sure the tasks are running
+                await asyncio.sleep(0)
 
                 # Paho Connect
                 logger.debug("Attempting connect using port {}".format(self._port))
@@ -336,8 +350,8 @@ class MQTTClient(object):
                         "Connect returned rc {} - {}".format(rc, message)
                     )
 
-                # Start Paho network loop
-                logger.debug("Starting Paho network loop")
+                # Start Paho network loop. If already started, this will return a fail code,
+                # but we don't really care - no harm, no foul.
                 self._mqtt_client.loop_start()
 
                 # Wait for connection to complete (success or fail)
@@ -388,6 +402,9 @@ class MQTTClient(object):
                         await self.disconnected_cond.wait()
 
                 disconnect_done = asyncio.create_task(wait_for_disconnect())
+
+                # Make sure the task is running
+                await asyncio.sleep(0)
 
                 # Cancel reconnection attempts
                 if self._reconnect_daemon:
