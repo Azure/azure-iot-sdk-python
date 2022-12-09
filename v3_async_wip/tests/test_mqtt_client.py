@@ -34,7 +34,6 @@ PAHO_STATE_CONNECTION_LOST = "CONNECTION_LOST"
 
 @pytest.fixture(scope="module")
 def paho_threadpool():
-    # TODO: verify
     # Paho has a single thread it invokes handlers on
     tpe = ThreadPoolExecutor(max_workers=1)
     yield tpe
@@ -73,8 +72,6 @@ def mock_paho(mocker, paho_threadpool):
             mock_paho._state = PAHO_STATE_CONNECTED
         else:
             # If it fails it ends up in a "new" state.
-            # TODO: OR DOES IT? Can connect even return a failed rc? How?
-            # TODO: trace through to see what would happen. I suspect it sets to new no matter what, then later sets to connected if it works out
             mock_paho._state = PAHO_STATE_NEW
         paho_threadpool.submit(
             mock_paho.on_connect, client=mock_paho, userdata=None, flags=None, rc=rc
@@ -431,6 +428,37 @@ class TestIsConnected(object):
 # or a paired invocation of both Paho's .on_connect and .on_disconnect. Both cases are covered.
 # Why does this happen? I don't know. But it does, and the client is designed to handle it.
 class ConnectWithClientNotConnectedTests(object):
+    @pytest.mark.it(
+        "Starts the reconnect daemon and stores its task if auto_reconnect is enabled and the daemon is not yet running"
+    )
+    async def test_reconnect_daemon_enabled_not_running(self, client):
+        client._auto_reconnect = True
+        assert client._reconnect_daemon is None
+
+        await client.connect()
+
+        assert isinstance(client._reconnect_daemon, asyncio.Task)
+        assert not client._reconnect_daemon.done()
+
+    @pytest.mark.it("Does not start the reconnect daemon if auto_reconnect is disabled")
+    async def test_reconnect_daemon_disabled(self, client):
+        assert client._auto_reconnect is False
+        assert client._reconnect_daemon is None
+
+        await client.connect()
+
+        assert client._reconnect_daemon is None
+
+    @pytest.mark.it("Does not start the reconnect daemon if it is already running")
+    async def test_reconnect_daemon_running(self, mocker, client):
+        client._auto_reconnect is True
+        mock_task = mocker.MagicMock()
+        client._reconnect_daemon = mock_task
+
+        await client.connect()
+
+        assert client._reconnect_daemon is mock_task
+
     @pytest.mark.it("Invokes an MQTT connect via Paho using stored values")
     async def test_paho_invocation(self, mocker, client, mock_paho):
         assert mock_paho.connect.call_count == 0
@@ -596,6 +624,69 @@ class ConnectWithClientNotConnectedTests(object):
         assert not client.is_connected()
 
     @pytest.mark.it(
+        "Leaves the reconnect daemon running if there is a failure invoking Paho's connect"
+    )
+    async def test_reconnect_daemon_fail_raise(self, client, mock_paho, arbitrary_exception):
+        client._auto_reconnect = True
+        assert client._reconnect_daemon is None
+        # Raise failure from connect
+        mock_paho.connect.side_effect = arbitrary_exception
+
+        with pytest.raises(exceptions.ConnectionFailedError):
+            await client.connect()
+
+        assert isinstance(client._reconnect_daemon, asyncio.Task)
+        assert not client._reconnect_daemon.done()
+
+    @pytest.mark.it(
+        "Leaves the reconnect daemon running if invoking Paho's connect returns a failed status"
+    )
+    async def test_reconnect_daemon_fail_status(self, client, mock_paho):
+        # Return a fail status
+        mock_paho._connect_rc = 1
+        client._auto_reconnect = True
+        assert client._reconnect_daemon is None
+
+        with pytest.raises(exceptions.ConnectionFailedError):
+            await client.connect()
+
+        assert isinstance(client._reconnect_daemon, asyncio.Task)
+        assert not client._reconnect_daemon.done()
+
+    @pytest.mark.it(
+        "Leaves the reconnect daemon running if the connect attempt receives a failure response"
+    )
+    @pytest.mark.parametrize(
+        "paired_failure",
+        [
+            pytest.param(False, id="Single Connect Failure Response"),
+            pytest.param(True, id="Paired Connect/Disconnect Failure Response"),
+        ],
+    )
+    async def test_reconnect_daemon_fail_response(self, client, mock_paho, paired_failure):
+        # Require manual completion
+        mock_paho._manual_mode = True
+        client._auto_reconnect = True
+        assert client._reconnect_daemon is None
+
+        # Attempt connect
+        connect_task = asyncio.create_task(client.connect())
+        # Send fail response
+        mock_paho.trigger_connect(rc=5)
+        # if paired_failure:
+        #     mock_paho.trigger_disconnect(rc=5)
+
+        with pytest.raises(exceptions.ConnectionFailedError):
+            await connect_task
+
+        assert isinstance(client._reconnect_daemon, asyncio.Task)
+        assert not client._reconnect_daemon.done()
+        # Some test cases will need some help cleaning up
+        # TODO: is there a cleaner way to make sure this happens smoothly?
+        # TODO: the issue is I think that connect is getting called by the task before it can get cleaned
+        client._reconnect_daemon.cancel()
+
+    @pytest.mark.it(
         "Stops the Paho network loop if the connect attempt receives a failure response"
     )
     @pytest.mark.parametrize(
@@ -666,12 +757,21 @@ class TestConnectWithClientConnected(object):
         return client
 
     @pytest.mark.it("Does not invoke an MQTT connect via Paho")
-    async def test_paho_invocation(self, mocker, client, mock_paho):
+    async def test_paho_invocation(self, client, mock_paho):
         assert mock_paho.connect.call_count == 0
 
         await client.connect()
 
         assert mock_paho.connect.call_count == 0
+
+    @pytest.mark.it("Does not start the reconnect daemon")
+    async def test_reconnect_daemon(self, client, mock_paho):
+        client._auto_reconnect = True
+        assert client._reconnect_daemon is None
+
+        await client.connect()
+
+        assert client._reconnect_daemon is None
 
     @pytest.mark.it("Does not start the Paho network loop")
     async def test_network_loop(self, client, mock_paho):
@@ -744,6 +844,34 @@ class TestDisconnectWithClientConnected(object):
             mock_paho.trigger_disconnect(rc=0)
         await disconnect_task
 
+    @pytest.mark.it("Cancels and removes the reconnect daemon task if it is running")
+    @pytest.mark.parametrize(
+        "double_response",
+        [
+            pytest.param(False, id="Single Disconnect Response"),
+            pytest.param(True, id="Double Disconnect Response"),
+        ],
+    )
+    async def test_reconnect_daemon(self, mocker, client, mock_paho, double_response):
+        # Require manual completion
+        mock_paho._manual_mode = True
+        # Set a fake daemon task
+        mock_task = mocker.MagicMock()
+        client._reconnect_daemon = mock_task
+
+        # Start a disconnect.
+        disconnect_task = asyncio.create_task(client.disconnect())
+        await asyncio.sleep(0.1)
+        # Trigger disconnect completion
+        mock_paho.trigger_disconnect(rc=0)
+        if double_response:
+            mock_paho.trigger_disconnect(rc=0)
+        await disconnect_task
+
+        # Daemon was cancelled
+        assert mock_task.cancel.call_count == 1
+        assert client._reconnect_daemon is None
+
     @pytest.mark.it("Stops the Paho network loop")
     @pytest.mark.parametrize(
         "double_response",
@@ -765,8 +893,6 @@ class TestDisconnectWithClientConnected(object):
         if double_response:
             mock_paho.trigger_disconnect(rc=0)
         await disconnect_task
-        # Wait for loop to be stopped in other task
-        await asyncio.sleep(0.1)
         assert mock_paho.loop_stop.call_count == 1
 
     @pytest.mark.it("Puts the client in a disconnected state")
@@ -784,6 +910,7 @@ class TestDisconnectWithClientConnected(object):
 
         # Start a disconnect.
         disconnect_task = asyncio.create_task(client.disconnect())
+        await asyncio.sleep(0.1)
         # Trigger disconnect completion
         mock_paho.trigger_disconnect(rc=0)
         if double_response:
@@ -809,6 +936,17 @@ class TestDisconnectWithClientConnectionDrop(object):
 
         assert mock_paho.disconnect.call_count == 1
         assert mock_paho.disconnect.call_args == mocker.call()
+
+    @pytest.mark.it("Cancels and removes the reconnect daemon task if it is running")
+    async def test_reconnect_daemon(self, mocker, client):
+        # Set a fake daemon task
+        mock_task = mocker.MagicMock()
+        client._reconnect_daemon = mock_task
+
+        await client.disconnect()
+
+        assert mock_task.cancel.call_count == 1
+        assert client._reconnect_daemon is None
 
     # NOTE: It doesn't stop it because it has already been stopped when the connection dropped
     @pytest.mark.it("Does not stop the Paho network loop")
@@ -852,6 +990,18 @@ class DisconnectWithClientFullyDisconnectedTests(object):
         await client.disconnect()
 
         assert mock_paho.disconnect.call_count == 0
+
+    # NOTE: This is a completely invalid scenario, there's no way for it to happen
+    @pytest.mark.it("Does not alter the reconnect daemon")
+    async def test_reconnect_daemon(self, mocker, client):
+        # Set a fake daemon task
+        mock_task = mocker.MagicMock()
+        client._reconnect_daemon = mock_task
+
+        await client.disconnect()
+
+        assert mock_task.cancel.call_count == 0
+        assert client._reconnect_daemon is mock_task
 
     @pytest.mark.it("Does not stop the Paho network loop")
     async def test_network_loop(self, client, mock_paho):
@@ -916,6 +1066,19 @@ class TestUnexpectedDisconnect(object):
         await asyncio.sleep(0.1)
 
         assert mock_paho.loop_stop.call_count == 1
+
+    @pytest.mark.it("Does not alter the reconnect daemon")
+    async def test_reconnect_daemon(self, mocker, client, mock_paho):
+        client_set_connected(client)
+        client._auto_reconnect = True
+        mock_task = mocker.MagicMock()
+        client._reconnect_daemon = mock_task
+
+        mock_paho.trigger_disconnect(rc=7)
+        await asyncio.sleep(0.1)
+
+        assert mock_task.cancel.call_count == 0
+        assert client._reconnect_daemon is mock_task
 
 
 @pytest.mark.describe("MQTTClient - Connection Lock")

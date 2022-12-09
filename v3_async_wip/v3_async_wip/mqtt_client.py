@@ -78,8 +78,9 @@ class MQTTClient(object):
             client_id, transport, ssl_context, proxy_options, websockets_path
         )
 
-        # Connection State
-        # NOTE: These values do not need locks to protect them.
+        # State
+        # NOTE: These values do not need to be protected by locks since the code paths that
+        # modify them cannot be invoked in parallel.
         self._connected = False
         self._desire_connection = False
 
@@ -179,7 +180,7 @@ class MQTTClient(object):
             # change the value, and thus that the value will not change during execution of this
             # block.
             if this.is_connected():
-                if this._should_be_connected():
+                if this._desire_connection:
                     logger.debug("Unexpected Disconnect: rc {} - {}".format(rc, message))
                     do_set_disconnect = True
                     do_stop_network_loop = True
@@ -240,15 +241,17 @@ class MQTTClient(object):
 
     async def _reconnect_loop(self):
         logger.debug("Reconnect Daemon starting...")
+        current_attempt = None
         try:
             while True:
                 async with self.disconnected_cond:
                     await self.disconnected_cond.wait_for(
-                        lambda: not self.is_connected() and self._should_be_connected()
+                        lambda: not self.is_connected() and self._desire_connection
                     )
                 try:
                     logger.debug("Reconnect Daemon attempting to reconnect...")
-                    await self.connect()
+                    current_attempt = asyncio.create_task(self.connect())
+                    await current_attempt
                     logger.debug("Reconnect Daemon reconnect attempt succeeded")
                 except exceptions.ConnectionFailedError:
                     interval = self._reconnect_interval
@@ -260,16 +263,8 @@ class MQTTClient(object):
                     await asyncio.sleep(interval)
         except asyncio.CancelledError:
             logger.debug("Reconnect Daemon was cancelled")
+            current_attempt.cancel()
             raise
-
-    def _should_be_connected(self):
-        """Returns a boolean indicating whether we expect to be connected
-
-        Note that while this value is only accurate as of the time it returns, it is generally
-        safer to use than the below .is_connected(). It can't just change at any time, it can
-        only be changed by invocations into Paho.
-        """
-        return self._desire_connection
 
     def is_connected(self):
         """
@@ -395,13 +390,15 @@ class MQTTClient(object):
 
     async def disconnect(self):
         """
-        Disconnect from the MQTT broker
+        Disconnect from the MQTT broker.
+
+        Ensure this is called for graceful exit.
         """
         # Wait for permission to alter the connection
         async with self._connection_lock:
             loop = asyncio.get_running_loop()
 
-            if self._should_be_connected():
+            if self._desire_connection:
                 # Record the type of operation in progress
                 self._connection_lock.connection_type = OP_TYPE_DISCONNECT
 
@@ -425,6 +422,7 @@ class MQTTClient(object):
                 # Cancel reconnection attempts
                 if self._reconnect_daemon:
                     self._reconnect_daemon.cancel()
+                    self._reconnect_daemon = None
 
                 # Paho Disconnect
                 # NOTE: Paho disconnect shouldn't raise any exceptions
