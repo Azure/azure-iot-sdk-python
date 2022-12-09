@@ -54,7 +54,7 @@ def mock_paho(mocker, paho_threadpool):
     # the real implementation, because Paho doesn't store true connection state, just a
     # "desired" connection state. The true connection is derived by other means (sockets).
     # For simplicity, I've rolled all the information relevant to mocking behavior into a
-    # 3-state value.
+    # 4-state value.
     mock_paho._state = PAHO_STATE_NEW
     # Indicates whether or not invocations should immediately trigger completions
     mock_paho._manual_mode = False
