@@ -55,7 +55,7 @@ def mock_paho(mocker, paho_threadpool):
     # "desired" connection state. The true connection is derived by other means (sockets).
     # For simplicity, I've rolled all the information relevant to mocking behavior into a
     # 3-state value.
-    mock_paho._state = PAHO_STATE_DISCONNECTED
+    mock_paho._state = PAHO_STATE_NEW
     # Indicates whether or not invocations should immediately trigger completions
     mock_paho._manual_mode = False
     # Default rc value to return on invocations of method mocks
@@ -71,6 +71,11 @@ def mock_paho(mocker, paho_threadpool):
         if rc == 0:
             # State is only set to connected if successfully connecting
             mock_paho._state = PAHO_STATE_CONNECTED
+        else:
+            # If it fails it ends up in a "new" state.
+            # TODO: OR DOES IT? Can connect even return a failed rc? How?
+            # TODO: trace through to see what would happen. I suspect it sets to new no matter what, then later sets to connected if it works out
+            mock_paho._state = PAHO_STATE_NEW
         paho_threadpool.submit(
             mock_paho.on_connect, client=mock_paho, userdata=None, flags=None, rc=rc
         )
@@ -127,14 +132,18 @@ def mock_paho(mocker, paho_threadpool):
 
 @pytest.fixture
 async def fresh_client(mock_paho):
-    # Implicitly imports the mocked Paho MQTT Client due to patch in mock_paho
-    client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+    # NOTE: Implicitly imports the mocked Paho MQTT Client due to patch in mock_paho
+    client = MQTTClient(
+        client_id=fake_device_id, hostname=fake_hostname, port=fake_port, auto_reconnect=False
+    )
     assert client._mqtt_client is mock_paho
     yield client
 
     # Reset any mock paho settings that might affect ability to disconnect
     mock_paho._manual_mode = False
     await client.disconnect()
+    # Ensure network loop isn't running
+    assert client._network_loop_done.is_set()
 
 
 @pytest.fixture
@@ -147,17 +156,23 @@ async def client(fresh_client):
 # do not get out of sync
 def client_set_connected(client):
     client._connected = True
+    client._desire_connection = True
     client._mqtt_client._state = PAHO_STATE_CONNECTED
+    client._network_loop_done.clear()
 
 
 def client_set_disconnected(client):
     client._connected = False
+    client._desire_connection = False
     client._mqtt_client._state = PAHO_STATE_DISCONNECTED
+    client._network_loop_done.set()
 
 
 def client_set_connection_dropped(client):
     client._connected = False
+    client._desire_connection = True
     client._mqtt_client._state = PAHO_STATE_CONNECTION_LOST
+    client._network_loop_done.set()
 
 
 @pytest.mark.describe("MQTTClient - Instantiation")
@@ -599,6 +614,8 @@ class ConnectWithClientNotConnectedTests(object):
             mock_paho.trigger_disconnect(rc=5)
         with pytest.raises(exceptions.ConnectionFailedError):
             await connect_task
+
+        # Network loop was stopped
         assert mock_paho.loop_start.call_count == 1
         assert mock_paho.loop_stop.call_count == 1
 
@@ -728,7 +745,8 @@ class TestDisconnectWithClientConnected(object):
         if double_response:
             mock_paho.trigger_disconnect(rc=0)
         await disconnect_task
-
+        # Wait for loop to be stopped in other task
+        await asyncio.sleep(0.1)
         assert mock_paho.loop_stop.call_count == 1
 
     @pytest.mark.it("Puts the client in a disconnected state")
@@ -772,13 +790,14 @@ class TestDisconnectWithClientConnectionDrop(object):
         assert mock_paho.disconnect.call_count == 1
         assert mock_paho.disconnect.call_args == mocker.call()
 
-    @pytest.mark.it("Stops the Paho network loop")
+    # NOTE: It doesn't stop it because it has already been stopped when the connection dropped
+    @pytest.mark.it("Does not stop the Paho network loop")
     async def test_network_loop(self, client, mock_paho):
         assert mock_paho.loop_stop.call_count == 0
 
         await client.disconnect()
 
-        assert mock_paho.loop_stop.call_count == 1
+        assert mock_paho.loop_stop.call_count == 0
 
     @pytest.mark.it("Leaves the client in a disconnected state")
     async def test_state(self, client, mock_paho):
@@ -851,7 +870,7 @@ class TestUnexpectedDisconnect(object):
 
         assert not client.is_connected()
 
-    @pytest.mark.it("Does not stop the Paho network loop")
+    @pytest.mark.it("Stops the Paho network loop")
     async def test_network_loop(self, client, mock_paho):
         client_set_connected(client)
         assert mock_paho.loop_stop.call_count == 0
@@ -859,7 +878,7 @@ class TestUnexpectedDisconnect(object):
         mock_paho.trigger_disconnect(rc=7)
         await asyncio.sleep(0.1)
 
-        assert mock_paho.loop_stop.call_count == 0
+        assert mock_paho.loop_stop.call_count == 1
 
 
 @pytest.mark.describe("MQTTClient - Connection Lock")
