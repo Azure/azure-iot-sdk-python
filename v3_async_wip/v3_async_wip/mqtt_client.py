@@ -88,8 +88,6 @@ class MQTTClient(object):
         self.disconnected_cond = asyncio.Condition()
         self._connect_failed_cond = asyncio.Condition()
         self._connection_lock = ConnectionLock()
-        self._network_loop_done = asyncio.Event()
-        self._network_loop_done.set()
 
         # Tasks
         self._reconnect_daemon = None
@@ -169,6 +167,10 @@ class MQTTClient(object):
             this = self_weakref()
             message = mqtt.error_string(rc)
 
+            # To Do List
+            do_set_disconnect = False
+            do_stop_network_loop = False
+
             # NOTE: It's not generally safe to use .is_connected() to determine what to do, since
             # the value could change at any time. However, it IS safe to do so here.
             # This handler, as well as .on_connect() above, are the only two functions that can
@@ -179,9 +181,26 @@ class MQTTClient(object):
             if this.is_connected():
                 if this._should_be_connected():
                     logger.debug("Unexpected Disconnect: rc {} - {}".format(rc, message))
+                    do_set_disconnect = True
+                    do_stop_network_loop = True
                 else:
                     logger.debug("Disconnect Response: rc {} - {}".format(rc, message))
+                    do_set_disconnect = True
+            else:
+                if this._connection_lock.connection_type == OP_TYPE_CONNECT:
+                    # Sometimes when Paho receives a failure response to a connect, the disconnect
+                    # handler is also called. Why? Who knows.
+                    # But we don't wish to issue spurious notifications or event loop stoppages.
+                    logger.debug(
+                        "Connect Failure Disconnect Response: rc {} - {}".format(rc, message)
+                    )
+                else:
+                    # Double disconnect. Suppress.
+                    # Sometimes Paho disconnects twice. Why? Who knows.
+                    # But we don't wish to issue spurious notifications or event loop stoppages.
+                    logger.debug("Double Disconnect Response: rc {} - {}".format(rc, message))
 
+            if do_set_disconnect:
                 # Change state and notify tasks waiting on disconnect
                 async def set_disconnected():
                     logger.debug("Client State: DISCONNECTED")
@@ -194,30 +213,17 @@ class MQTTClient(object):
                 # Paho handler invoke until we know the connection state has been set.
                 f.result()
 
-            else:
-                if this._connection_lock.connection_type == OP_TYPE_CONNECT:
-                    # Sometimes when Paho receives a failure response to a connect, the disconnect
-                    # handler is also called. Why? Who knows.
-                    # But we don't wish to issue spurious notifications.
-                    logger.debug(
-                        "Connect Failure Disconnect Response: rc {} - {}".format(rc, message)
-                    )
-                else:
-                    # Double disconnect. Suppress.
-                    # Sometimes Paho disconnects twice. Why? Who knows.
-                    # But we don't wish to issue spurious notifications.
-                    logger.debug("Double Disconnect Response: rc {} - {}".format(rc, message))
+            if do_stop_network_loop:
 
-            # If the network loop is not already stopped, stop it in all cases.
-            async def stop_network_loop():
-                if not this._network_loop_done.is_set():
-                    logger.debug("Stopping Paho network loop")
+                async def stop_network_loop():
+                    logger.debug("Stopping Paho network loop due to unexpected disconnect")
                     client.loop_stop()
-                    this._network_loop_done.set()
 
-            # NOTE: This coroutine can't finish execution until after this handler exits
-            # since this handler itself is running on the network loop.
-            asyncio.run_coroutine_threadsafe(stop_network_loop(), this._loop)
+                # NOTE: This coroutine can't finish execution until after this handler exits
+                # since this handler itself is running on the network loop.
+                # This means this MUST be the last task that gets scheduled in this handler,
+                # since .loop_stop() will block until this handler finishes running.
+                asyncio.run_coroutine_threadsafe(stop_network_loop(), this._loop)
 
         def on_subscribe(client, userdata, mid):
             pass
@@ -242,8 +248,6 @@ class MQTTClient(object):
                     )
                 try:
                     logger.debug("Reconnect Daemon attempting to reconnect...")
-                    # logger.debug("FAKE RECONNECT")
-                    # raise exceptions.ConnectionFailedError
                     await self.connect()
                     logger.debug("Reconnect Daemon reconnect attempt succeeded")
                 except exceptions.ConnectionFailedError:
@@ -366,7 +370,6 @@ class MQTTClient(object):
                 # but we don't really care - no harm, no foul.
                 logger.debug("Starting Paho network loop")
                 self._mqtt_client.loop_start()
-                self._network_loop_done.clear()
 
                 # Wait for connection to complete (success or fail)
                 logger.debug("Waiting for connect response...")
@@ -388,12 +391,8 @@ class MQTTClient(object):
                 # Raise exception if connect failed in response
                 completed = done.pop()
                 if completed is failure:
-                    # Stop network loop if necessary. May have already been done if the
-                    # on_disconnect handler was triggered.
-                    if not self._network_loop_done.is_set():
-                        logger.debug("Stopping Paho network loop")
-                        self._mqtt_client.loop_stop()
-                        self._network_loop_done.set()
+                    logger.debug("Stopping Paho network loop due to connect failure")
+                    self._mqtt_client.loop_stop()
                     raise exceptions.ConnectionFailedError("Connect response failure")
 
             else:
@@ -443,6 +442,8 @@ class MQTTClient(object):
                     # Wait for disconnection to complete
                     logger.debug("Waiting for disconnect response...")
                     await disconnect_done
+                    logger.debug("Stopping Paho network loop")
+                    self._mqtt_client.loop_stop()
                 elif rc == mqtt.MQTT_ERR_NO_CONN:
                     # This happens when we disconnect while already disconnected.
                     # In this implementation, it should only happen if Paho's inner state
@@ -455,9 +456,6 @@ class MQTTClient(object):
                     # This block should never execute
                     logger.error("Unexpected result from Paho disconnect. Doing nothing.")
                     disconnect_done.cancel()
-
-                # TODO: Wait for network loop?
-                await self._network_loop_done.wait()
 
             else:
                 logger.debug("Already disconnected!")

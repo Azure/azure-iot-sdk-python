@@ -142,8 +142,6 @@ async def fresh_client(mock_paho):
     # Reset any mock paho settings that might affect ability to disconnect
     mock_paho._manual_mode = False
     await client.disconnect()
-    # Ensure network loop isn't running
-    assert client._network_loop_done.is_set()
 
 
 @pytest.fixture
@@ -158,21 +156,21 @@ def client_set_connected(client):
     client._connected = True
     client._desire_connection = True
     client._mqtt_client._state = PAHO_STATE_CONNECTED
-    client._network_loop_done.clear()
 
 
 def client_set_disconnected(client):
     client._connected = False
     client._desire_connection = False
     client._mqtt_client._state = PAHO_STATE_DISCONNECTED
-    client._network_loop_done.set()
 
 
 def client_set_connection_dropped(client):
     client._connected = False
     client._desire_connection = True
     client._mqtt_client._state = PAHO_STATE_CONNECTION_LOST
-    client._network_loop_done.set()
+
+
+# TODO: Probably ought to have a Never Connected for accuracy
 
 
 @pytest.mark.describe("MQTTClient - Instantiation")
@@ -740,6 +738,7 @@ class TestDisconnectWithClientConnected(object):
 
         # Start a disconnect.
         disconnect_task = asyncio.create_task(client.disconnect())
+        await asyncio.sleep(0.1)
         # Trigger disconnect completion
         mock_paho.trigger_disconnect(rc=0)
         if double_response:
