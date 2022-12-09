@@ -270,11 +270,6 @@ class MQTTClient(object):
         only be changed by invocations into Paho.
         """
         return self._desire_connection
-        # # Counter-intuitively, Paho's .is_connected() does not indicate the true connection state.
-        # # Rather, it returns whether Paho *thinks* it should be connected.
-        # # Fortunately, this is still pretty useful information for identifying unexpected
-        # # disconnects. We alias it here for more readable code.
-        # return self._mqtt_client.is_connected()
 
     def is_connected(self):
         """

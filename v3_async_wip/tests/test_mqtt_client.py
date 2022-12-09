@@ -153,24 +153,38 @@ async def client(fresh_client):
 # Always use these to set the state during tests so that the client state and Paho state
 # do not get out of sync
 def client_set_connected(client):
+    """Set the client to a connected state"""
     client._connected = True
     client._desire_connection = True
     client._mqtt_client._state = PAHO_STATE_CONNECTED
 
 
 def client_set_disconnected(client):
+    """Set the client to an (intentionally) disconnected state"""
     client._connected = False
     client._desire_connection = False
     client._mqtt_client._state = PAHO_STATE_DISCONNECTED
 
 
 def client_set_connection_dropped(client):
+    """Set the client to a state representing an unexpected disconnect"""
     client._connected = False
     client._desire_connection = True
     client._mqtt_client._state = PAHO_STATE_CONNECTION_LOST
 
 
-# TODO: Probably ought to have a Never Connected for accuracy
+def client_set_fresh(client):
+    """Set a client to a fresh state.
+    This could either be a client that has never been connected or a client that has had a
+    connection failure (even if it was previously connected). This is because Paho resets its
+    state when making a connection attempt.
+
+    FOR ALL INTENTS AND PURPOSES A CLIENT IN THIS STATE SHOULD BEHAVE EXACTLY THE SAME AS
+    ONE IN A DISCONNECTED STATE. USE THE SAME TESTS FOR BOTH.
+    """
+    client._connected = False
+    client._desire_connection = False
+    client._mqtt_client._state = PAHO_STATE_NEW
 
 
 @pytest.mark.describe("MQTTClient - Instantiation")
@@ -410,9 +424,9 @@ class TestIsConnected(object):
         assert client.is_connected() == connected
 
 
-# NOTE: Because clients in Disconnected and Connection Dropped states have the same behaviors
-# during a connect, define a parent class that can be subclassed so tests don't have to be
-# written twice.
+# NOTE: Because clients in Disconnected, Connection Dropped, and Fresh states have the same
+# behaviors during a connect, define a parent class that can be subclassed so tests don't have
+# to be written twice.
 # NOTE: Failure responses can be either a single invocation of Paho's .on_connect handler
 # or a paired invocation of both Paho's .on_connect and .on_disconnect. Both cases are covered.
 # Why does this happen? I don't know. But it does, and the client is designed to handle it.
@@ -618,6 +632,13 @@ class ConnectWithClientNotConnectedTests(object):
         assert mock_paho.loop_stop.call_count == 1
 
 
+@pytest.mark.describe("MQTTClient - .connect() -- Client Fresh")
+class TestConnectWithClientFresh(ConnectWithClientNotConnectedTests):
+    @pytest.fixture
+    async def client(self, fresh_client):
+        return fresh_client
+
+
 @pytest.mark.describe("MQTTClient - .connect() -- Client Disconnected")
 class TestConnectWithClientDisconnected(ConnectWithClientNotConnectedTests):
     @pytest.fixture
@@ -815,8 +836,9 @@ class TestDisconnectWithClientConnectionDrop(object):
         await disconnect_task
 
 
-@pytest.mark.describe("MQTTClient - .disconnect() -- Client Already Disconnected")
-class TestDisconnectWithClientDisconnected(object):
+# NOTE: Because clients in Disconnected and Fresh states have the same behaviors during a connect,
+# define a parent class that can be subclassed so tests don't have to be written twice.
+class DisconnectWithClientFullyDisconnectedTests(object):
     @pytest.fixture
     async def client(self, fresh_client):
         client = fresh_client
@@ -855,6 +877,22 @@ class TestDisconnectWithClientDisconnected(object):
         disconnect_task = asyncio.create_task(client.disconnect())
         # No waiting for disconnect response trigger was required
         await disconnect_task
+
+
+@pytest.mark.describe("MQTTClient - .disconnect() -- Client Already Disconnected")
+class TestDisconnectWithClientDisconnected(DisconnectWithClientFullyDisconnectedTests):
+    @pytest.fixture
+    async def client(self, fresh_client):
+        client = fresh_client
+        client_set_disconnected(client)
+        return client
+
+
+@pytest.mark.describe("MQTTClient - .disconnect() -- Client Fresh")
+class TestDisconnectWithClientFresh(DisconnectWithClientFullyDisconnectedTests):
+    @pytest.fixture
+    async def client(self, fresh_client):
+        return fresh_client
 
 
 @pytest.mark.describe("MQTTClient - OCCURRENCE: Unexpected Disconnect")
