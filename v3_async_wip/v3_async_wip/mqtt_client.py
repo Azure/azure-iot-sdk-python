@@ -142,7 +142,6 @@ class MQTTClient(object):
             logger.debug("Connect Response: rc {} - {}".format(rc, message))
 
             if rc == mqtt.CONNACK_ACCEPTED:
-
                 # Notify tasks waiting on successful connection
                 async def set_connected():
                     logger.debug("Client State: CONNECTED")
@@ -156,7 +155,6 @@ class MQTTClient(object):
                 # Paho handler invoke until we know the connection state has been set.
                 f.result()
             else:
-
                 # Notify tasks waiting on failed connection
                 async def notify_connection_fail():
                     async with this._connect_failed_cond:
@@ -263,6 +261,7 @@ class MQTTClient(object):
                     await asyncio.sleep(interval)
         except asyncio.CancelledError:
             logger.debug("Reconnect Daemon was cancelled")
+            # TODO: is this whole thing with current attempt unnecessary?
             current_attempt.cancel()
             raise
 

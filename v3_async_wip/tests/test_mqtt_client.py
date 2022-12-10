@@ -1257,3 +1257,97 @@ class TestConnectionLock(object):
         await disconnect_task2
         assert mock_paho.disconnect.call_count == 1
         assert not client.is_connected()
+
+
+@pytest.mark.describe("MQTTClient - Reconnect Daemon")
+class TestReconnectDaemon(object):
+    @pytest.fixture
+    async def client(self, fresh_client):
+        client = fresh_client
+        client._auto_reconnect = True
+        client._reconnect_interval = 2
+        # Successfully connect
+        await client.connect()
+        assert client.is_connected()
+        # Reconnect Daemon is running
+        assert isinstance(client._reconnect_daemon, asyncio.Task)
+        return client
+
+    @pytest.mark.it("Attempts to connect immediately after an unexpected disconnection")
+    async def test_unexpected_drop(self, mocker, client, mock_paho):
+        # Set connect to fail. This is kind of arbitrary - we just need it to do something
+        client.connect = mocker.AsyncMock(side_effect=exceptions.ConnectionFailedError)
+        assert client.connect.call_count == 0
+
+        # Drop the connection
+        mock_paho.trigger_disconnect(rc=7)
+        await asyncio.sleep(0.1)
+
+        # Connect was called by the daemon
+        assert client.connect.call_count == 1
+        assert client.connect.call_args == mocker.call()
+
+    @pytest.mark.it(
+        "Waits for the reconnect interval (in seconds) to try to connect again if the connect attempt fails"
+    )
+    async def test_reconnect_attempt_fails(self, mocker, client, mock_paho):
+        # Set connect to fail.
+        client.connect = mocker.AsyncMock(side_effect=exceptions.ConnectionFailedError)
+        assert client.connect.call_count == 0
+
+        # Drop the connection
+        mock_paho.trigger_disconnect(rc=7)
+        await asyncio.sleep(0.1)
+
+        # Connect was called by the daemon
+        assert client.connect.call_count == 1
+        # Wait half the interval
+        await asyncio.sleep(client._reconnect_interval / 2)
+        # Connect has not been called again
+        assert client.connect.call_count == 1
+        # Wait the rest of the interval
+        await asyncio.sleep(client._reconnect_interval / 2)
+        # Connect was attempted again
+        assert client.connect.call_count == 2
+
+    @pytest.mark.it(
+        "Does not try again until the next unexpected disconnection if the connect attempt succeeds"
+    )
+    async def test_reconnect_attempt_succeeds(self, mocker, client, mock_paho):
+        # Set connect to succeed
+        def fake_connect():
+            client_set_connected(client)
+
+        client.connect = mocker.AsyncMock(side_effect=fake_connect)
+        assert client.connect.call_count == 0
+
+        # Drop the connection
+        mock_paho.trigger_disconnect(rc=7)
+        await asyncio.sleep(0.1)
+
+        # Connect was called by the daemon
+        assert client.connect.call_count == 1
+        # Wait for the interval
+        await asyncio.sleep(client._reconnect_interval)
+        # Connect was not attempted again
+        assert client.connect.call_count == 1
+
+        # Drop the connection again
+        mock_paho.trigger_disconnect(rc=7)
+        await asyncio.sleep(0.1)
+
+        # Connect was attempted again
+        assert client.connect.call_count == 2
+
+    @pytest.mark.it("Does not attempt to connect after an expected disconnection")
+    async def test_disconnect(self, mocker, client):
+        # Set connect to fail. This is kind of arbitrary - we just need it to do something
+        client.connect = mocker.AsyncMock(side_effect=exceptions.ConnectionFailedError)
+        assert client.connect.call_count == 0
+
+        # Disconnect
+        await client.disconnect()
+        await asyncio.sleep(0.1)
+
+        # Connect was not called by the daemon
+        assert client.connect.call_count == 0
