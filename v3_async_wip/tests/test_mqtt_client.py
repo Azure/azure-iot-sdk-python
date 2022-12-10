@@ -11,6 +11,7 @@ import paho.mqtt.client as mqtt
 import asyncio
 import logging
 import pytest
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 logging.basicConfig(level=logging.DEBUG)
@@ -1272,6 +1273,7 @@ class TestConnectionLock(object):
         assert not client.is_connected()
 
 
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="AsyncMock not supported by Python 3.7")
 @pytest.mark.describe("MQTTClient - Reconnect Daemon")
 class TestReconnectDaemon(object):
     @pytest.fixture
