@@ -247,6 +247,19 @@ class TestInstantiation(object):
         )
         assert client._auto_reconnect == value
 
+    @pytest.mark.it("Stores the provided reconnect_interval value (if provided)")
+    async def test_reconnect_interval(self, mocker):
+        mocker.patch.object(mqtt, "Client")
+        my_interval = 5
+        client = MQTTClient(
+            client_id=fake_device_id,
+            hostname=fake_hostname,
+            port=fake_port,
+            auto_reconnect=True,
+            reconnect_interval=my_interval,
+        )
+        assert client._reconnect_interval == my_interval
+
     @pytest.mark.it("Creates and stores an instance of the Paho MQTT Client")
     async def test_instantiates_mqtt_client(self, mocker, transport):
         mock_paho_constructor = mocker.patch.object(mqtt, "Client")

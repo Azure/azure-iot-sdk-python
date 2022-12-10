@@ -47,6 +47,7 @@ class MQTTClient(object):
         transport="tcp",
         keep_alive=60,
         auto_reconnect=False,
+        reconnect_interval=10,
         ssl_context=None,
         websockets_path=None,
         proxy_options=None,
@@ -60,6 +61,7 @@ class MQTTClient(object):
         :param int keep_alive: Number of seconds before connection timeout.
         :param bool auto_reconnect: Indicates whether or not client should reconnect when a
             connection is unexpectedly dropped.
+        :param int reconnect_interval: Number of seconds between reconnect attempts
         :param ssl_context: The SSL Context to use with MQTT. If not provided will use default.
         :type ssl_context: :class:`ssl.SSLContext`
         :param str websockets_path: Path for websocket connection.
@@ -71,7 +73,7 @@ class MQTTClient(object):
         self._port = port
         self._keep_alive = keep_alive
         self._auto_reconnect = auto_reconnect
-        self._reconnect_interval = 10  # TODO: make this configurable
+        self._reconnect_interval = reconnect_interval
 
         # Client
         self._mqtt_client = self._create_mqtt_client(
@@ -252,6 +254,7 @@ class MQTTClient(object):
                     await current_attempt
                     logger.debug("Reconnect Daemon reconnect attempt succeeded")
                 except exceptions.ConnectionFailedError:
+                    # TODO: determine if exception is retryable
                     interval = self._reconnect_interval
                     logger.debug(
                         "Reconnect Daemon reconnect attempt failed. Trying again in {} seconds".format(
@@ -261,7 +264,6 @@ class MQTTClient(object):
                     await asyncio.sleep(interval)
         except asyncio.CancelledError:
             logger.debug("Reconnect Daemon was cancelled")
-            # TODO: is this whole thing with current attempt unnecessary?
             current_attempt.cancel()
             raise
 
