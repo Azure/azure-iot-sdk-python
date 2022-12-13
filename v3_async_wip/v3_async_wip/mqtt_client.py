@@ -21,6 +21,15 @@ RECONNECT_MODE_DROP = "RECONNECT_DROP"
 RECONNECT_MODE_ALL = "RECONNECT_ALL"
 
 
+class MQTTError(Exception):
+    """Represents a failure with a Paho-given rc code"""
+
+    def __init__(self, rc, recoverable=True, message=None):
+        self.recoverable = recoverable
+        self.rc = rc
+        super().__init__(message)
+
+
 class ConnectionLock(asyncio.Lock):
     """
     Async Lock with an attribute that can be set indicating the type of connection operation
@@ -241,7 +250,6 @@ class MQTTClient(object):
 
     async def _reconnect_loop(self):
         logger.debug("Reconnect Daemon starting...")
-        current_attempt = None
         try:
             while True:
                 async with self.disconnected_cond:
@@ -250,8 +258,7 @@ class MQTTClient(object):
                     )
                 try:
                     logger.debug("Reconnect Daemon attempting to reconnect...")
-                    current_attempt = asyncio.create_task(self.connect())
-                    await current_attempt
+                    await self.connect()
                     logger.debug("Reconnect Daemon reconnect attempt succeeded")
                 except exceptions.ConnectionFailedError:
                     # TODO: determine if exception is retryable
@@ -264,7 +271,6 @@ class MQTTClient(object):
                     await asyncio.sleep(interval)
         except asyncio.CancelledError:
             logger.debug("Reconnect Daemon was cancelled")
-            current_attempt.cancel()
             raise
 
     def is_connected(self):
@@ -357,10 +363,19 @@ class MQTTClient(object):
                         "Connect returned rc {} - {}".format(rc, message)
                     )
 
-                # Start Paho network loop. If already started, this will return a fail code,
-                # but we don't really care - no harm, no foul.
+                # Start Paho network loop.
                 logger.debug("Starting Paho network loop")
-                self._mqtt_client.loop_start()
+                rc = self._mqtt_client.loop_start()
+                if rc == mqtt.MQTT_ERR_INVAL:
+                    # This happens if the network loop thread already exists.
+                    # Stop the existing one, and start a new one.
+                    # This (probably) shouldn't happen.
+                    # TODO: Investigate if this is truly necessary once stress testing is set up
+                    logger.warning(
+                        "Paho network loop was already running. Stopping, then starting."
+                    )
+                    self._mqtt_client.loop_stop()
+                    self._mqtt_client.loop_start()
 
                 # Wait for connection to complete (success or fail)
                 logger.debug("Waiting for connect response...")

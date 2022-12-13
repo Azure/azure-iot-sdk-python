@@ -530,6 +530,17 @@ class ConnectWithClientNotConnectedTests(object):
 
         assert mock_paho.loop_start.call_count == 0
 
+    @pytest.mark.it("Stops, then starts the Paho network loop if the loop is already running")
+    async def test_network_loop_already_running(self, mocker, client, mock_paho):
+        mock_paho.loop_start.side_effect = [3, 0]
+        assert mock_paho.loop_start.call_count == 0
+        assert mock_paho.loop_stop.call_count == 0
+
+        await client.connect()
+
+        assert mock_paho.loop_start.call_count == 2
+        assert mock_paho.loop_stop.call_count == 1
+
     @pytest.mark.it(
         "Waits to return until Paho receives a response if the connect invocation succeeded"
     )
