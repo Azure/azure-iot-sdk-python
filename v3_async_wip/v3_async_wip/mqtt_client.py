@@ -49,16 +49,21 @@ class ConnectionLock(asyncio.Lock):
     def __init__(self, *args, **kwargs):
         # Type of connection operation (i.e. OP_TYPE_CONNECT, OP_TYPE_DISCONNECT)
         self.connection_type = None
-        # ACK rc code received in response for this operation. Currently only used by Connect.
-        # NOTE: If this were a Future instead, we could simplify the design to reduce # of conditions
-        # TODO: make this an asyncio.Future
-        self.ack_rc = None
+        # Future for connection operation completion.
+        # Currently this is only used for OP_TYPE_CONNECT
+        self.future = None
         super().__init__(*args, **kwargs)
+
+    async def acquire(self):
+        rv = await super().acquire()
+        loop = asyncio.get_running_loop()
+        self.future = loop.create_future()
+        return rv
 
     def release(self):
         self.connection_type = None
-        self.ack_rc = None
-        super().release()
+        self.future = None
+        return super().release()
 
 
 class MQTTClient(object):
@@ -114,7 +119,6 @@ class MQTTClient(object):
         # Synchronization
         self.connected_cond = asyncio.Condition()
         self.disconnected_cond = asyncio.Condition()
-        self._connect_failed_cond = asyncio.Condition()
         self._connection_lock = ConnectionLock()
 
         # Tasks
@@ -167,29 +171,21 @@ class MQTTClient(object):
             this = self_weakref()
             message = mqtt.connack_string(rc)
             logger.debug("Connect Response: rc {} - {}".format(rc, message))
-            # Set the result on the connection lock
-            this._connection_lock.ack_rc = rc
 
-            if rc == mqtt.CONNACK_ACCEPTED:
-                # Notify tasks waiting on successful connection
-                async def set_connected():
+            # Change state, report result, and notify connection established
+            async def set_result():
+                if rc == mqtt.CONNACK_ACCEPTED:
                     logger.debug("Client State: CONNECTED")
                     this._connected = True
                     this._desire_connection = True
                     async with this.connected_cond:
                         this.connected_cond.notify_all()
+                this._connection_lock.future.set_result(rc)
 
-                f = asyncio.run_coroutine_threadsafe(set_connected(), this._loop)
-                # Need to wait for this one to finish since we don't want to let another
-                # Paho handler invoke until we know the connection state has been set.
-                f.result()
-            else:
-                # Notify tasks waiting on failed connection
-                async def notify_connection_fail():
-                    async with this._connect_failed_cond:
-                        this._connect_failed_cond.notify_all()
-
-                asyncio.run_coroutine_threadsafe(notify_connection_fail(), this._loop)
+            f = asyncio.run_coroutine_threadsafe(set_result(), this._loop)
+            # Need to wait for this one to finish since we don't want to let another
+            # Paho handler invoke until we know the connection state has been set.
+            f.result()
 
         def on_disconnect(client, userdata, rc):
             this = self_weakref()
@@ -334,27 +330,9 @@ class MQTTClient(object):
                 # Record the type of operation in progress
                 self._connection_lock.connection_type = OP_TYPE_CONNECT
 
-                # Start listening for connect before performing Paho connect to make sure
-                # we don't miss it. This could possibly happen due to timing issues on the
-                # Paho thread (i.e. CONNACK received after invoking connect, but before our
-                # listening tasks have started)
-                async def wait_for_success():
-                    async with self.connected_cond:
-                        await self.connected_cond.wait()
-
-                async def wait_for_failure():
-                    async with self._connect_failed_cond:
-                        await self._connect_failed_cond.wait()
-
-                success = asyncio.create_task(wait_for_success())
-                failure = asyncio.create_task(wait_for_failure())
-
                 # Start the reconnect daemon (if enabled and not already running)
                 if self._auto_reconnect and not self._reconnect_daemon:
                     self._reconnect_daemon = asyncio.create_task(self._reconnect_loop())
-
-                # Make sure the tasks are running
-                await asyncio.sleep(0)
 
                 # Paho Connect
                 logger.debug("Attempting connect using port {}".format(self._port))
@@ -372,18 +350,12 @@ class MQTTClient(object):
                     logger.debug("Connect returned rc {} - {}".format(rc, message))
                 # TODO: more specialization of errors
                 except Exception as e:
-                    # Clean up listener tasks
-                    success.cancel()
-                    failure.cancel()
                     raise MQTTConnectionFailedError(message="Failure in Paho .connect()") from e
 
                 if rc != mqtt.MQTT_ERR_SUCCESS:
                     # NOTE: This block should probably never execute. Paho's .connect() is
                     # supposed to only return success or raise an exception.
                     logger.warning("Unexpected rc from Paho .connect()")
-                    # Clean up listener tasks
-                    success.cancel()
-                    failure.cancel()
                     # MQTTConnectionFailedError expects a connack rc, but this is a regular rc.
                     # So chain a regular mqtt exception into a connection mqtt exception.
                     try:
@@ -407,29 +379,17 @@ class MQTTClient(object):
                     self._mqtt_client.loop_stop()
                     self._mqtt_client.loop_start()
 
-                # Wait for connection to complete (success or fail)
-                logger.debug("Waiting for connect response...")
-                done, pending = await asyncio.wait(
-                    [success, failure], return_when=asyncio.FIRST_COMPLETED
-                )
-                for t in pending:
-                    t.cancel()
-
                 # Sleep for 0.01 to briefly give up control of the event loop.
                 # This is necessary because a connect failure can potentially trigger both
                 # .on_connect() and .on_disconnect() and we want to allow them both to resolve
                 # before clearing this value.
-                # This isn't necessary for correct functionality, but it is necessary for
-                # correct logging (.on_disconnect() wants access to the connection type stored
-                # on the ConnectionLock)
                 await asyncio.sleep(0.01)
 
-                # Raise exception if connect failed in response
-                completed = done.pop()
-                if completed is failure:
+                # The result of the CONNACK is received via this future stored on the lock
+                rc = await self._connection_lock.future
+                if rc != mqtt.CONNACK_ACCEPTED:
                     logger.debug("Stopping Paho network loop due to connect failure")
                     self._mqtt_client.loop_stop()
-                    rc = self._connection_lock.ack_rc
                     raise MQTTConnectionFailedError(rc=rc)
 
             else:
@@ -461,6 +421,9 @@ class MQTTClient(object):
                     async with self.disconnected_cond:
                         await self.disconnected_cond.wait()
 
+                # We use a listener task here rather than waiting for the ConnectionLock's Future
+                # since we don't actually care about the response rc, we just need to wait for
+                # the state change.
                 disconnect_done = asyncio.create_task(wait_for_disconnect())
 
                 # Make sure the task is running

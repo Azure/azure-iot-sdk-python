@@ -51,7 +51,8 @@ def mock_paho(mocker, paho_threadpool):
     #
     # It is further worth noting that this state is different from the one used in
     # the real implementation, because Paho doesn't store true connection state, just a
-    # "desired" connection state. The true connection is derived by other means (sockets).
+    # "desired" connection state (which itself is different from our client's .desire_connection).
+    # The true connection state is derived by other means (sockets).
     # For simplicity, I've rolled all the information relevant to mocking behavior into a
     # 4-state value.
     mock_paho._state = PAHO_STATE_NEW
@@ -586,6 +587,7 @@ class ConnectWithClientNotConnectedTests(object):
 
         # Attempt connect
         connect_task = asyncio.create_task(client.connect())
+        await asyncio.sleep(0.1)
 
         # Send failure response
         mock_paho.trigger_connect(rc=5)
@@ -646,6 +648,7 @@ class ConnectWithClientNotConnectedTests(object):
 
         # Attempt connect
         connect_task = asyncio.create_task(client.connect())
+        await asyncio.sleep(0.1)
         # Send fail response
         mock_paho.trigger_connect(rc=5)
         if paired_failure:
@@ -704,6 +707,7 @@ class ConnectWithClientNotConnectedTests(object):
 
         # Attempt connect
         connect_task = asyncio.create_task(client.connect())
+        await asyncio.sleep(0.1)
         # Send fail response
         mock_paho.trigger_connect(rc=5)
         if paired_failure:
