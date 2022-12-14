@@ -29,7 +29,8 @@ class MQTTError(Exception):
 
 
 class MQTTConnectionFailedError(Exception):
-    """Represents a failure to a connect"""
+    """Represents a failure to connect.
+    Can have a Paho-given connack rc code, or a message"""
 
     def __init__(self, rc=None, message=None, fatal=False):
         if not rc and not message:
@@ -44,7 +45,8 @@ class MQTTConnectionFailedError(Exception):
 
 
 class ConnectionLock(asyncio.Lock):
-    """Async Lock with additional attributes regarding the operation."""
+    """Async Lock with additional attributes corresponding to the operation.
+    These attributes are reset each time the Lock is released"""
 
     def __init__(self, *args, **kwargs):
         # Type of connection operation (i.e. OP_TYPE_CONNECT, OP_TYPE_DISCONNECT)
@@ -348,7 +350,7 @@ class MQTTClient(object):
                     )
                     message = mqtt.error_string(rc)
                     logger.debug("Connect returned rc {} - {}".format(rc, message))
-                # TODO: more specialization of errors
+                # TODO: more specialization of errors to indicate which are/aren't retryable
                 except Exception as e:
                     raise MQTTConnectionFailedError(message="Failure in Paho .connect()") from e
 
@@ -382,7 +384,7 @@ class MQTTClient(object):
                 # Sleep for 0.01 to briefly give up control of the event loop.
                 # This is necessary because a connect failure can potentially trigger both
                 # .on_connect() and .on_disconnect() and we want to allow them both to resolve
-                # before clearing this value.
+                # before releasing the ConnectionLock.
                 await asyncio.sleep(0.01)
 
                 # The result of the CONNACK is received via this future stored on the lock
