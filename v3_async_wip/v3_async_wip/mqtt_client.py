@@ -37,11 +37,13 @@ class ConnectionLock(asyncio.Lock):
     """
 
     def __init__(self, *args, **kwargs):
-        self.connection_type = None
+        self.connection_type = None  # Purely for logging purposes
+        self.ack_rc = None  # ACK code received in response
         super().__init__(*args, **kwargs)
 
     def release(self):
         self.connection_type = None
+        self.ack_rc = None
         super().release()
 
 
@@ -151,6 +153,8 @@ class MQTTClient(object):
             this = self_weakref()
             message = mqtt.connack_string(rc)
             logger.debug("Connect Response: rc {} - {}".format(rc, message))
+            # Set the result on the connection lock
+            this._connection_lock.ack_rc = rc
 
             if rc == mqtt.CONNACK_ACCEPTED:
                 # Notify tasks waiting on successful connection
@@ -399,7 +403,11 @@ class MQTTClient(object):
                 if completed is failure:
                     logger.debug("Stopping Paho network loop due to connect failure")
                     self._mqtt_client.loop_stop()
-                    raise exceptions.ConnectionFailedError("Connect response failure")
+                    rc = self._connection_lock.ack_rc
+                    message = mqtt.connack_string(rc)
+                    raise exceptions.ConnectionFailedError(
+                        "Connect response returned rc {} - {}".format(rc, message)
+                    )
 
             else:
                 logger.debug("Already connected!")
