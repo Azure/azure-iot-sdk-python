@@ -381,14 +381,13 @@ class MQTTClient(object):
                     self._mqtt_client.loop_stop()
                     self._mqtt_client.loop_start()
 
+                # The result of the CONNACK is received via this future stored on the lock
+                rc = await self._connection_lock.future
                 # Sleep for 0.01 to briefly give up control of the event loop.
                 # This is necessary because a connect failure can potentially trigger both
                 # .on_connect() and .on_disconnect() and we want to allow them both to resolve
                 # before releasing the ConnectionLock.
                 await asyncio.sleep(0.01)
-
-                # The result of the CONNACK is received via this future stored on the lock
-                rc = await self._connection_lock.future
                 if rc != mqtt.CONNACK_ACCEPTED:
                     logger.debug("Stopping Paho network loop due to connect failure")
                     self._mqtt_client.loop_stop()
