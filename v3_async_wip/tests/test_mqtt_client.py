@@ -4,8 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from v3_async_wip.mqtt_client import MQTTClient
-from v3_async_wip import exceptions
+from v3_async_wip.mqtt_client import MQTTClient, MQTTError, MQTTConnectionFailedError
 from azure.iot.device.common import ProxyOptions
 import paho.mqtt.client as mqtt
 import asyncio
@@ -484,22 +483,30 @@ class ConnectWithClientNotConnectedTests(object):
             host=client._hostname, port=client._port, keepalive=client._keep_alive
         )
 
-    @pytest.mark.it("Raises a ConnectionFailedError if there is a failure invoking Paho's connect")
+    @pytest.mark.it(
+        "Raises a MQTTConnectionFailedError if there is a failure invoking Paho's connect"
+    )
     async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
         mock_paho.connect.side_effect = arbitrary_exception
 
-        with pytest.raises(exceptions.ConnectionFailedError) as e_info:
+        with pytest.raises(MQTTConnectionFailedError) as e_info:
             await client.connect()
-        e_info.value.__cause__ is arbitrary_exception
+        assert e_info.value.__cause__ is arbitrary_exception
+        assert e_info.value.rc is None
 
     @pytest.mark.it(
-        "Raises a ConnectionFailedError if invoking Paho's connect returns a failed status"
+        "Raises a MQTTConnectionFailedError if invoking Paho's connect returns a failed status"
     )
     async def test_fail_status(self, client, mock_paho):
-        mock_paho._connect_rc = 1
+        failing_rc = 1
+        mock_paho._connect_rc = failing_rc
 
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError) as e_info:
             await client.connect()
+        assert e_info.value.rc is None
+        cause = e_info.value.__cause__
+        assert isinstance(cause, MQTTError)
+        assert cause.rc == failing_rc
 
     @pytest.mark.it("Starts the Paho network loop if the connect invocation is successful")
     async def test_network_loop_connect_success(self, mocker, client, mock_paho):
@@ -515,7 +522,7 @@ class ConnectWithClientNotConnectedTests(object):
         assert mock_paho.loop_start.call_count == 0
         mock_paho.connect.side_effect = arbitrary_exception
 
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError):
             await client.connect()
 
         assert mock_paho.loop_start.call_count == 0
@@ -525,7 +532,7 @@ class ConnectWithClientNotConnectedTests(object):
         assert mock_paho.loop_start.call_count == 0
         mock_paho._connect_rc = 1
 
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError):
             await client.connect()
 
         assert mock_paho.loop_start.call_count == 0
@@ -564,7 +571,7 @@ class ConnectWithClientNotConnectedTests(object):
         assert connect_task.done()
 
     @pytest.mark.it(
-        "Raises a ConnectionFailedError if the connect attempt receives a failure response"
+        "Raises a MQTTConnectionFailedError if the connect attempt receives a failure response"
     )
     @pytest.mark.parametrize(
         "paired_failure",
@@ -584,8 +591,9 @@ class ConnectWithClientNotConnectedTests(object):
         mock_paho.trigger_connect(rc=5)
         if paired_failure:
             mock_paho.trigger_disconnect(rc=5)
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError) as e_info:
             await connect_task
+        assert e_info.value.rc == 5
 
     @pytest.mark.it("Puts the client in a connected state if connection attempt is successful")
     async def test_state_success(self, client):
@@ -603,7 +611,7 @@ class ConnectWithClientNotConnectedTests(object):
         mock_paho.connect.side_effect = arbitrary_exception
         assert not client.is_connected()
 
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError):
             await client.connect()
 
         assert not client.is_connected()
@@ -616,7 +624,7 @@ class ConnectWithClientNotConnectedTests(object):
         mock_paho._connect_rc = 1
         assert not client.is_connected()
 
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError):
             await client.connect()
 
         assert not client.is_connected()
@@ -643,7 +651,7 @@ class ConnectWithClientNotConnectedTests(object):
         if paired_failure:
             mock_paho.trigger_disconnect(rc=5)
 
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError):
             await connect_task
 
         assert not client.is_connected()
@@ -657,7 +665,7 @@ class ConnectWithClientNotConnectedTests(object):
         # Raise failure from connect
         mock_paho.connect.side_effect = arbitrary_exception
 
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError):
             await client.connect()
 
         assert isinstance(client._reconnect_daemon, asyncio.Task)
@@ -672,7 +680,7 @@ class ConnectWithClientNotConnectedTests(object):
         client._auto_reconnect = True
         assert client._reconnect_daemon is None
 
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError):
             await client.connect()
 
         assert isinstance(client._reconnect_daemon, asyncio.Task)
@@ -698,10 +706,10 @@ class ConnectWithClientNotConnectedTests(object):
         connect_task = asyncio.create_task(client.connect())
         # Send fail response
         mock_paho.trigger_connect(rc=5)
-        # if paired_failure:
-        #     mock_paho.trigger_disconnect(rc=5)
+        if paired_failure:
+            mock_paho.trigger_disconnect(rc=5)
 
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError):
             await connect_task
 
         assert isinstance(client._reconnect_daemon, asyncio.Task)
@@ -740,7 +748,7 @@ class ConnectWithClientNotConnectedTests(object):
         mock_paho.trigger_connect(rc=5)
         if paired_failure:
             mock_paho.trigger_disconnect(rc=5)
-        with pytest.raises(exceptions.ConnectionFailedError):
+        with pytest.raises(MQTTConnectionFailedError):
             await connect_task
 
         # Network loop was stopped
@@ -1302,7 +1310,7 @@ class TestReconnectDaemon(object):
     @pytest.mark.it("Attempts to connect immediately after an unexpected disconnection")
     async def test_unexpected_drop(self, mocker, client, mock_paho):
         # Set connect to fail. This is kind of arbitrary - we just need it to do something
-        client.connect = mocker.AsyncMock(side_effect=exceptions.ConnectionFailedError)
+        client.connect = mocker.AsyncMock(side_effect=MQTTConnectionFailedError)
         assert client.connect.call_count == 0
 
         # Drop the connection
@@ -1314,11 +1322,12 @@ class TestReconnectDaemon(object):
         assert client.connect.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Waits for the reconnect interval (in seconds) to try to connect again if the connect attempt fails"
+        "Waits for the reconnect interval (in seconds) to try to connect again if the connect attempt fails non-fatally"
     )
-    async def test_reconnect_attempt_fails(self, mocker, client, mock_paho):
-        # Set connect to fail.
-        client.connect = mocker.AsyncMock(side_effect=exceptions.ConnectionFailedError)
+    async def test_reconnect_attempt_fails_nonfatal(self, mocker, client, mock_paho):
+        # Set connect to fail (nonfatal)
+        exc = MQTTConnectionFailedError(rc=1, fatal=False)
+        client.connect = mocker.AsyncMock(side_effect=exc)
         assert client.connect.call_count == 0
 
         # Drop the connection
@@ -1335,6 +1344,22 @@ class TestReconnectDaemon(object):
         await asyncio.sleep(client._reconnect_interval / 2)
         # Connect was attempted again
         assert client.connect.call_count == 2
+
+    @pytest.mark.it("Ends reconnect attempts if the connect attempt fails fatally")
+    async def test_reconnect_attempt_fails_fatal(self, mocker, client, mock_paho):
+        # Set connect to fail (fatal)
+        exc = MQTTConnectionFailedError(message="Some fatal exc", fatal=True)
+        client.connect = mocker.AsyncMock(side_effect=exc)
+        assert client.connect.call_count == 0
+
+        # Drop the connect
+        mock_paho.trigger_disconnect(rc=7)
+        await asyncio.sleep(0.1)
+
+        # Connect was called by the daemon
+        assert client.connect.call_count == 1
+        # Daemon has exited
+        assert client._reconnect_daemon.done()
 
     @pytest.mark.it(
         "Does not try again until the next unexpected disconnection if the connect attempt succeeds"
@@ -1368,7 +1393,7 @@ class TestReconnectDaemon(object):
     @pytest.mark.it("Does not attempt to connect after an expected disconnection")
     async def test_disconnect(self, mocker, client):
         # Set connect to fail. This is kind of arbitrary - we just need it to do something
-        client.connect = mocker.AsyncMock(side_effect=exceptions.ConnectionFailedError)
+        client.connect = mocker.AsyncMock(side_effect=MQTTConnectionFailedError)
         assert client.connect.call_count == 0
 
         # Disconnect

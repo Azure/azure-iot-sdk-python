@@ -9,7 +9,6 @@ import functools
 import logging
 import paho.mqtt.client as mqtt
 import weakref
-from v3_async_wip import exceptions
 
 
 logger = logging.getLogger(__name__)
@@ -22,23 +21,38 @@ RECONNECT_MODE_ALL = "RECONNECT_ALL"
 
 
 class MQTTError(Exception):
-    """Represents a failure with a Paho-given rc code"""
+    """Represents a failure with a Paho-given error rc code"""
 
-    def __init__(self, rc, recoverable=True, message=None):
-        self.recoverable = recoverable
+    def __init__(self, rc):
         self.rc = rc
+        super().__init__(mqtt.error_string(rc))
+
+
+class MQTTConnectionFailedError(Exception):
+    """Represents a failure to a connect"""
+
+    def __init__(self, rc=None, message=None, fatal=False):
+        if not rc and not message:
+            raise ValueError("must provide rc or message")
+        if rc and message:
+            raise ValueError("rc and message are mutually exclusive")
+        self.rc = rc
+        self.fatal = fatal
+        if rc:
+            message = mqtt.connack_string(rc)
         super().__init__(message)
 
 
 class ConnectionLock(asyncio.Lock):
-    """
-    Async Lock with an attribute that can be set indicating the type of connection operation
-    This information is just for logging purposes.
-    """
+    """Async Lock with additional attributes regarding the operation."""
 
     def __init__(self, *args, **kwargs):
-        self.connection_type = None  # Purely for logging purposes
-        self.ack_rc = None  # ACK code received in response
+        # Type of connection operation (i.e. OP_TYPE_CONNECT, OP_TYPE_DISCONNECT)
+        self.connection_type = None
+        # ACK rc code received in response for this operation. Currently only used by Connect.
+        # NOTE: If this were a Future instead, we could simplify the design to reduce # of conditions
+        # TODO: make this an asyncio.Future
+        self.ack_rc = None
         super().__init__(*args, **kwargs)
 
     def release(self):
@@ -264,15 +278,19 @@ class MQTTClient(object):
                     logger.debug("Reconnect Daemon attempting to reconnect...")
                     await self.connect()
                     logger.debug("Reconnect Daemon reconnect attempt succeeded")
-                except exceptions.ConnectionFailedError:
-                    # TODO: determine if exception is retryable
-                    interval = self._reconnect_interval
-                    logger.debug(
-                        "Reconnect Daemon reconnect attempt failed. Trying again in {} seconds".format(
-                            interval
+                except MQTTConnectionFailedError as e:
+                    if not e.fatal:
+                        interval = self._reconnect_interval
+                        logger.debug(
+                            "Reconnect Daemon reconnect attempt failed. Trying again in {} seconds".format(
+                                interval
+                            )
                         )
-                    )
-                    await asyncio.sleep(interval)
+                        await asyncio.sleep(interval)
+                    else:
+                        logger.error("Reconnect failure was fatal - cannot reconnect")
+                        logger.error(str(e))
+                        break
         except asyncio.CancelledError:
             logger.debug("Reconnect Daemon was cancelled")
             raise
@@ -357,15 +375,23 @@ class MQTTClient(object):
                     # Clean up listener tasks
                     success.cancel()
                     failure.cancel()
-                    raise exceptions.ConnectionFailedError("Connect failed") from e
+                    raise MQTTConnectionFailedError(message="Failure in Paho .connect()") from e
 
                 if rc != mqtt.MQTT_ERR_SUCCESS:
+                    # NOTE: This block should probably never execute. Paho's .connect() is
+                    # supposed to only return success or raise an exception.
+                    logger.warning("Unexpected rc from Paho .connect()")
                     # Clean up listener tasks
                     success.cancel()
                     failure.cancel()
-                    raise exceptions.ConnectionFailedError(
-                        "Connect returned rc {} - {}".format(rc, message)
-                    )
+                    # MQTTConnectionFailedError expects a connack rc, but this is a regular rc.
+                    # So chain a regular mqtt exception into a connection mqtt exception.
+                    try:
+                        raise MQTTError(rc=rc)
+                    except MQTTError as e:
+                        raise MQTTConnectionFailedError(
+                            message="Unexpected Paho .connect() rc"
+                        ) from e
 
                 # Start Paho network loop.
                 logger.debug("Starting Paho network loop")
@@ -404,10 +430,7 @@ class MQTTClient(object):
                     logger.debug("Stopping Paho network loop due to connect failure")
                     self._mqtt_client.loop_stop()
                     rc = self._connection_lock.ack_rc
-                    message = mqtt.connack_string(rc)
-                    raise exceptions.ConnectionFailedError(
-                        "Connect response returned rc {} - {}".format(rc, message)
-                    )
+                    raise MQTTConnectionFailedError(rc=rc)
 
             else:
                 logger.debug("Already connected!")
