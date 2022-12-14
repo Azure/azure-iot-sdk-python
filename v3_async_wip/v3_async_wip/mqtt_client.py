@@ -317,7 +317,7 @@ class MQTTClient(object):
         """
         Connect to the MQTT broker using details set at instantiation.
 
-        :raises: ConnectionFailedError if there is a failure connecting
+        :raises: MQTTConnectionFailedError if there is a failure connecting
         """
         # Wait for permission to alter the connection
         async with self._connection_lock:
