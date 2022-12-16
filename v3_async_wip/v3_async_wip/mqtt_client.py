@@ -69,7 +69,11 @@ class ConnectionLock(asyncio.Lock):
 
 
 class MQTTClient(object):
-    """Provides an async MQTT message broker interface."""
+    """
+    Provides an async MQTT message broker interface
+
+    This client currently only supports operations at a QoS (Quality of Service) of 1
+    """
 
     def __init__(
         self,
@@ -202,6 +206,7 @@ class MQTTClient(object):
             # To Do List
             do_set_disconnect = False
             do_stop_network_loop = False
+            do_cancel_pending = False
 
             # NOTE: It's not generally safe to use .is_connected() to determine what to do, since
             # the value could change at any time. However, it IS safe to do so here.
@@ -215,9 +220,11 @@ class MQTTClient(object):
                     logger.debug("Unexpected Disconnect: rc {} - {}".format(rc, rc_msg))
                     do_set_disconnect = True
                     do_stop_network_loop = True
+                    do_cancel_pending = True
                 else:
                     logger.debug("Disconnect Response: rc {} - {}".format(rc, rc_msg))
                     do_set_disconnect = True
+                    do_cancel_pending = True
             else:
                 if this._connection_lock.connection_type == OP_TYPE_CONNECT:
                     # Sometimes when Paho receives a failure response to a connect, the disconnect
@@ -245,6 +252,27 @@ class MQTTClient(object):
                 # Paho handler invoke until we know the connection state has been set.
                 f.result()
 
+            if do_cancel_pending:
+                # Cancel pending subscribes and unsubscribes only.
+                # Publishes can survive a disconnect.
+                async def cancel_pending():
+                    if len(this._pending_subs) != 0 or len(this._pending_unsubs) != 0:
+                        async with this._mid_tracker_lock:
+                            logger.debug("Cancelling pending subscribes")
+                            mids = this._pending_subs.keys()
+                            for mid in mids:
+                                this._pending_subs[mid].cancel()
+                            this._pending_subs.clear()
+                            logger.debug("Cancelling pending unsubscribes")
+                            mids = this._pending_unsubs.keys()
+                            for mid in mids:
+                                this._pending_unsubs[mid].cancel()
+                            this._pending_unsubs.clear()
+
+                # NOTE: This coroutine might not be able to finish right away due to the
+                # mid_tracker_lock. Don't wait on it's completion or it may lock up.
+                asyncio.run_coroutine_threadsafe(cancel_pending(), this._loop)
+
             if do_stop_network_loop:
 
                 async def stop_network_loop():
@@ -271,7 +299,7 @@ class MQTTClient(object):
 
             asyncio.run_coroutine_threadsafe(complete_sub(), this._loop)
 
-        def on_unsubscribe(client, userdata, mid, granted_qos):
+        def on_unsubscribe(client, userdata, mid):
             this = self_weakref()
             logger.debug("UNSUBACK received for {}".format(mid))
 
@@ -487,6 +515,10 @@ class MQTTClient(object):
                     await disconnect_done
                     logger.debug("Stopping Paho network loop")
                     self._mqtt_client.loop_stop()
+                    # Wait slightly for tasks started by the on_disconnect handler to finish.
+                    # This will prevent warnings.
+                    # TODO: can we remove this? Wait on a queue of tasks or something?
+                    await asyncio.sleep(0.01)
                 elif rc == mqtt.MQTT_ERR_NO_CONN:
                     # This happens when we disconnect while already disconnected.
                     # In this implementation, it should only happen if Paho's inner state
@@ -503,109 +535,115 @@ class MQTTClient(object):
             else:
                 logger.debug("Already disconnected!")
 
-    async def subscribe(self, topic, qos=1):
+    async def subscribe(self, topic):
         """
         Subscribe to a topic from the MQTT broker.
 
         :param str topic: a single string specifying the subscription topic to subscribe to
-        :param int qos: the desired quality of service level for the subscription. Defaults to 1
 
-        :raises: ValueError if qos is not 0, 1 or 2.
         :raises: ValueError if topic is None or has zero string length.
         :raises: MQTTError if there is an error subscribing
         """
-        logger.debug("Attempting subscribe")
-        # Using this lock allows us to be sure that the ACK won't come in before the
-        # Future can be added to the pending dictionary
-        async with self._mid_tracker_lock:
-            (rc, mid) = await self._loop.run_in_executor(
-                None, functools.partial(self._mqtt_client.subscribe, topic=topic, qos=qos)
-            )
-            rc_msg = mqtt.error_string(rc)
-            logger.debug("Subscribe returned rc {} - {}".format(rc, rc_msg))
-            if rc != mqtt.MQTT_ERR_SUCCESS:
-                raise MQTTError(rc)
-
-            # Establish a pending subscribe
-            sub_done = self._loop.create_future()
-            self._pending_subs[mid] = sub_done
-
-        logger.debug("Waiting for subscribe response for mid {}".format(mid))
         try:
+            mid = None
+            logger.debug("Attempting subscribe")
+            # Using this lock allows us to be sure that the ACK won't come in before the
+            # Future can be added to the pending dictionary
+            async with self._mid_tracker_lock:
+                (rc, mid) = await self._loop.run_in_executor(
+                    None, functools.partial(self._mqtt_client.subscribe, topic=topic, qos=1)
+                )
+                rc_msg = mqtt.error_string(rc)
+                logger.debug("Subscribe returned rc {} - {}".format(rc, rc_msg))
+                if rc != mqtt.MQTT_ERR_SUCCESS:
+                    raise MQTTError(rc)
+
+                # Establish a pending subscribe
+                sub_done = self._loop.create_future()
+                self._pending_subs[mid] = sub_done
+
+            logger.debug("Waiting for subscribe response for mid {}".format(mid))
             await sub_done
         except asyncio.CancelledError:
-            logger.debug("Subscribe for mid {} was cancelled".format(mid))
+            if mid:
+                logger.debug("Subscribe for mid {} was cancelled".format(mid))
+            else:
+                logger.debug("Subscribe was cancelled before mid was assigned")
             raise
-
-        # Delete the pending operation since it is complete
-        # If it was cancelled above, it will not need to be deleted
-        async with self._mid_tracker_lock:
-            del self._pending_subs[mid]
+        finally:
+            # Delete any pending operation (if it exists)
+            async with self._mid_tracker_lock:
+                if mid and mid in self._pending_subs:
+                    del self._pending_subs[mid]
 
     async def unsubscribe(self, topic):
         """
         Unsubscribe from a topic on the MQTT broker.
 
-        :param str topic: a single string which is the subscription topic to unsubscribe from.        :param int qos: the desired quality of service level for the subscription. Defaults to 1
+        :param str topic: a single string which is the subscription topic to unsubscribe from.
 
         :raises: ValueError if topic is None or has zero string length.
         :raises: MQTTError if there is an error subscribing
         """
-        logger.debug("Attempting unsubscribe")
-        # Using this lock allows us to be sure that the ACK won't come in before the
-        # Future can be added to the pending dictionary
-        async with self._mid_tracker_lock:
-            (rc, mid) = await self._loop.run_in_executor(
-                None, functools.partial(self._mqtt_client.unsubscribe, topic=topic)
-            )
-            rc_msg = mqtt.error_string(rc)
-            logger.debug("Unsubscribe returned rc {} - {}".format(rc, rc_msg))
-            if rc != mqtt.MQTT_ERR_SUCCESS:
-                raise MQTTError(rc)
-
-            # Establish a pending unsubscribe
-            unsub_done = self._loop.create_future()
-            self._pending_unsubs[mid] = unsub_done
-
-        logger.debug("Waiting for unsubscribe response for mid {}".format(mid))
         try:
+            mid = None
+            logger.debug("Attempting unsubscribe")
+            # Using this lock allows us to be sure that the ACK won't come in before the
+            # Future can be added to the pending dictionary
+            async with self._mid_tracker_lock:
+                (rc, mid) = await self._loop.run_in_executor(
+                    None, functools.partial(self._mqtt_client.unsubscribe, topic=topic)
+                )
+                rc_msg = mqtt.error_string(rc)
+                logger.debug("Unsubscribe returned rc {} - {}".format(rc, rc_msg))
+                if rc != mqtt.MQTT_ERR_SUCCESS:
+                    raise MQTTError(rc)
+
+                # Establish a pending unsubscribe
+                unsub_done = self._loop.create_future()
+                self._pending_unsubs[mid] = unsub_done
+
+            logger.debug("Waiting for unsubscribe response for mid {}".format(mid))
             await unsub_done
         except asyncio.CancelledError:
-            logger.debug("Unsubscribe for mid {} was cancelled".format(mid))
+            if mid:
+                logger.debug("Unsubscribe for mid {} was cancelled".format(mid))
+            else:
+                logger.debug("Unsubscribe was cancelled before mid was assigned")
             raise
+        finally:
+            # Delete any pending operation (if it exists)
+            async with self._mid_tracker_lock:
+                if mid and mid in self._pending_unsubs:
+                    del self._pending_unsubs[mid]
 
-        # Delete the pending operation since it is complete
-        # If it was cancelled above, it will not need to be deleted
-        async with self._mid_tracker_lock:
-            del self._pending_unsubs[mid]
+    # async def publish(self, topic, payload, qos=1):
+    #     """
+    #     Send a message via the MQTT broker.
 
-    async def publish(self, topic, payload, qos=1):
-        """
-        Send a message via the MQTT broker.
+    #     :param str topic: topic: The topic that the message should be published on.
+    #     :param payload: The actual message to send.
+    #     :type payload: str, bytes, int, float or None
+    #     :param int qos: the desired quality of service level for the subscription. Defaults to 1.
+    #     :param callback: A callback to be triggered upon completion (Optional).
 
-        :param str topic: topic: The topic that the message should be published on.
-        :param payload: The actual message to send.
-        :type payload: str, bytes, int, float or None
-        :param int qos: the desired quality of service level for the subscription. Defaults to 1.
-        :param callback: A callback to be triggered upon completion (Optional).
+    #     :raises: ValueError if qos is not 0, 1 or 2
+    #     :raises: ValueError if topic is None or has zero string length
+    #     :raises: ValueError if topic contains a wildcard ("+")
+    #     :raises: ValueError if the length of the payload is greater than 268435455 bytes
+    #     :raises: TypeError if payload is not a valid type
+    #     :raises: MQTTError if there is an error publishing
+    #     """
+    #     logger.debug("Attempting publish")
+    #     message_info = await self._loop.run_in_executor(
+    #         None,
+    #         functools.partial(self._mqtt_client.publish, topic=topic, payload=payload, qos=qos),
+    #     )
+    #     if message_info.rc == mqtt.MQTT_ERR_NO_CONN:
+    #         logger.debug("MQTT Client not connected - will publish upon next connect")
+    #     elif message_info.rc != mqtt.MQTT_ERR_SUCCESS:
+    #         raise MQTTError(message_info.rc)
 
-        :raises: ValueError if qos is not 0, 1 or 2
-        :raises: ValueError if topic is None or has zero string length
-        :raises: ValueError if topic contains a wildcard ("+")
-        :raises: ValueError if the length of the payload is greater than 268435455 bytes
-        :raises: TypeError if payload is not a valid type
-        :raises: MQTTError if there is an error publishing
-        """
-        logger.debug("Attempting publish")
-        message_info = await self._loop.run_in_executor(
-            None,
-            functools.partial(self._mqtt_client.publish, topic=topic, payload=payload, qos=qos),
-        )
-        if message_info.rc == mqtt.MQTT_ERR_NO_CONN:
-            logger.debug("MQTT Client not connected - will publish upon next connect")
-        elif message_info.rc != mqtt.MQTT_ERR_SUCCESS:
-            raise MQTTError(message_info.rc)
-
-        # TODO: this fails if not connected, how to resolve
-        logger.debug("Waiting for publish response")
-        await self._loop.run_in_executor(None, message_info.wait_for_publish)
+    #     # TODO: this fails if not connected, how to resolve
+    #     logger.debug("Waiting for publish response")
+    #     await self._loop.run_in_executor(None, message_info.wait_for_publish)

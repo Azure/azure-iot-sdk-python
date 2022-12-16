@@ -11,6 +11,7 @@ import asyncio
 import logging
 import pytest
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 logging.basicConfig(level=logging.DEBUG)
@@ -23,6 +24,7 @@ fake_username = fake_hostname + "/" + fake_device_id
 fake_port = 443
 fake_keepalive = 1234
 fake_ws_path = "/fake/path"
+fake_topic = "/some/topic/"
 fake_mid = 52
 fake_rc = 0
 
@@ -30,6 +32,8 @@ PAHO_STATE_NEW = "NEW"
 PAHO_STATE_DISCONNECTED = "DISCONNECTED"
 PAHO_STATE_CONNECTED = "CONNECTED"
 PAHO_STATE_CONNECTION_LOST = "CONNECTION_LOST"
+
+ACK_DELAY = 1
 
 
 @pytest.fixture(scope="module")
@@ -56,15 +60,24 @@ def mock_paho(mocker, paho_threadpool):
     # For simplicity, I've rolled all the information relevant to mocking behavior into a
     # 4-state value.
     mock_paho._state = PAHO_STATE_NEW
-    # Indicates whether or not invocations should immediately trigger completions
+    # Indicates whether or not invocations should automatically trigger completions
     mock_paho._manual_mode = False
+    # Indicates whether or not invocations should trigger completions immediately
+    # (i.e. before invocation return)
+    # NOTE: While the "normal" behavior we can expect is NOT an early ack, we set early ack
+    # as the default for test performance reasons
+    # TODO: incorporate this into conn/disconn tests
+    mock_paho._early_ack = True
     # Default rc value to return on invocations of method mocks
+    # NOTE: There is no _disconnect_rc because disconnect return values are deterministic
+    # See the implementation of trigger_disconnect and the mock disconnect below.
     mock_paho._connect_rc = 0
     mock_paho._publish_rc = 0
     mock_paho._subscribe_rc = 0
     mock_paho._unsubscribe_rc = 0
-    # NOTE: There is no _disconnect_rc because disconnect return values are deterministic
-    # See the implementation of trigger_disconnect and the mock disconnect below.
+    # Last mid that was returned. Will be incremented over time (see _get_next_mid())
+    # NOTE: 0 means no mid has been sent yet
+    mock_paho._last_mid = 0
 
     # Utility helpers
     def trigger_connect(rc=0):
@@ -86,6 +99,34 @@ def mock_paho(mocker, paho_threadpool):
         paho_threadpool.submit(mock_paho.on_disconnect, client=mock_paho, userdata=None, rc=rc)
 
     mock_paho.trigger_disconnect = trigger_disconnect
+
+    def trigger_subscribe(mid=None):
+        if not mid:
+            mid = mock_paho._last_mid
+        if not mock_paho._early_ack:
+            paho_threadpool.submit(time.sleep, ACK_DELAY)
+        paho_threadpool.submit(
+            mock_paho.on_subscribe, client=mock_paho, userdata=None, mid=mid, granted_qos=1
+        )
+
+    mock_paho.trigger_subscribe = trigger_subscribe
+
+    def trigger_unsubscribe(mid=None):
+        if not mid:
+            mid = mock_paho._last_mid
+        if not mock_paho._early_ack:
+            paho_threadpool.submit(time.sleep, ACK_DELAY)
+        paho_threadpool.submit(mock_paho.on_unsubscribe, client=mock_paho, userdata=None, mid=mid)
+
+    mock_paho.trigger_unsubscribe = trigger_unsubscribe
+
+    # NOTE: This should not be necessary to use in any tests themselves.
+    def _get_next_mid():
+        mock_paho._last_mid += 1
+        mid = mock_paho._last_mid
+        return mid
+
+    mock_paho._get_next_mid = _get_next_mid
 
     # Method mocks
     def is_connected(*args, **kwargs):
@@ -115,12 +156,30 @@ def mock_paho(mocker, paho_threadpool):
             rc = 4
         return rc
 
+    def subscribe(*args, **kwargs):
+        if mock_paho._subscribe_rc != 0:
+            mid = None
+        else:
+            mid = mock_paho._get_next_mid()
+            if not mock_paho._manual_mode:
+                mock_paho.trigger_subscribe(mid)
+        return (mock_paho._subscribe_rc, mid)
+
+    def unsubscribe(*args, **kwargs):
+        if mock_paho._unsubscribe_rc != 0:
+            mid = None
+        else:
+            mid = mock_paho._get_next_mid()
+            if not mock_paho._manual_mode:
+                mock_paho.trigger_unsubscribe(mid)
+        return (mock_paho._unsubscribe_rc, mid)
+
     mock_paho.is_connected.side_effect = is_connected
     mock_paho.connect.side_effect = connect
     mock_paho.disconnect.side_effect = disconnect
+    mock_paho.subscribe.side_effect = subscribe
+    mock_paho.unsubscribe.side_effect = unsubscribe
 
-    mock_paho.subscribe = mocker.MagicMock(return_value=(fake_rc, fake_mid))
-    mock_paho.unsubscribe = mocker.MagicMock(return_value=(fake_rc, fake_mid))
     mock_paho.publish = mocker.MagicMock(return_value=(fake_rc, fake_mid))
 
     mocker.patch.object(mqtt, "Client", return_value=mock_paho)
@@ -183,6 +242,17 @@ def client_set_fresh(client):
     client._connected = False
     client._desire_connection = False
     client._mqtt_client._state = PAHO_STATE_NEW
+
+
+# Pytest parametrizations
+early_ack_params = [
+    pytest.param(False, id="Response after invocation returns"),
+    pytest.param(True, id="Response before invocation returns"),
+]
+
+###############################################################################
+#                             TESTS START                                     #
+###############################################################################
 
 
 @pytest.mark.describe("MQTTClient - Instantiation")
@@ -956,6 +1026,45 @@ class TestDisconnectWithClientConnected(object):
 
         assert not client.is_connected()
 
+    @pytest.mark.it("Cancels and removes all pending subscribes and unsubscribes")
+    @pytest.mark.parametrize(
+        "double_response",
+        [
+            pytest.param(False, id="Single Disconnect Response"),
+            pytest.param(True, id="Double Disconnect Response"),
+        ],
+    )
+    async def test_cancel_sub_unsub(self, mocker, client, mock_paho, double_response):
+        # Require manual completion
+        mock_paho._manual_mode = True
+        # Set mocked pending Futures
+        mock_subs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        mock_unsubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        client._pending_subs[1] = mock_subs[0]
+        client._pending_subs[2] = mock_subs[1]
+        client._pending_subs[3] = mock_subs[2]
+        client._pending_unsubs[4] = mock_unsubs[0]
+        client._pending_unsubs[5] = mock_unsubs[1]
+        client._pending_unsubs[6] = mock_unsubs[2]
+
+        # Start a disconnect.
+        disconnect_task = asyncio.create_task(client.disconnect())
+        await asyncio.sleep(0.1)
+        # Trigger disconnect completion
+        mock_paho.trigger_disconnect(rc=0)
+        if double_response:
+            mock_paho.trigger_disconnect(rc=0)
+        await disconnect_task
+
+        # All were cancelled
+        for mock in mock_subs:
+            assert mock.cancel.call_count == 1
+        for mock in mock_unsubs:
+            assert mock.cancel.call_count == 1
+        # All were removed
+        assert len(client._pending_subs) == 0
+        assert len(client._pending_unsubs) == 0
+
 
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Connection Dropped")
 class TestDisconnectWithClientConnectionDrop(object):
@@ -993,6 +1102,31 @@ class TestDisconnectWithClientConnectionDrop(object):
         await client.disconnect()
 
         assert mock_paho.loop_stop.call_count == 0
+
+    # NOTE: This is an invalid scenario. Connection being dropped implies there are
+    # no pending subscribes or unsubscribes
+    @pytest.mark.it("Does not cancel or remove any pending subscribes or unsubscribes")
+    async def test_pending_sub_unsub(self, mocker, client, mock_paho):
+        # Set mocked pending Futures
+        mock_subs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        mock_unsubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        client._pending_subs[1] = mock_subs[0]
+        client._pending_subs[2] = mock_subs[1]
+        client._pending_subs[3] = mock_subs[2]
+        client._pending_unsubs[4] = mock_unsubs[0]
+        client._pending_unsubs[5] = mock_unsubs[1]
+        client._pending_unsubs[6] = mock_unsubs[2]
+
+        await client.disconnect()
+
+        # None were cancelled
+        for mock in mock_subs:
+            assert mock.cancel.call_count == 0
+        for mock in mock_unsubs:
+            assert mock.cancel.call_count == 0
+        # None were removed
+        assert len(client._pending_subs) == 3
+        assert len(client._pending_unsubs) == 3
 
     @pytest.mark.it("Leaves the client in a disconnected state")
     async def test_state(self, client, mock_paho):
@@ -1047,6 +1181,31 @@ class DisconnectWithClientFullyDisconnectedTests(object):
         await client.disconnect()
 
         assert mock_paho.loop_stop.call_count == 0
+
+    # NOTE: This is an invalid scenario. Being disconnected implies there are
+    # no pending subscribes or unsubscribes
+    @pytest.mark.it("Does not cancel or remove any pending subscribes or unsubscribes")
+    async def test_pending_sub_unsub(self, mocker, client, mock_paho):
+        # Set mocked pending Futures
+        mock_subs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        mock_unsubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        client._pending_subs[1] = mock_subs[0]
+        client._pending_subs[2] = mock_subs[1]
+        client._pending_subs[3] = mock_subs[2]
+        client._pending_unsubs[4] = mock_unsubs[0]
+        client._pending_unsubs[5] = mock_unsubs[1]
+        client._pending_unsubs[6] = mock_unsubs[2]
+
+        await client.disconnect()
+
+        # None were cancelled
+        for mock in mock_subs:
+            assert mock.cancel.call_count == 0
+        for mock in mock_unsubs:
+            assert mock.cancel.call_count == 0
+        # None were removed
+        assert len(client._pending_subs) == 3
+        assert len(client._pending_unsubs) == 3
 
     @pytest.mark.it("Leaves the client in a disconnected state")
     async def test_state(self, client):
@@ -1116,6 +1275,32 @@ class TestUnexpectedDisconnect(object):
 
         assert mock_task.cancel.call_count == 0
         assert client._reconnect_daemon is mock_task
+
+    @pytest.mark.it("Cancels and removes all pending subscribes and unsubscribes")
+    async def test_cancel_sub_unsub(self, mocker, client, mock_paho):
+        client_set_connected(client)
+        # Set mocked pending Futures
+        mock_subs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        mock_unsubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        client._pending_subs[1] = mock_subs[0]
+        client._pending_subs[2] = mock_subs[1]
+        client._pending_subs[3] = mock_subs[2]
+        client._pending_unsubs[4] = mock_unsubs[0]
+        client._pending_unsubs[5] = mock_unsubs[1]
+        client._pending_unsubs[6] = mock_unsubs[2]
+
+        # Disconnect
+        mock_paho.trigger_disconnect(rc=7)
+        await asyncio.sleep(0.1)
+
+        # All were cancelled
+        for mock in mock_subs:
+            assert mock.cancel.call_count == 1
+        for mock in mock_unsubs:
+            assert mock.cancel.call_count == 1
+        # All were removed
+        assert len(client._pending_subs) == 0
+        assert len(client._pending_unsubs) == 0
 
 
 @pytest.mark.describe("MQTTClient - Connection Lock")
@@ -1406,3 +1591,315 @@ class TestReconnectDaemon(object):
 
         # Connect was not called by the daemon
         assert client.connect.call_count == 0
+
+
+@pytest.mark.describe("MQTTClient - .subscribe()")
+class TestSubscribe(object):
+    @pytest.mark.it("Invokes an MQTT subscribe via Paho")
+    async def test_paho_invocation(self, mocker, client, mock_paho):
+        assert mock_paho.subscribe.call_count == 0
+
+        await client.subscribe(fake_topic)
+
+        assert mock_paho.subscribe.call_count == 1
+        assert mock_paho.subscribe.call_args == mocker.call(topic=fake_topic, qos=1)
+
+    @pytest.mark.it("Raises a MQTTError if invoking Paho's subscribe returns a failed status")
+    async def test_fail_status(self, client, mock_paho):
+        failing_rc = 4
+        mock_paho._subscribe_rc = failing_rc
+
+        with pytest.raises(MQTTError) as e_info:
+            await client.subscribe(fake_topic)
+        assert e_info.value.rc == failing_rc
+
+    @pytest.mark.it("Allows any exceptions raised by invoking Paho's subscribe to propagate")
+    async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
+        mock_paho.subscribe.side_effect = arbitrary_exception
+
+        with pytest.raises(type(arbitrary_exception)):
+            await client.subscribe(fake_topic)
+
+    @pytest.mark.it("Waits to return until Paho receives a response")
+    async def test_waits_for_completion(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a subscribe. It won't complete
+        subscribe_task = asyncio.create_task(client.subscribe(fake_topic))
+        await asyncio.sleep(0.5)
+        assert not subscribe_task.done()
+
+        # Trigger subscribe completion
+        mock_paho.trigger_subscribe(mock_paho._last_mid)
+        await subscribe_task
+
+    @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
+    @pytest.mark.parametrize("early_ack", early_ack_params)
+    async def test_early_ack(self, client, mock_paho, early_ack):
+        mock_paho._early_ack = early_ack
+        await client.subscribe(fake_topic)
+        # If this doesn't hang, the test passes
+
+    @pytest.mark.it(
+        "Retains pending subscribe tracking information only until receiving a response"
+    )
+    async def test_pending(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a subscribe. It won't complete
+        subscribe_task = asyncio.create_task(client.subscribe(fake_topic))
+        await asyncio.sleep(0.1)
+
+        # Pending subscription is tracked
+        mid = mock_paho._last_mid
+        assert mid in client._pending_subs
+
+        # Trigger subscribe completion
+        mock_paho.trigger_subscribe(mid)
+        await subscribe_task
+
+        # Pending subscription is no longer tracked
+        assert mid not in client._pending_subs
+
+    @pytest.mark.it(
+        "Does not establish pending subscribe tracking information if invoking Paho's subscribe returns a failed status"
+    )
+    async def test_pending_fail_status(self, client, mock_paho):
+        failing_rc = 4
+        mock_paho._subscribe_rc = failing_rc
+
+        with pytest.raises(MQTTError):
+            await client.subscribe(fake_topic)
+
+        assert len(client._pending_subs) == 0
+
+    @pytest.mark.it(
+        "Does not establish pending subscribe tracking information if invoking Paho's subscribe raises an exception"
+    )
+    async def test_pending_fail_paho_raise(self, client, mock_paho, arbitrary_exception):
+        mock_paho.subscribe.side_effect = arbitrary_exception
+
+        with pytest.raises(type(arbitrary_exception)):
+            await client.subscribe(fake_topic)
+
+        assert len(client._pending_subs) == 0
+
+    @pytest.mark.it("Clears pending subscribe tracking information if cancelled")
+    async def test_pending_cancelled(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a subscribe. It won't complete
+        subscribe_task = asyncio.create_task(client.subscribe(fake_topic))
+        await asyncio.sleep(0.1)
+
+        # Pending subscription is tracked
+        mid = mock_paho._last_mid
+        assert mid in client._pending_subs
+
+        # Cancel
+        subscribe_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await subscribe_task
+
+        # Pending subscription is no longer tracked
+        assert mid not in client._pending_subs
+
+    @pytest.mark.it(
+        "Raises CancelledError if the pending subscribe is cancelled by a disconnect attempt"
+    )
+    async def test_cancelled_by_disconnect(self, client, mock_paho):
+        client_set_connected(client)
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a subscribe. It won't complete
+        subscribe_task = asyncio.create_task(client.subscribe(fake_topic))
+        await asyncio.sleep(0.1)
+
+        # Do a disconnect
+        disconnect_task = asyncio.create_task(client.disconnect())
+        mock_paho.trigger_disconnect(rc=0)
+        await asyncio.sleep(0.1)
+
+        with pytest.raises(asyncio.CancelledError):
+            await subscribe_task
+
+        await disconnect_task
+
+    @pytest.mark.it(
+        "Raises CancelledError if the pending subscribe is cancelled by an unexpected disconnect"
+    )
+    async def test_cancelled_by_unexpected_disconnect(self, client, mock_paho):
+        client_set_connected(client)
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a subscribe. It won't complete
+        subscribe_task = asyncio.create_task(client.subscribe(fake_topic))
+        await asyncio.sleep(0.1)
+
+        # Trigger unexpected disconnect
+        mock_paho.trigger_disconnect(rc=7)
+        await asyncio.sleep(0.1)
+
+        with pytest.raises(asyncio.CancelledError):
+            await subscribe_task
+
+
+@pytest.mark.describe("MQTTClient - .unsubscribe()")
+class TestUnsubscribe(object):
+    @pytest.mark.it("Invokes an MQTT unsubscribe via Paho")
+    async def test_paho_invocation(self, mocker, client, mock_paho):
+        assert mock_paho.unsubscribe.call_count == 0
+
+        await client.unsubscribe(fake_topic)
+
+        assert mock_paho.unsubscribe.call_count == 1
+        assert mock_paho.unsubscribe.call_args == mocker.call(topic=fake_topic)
+
+    @pytest.mark.it("Raises a MQTTError if invoking Paho's unsubscribe returns a failed status")
+    async def test_fail_status(self, client, mock_paho):
+        failing_rc = 4
+        mock_paho._unsubscribe_rc = failing_rc
+
+        with pytest.raises(MQTTError) as e_info:
+            await client.unsubscribe(fake_topic)
+        assert e_info.value.rc == failing_rc
+
+    @pytest.mark.it("Allows any exceptions raised by invoking Paho's unsubscribe to propagate")
+    async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
+        mock_paho.unsubscribe.side_effect = arbitrary_exception
+
+        with pytest.raises(type(arbitrary_exception)):
+            await client.unsubscribe(fake_topic)
+
+    @pytest.mark.it("Waits to return until Paho receives a response")
+    async def test_waits_for_completion(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a unsubscribe. It won't complete
+        unsubscribe_task = asyncio.create_task(client.unsubscribe(fake_topic))
+        await asyncio.sleep(0.5)
+        assert not unsubscribe_task.done()
+
+        # Trigger unsubscribe completion
+        mock_paho.trigger_unsubscribe(mock_paho._last_mid)
+        await unsubscribe_task
+
+    @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
+    @pytest.mark.parametrize("early_ack", early_ack_params)
+    async def test_early_ack(self, client, mock_paho, early_ack):
+        mock_paho._early_ack = early_ack
+        await client.unsubscribe(fake_topic)
+        # If this doesn't hang, the test passes
+
+    @pytest.mark.it(
+        "Retains pending unsubscribe tracking information only until receiving a response"
+    )
+    async def test_pending(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a unsubscribe. It won't complete
+        unsubscribe_task = asyncio.create_task(client.unsubscribe(fake_topic))
+        await asyncio.sleep(0.1)
+
+        # Pending subscription is tracked
+        mid = mock_paho._last_mid
+        assert mid in client._pending_unsubs
+
+        # Trigger unsubscribe completion
+        mock_paho.trigger_unsubscribe(mid)
+        await unsubscribe_task
+
+        # Pending subscription is no longer tracked
+        assert mid not in client._pending_unsubs
+
+    @pytest.mark.it(
+        "Does not establish pending unsubscribe tracking information if invoking Paho's unsubscribe returns a failed status"
+    )
+    async def test_pending_fail_status(self, client, mock_paho):
+        failing_rc = 4
+        mock_paho._unsubscribe_rc = failing_rc
+
+        with pytest.raises(MQTTError):
+            await client.unsubscribe(fake_topic)
+
+        assert len(client._pending_unsubs) == 0
+
+    @pytest.mark.it(
+        "Does not establish pending unsubscribe tracking information if invoking Paho's unsubscribe raises an exception"
+    )
+    async def test_pending_fail_paho_raise(self, client, mock_paho, arbitrary_exception):
+        mock_paho.unsubscribe.side_effect = arbitrary_exception
+
+        with pytest.raises(type(arbitrary_exception)):
+            await client.unsubscribe(fake_topic)
+
+        assert len(client._pending_unsubs) == 0
+
+    @pytest.mark.it("Clears pending unsubscribe tracking information if cancelled")
+    async def test_pending_cancelled(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a unsubscribe. It won't complete
+        unsubscribe_task = asyncio.create_task(client.unsubscribe(fake_topic))
+        await asyncio.sleep(0.1)
+
+        # Pending subscription is tracked
+        mid = mock_paho._last_mid
+        assert mid in client._pending_unsubs
+
+        # Cancel
+        unsubscribe_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await unsubscribe_task
+
+        # Pending subscription is no longer tracked
+        assert mid not in client._pending_unsubs
+
+    @pytest.mark.it(
+        "Raises CancelledError if the pending unsubscribe is cancelled by a disconnect attempt"
+    )
+    async def test_cancelled_by_disconnect(self, client, mock_paho):
+        client_set_connected(client)
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a unsubscribe. It won't complete
+        unsubscribe_task = asyncio.create_task(client.unsubscribe(fake_topic))
+        await asyncio.sleep(0.1)
+
+        # Do a disconnect
+        disconnect_task = asyncio.create_task(client.disconnect())
+        mock_paho.trigger_disconnect(rc=0)
+        await asyncio.sleep(0.1)
+
+        with pytest.raises(asyncio.CancelledError):
+            await unsubscribe_task
+
+        await disconnect_task
+
+    @pytest.mark.it(
+        "Raises CancelledError if the pending unsubscribe is cancelled by an unexpected disconnect"
+    )
+    async def test_cancelled_by_unexpected_disconnect(self, client, mock_paho):
+        client_set_connected(client)
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a unsubscribe. It won't complete
+        unsubscribe_task = asyncio.create_task(client.unsubscribe(fake_topic))
+        await asyncio.sleep(0.1)
+
+        # Trigger unexpected disconnect
+        mock_paho.trigger_disconnect(rc=7)
+        await asyncio.sleep(0.1)
+
+        with pytest.raises(asyncio.CancelledError):
+            await unsubscribe_task
