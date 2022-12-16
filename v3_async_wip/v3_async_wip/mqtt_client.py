@@ -498,6 +498,7 @@ class MQTTClient(object):
                 # This is necessary because a connect failure can potentially trigger both
                 # .on_connect() and .on_disconnect() and we want to allow them both to resolve
                 # before releasing the ConnectionLock.
+                # TODO: now that we know it always does, make this more efficient
                 await asyncio.sleep(0.01)
                 if rc != mqtt.CONNACK_ACCEPTED:
                     logger.debug("Stopping Paho network loop due to connect failure")
@@ -723,6 +724,7 @@ class MQTTClient(object):
                 logger.warning("The cancelled publish may still be delivered if it was in-flight")
             else:
                 logger.debug("Publish was cancelled before mid was assigned")
+            raise
         finally:
             # Delete any pending operation (if it exists)
             async with self._mid_tracker_lock:

@@ -88,6 +88,7 @@ def mock_paho(mocker, paho_threadpool):
     mock_paho._last_mid = 0
 
     # Utility helpers
+    # TODO: this should probably trigger on_disconnect if failed
     def trigger_connect(rc=mqtt.CONNACK_ACCEPTED):
         if rc == mqtt.CONNACK_ACCEPTED:
             # State is only set to connected if successfully connecting
@@ -295,7 +296,7 @@ unsubscribe_failed_rc_params = [
     pytest.param(UNEXPECTED_PAHO_RC, id="Unexpected Paho result"),
 ]
 publish_failed_rc_params = [
-    # pytest.param(mqtt.MQTT_ERR_NO_CONN, id="MQTT_ERR_NO_CONN"),
+    # Publish can also return MQTT_ERR_NO_CONN, but it isn't a failure
     pytest.param(mqtt.MQTT_ERR_QUEUE_SIZE, id="MQTT_ERR_QUEUE_SIZE"),
     pytest.param(UNEXPECTED_PAHO_RC, id="Unexpected Paho result"),
 ]
@@ -1795,7 +1796,9 @@ class TestSubscribe(object):
         with pytest.raises(type(arbitrary_exception)):
             await client.subscribe(fake_topic)
 
-    @pytest.mark.it("Waits to return until Paho receives a matching response")
+    @pytest.mark.it(
+        "Waits to return until Paho receives a matching response if the subscribe invocation succeeded"
+    )
     async def test_matching_completion(self, client, mock_paho):
         # Require manual completion
         mock_paho._manual_mode = True
@@ -1978,6 +1981,8 @@ class TestSubscribe(object):
         mock_paho.trigger_subscribe(mid)
         await asyncio.sleep(0.1)
 
+        # No failure, no problem
+
 
 @pytest.mark.describe("MQTTClient - .unsubscribe()")
 class TestUnsubscribe(object):
@@ -2006,7 +2011,9 @@ class TestUnsubscribe(object):
         with pytest.raises(type(arbitrary_exception)):
             await client.unsubscribe(fake_topic)
 
-    @pytest.mark.it("Waits to return until Paho receives a matching response")
+    @pytest.mark.it(
+        "Waits to return until Paho receives a matching response if the unsubscribe invocation succeeded"
+    )
     async def test_waits_for_completion(self, client, mock_paho):
         # Require manual completion
         mock_paho._manual_mode = True
@@ -2189,213 +2196,201 @@ class TestUnsubscribe(object):
         mock_paho.trigger_unsubscribe(mid)
         await asyncio.sleep(0.1)
 
+        # No failure, no problem
 
-# @pytest.mark.describe("MQTTClient - .publish()")
-# class TestPublish(object):
-#     @pytest.mark.it("Invokes an MQTT publish via Paho")
-#     async def test_paho_invocation(self, mocker, client, mock_paho):
-#         assert mock_paho.publish.call_count == 0
 
-#         await client.publish(fake_topic, fake_payload)
+@pytest.mark.describe("MQTTClient - .publish()")
+class TestPublish(object):
+    @pytest.mark.it("Invokes an MQTT publish via Paho")
+    async def test_paho_invocation(self, mocker, client, mock_paho):
+        assert mock_paho.publish.call_count == 0
 
-#         assert mock_paho.publish.call_count == 1
-#         assert mock_paho.publish.call_args == mocker.call(topic=fake_topic, payload=fake_payload, qos=1)
+        await client.publish(fake_topic, fake_payload)
 
-#     @pytest.mark.it("Raises a MQTTError if invoking Paho's publish returns a failed status")
-#     @pytest.mark.parametrize("failing_rc", publish_failed_rc_params)
-#     async def test_fail_status(self, client, mock_paho, failing_rc):
-#         mock_paho._publish_rc = failing_rc
+        assert mock_paho.publish.call_count == 1
+        assert mock_paho.publish.call_args == mocker.call(
+            topic=fake_topic, payload=fake_payload, qos=1
+        )
 
-#         with pytest.raises(MQTTError) as e_info:
-#             await client.publish(fake_topic, fake_payload)
-#         assert e_info.value.rc == failing_rc
+    # NOTE: MQTT_ERR_NO_CONN is not a failure for publish
+    @pytest.mark.it("Raises a MQTTError if invoking Paho's publish returns a failed status")
+    @pytest.mark.parametrize("failing_rc", publish_failed_rc_params)
+    async def test_fail_status(self, client, mock_paho, failing_rc):
+        mock_paho._publish_rc = failing_rc
 
-#     @pytest.mark.it("Allows any exceptions raised by invoking Paho's publish to propagate")
-#     async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
-#         mock_paho.publish.side_effect = arbitrary_exception
+        with pytest.raises(MQTTError) as e_info:
+            await client.publish(fake_topic, fake_payload)
+        assert e_info.value.rc == failing_rc
 
-#         with pytest.raises(type(arbitrary_exception)):
-#             await client.publish(fake_topic, fake_payload)
+    @pytest.mark.it("Allows any exceptions raised by invoking Paho's publish to propagate")
+    async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
+        mock_paho.publish.side_effect = arbitrary_exception
 
-#     @pytest.mark.it("Waits to return until Paho receives a matching response")
-#     async def test_matching_completion(self, client, mock_paho):
-#         # Require manual completion
-#         mock_paho._manual_mode = True
+        with pytest.raises(type(arbitrary_exception)):
+            await client.publish(fake_topic, fake_payload)
 
-#         # Start a publish. It won't complete
-#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
-#         await asyncio.sleep(0.5)
-#         assert not publish_task.done()
+    @pytest.mark.it(
+        "Waits to return until Paho receives a matching response if the publish invocation succeeded"
+    )
+    async def test_matching_completion_success(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+        mock_paho._publish_rc = mqtt.MQTT_ERR_SUCCESS
 
-#         # Trigger publish completion
-#         mock_paho.trigger_publish(mock_paho._last_mid)
-#         await publish_task
+        # Start a publish. It won't complete
+        publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+        await asyncio.sleep(0.5)
+        assert not publish_task.done()
 
-#     @pytest.mark.it("Does not return if Paho receives a non-matching response")
-#     async def test_nonmatching_completion(self, client, mock_paho):
-#         # Require manual completion
-#         mock_paho._manual_mode = True
+        # Trigger publish completion
+        mock_paho.trigger_publish(mock_paho._last_mid)
+        await publish_task
 
-#         # Start two publishs. They won't complete
-#         publish_task1 = asyncio.create_task(client.publish(fake_topic, fake_payload))
-#         await asyncio.sleep(0.1)
-#         publish_task1_mid = mock_paho._last_mid
-#         publish_task2 = asyncio.create_task(client.publish(fake_topic, fake_payload))
-#         await asyncio.sleep(0.1)
-#         publish_task2_mid = mock_paho._last_mid
-#         assert publish_task1_mid != publish_task2_mid
-#         await asyncio.sleep(0.5)
-#         assert not publish_task1.done()
-#         assert not publish_task2.done()
+    @pytest.mark.it(
+        "Waits to return until Paho receives a matching response (after connect established) if the publish invocation returned 'Not Connected'"
+    )
+    async def test_matching_completion_no_conn(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+        mock_paho._publish_rc = mqtt.MQTT_ERR_NO_CONN
 
-#         # Trigger publish completion for one of them
-#         mock_paho.trigger_publish(publish_task2_mid)
-#         # The corresponding task completes
-#         await publish_task2
-#         # The other does not
-#         assert not publish_task1.done()
+        # Start a publish. It won't complete
+        publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+        await asyncio.sleep(0.5)
+        assert not publish_task.done()
 
-#         # Complete the other one
-#         mock_paho.trigger_publish(publish_task1_mid)
-#         await publish_task1
+        # NOTE: Yeah, the test refers to after the connect is established, but there's no need
+        # to bring connection state into play here. Point is, after becoming connected, Paho will
+        # automatically re-publish, and when a response is received it will trigger completion.
 
-#     @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
-#     @pytest.mark.parametrize("early_ack", early_ack_params)
-#     async def test_early_ack(self, client, mock_paho, early_ack):
-#         mock_paho._early_ack = early_ack
-#         await client.publish(fake_topic, fake_payload)
-#         # If this doesn't hang, the test passes
+        # Trigger publish completion
+        mock_paho.trigger_publish(mock_paho._last_mid)
+        await publish_task
 
-#     @pytest.mark.it(
-#         "Retains pending publish tracking information only until receiving a response"
-#     )
-#     async def test_pending(self, client, mock_paho):
-#         # Require manual completion
-#         mock_paho._manual_mode = True
+    @pytest.mark.it("Does not return if Paho receives a non-matching response")
+    async def test_nonmatching_completion(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
 
-#         # Start a publish. It won't complete
-#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
-#         await asyncio.sleep(0.1)
+        # Start two publishes. They won't complete
+        publish_task1 = asyncio.create_task(client.publish(fake_topic, fake_payload))
+        await asyncio.sleep(0.1)
+        publish_task1_mid = mock_paho._last_mid
+        publish_task2 = asyncio.create_task(client.publish(fake_topic, fake_payload))
+        await asyncio.sleep(0.1)
+        publish_task2_mid = mock_paho._last_mid
+        assert publish_task1_mid != publish_task2_mid
+        await asyncio.sleep(0.5)
+        assert not publish_task1.done()
+        assert not publish_task2.done()
 
-#         # Pending publish is tracked
-#         mid = mock_paho._last_mid
-#         assert mid in client._pending_subs
+        # Trigger publish completion for one of them
+        mock_paho.trigger_publish(publish_task2_mid)
+        # The corresponding task completes
+        await publish_task2
+        # The other does not
+        assert not publish_task1.done()
 
-#         # Trigger publish completion
-#         mock_paho.trigger_publish(mid)
-#         await publish_task
+        # Complete the other one
+        mock_paho.trigger_publish(publish_task1_mid)
+        await publish_task1
 
-#         # Pending publish is no longer tracked
-#         assert mid not in client._pending_subs
+    @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
+    @pytest.mark.parametrize("early_ack", early_ack_params)
+    async def test_early_ack(self, client, mock_paho, early_ack):
+        mock_paho._early_ack = early_ack
+        await client.publish(fake_topic, fake_payload)
+        # If this doesn't hang, the test passes
 
-#     @pytest.mark.it(
-#         "Does not establish pending publish tracking information if invoking Paho's publish returns a failed status"
-#     )
-#     async def test_pending_fail_status(self, client, mock_paho):
-#         failing_rc = mqtt.MQTT_ERR_PROTOCOL
-#         mock_paho._publish_rc = failing_rc
+    @pytest.mark.it("Retains pending publish tracking information only until receiving a response")
+    async def test_pending(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
 
-#         with pytest.raises(MQTTError):
-#             await client.publish(fake_topic, fake_payload)
+        # Start a publish. It won't complete
+        publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+        await asyncio.sleep(0.1)
 
-#         assert len(client._pending_subs) == 0
+        # Pending publish is tracked
+        mid = mock_paho._last_mid
+        assert mid in client._pending_pubs
 
-#     @pytest.mark.it(
-#         "Does not establish pending publish tracking information if invoking Paho's publish raises an exception"
-#     )
-#     async def test_pending_fail_paho_raise(self, client, mock_paho, arbitrary_exception):
-#         mock_paho.publish.side_effect = arbitrary_exception
+        # Trigger publish completion
+        mock_paho.trigger_publish(mid)
+        await publish_task
 
-#         with pytest.raises(type(arbitrary_exception)):
-#             await client.publish(fake_topic, fake_payload)
+        # Pending publish is no longer tracked
+        assert mid not in client._pending_pubs
 
-#         assert len(client._pending_subs) == 0
+    @pytest.mark.it(
+        "Does not establish pending publish tracking information if invoking Paho's publish returns a failed status"
+    )
+    @pytest.mark.parametrize("failing_rc", publish_failed_rc_params)
+    async def test_pending_fail_status(self, client, mock_paho, failing_rc):
+        mock_paho._publish_rc = failing_rc
 
-#     @pytest.mark.it("Clears pending publish tracking information if cancelled")
-#     async def test_pending_cancelled(self, client, mock_paho):
-#         # Require manual completion
-#         mock_paho._manual_mode = True
+        with pytest.raises(MQTTError):
+            await client.publish(fake_topic, fake_payload)
 
-#         # Start a publish. It won't complete
-#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
-#         await asyncio.sleep(0.1)
+        assert len(client._pending_pubs) == 0
 
-#         # Pending publish is tracked
-#         mid = mock_paho._last_mid
-#         assert mid in client._pending_subs
+    @pytest.mark.it(
+        "Does not establish pending publish tracking information if invoking Paho's publish raises an exception"
+    )
+    async def test_pending_fail_paho_raise(self, client, mock_paho, arbitrary_exception):
+        mock_paho.publish.side_effect = arbitrary_exception
 
-#         # Cancel
-#         publish_task.cancel()
-#         with pytest.raises(asyncio.CancelledError):
-#             await publish_task
+        with pytest.raises(type(arbitrary_exception)):
+            await client.publish(fake_topic, fake_payload)
 
-#         # Pending publish is no longer tracked
-#         assert mid not in client._pending_subs
+        assert len(client._pending_subs) == 0
 
-#     @pytest.mark.it(
-#         "Raises CancelledError if the pending publish is cancelled by a disconnect attempt"
-#     )
-#     async def test_cancelled_by_disconnect(self, client, mock_paho):
-#         client_set_connected(client)
-#         # Require manual completion
-#         mock_paho._manual_mode = True
+    @pytest.mark.it("Clears pending publish tracking information if cancelled")
+    async def test_pending_cancelled(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
 
-#         # Start a publish. It won't complete
-#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
-#         await asyncio.sleep(0.1)
+        # Start a publish. It won't complete
+        publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+        await asyncio.sleep(0.1)
 
-#         # Do a disconnect
-#         disconnect_task = asyncio.create_task(client.disconnect())
-#         mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
-#         await asyncio.sleep(0.1)
+        # Pending publish is tracked
+        mid = mock_paho._last_mid
+        assert mid in client._pending_pubs
 
-#         with pytest.raises(asyncio.CancelledError):
-#             await publish_task
+        # Cancel
+        publish_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await publish_task
 
-#         await disconnect_task
+        # Pending publish is no longer tracked
+        assert mid not in client._pending_pubs
 
-#     @pytest.mark.it(
-#         "Raises CancelledError if the pending publish is cancelled by an unexpected disconnect"
-#     )
-#     async def test_cancelled_by_unexpected_disconnect(self, client, mock_paho):
-#         client_set_connected(client)
-#         # Require manual completion
-#         mock_paho._manual_mode = True
+    @pytest.mark.it(
+        "Can handle receiving a response for a publish that was cancelled after it was in-flight"
+    )
+    async def test_ack_after_cancel(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
 
-#         # Start a publish. It won't complete
-#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
-#         await asyncio.sleep(0.1)
+        # Start a publish. It won't complete
+        publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+        await asyncio.sleep(0.1)
 
-#         # Trigger unexpected disconnect
-#         mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
-#         await asyncio.sleep(0.1)
+        # Pending publish is tracked
+        mid = mock_paho._last_mid
+        assert mid in client._pending_pubs
 
-#         with pytest.raises(asyncio.CancelledError):
-#             await publish_task
+        # Cancel
+        publish_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await publish_task
 
-#     @pytest.mark.it(
-#         "Can handle receiving a response for a publish that was cancelled after it was in-flight"
-#     )
-#     async def test_ack_after_cancel(self, client, mock_paho):
-#         # Require manual completion
-#         mock_paho._manual_mode = True
+        # Pending publish is no longer tracked
+        assert mid not in client._pending_pubs
 
-#         # Start a publish. It won't complete
-#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
-#         await asyncio.sleep(0.1)
+        # Trigger publish response after cancellation
+        mock_paho.trigger_publish(mid)
+        await asyncio.sleep(0.1)
 
-#         # Pending publish is tracked
-#         mid = mock_paho._last_mid
-#         assert mid in client._pending_subs
-
-#         # Cancel
-#         publish_task.cancel()
-#         with pytest.raises(asyncio.CancelledError):
-#             await publish_task
-
-#         # Pending publish is no longer tracked
-#         assert mid not in client._pending_subs
-
-#         # Trigger publish response after cancellation
-#         mock_paho.trigger_publish(mid)
-#         await asyncio.sleep(0.1)
+        # No failure, no problem
