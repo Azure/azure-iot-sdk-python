@@ -66,7 +66,6 @@ def mock_paho(mocker, paho_threadpool):
     # (i.e. before invocation return)
     # NOTE: While the "normal" behavior we can expect is NOT an early ack, we set early ack
     # as the default for test performance reasons
-    # TODO: incorporate this into conn/disconn tests
     mock_paho._early_ack = True
     # Default rc value to return on invocations of method mocks
     # NOTE: There is no _disconnect_rc because disconnect return values are deterministic
@@ -87,6 +86,8 @@ def mock_paho(mocker, paho_threadpool):
         else:
             # If it fails it ends up in a "new" state.
             mock_paho._state = PAHO_STATE_NEW
+        if not mock_paho._early_ack:
+            paho_threadpool.submit(time.sleep, ACK_DELAY)
         paho_threadpool.submit(
             mock_paho.on_connect, client=mock_paho, userdata=None, flags=None, rc=rc
         )
@@ -96,6 +97,8 @@ def mock_paho(mocker, paho_threadpool):
     def trigger_disconnect(rc=0):
         if mock_paho._state == PAHO_STATE_CONNECTED:
             mock_paho._state = PAHO_STATE_CONNECTION_LOST
+        if not mock_paho._early_ack:
+            paho_threadpool.submit(time.sleep, ACK_DELAY)
         paho_threadpool.submit(mock_paho.on_disconnect, client=mock_paho, userdata=None, rc=rc)
 
     mock_paho.trigger_disconnect = trigger_disconnect
@@ -667,6 +670,13 @@ class ConnectWithClientNotConnectedTests(object):
             await connect_task
         assert e_info.value.rc == 5
 
+    @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
+    @pytest.mark.parametrize("early_ack", early_ack_params)
+    async def test_early_ack(self, client, mock_paho, early_ack):
+        mock_paho._early_ack = early_ack
+        await client.connect()
+        # If this doesn't hang, the test passes
+
     @pytest.mark.it("Puts the client in a connected state if connection attempt is successful")
     async def test_state_success(self, client):
         assert not client.is_connected()
@@ -950,6 +960,13 @@ class TestDisconnectWithClientConnected(object):
         if double_response:
             mock_paho.trigger_disconnect(rc=0)
         await disconnect_task
+
+    @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
+    @pytest.mark.parametrize("early_ack", early_ack_params)
+    async def test_early_ack(self, client, mock_paho, early_ack):
+        mock_paho._early_ack = early_ack
+        await client.disconnect()
+        # If this doesn't hang, the test passes
 
     @pytest.mark.it("Cancels and removes the reconnect daemon task if it is running")
     @pytest.mark.parametrize(
@@ -1703,8 +1720,8 @@ class TestSubscribe(object):
         with pytest.raises(type(arbitrary_exception)):
             await client.subscribe(fake_topic)
 
-    @pytest.mark.it("Waits to return until Paho receives a response")
-    async def test_waits_for_completion(self, client, mock_paho):
+    @pytest.mark.it("Waits to return until Paho receives a matching response")
+    async def test_matching_completion(self, client, mock_paho):
         # Require manual completion
         mock_paho._manual_mode = True
 
@@ -1716,6 +1733,34 @@ class TestSubscribe(object):
         # Trigger subscribe completion
         mock_paho.trigger_subscribe(mock_paho._last_mid)
         await subscribe_task
+
+    @pytest.mark.it("Does not return if Paho receives a non-matching response")
+    async def test_nonmatching_completion(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start two subscribes. They won't complete
+        subscribe_task1 = asyncio.create_task(client.subscribe(fake_topic))
+        await asyncio.sleep(0.1)
+        subscribe_task1_mid = mock_paho._last_mid
+        subscribe_task2 = asyncio.create_task(client.subscribe(fake_topic))
+        await asyncio.sleep(0.1)
+        subscribe_task2_mid = mock_paho._last_mid
+        assert subscribe_task1_mid != subscribe_task2_mid
+        await asyncio.sleep(0.5)
+        assert not subscribe_task1.done()
+        assert not subscribe_task2.done()
+
+        # Trigger subscribe completion for one of them
+        mock_paho.trigger_subscribe(subscribe_task2_mid)
+        # The corresponding task completes
+        await subscribe_task2
+        # The other does not
+        assert not subscribe_task1.done()
+
+        # Complete the other one
+        mock_paho.trigger_subscribe(subscribe_task1_mid)
+        await subscribe_task1
 
     @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
     @pytest.mark.parametrize("early_ack", early_ack_params)
@@ -1886,7 +1931,7 @@ class TestUnsubscribe(object):
         with pytest.raises(type(arbitrary_exception)):
             await client.unsubscribe(fake_topic)
 
-    @pytest.mark.it("Waits to return until Paho receives a response")
+    @pytest.mark.it("Waits to return until Paho receives a matching response")
     async def test_waits_for_completion(self, client, mock_paho):
         # Require manual completion
         mock_paho._manual_mode = True
@@ -1899,6 +1944,34 @@ class TestUnsubscribe(object):
         # Trigger unsubscribe completion
         mock_paho.trigger_unsubscribe(mock_paho._last_mid)
         await unsubscribe_task
+
+    @pytest.mark.it("Does not return if Paho receives a non-matching response")
+    async def test_nonmatching_completion(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start two unsubscribes. They won't complete
+        unsubscribe_task1 = asyncio.create_task(client.unsubscribe(fake_topic))
+        await asyncio.sleep(0.1)
+        unsubscribe_task1_mid = mock_paho._last_mid
+        unsubscribe_task2 = asyncio.create_task(client.unsubscribe(fake_topic))
+        await asyncio.sleep(0.1)
+        unsubscribe_task2_mid = mock_paho._last_mid
+        assert unsubscribe_task1_mid != unsubscribe_task2_mid
+        await asyncio.sleep(0.5)
+        assert not unsubscribe_task1.done()
+        assert not unsubscribe_task2.done()
+
+        # Trigger unsubscribe completion for one of them
+        mock_paho.trigger_unsubscribe(unsubscribe_task2_mid)
+        # The corresponding task completes
+        await unsubscribe_task2
+        # The other does not
+        assert not unsubscribe_task1.done()
+
+        # Complete the other one
+        mock_paho.trigger_unsubscribe(unsubscribe_task1_mid)
+        await unsubscribe_task1
 
     @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
     @pytest.mark.parametrize("early_ack", early_ack_params)
