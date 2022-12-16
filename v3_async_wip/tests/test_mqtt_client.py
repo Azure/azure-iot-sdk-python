@@ -5,6 +5,14 @@
 # --------------------------------------------------------------------------
 
 from v3_async_wip.mqtt_client import MQTTClient, MQTTError, MQTTConnectionFailedError
+from v3_async_wip.mqtt_client import (
+    expected_connect_rc,
+    expected_subscribe_rc,
+    expected_unsubscribe_rc,
+    expected_publish_rc,
+    expected_on_connect_rc,
+    expected_on_disconnect_rc,
+)
 from azure.iot.device.common import ProxyOptions
 import paho.mqtt.client as mqtt
 import asyncio
@@ -25,13 +33,14 @@ fake_port = 443
 fake_keepalive = 1234
 fake_ws_path = "/fake/path"
 fake_topic = "/some/topic/"
-fake_mid = 52
-fake_rc = 0
+fake_payload = "message content"
 
 PAHO_STATE_NEW = "NEW"
 PAHO_STATE_DISCONNECTED = "DISCONNECTED"
 PAHO_STATE_CONNECTED = "CONNECTED"
 PAHO_STATE_CONNECTION_LOST = "CONNECTION_LOST"
+
+UNEXPECTED_PAHO_RC = 255
 
 ACK_DELAY = 1
 
@@ -70,17 +79,17 @@ def mock_paho(mocker, paho_threadpool):
     # Default rc value to return on invocations of method mocks
     # NOTE: There is no _disconnect_rc because disconnect return values are deterministic
     # See the implementation of trigger_disconnect and the mock disconnect below.
-    mock_paho._connect_rc = 0
-    mock_paho._publish_rc = 0
-    mock_paho._subscribe_rc = 0
-    mock_paho._unsubscribe_rc = 0
+    mock_paho._connect_rc = mqtt.MQTT_ERR_SUCCESS
+    mock_paho._publish_rc = mqtt.MQTT_ERR_SUCCESS
+    mock_paho._subscribe_rc = mqtt.MQTT_ERR_SUCCESS
+    mock_paho._unsubscribe_rc = mqtt.MQTT_ERR_SUCCESS
     # Last mid that was returned. Will be incremented over time (see _get_next_mid())
     # NOTE: 0 means no mid has been sent yet
     mock_paho._last_mid = 0
 
     # Utility helpers
-    def trigger_connect(rc=0):
-        if rc == 0:
+    def trigger_connect(rc=mqtt.CONNACK_ACCEPTED):
+        if rc == mqtt.CONNACK_ACCEPTED:
             # State is only set to connected if successfully connecting
             mock_paho._state = PAHO_STATE_CONNECTED
         else:
@@ -94,7 +103,7 @@ def mock_paho(mocker, paho_threadpool):
 
     mock_paho.trigger_connect = trigger_connect
 
-    def trigger_disconnect(rc=0):
+    def trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS):
         if mock_paho._state == PAHO_STATE_CONNECTED:
             mock_paho._state = PAHO_STATE_CONNECTION_LOST
         if not mock_paho._early_ack:
@@ -123,6 +132,15 @@ def mock_paho(mocker, paho_threadpool):
 
     mock_paho.trigger_unsubscribe = trigger_unsubscribe
 
+    def trigger_publish(mid):
+        if not mid:
+            mid = mock_paho._last_mid
+        if not mock_paho._early_ack:
+            paho_threadpool.submit(time.sleep, ACK_DELAY)
+        paho_threadpool.submit(mock_paho.on_publish, client=mock_paho, userdata=None, mid=mid)
+
+    mock_paho.trigger_publish = trigger_publish
+
     # NOTE: This should not be necessary to use in any tests themselves.
     def _get_next_mid():
         mock_paho._last_mid += 1
@@ -141,8 +159,8 @@ def mock_paho(mocker, paho_threadpool):
 
     def connect(*args, **kwargs):
         # Only trigger completion if not in manual mode
-        # Only trigger completion if returning rc=0
-        if not mock_paho._manual_mode and mock_paho._connect_rc == 0:
+        # Only trigger completion if returning success
+        if not mock_paho._manual_mode and mock_paho._connect_rc == mqtt.MQTT_ERR_SUCCESS:
             mock_paho.trigger_connect()
         return mock_paho._connect_rc
 
@@ -153,14 +171,14 @@ def mock_paho(mocker, paho_threadpool):
             mock_paho._state = PAHO_STATE_DISCONNECTED
             if not mock_paho._manual_mode:
                 mock_paho.trigger_disconnect()
-            rc = 0
+            rc = mqtt.MQTT_ERR_SUCCESS
         else:
             mock_paho._state = PAHO_STATE_DISCONNECTED
-            rc = 4
+            rc = mqtt.MQTT_ERR_NO_CONN
         return rc
 
     def subscribe(*args, **kwargs):
-        if mock_paho._subscribe_rc != 0:
+        if mock_paho._subscribe_rc != mqtt.MQTT_ERR_SUCCESS:
             mid = None
         else:
             mid = mock_paho._get_next_mid()
@@ -169,7 +187,7 @@ def mock_paho(mocker, paho_threadpool):
         return (mock_paho._subscribe_rc, mid)
 
     def unsubscribe(*args, **kwargs):
-        if mock_paho._unsubscribe_rc != 0:
+        if mock_paho._unsubscribe_rc != mqtt.MQTT_ERR_SUCCESS:
             mid = None
         else:
             mid = mock_paho._get_next_mid()
@@ -177,13 +195,23 @@ def mock_paho(mocker, paho_threadpool):
                 mock_paho.trigger_unsubscribe(mid)
         return (mock_paho._unsubscribe_rc, mid)
 
+    def publish(*args, **kwargs):
+        # Unlike subscribe and unsubscribe, publish still returns a mid in the case of failure
+        mid = mock_paho._get_next_mid()
+        if not mock_paho._manual_mode:
+            mock_paho.trigger_publish(mid)
+        # Not going to bother mocking out the details of this message info since we just use it
+        # for the rc and mid
+        msg_info = mqtt.MQTTMessageInfo(mid)
+        msg_info.rc = mock_paho._publish_rc
+        return msg_info
+
     mock_paho.is_connected.side_effect = is_connected
     mock_paho.connect.side_effect = connect
     mock_paho.disconnect.side_effect = disconnect
     mock_paho.subscribe.side_effect = subscribe
     mock_paho.unsubscribe.side_effect = unsubscribe
-
-    mock_paho.publish = mocker.MagicMock(return_value=(fake_rc, fake_mid))
+    mock_paho.publish.side_effect = publish
 
     mocker.patch.object(mqtt, "Client", return_value=mock_paho)
 
@@ -252,6 +280,70 @@ early_ack_params = [
     pytest.param(False, id="Response after invocation returns"),
     pytest.param(True, id="Response before invocation returns"),
 ]
+
+# NOTE: disconnect rcs are not necessary as disconnect can't fail and the result is deterministic
+# (See mock_paho implementation for more information)
+connect_failed_rc_params = [
+    pytest.param(UNEXPECTED_PAHO_RC, id="Unexpected Paho result"),
+]
+subscribe_failed_rc_params = [
+    pytest.param(mqtt.MQTT_ERR_NO_CONN, id="MQTT_ERR_NO_CONN"),
+    pytest.param(UNEXPECTED_PAHO_RC, id="Unexpected Paho result"),
+]
+unsubscribe_failed_rc_params = [
+    pytest.param(mqtt.MQTT_ERR_NO_CONN, id="MQTT_ERR_NO_CONN"),
+    pytest.param(UNEXPECTED_PAHO_RC, id="Unexpected Paho result"),
+]
+publish_failed_rc_params = [
+    # pytest.param(mqtt.MQTT_ERR_NO_CONN, id="MQTT_ERR_NO_CONN"),
+    pytest.param(mqtt.MQTT_ERR_QUEUE_SIZE, id="MQTT_ERR_QUEUE_SIZE"),
+    pytest.param(UNEXPECTED_PAHO_RC, id="Unexpected Paho result"),
+]
+on_connect_failed_rc_params = [
+    pytest.param(mqtt.CONNACK_REFUSED_PROTOCOL_VERSION, id="CONNACK_REFUSED_PROTOCOL_VERSION"),
+    pytest.param(
+        mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED, id="CONNACK_REFUSED_IDENTIFIER_REJECTED"
+    ),
+    pytest.param(mqtt.CONNACK_REFUSED_SERVER_UNAVAILABLE, id="CONNACK_REFUSED_SERVER_UNAVAILABLE"),
+    pytest.param(
+        mqtt.CONNACK_REFUSED_BAD_USERNAME_PASSWORD, id="CONNACK_REFUSED_BAD_USERNAME_PASSWORD"
+    ),
+    pytest.param(mqtt.CONNACK_REFUSED_NOT_AUTHORIZED, id="CONNACK_REFUSED_NOT_AUTHORIZED"),
+    pytest.param(
+        UNEXPECTED_PAHO_RC, id="Unexpected Paho result"
+    ),  # Reserved for future use defined by MQTT
+]
+on_disconnect_failed_rc_params = [
+    pytest.param(mqtt.MQTT_ERR_CONN_REFUSED, id="MQTT_ERR_CONN_REFUSED"),
+    pytest.param(mqtt.MQTT_ERR_CONN_LOST, id="MQTT_ERR_CONN_LOST"),
+    pytest.param(mqtt.MQTT_ERR_KEEPALIVE, id="MQTT_ERR_KEEPALIVE"),
+    pytest.param(UNEXPECTED_PAHO_RC, id="Unexpected Paho result"),
+]
+
+
+# Validate the above are correct so failure will occur if tests are out of date.
+def validate_rc_params(rc_params, expected_rc, no_fail=[]):
+    # Ignore success, and any other failing rcs that don't result in failure
+    ignore = [mqtt.MQTT_ERR_SUCCESS, mqtt.CONNACK_ACCEPTED] + no_fail
+    # Assert that all expected rcs (other than ignored vals) are in our rc params
+    for rc in [v for v in expected_rc if v not in ignore]:
+        assert True in [rc in param.values for param in rc_params]
+    # Assert that our unexpected rc stand-in is in our rc params
+    assert True in [UNEXPECTED_PAHO_RC in param.values for param in rc_params]
+    # Assert that there are not more values in our rc params than we would expect
+    expected_len = len(expected_rc) - 1  # No success
+    expected_len += 1  # We have an additional unexpected value
+    expected_len -= len(no_fail)  # No non-fails
+    assert len(rc_params) == expected_len
+
+
+validate_rc_params(connect_failed_rc_params, expected_connect_rc)
+validate_rc_params(subscribe_failed_rc_params, expected_subscribe_rc)
+validate_rc_params(unsubscribe_failed_rc_params, expected_unsubscribe_rc)
+validate_rc_params(publish_failed_rc_params, expected_publish_rc, no_fail=[mqtt.MQTT_ERR_NO_CONN])
+validate_rc_params(on_connect_failed_rc_params, expected_on_connect_rc)
+validate_rc_params(on_disconnect_failed_rc_params, expected_on_disconnect_rc)
+
 
 ###############################################################################
 #                             TESTS START                                     #
@@ -511,9 +603,6 @@ class TestIsConnected(object):
 # NOTE: Because clients in Disconnected, Connection Dropped, and Fresh states have the same
 # behaviors during a connect, define a parent class that can be subclassed so tests don't have
 # to be written twice.
-# NOTE: Failure responses can be either a single invocation of Paho's .on_connect handler
-# or a paired invocation of both Paho's .on_connect and .on_disconnect. Both cases are covered.
-# Why does this happen? I don't know. But it does, and the client is designed to handle it.
 class ConnectWithClientNotConnectedTests(object):
     @pytest.mark.it(
         "Starts the reconnect daemon and stores its task if auto_reconnect is enabled and the daemon is not yet running"
@@ -568,11 +657,12 @@ class ConnectWithClientNotConnectedTests(object):
         assert e_info.value.__cause__ is arbitrary_exception
         assert e_info.value.rc is None
 
+    # NOTE: This should be an invalid scenario as connect should not be able to return a failed status
     @pytest.mark.it(
         "Raises a MQTTConnectionFailedError if invoking Paho's connect returns a failed status"
     )
-    async def test_fail_status(self, client, mock_paho):
-        failing_rc = 1
+    @pytest.mark.parametrize("failing_rc", connect_failed_rc_params)
+    async def test_fail_status(self, client, mock_paho, failing_rc):
         mock_paho._connect_rc = failing_rc
 
         with pytest.raises(MQTTConnectionFailedError) as e_info:
@@ -601,10 +691,12 @@ class ConnectWithClientNotConnectedTests(object):
 
         assert mock_paho.loop_start.call_count == 0
 
+    # NOTE: This should be an invalid scenario as connect should not be able to return a failed status
     @pytest.mark.it("Does not start the Paho network loop if the connect returns a failed status")
-    async def test_network_loop_connect_fail_status(self, client, mock_paho):
+    @pytest.mark.parametrize("failing_rc", connect_failed_rc_params)
+    async def test_network_loop_connect_fail_status(self, client, mock_paho, failing_rc):
         assert mock_paho.loop_start.call_count == 0
-        mock_paho._connect_rc = 1
+        mock_paho._connect_rc = failing_rc
 
         with pytest.raises(MQTTConnectionFailedError):
             await client.connect()
@@ -623,13 +715,9 @@ class ConnectWithClientNotConnectedTests(object):
         assert mock_paho.loop_stop.call_count == 1
 
     @pytest.mark.it(
-        "Waits to return until Paho receives a response if the connect invocation succeeded"
+        "Waits to return until Paho receives a success response if the connect invocation succeeded"
     )
-    @pytest.mark.parametrize(
-        "success",
-        [pytest.param(True, id="Connect Success"), pytest.param(False, id="Connect Failure")],
-    )
-    async def test_waits_for_completion(self, client, mock_paho, success):
+    async def test_waits_for_completion(self, client, mock_paho):
         # Require manual completion
         mock_paho._manual_mode = True
 
@@ -639,22 +727,14 @@ class ConnectWithClientNotConnectedTests(object):
         assert not connect_task.done()
 
         # Trigger connect completion
-        rc = 0 if success else 1
-        mock_paho.trigger_connect(rc)
-        await asyncio.sleep(0.1)
-        assert connect_task.done()
+        mock_paho.trigger_connect(rc=mqtt.CONNACK_ACCEPTED)
+        await connect_task
 
     @pytest.mark.it(
         "Raises a MQTTConnectionFailedError if the connect attempt receives a failure response"
     )
-    @pytest.mark.parametrize(
-        "paired_failure",
-        [
-            pytest.param(False, id="Single Connect Failure Response"),
-            pytest.param(True, id="Paired Connect/Disconnect Failure Response"),
-        ],
-    )
-    async def test_fail_response(self, client, mock_paho, paired_failure):
+    @pytest.mark.parametrize("failing_rc", on_connect_failed_rc_params)
+    async def test_fail_response(self, client, mock_paho, failing_rc):
         # Require manual completion
         mock_paho._manual_mode = True
 
@@ -662,13 +742,13 @@ class ConnectWithClientNotConnectedTests(object):
         connect_task = asyncio.create_task(client.connect())
         await asyncio.sleep(0.1)
 
-        # Send failure response
-        mock_paho.trigger_connect(rc=5)
-        if paired_failure:
-            mock_paho.trigger_disconnect(rc=5)
+        # Send failure CONNACK response
+        mock_paho.trigger_connect(rc=failing_rc)
+        # Any CONNACK failure also results in a ERR_CONN_REFUSED to on_disconnect
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_REFUSED)
         with pytest.raises(MQTTConnectionFailedError) as e_info:
             await connect_task
-        assert e_info.value.rc == 5
+        assert e_info.value.rc == failing_rc
 
     @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
     @pytest.mark.parametrize("early_ack", early_ack_params)
@@ -698,12 +778,14 @@ class ConnectWithClientNotConnectedTests(object):
 
         assert not client.is_connected()
 
+    # NOTE: This should be an invalid scenario as connect should not be able to return a failed status
     @pytest.mark.it(
         "Leaves the client in a disconnected state if invoking Paho's connect returns a failed status"
     )
-    async def test_state_fail_status(self, client, mock_paho):
+    @pytest.mark.parametrize("failing_rc", connect_failed_rc_params)
+    async def test_state_fail_status(self, client, mock_paho, failing_rc):
         # Return a fail status
-        mock_paho._connect_rc = 1
+        mock_paho._connect_rc = failing_rc
         assert not client.is_connected()
 
         with pytest.raises(MQTTConnectionFailedError):
@@ -714,14 +796,8 @@ class ConnectWithClientNotConnectedTests(object):
     @pytest.mark.it(
         "Leaves the client in a disconnected state if the connect attempt receives a failure response"
     )
-    @pytest.mark.parametrize(
-        "paired_failure",
-        [
-            pytest.param(False, id="Single Connect Failure Response"),
-            pytest.param(True, id="Paired Connect/Disconnect Failure Response"),
-        ],
-    )
-    async def test_state_fail_response(self, client, mock_paho, paired_failure):
+    @pytest.mark.parametrize("failing_rc", on_connect_failed_rc_params)
+    async def test_state_fail_response(self, client, mock_paho, failing_rc):
         # Require manual completion
         mock_paho._manual_mode = True
         assert not client.is_connected()
@@ -729,10 +805,10 @@ class ConnectWithClientNotConnectedTests(object):
         # Attempt connect
         connect_task = asyncio.create_task(client.connect())
         await asyncio.sleep(0.1)
-        # Send fail response
-        mock_paho.trigger_connect(rc=5)
-        if paired_failure:
-            mock_paho.trigger_disconnect(rc=5)
+        # Send failure CONNACK response
+        mock_paho.trigger_connect(rc=failing_rc)
+        # Any CONNACK failure also results in an ERR_CONN_REFUSED to on_disconnect
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_REFUSED)
 
         with pytest.raises(MQTTConnectionFailedError):
             await connect_task
@@ -754,12 +830,14 @@ class ConnectWithClientNotConnectedTests(object):
         assert isinstance(client._reconnect_daemon, asyncio.Task)
         assert not client._reconnect_daemon.done()
 
+    # NOTE: This should be an invalid scenario as connect should not be able to return a failed status
     @pytest.mark.it(
         "Leaves the reconnect daemon running if invoking Paho's connect returns a failed status"
     )
-    async def test_reconnect_daemon_fail_status(self, client, mock_paho):
+    @pytest.mark.parametrize("failing_rc", connect_failed_rc_params)
+    async def test_reconnect_daemon_fail_status(self, client, mock_paho, failing_rc):
         # Return a fail status
-        mock_paho._connect_rc = 1
+        mock_paho._connect_rc = failing_rc
         client._auto_reconnect = True
         assert client._reconnect_daemon is None
 
@@ -772,14 +850,8 @@ class ConnectWithClientNotConnectedTests(object):
     @pytest.mark.it(
         "Leaves the reconnect daemon running if the connect attempt receives a failure response"
     )
-    @pytest.mark.parametrize(
-        "paired_failure",
-        [
-            pytest.param(False, id="Single Connect Failure Response"),
-            pytest.param(True, id="Paired Connect/Disconnect Failure Response"),
-        ],
-    )
-    async def test_reconnect_daemon_fail_response(self, client, mock_paho, paired_failure):
+    @pytest.mark.parametrize("failing_rc", on_connect_failed_rc_params)
+    async def test_reconnect_daemon_fail_response(self, client, mock_paho, failing_rc):
         # Require manual completion
         mock_paho._manual_mode = True
         client._auto_reconnect = True
@@ -788,10 +860,10 @@ class ConnectWithClientNotConnectedTests(object):
         # Attempt connect
         connect_task = asyncio.create_task(client.connect())
         await asyncio.sleep(0.1)
-        # Send fail response
-        mock_paho.trigger_connect(rc=5)
-        if paired_failure:
-            mock_paho.trigger_disconnect(rc=5)
+        # Send failure CONNACK response
+        mock_paho.trigger_connect(rc=failing_rc)
+        # Any CONNACK failure also results in an ERR_CONN_REFUSED to on_disconnect
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_REFUSED)
 
         with pytest.raises(MQTTConnectionFailedError):
             await connect_task
@@ -806,14 +878,8 @@ class ConnectWithClientNotConnectedTests(object):
     @pytest.mark.it(
         "Stops the Paho network loop if the connect attempt receives a failure response"
     )
-    @pytest.mark.parametrize(
-        "paired_failure",
-        [
-            pytest.param(False, id="Single Connect Failure Response"),
-            pytest.param(True, id="Paired Connect/Disconnect Failure Response"),
-        ],
-    )
-    async def test_network_loop_fail_response(self, mocker, client, mock_paho, paired_failure):
+    @pytest.mark.parametrize("failing_rc", on_connect_failed_rc_params)
+    async def test_network_loop_fail_response(self, mocker, client, mock_paho, failing_rc):
         # Require manual completion
         mock_paho._manual_mode = True
         assert mock_paho.loop_start.call_count == 0
@@ -828,10 +894,10 @@ class ConnectWithClientNotConnectedTests(object):
         assert mock_paho.loop_start.call_args == mocker.call()
         assert mock_paho.loop_stop.call_count == 0
 
-        # Send failure response
-        mock_paho.trigger_connect(rc=5)
-        if paired_failure:
-            mock_paho.trigger_disconnect(rc=5)
+        # Send failure CONNACK response
+        mock_paho.trigger_connect(rc=failing_rc)
+        # Any CONNACK failure also results in an ERR_CONN_REFUSED
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_REFUSED)
         with pytest.raises(MQTTConnectionFailedError):
             await connect_task
 
@@ -919,8 +985,9 @@ class TestConnectWithClientConnected(object):
 # NOTE: Disconnect responses can be either a single or double invocation of Paho's .on_disconnect()
 # handler. Both cases are covered. Why does this happen? I don't know. But it does, and the client
 # is designed to handle it.
-# NOTE: Paho's .disconnect() method will always return success (rc = 0) when the client is
-# connected. As such, we don't have to test rc != 0 here (it is covered in other test classes)
+# NOTE: Paho's .disconnect() method will always return success (rc = MQTT_ERR_SUCCESS) when the
+# client is connected. As such, we don't have to test rc != MQTT_ERR_SUCCESS here
+# (it is covered in other test classes)
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Connected")
 class TestDisconnectWithClientConnected(object):
     @pytest.fixture
@@ -956,9 +1023,9 @@ class TestDisconnectWithClientConnected(object):
         assert not disconnect_task.done()
 
         # Trigger disconnect completion
-        mock_paho.trigger_disconnect(rc=0)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         if double_response:
-            mock_paho.trigger_disconnect(rc=0)
+            mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await disconnect_task
 
     @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
@@ -987,9 +1054,9 @@ class TestDisconnectWithClientConnected(object):
         disconnect_task = asyncio.create_task(client.disconnect())
         await asyncio.sleep(0.1)
         # Trigger disconnect completion
-        mock_paho.trigger_disconnect(rc=0)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         if double_response:
-            mock_paho.trigger_disconnect(rc=0)
+            mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await disconnect_task
 
         # Daemon was cancelled
@@ -1013,9 +1080,9 @@ class TestDisconnectWithClientConnected(object):
         disconnect_task = asyncio.create_task(client.disconnect())
         await asyncio.sleep(0.1)
         # Trigger disconnect completion
-        mock_paho.trigger_disconnect(rc=0)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         if double_response:
-            mock_paho.trigger_disconnect(rc=0)
+            mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await disconnect_task
         assert mock_paho.loop_stop.call_count == 1
 
@@ -1036,9 +1103,9 @@ class TestDisconnectWithClientConnected(object):
         disconnect_task = asyncio.create_task(client.disconnect())
         await asyncio.sleep(0.1)
         # Trigger disconnect completion
-        mock_paho.trigger_disconnect(rc=0)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         if double_response:
-            mock_paho.trigger_disconnect(rc=0)
+            mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await disconnect_task
 
         assert not client.is_connected()
@@ -1068,9 +1135,9 @@ class TestDisconnectWithClientConnected(object):
         disconnect_task = asyncio.create_task(client.disconnect())
         await asyncio.sleep(0.1)
         # Trigger disconnect completion
-        mock_paho.trigger_disconnect(rc=0)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         if double_response:
-            mock_paho.trigger_disconnect(rc=0)
+            mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await disconnect_task
 
         # All were cancelled
@@ -1101,9 +1168,9 @@ class TestDisconnectWithClientConnected(object):
         disconnect_task = asyncio.create_task(client.disconnect())
         await asyncio.sleep(0.1)
         # Trigger disconnect completion
-        mock_paho.trigger_disconnect(rc=0)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         if double_response:
-            mock_paho.trigger_disconnect(rc=0)
+            mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await disconnect_task
 
         # None were cancelled
@@ -1329,7 +1396,7 @@ class TestUnexpectedDisconnect(object):
         client_set_connected(client)
         assert client.is_connected()
 
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         assert not client.is_connected()
@@ -1339,7 +1406,7 @@ class TestUnexpectedDisconnect(object):
         client_set_connected(client)
         assert mock_paho.loop_stop.call_count == 0
 
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         assert mock_paho.loop_stop.call_count == 1
@@ -1351,7 +1418,7 @@ class TestUnexpectedDisconnect(object):
         mock_task = mocker.MagicMock()
         client._reconnect_daemon = mock_task
 
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         assert mock_task.cancel.call_count == 0
@@ -1371,7 +1438,7 @@ class TestUnexpectedDisconnect(object):
         client._pending_unsubs[6] = mock_unsubs[2]
 
         # Disconnect
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         # All were cancelled
@@ -1393,7 +1460,7 @@ class TestUnexpectedDisconnect(object):
         client._pending_pubs[3] = mock_pubs[2]
 
         # Disconnect
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         # None were cancelled
@@ -1434,8 +1501,12 @@ class TestConnectionLock(object):
         assert not connect_task2.done()
 
         # Complete first connect
-        rc = 0 if pending_success else 1
-        mock_paho.trigger_connect(rc=rc)
+        if pending_success:
+            mock_paho.trigger_connect(rc=mqtt.CONNACK_ACCEPTED)
+        else:
+            # Failure triggers both. Use Server Unavailable as an arbitrary reason for failure.
+            mock_paho.trigger_connect(rc=mqtt.CONNACK_REFUSED_SERVER_UNAVAILABLE)
+            mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_REFUSED)
         await asyncio.sleep(0.1)
         assert connect_task1.done()
 
@@ -1452,7 +1523,7 @@ class TestConnectionLock(object):
             assert not connect_task2.done()
             assert mock_paho.connect.call_count == 2
             # Complete the second connect successfully
-            mock_paho.trigger_connect(rc=0)
+            mock_paho.trigger_connect(rc=mqtt.CONNACK_ACCEPTED)
             await connect_task2
             assert client.is_connected()
 
@@ -1481,7 +1552,7 @@ class TestConnectionLock(object):
         assert not connect_task.done()
 
         # Complete disconnect
-        mock_paho.trigger_disconnect(rc=0)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await asyncio.sleep(0.1)
         assert disconnect_task.done()
         assert not client.is_connected()
@@ -1490,7 +1561,7 @@ class TestConnectionLock(object):
         assert not connect_task.done()
         assert mock_paho.connect.call_count == 1
         # Complete the connect
-        mock_paho.trigger_connect(rc=0)
+        mock_paho.trigger_connect(rc=mqtt.CONNACK_ACCEPTED)
         await connect_task
         assert client.is_connected()
 
@@ -1524,8 +1595,12 @@ class TestConnectionLock(object):
         assert not disconnect_task.done()
 
         # Complete connect
-        rc = 0 if pending_success else 1
-        mock_paho.trigger_connect(rc=rc)
+        if pending_success:
+            mock_paho.trigger_connect(rc=mqtt.CONNACK_ACCEPTED)
+        else:
+            # Failure triggers both. Use server unavailable as an arbitrary reason for failure
+            mock_paho.trigger_connect(rc=mqtt.CONNACK_REFUSED_SERVER_UNAVAILABLE)
+            mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_REFUSED)
         await asyncio.sleep(0.1)
         assert connect_task.done()
 
@@ -1535,7 +1610,7 @@ class TestConnectionLock(object):
             assert not disconnect_task.done()
             assert mock_paho.disconnect.call_count == 1
             # Complete the disconnect
-            mock_paho.trigger_disconnect(rc=0)
+            mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
             await disconnect_task
             assert not client.is_connected()
         else:
@@ -1570,7 +1645,7 @@ class TestConnectionLock(object):
         assert not disconnect_task2.done()
 
         # Complete first disconnect
-        mock_paho.trigger_disconnect(rc=0)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await disconnect_task1
         assert not client.is_connected()
 
@@ -1603,7 +1678,7 @@ class TestReconnectDaemon(object):
         assert client.connect.call_count == 0
 
         # Drop the connection
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         # Connect was called by the daemon
@@ -1615,12 +1690,12 @@ class TestReconnectDaemon(object):
     )
     async def test_reconnect_attempt_fails_nonfatal(self, mocker, client, mock_paho):
         # Set connect to fail (nonfatal)
-        exc = MQTTConnectionFailedError(rc=1, fatal=False)
+        exc = MQTTConnectionFailedError(rc=mqtt.CONNACK_REFUSED_SERVER_UNAVAILABLE, fatal=False)
         client.connect = mocker.AsyncMock(side_effect=exc)
         assert client.connect.call_count == 0
 
         # Drop the connection
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         # Connect was called by the daemon
@@ -1642,7 +1717,7 @@ class TestReconnectDaemon(object):
         assert client.connect.call_count == 0
 
         # Drop the connect
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         # Connect was called by the daemon
@@ -1662,7 +1737,7 @@ class TestReconnectDaemon(object):
         assert client.connect.call_count == 0
 
         # Drop the connection
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         # Connect was called by the daemon
@@ -1673,7 +1748,7 @@ class TestReconnectDaemon(object):
         assert client.connect.call_count == 1
 
         # Drop the connection again
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         # Connect was attempted again
@@ -1705,8 +1780,8 @@ class TestSubscribe(object):
         assert mock_paho.subscribe.call_args == mocker.call(topic=fake_topic, qos=1)
 
     @pytest.mark.it("Raises a MQTTError if invoking Paho's subscribe returns a failed status")
-    async def test_fail_status(self, client, mock_paho):
-        failing_rc = 4
+    @pytest.mark.parametrize("failing_rc", subscribe_failed_rc_params)
+    async def test_fail_status(self, client, mock_paho, failing_rc):
         mock_paho._subscribe_rc = failing_rc
 
         with pytest.raises(MQTTError) as e_info:
@@ -1794,8 +1869,8 @@ class TestSubscribe(object):
     @pytest.mark.it(
         "Does not establish pending subscribe tracking information if invoking Paho's subscribe returns a failed status"
     )
-    async def test_pending_fail_status(self, client, mock_paho):
-        failing_rc = 4
+    @pytest.mark.parametrize("failing_rc", subscribe_failed_rc_params)
+    async def test_pending_fail_status(self, client, mock_paho, failing_rc):
         mock_paho._subscribe_rc = failing_rc
 
         with pytest.raises(MQTTError):
@@ -1849,7 +1924,7 @@ class TestSubscribe(object):
 
         # Do a disconnect
         disconnect_task = asyncio.create_task(client.disconnect())
-        mock_paho.trigger_disconnect(rc=0)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await asyncio.sleep(0.1)
 
         with pytest.raises(asyncio.CancelledError):
@@ -1870,7 +1945,7 @@ class TestSubscribe(object):
         await asyncio.sleep(0.1)
 
         # Trigger unexpected disconnect
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         with pytest.raises(asyncio.CancelledError):
@@ -1916,8 +1991,8 @@ class TestUnsubscribe(object):
         assert mock_paho.unsubscribe.call_args == mocker.call(topic=fake_topic)
 
     @pytest.mark.it("Raises a MQTTError if invoking Paho's unsubscribe returns a failed status")
-    async def test_fail_status(self, client, mock_paho):
-        failing_rc = 4
+    @pytest.mark.parametrize("failing_rc", unsubscribe_failed_rc_params)
+    async def test_fail_status(self, client, mock_paho, failing_rc):
         mock_paho._unsubscribe_rc = failing_rc
 
         with pytest.raises(MQTTError) as e_info:
@@ -2005,8 +2080,8 @@ class TestUnsubscribe(object):
     @pytest.mark.it(
         "Does not establish pending unsubscribe tracking information if invoking Paho's unsubscribe returns a failed status"
     )
-    async def test_pending_fail_status(self, client, mock_paho):
-        failing_rc = 4
+    @pytest.mark.parametrize("failing_rc", unsubscribe_failed_rc_params)
+    async def test_pending_fail_status(self, client, mock_paho, failing_rc):
         mock_paho._unsubscribe_rc = failing_rc
 
         with pytest.raises(MQTTError):
@@ -2060,7 +2135,7 @@ class TestUnsubscribe(object):
 
         # Do a disconnect
         disconnect_task = asyncio.create_task(client.disconnect())
-        mock_paho.trigger_disconnect(rc=0)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await asyncio.sleep(0.1)
 
         with pytest.raises(asyncio.CancelledError):
@@ -2081,7 +2156,7 @@ class TestUnsubscribe(object):
         await asyncio.sleep(0.1)
 
         # Trigger unexpected disconnect
-        mock_paho.trigger_disconnect(rc=7)
+        mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
         await asyncio.sleep(0.1)
 
         with pytest.raises(asyncio.CancelledError):
@@ -2113,3 +2188,214 @@ class TestUnsubscribe(object):
         # Trigger unsubscribe response after cancellation
         mock_paho.trigger_unsubscribe(mid)
         await asyncio.sleep(0.1)
+
+
+# @pytest.mark.describe("MQTTClient - .publish()")
+# class TestPublish(object):
+#     @pytest.mark.it("Invokes an MQTT publish via Paho")
+#     async def test_paho_invocation(self, mocker, client, mock_paho):
+#         assert mock_paho.publish.call_count == 0
+
+#         await client.publish(fake_topic, fake_payload)
+
+#         assert mock_paho.publish.call_count == 1
+#         assert mock_paho.publish.call_args == mocker.call(topic=fake_topic, payload=fake_payload, qos=1)
+
+#     @pytest.mark.it("Raises a MQTTError if invoking Paho's publish returns a failed status")
+#     @pytest.mark.parametrize("failing_rc", publish_failed_rc_params)
+#     async def test_fail_status(self, client, mock_paho, failing_rc):
+#         mock_paho._publish_rc = failing_rc
+
+#         with pytest.raises(MQTTError) as e_info:
+#             await client.publish(fake_topic, fake_payload)
+#         assert e_info.value.rc == failing_rc
+
+#     @pytest.mark.it("Allows any exceptions raised by invoking Paho's publish to propagate")
+#     async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
+#         mock_paho.publish.side_effect = arbitrary_exception
+
+#         with pytest.raises(type(arbitrary_exception)):
+#             await client.publish(fake_topic, fake_payload)
+
+#     @pytest.mark.it("Waits to return until Paho receives a matching response")
+#     async def test_matching_completion(self, client, mock_paho):
+#         # Require manual completion
+#         mock_paho._manual_mode = True
+
+#         # Start a publish. It won't complete
+#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+#         await asyncio.sleep(0.5)
+#         assert not publish_task.done()
+
+#         # Trigger publish completion
+#         mock_paho.trigger_publish(mock_paho._last_mid)
+#         await publish_task
+
+#     @pytest.mark.it("Does not return if Paho receives a non-matching response")
+#     async def test_nonmatching_completion(self, client, mock_paho):
+#         # Require manual completion
+#         mock_paho._manual_mode = True
+
+#         # Start two publishs. They won't complete
+#         publish_task1 = asyncio.create_task(client.publish(fake_topic, fake_payload))
+#         await asyncio.sleep(0.1)
+#         publish_task1_mid = mock_paho._last_mid
+#         publish_task2 = asyncio.create_task(client.publish(fake_topic, fake_payload))
+#         await asyncio.sleep(0.1)
+#         publish_task2_mid = mock_paho._last_mid
+#         assert publish_task1_mid != publish_task2_mid
+#         await asyncio.sleep(0.5)
+#         assert not publish_task1.done()
+#         assert not publish_task2.done()
+
+#         # Trigger publish completion for one of them
+#         mock_paho.trigger_publish(publish_task2_mid)
+#         # The corresponding task completes
+#         await publish_task2
+#         # The other does not
+#         assert not publish_task1.done()
+
+#         # Complete the other one
+#         mock_paho.trigger_publish(publish_task1_mid)
+#         await publish_task1
+
+#     @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
+#     @pytest.mark.parametrize("early_ack", early_ack_params)
+#     async def test_early_ack(self, client, mock_paho, early_ack):
+#         mock_paho._early_ack = early_ack
+#         await client.publish(fake_topic, fake_payload)
+#         # If this doesn't hang, the test passes
+
+#     @pytest.mark.it(
+#         "Retains pending publish tracking information only until receiving a response"
+#     )
+#     async def test_pending(self, client, mock_paho):
+#         # Require manual completion
+#         mock_paho._manual_mode = True
+
+#         # Start a publish. It won't complete
+#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+#         await asyncio.sleep(0.1)
+
+#         # Pending publish is tracked
+#         mid = mock_paho._last_mid
+#         assert mid in client._pending_subs
+
+#         # Trigger publish completion
+#         mock_paho.trigger_publish(mid)
+#         await publish_task
+
+#         # Pending publish is no longer tracked
+#         assert mid not in client._pending_subs
+
+#     @pytest.mark.it(
+#         "Does not establish pending publish tracking information if invoking Paho's publish returns a failed status"
+#     )
+#     async def test_pending_fail_status(self, client, mock_paho):
+#         failing_rc = mqtt.MQTT_ERR_PROTOCOL
+#         mock_paho._publish_rc = failing_rc
+
+#         with pytest.raises(MQTTError):
+#             await client.publish(fake_topic, fake_payload)
+
+#         assert len(client._pending_subs) == 0
+
+#     @pytest.mark.it(
+#         "Does not establish pending publish tracking information if invoking Paho's publish raises an exception"
+#     )
+#     async def test_pending_fail_paho_raise(self, client, mock_paho, arbitrary_exception):
+#         mock_paho.publish.side_effect = arbitrary_exception
+
+#         with pytest.raises(type(arbitrary_exception)):
+#             await client.publish(fake_topic, fake_payload)
+
+#         assert len(client._pending_subs) == 0
+
+#     @pytest.mark.it("Clears pending publish tracking information if cancelled")
+#     async def test_pending_cancelled(self, client, mock_paho):
+#         # Require manual completion
+#         mock_paho._manual_mode = True
+
+#         # Start a publish. It won't complete
+#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+#         await asyncio.sleep(0.1)
+
+#         # Pending publish is tracked
+#         mid = mock_paho._last_mid
+#         assert mid in client._pending_subs
+
+#         # Cancel
+#         publish_task.cancel()
+#         with pytest.raises(asyncio.CancelledError):
+#             await publish_task
+
+#         # Pending publish is no longer tracked
+#         assert mid not in client._pending_subs
+
+#     @pytest.mark.it(
+#         "Raises CancelledError if the pending publish is cancelled by a disconnect attempt"
+#     )
+#     async def test_cancelled_by_disconnect(self, client, mock_paho):
+#         client_set_connected(client)
+#         # Require manual completion
+#         mock_paho._manual_mode = True
+
+#         # Start a publish. It won't complete
+#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+#         await asyncio.sleep(0.1)
+
+#         # Do a disconnect
+#         disconnect_task = asyncio.create_task(client.disconnect())
+#         mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
+#         await asyncio.sleep(0.1)
+
+#         with pytest.raises(asyncio.CancelledError):
+#             await publish_task
+
+#         await disconnect_task
+
+#     @pytest.mark.it(
+#         "Raises CancelledError if the pending publish is cancelled by an unexpected disconnect"
+#     )
+#     async def test_cancelled_by_unexpected_disconnect(self, client, mock_paho):
+#         client_set_connected(client)
+#         # Require manual completion
+#         mock_paho._manual_mode = True
+
+#         # Start a publish. It won't complete
+#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+#         await asyncio.sleep(0.1)
+
+#         # Trigger unexpected disconnect
+#         mock_paho.trigger_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
+#         await asyncio.sleep(0.1)
+
+#         with pytest.raises(asyncio.CancelledError):
+#             await publish_task
+
+#     @pytest.mark.it(
+#         "Can handle receiving a response for a publish that was cancelled after it was in-flight"
+#     )
+#     async def test_ack_after_cancel(self, client, mock_paho):
+#         # Require manual completion
+#         mock_paho._manual_mode = True
+
+#         # Start a publish. It won't complete
+#         publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+#         await asyncio.sleep(0.1)
+
+#         # Pending publish is tracked
+#         mid = mock_paho._last_mid
+#         assert mid in client._pending_subs
+
+#         # Cancel
+#         publish_task.cancel()
+#         with pytest.raises(asyncio.CancelledError):
+#             await publish_task
+
+#         # Pending publish is no longer tracked
+#         assert mid not in client._pending_subs
+
+#         # Trigger publish response after cancellation
+#         mock_paho.trigger_publish(mid)
+#         await asyncio.sleep(0.1)

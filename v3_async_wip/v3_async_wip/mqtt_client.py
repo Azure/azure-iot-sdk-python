@@ -16,8 +16,34 @@ logger = logging.getLogger(__name__)
 OP_TYPE_CONNECT = "CONNECT"
 OP_TYPE_DISCONNECT = "DISCONNECT"
 
+# TODO: implement these
 RECONNECT_MODE_DROP = "RECONNECT_DROP"
 RECONNECT_MODE_ALL = "RECONNECT_ALL"
+
+# TODO: what about just number values that aren't mapped right?
+# NOTE: Paho can return a lot of rc values. However, most of them shouldn't happen.
+# Here are the ones that we can expect for each method.
+expected_connect_rc = [mqtt.MQTT_ERR_SUCCESS]
+expected_disconnect_rc = [mqtt.MQTT_ERR_SUCCESS, mqtt.MQTT_ERR_NO_CONN]
+expected_subscribe_rc = [mqtt.MQTT_ERR_SUCCESS, mqtt.MQTT_ERR_NO_CONN]
+expected_unsubscribe_rc = [mqtt.MQTT_ERR_SUCCESS, mqtt.MQTT_ERR_NO_CONN]
+expected_publish_rc = [mqtt.MQTT_ERR_SUCCESS, mqtt.MQTT_ERR_NO_CONN, mqtt.MQTT_ERR_QUEUE_SIZE]
+
+# Additionally, some are returned only via handler
+expected_on_disconnect_rc = [
+    mqtt.MQTT_ERR_SUCCESS,
+    mqtt.MQTT_ERR_CONN_REFUSED,
+    mqtt.MQTT_ERR_CONN_LOST,
+    mqtt.MQTT_ERR_KEEPALIVE,
+]
+expected_on_connect_rc = [
+    mqtt.CONNACK_ACCEPTED,
+    mqtt.CONNACK_REFUSED_PROTOCOL_VERSION,
+    mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED,
+    mqtt.CONNACK_REFUSED_SERVER_UNAVAILABLE,
+    mqtt.CONNACK_REFUSED_BAD_USERNAME_PASSWORD,
+    mqtt.CONNACK_REFUSED_NOT_AUTHORIZED,
+]
 
 
 class MQTTError(Exception):
@@ -229,16 +255,17 @@ class MQTTClient(object):
                     do_cancel_pending = True
             else:
                 if this._connection_lock.connection_type == OP_TYPE_CONNECT:
-                    # Sometimes when Paho receives a failure response to a connect, the disconnect
-                    # handler is also called. Why? Who knows.
-                    # But we don't wish to issue spurious notifications or event loop stoppages.
+                    # TODO: can this be simplified to just use rc now that we know this always happens?
+                    # When Paho receives a failure response to a connect, the disconnect
+                    # handler is also called.
+                    # But we don't wish to issue spurious notifications or other behaviors
                     logger.debug(
                         "Connect Failure Disconnect Response: rc {} - {}".format(rc, rc_msg)
                     )
                 else:
                     # Double disconnect. Suppress.
                     # Sometimes Paho disconnects twice. Why? Who knows.
-                    # But we don't wish to issue spurious notifications or event loop stoppages.
+                    # But we don't wish to issue spurious notifications or other behaviors
                     logger.debug("Double Disconnect Response: rc {} - {}".format(rc, rc_msg))
 
             if do_set_disconnect:
@@ -289,7 +316,7 @@ class MQTTClient(object):
 
         def on_subscribe(client, userdata, mid, granted_qos):
             this = self_weakref()
-            logger.debug("SUBACK received for {}".format(mid))
+            logger.debug("SUBACK received for mid {}".format(mid))
 
             async def complete_sub():
                 async with this._mid_tracker_lock:
@@ -303,7 +330,7 @@ class MQTTClient(object):
 
         def on_unsubscribe(client, userdata, mid):
             this = self_weakref()
-            logger.debug("UNSUBACK received for {}".format(mid))
+            logger.debug("UNSUBACK received for mid {}".format(mid))
 
             async def complete_unsub():
                 async with this._mid_tracker_lock:
@@ -314,6 +341,20 @@ class MQTTClient(object):
                         logger.warning("Unexpected UNSUBACK received for mid {}".format(mid))
 
             asyncio.run_coroutine_threadsafe(complete_unsub(), this._loop)
+
+        def on_publish(client, userdata, mid):
+            this = self_weakref()
+            logger.debug("PUBACK received for mid {}".format(mid))
+
+            async def complete_pub():
+                async with this._mid_tracker_lock:
+                    try:
+                        f = this._pending_pubs[mid]
+                        f.set_result(True)
+                    except KeyError:
+                        logger.warning("Unexpected PUBACK received for mid {}".format(mid))
+
+            asyncio.run_coroutine_threadsafe(complete_pub(), this._loop)
 
         def on_message(client, userdata, message):
             this = self_weakref()
@@ -328,6 +369,7 @@ class MQTTClient(object):
         mqtt_client.on_disconnect = on_disconnect
         mqtt_client.on_subscribe = on_subscribe
         mqtt_client.on_unsubscribe = on_unsubscribe
+        mqtt_client.on_publish = on_publish
         mqtt_client.on_message = on_message
 
         return mqtt_client
@@ -425,7 +467,7 @@ class MQTTClient(object):
                 if rc != mqtt.MQTT_ERR_SUCCESS:
                     # NOTE: This block should probably never execute. Paho's .connect() is
                     # supposed to only return success or raise an exception.
-                    logger.warning("Unexpected rc from Paho .connect()")
+                    logger.warning("Unexpected rc {} from Paho .connect()".format(rc))
                     # MQTTConnectionFailedError expects a connack rc, but this is a regular rc.
                     # So chain a regular mqtt exception into a connection mqtt exception.
                     try:
@@ -444,7 +486,7 @@ class MQTTClient(object):
                     # This (probably) shouldn't happen.
                     # TODO: Investigate if this is truly necessary once stress testing is set up
                     logger.warning(
-                        "Paho network loop was already running. Stopping, then starting."
+                        "Paho network loop was already (unexpectedly) running. Stopping, then starting."
                     )
                     self._mqtt_client.loop_stop()
                     self._mqtt_client.loop_start()
@@ -473,8 +515,6 @@ class MQTTClient(object):
         """
         # Wait for permission to alter the connection
         async with self._connection_lock:
-            loop = asyncio.get_running_loop()
-
             if self._desire_connection:
                 # Record the type of operation in progress
                 self._connection_lock.connection_type = OP_TYPE_DISCONNECT
@@ -507,7 +547,7 @@ class MQTTClient(object):
                 # Paho Disconnect
                 # NOTE: Paho disconnect shouldn't raise any exceptions
                 logger.debug("Attempting disconnect")
-                rc = await loop.run_in_executor(None, self._mqtt_client.disconnect)
+                rc = await self._loop.run_in_executor(None, self._mqtt_client.disconnect)
                 rc_msg = mqtt.error_string(rc)
                 logger.debug("Disconnect returned rc {} - {}".format(rc, rc_msg))
 
@@ -531,7 +571,9 @@ class MQTTClient(object):
                     disconnect_done.cancel()
                 else:
                     # This block should never execute
-                    logger.error("Unexpected result from Paho disconnect. Doing nothing.")
+                    logger.warning(
+                        "Unexpected rc {} from Paho .disconnect(). Doing nothing.".format(rc)
+                    )
                     disconnect_done.cancel()
 
             else:
@@ -558,6 +600,8 @@ class MQTTClient(object):
                 rc_msg = mqtt.error_string(rc)
                 logger.debug("Subscribe returned rc {} - {}".format(rc, rc_msg))
                 if rc != mqtt.MQTT_ERR_SUCCESS:
+                    if rc not in expected_subscribe_rc:
+                        logger.warning("Unexpected rc {} from Paho .subscribe()".format(rc))
                     raise MQTTError(rc)
 
                 # Establish a pending subscribe
@@ -599,6 +643,8 @@ class MQTTClient(object):
                 rc_msg = mqtt.error_string(rc)
                 logger.debug("Unsubscribe returned rc {} - {}".format(rc, rc_msg))
                 if rc != mqtt.MQTT_ERR_SUCCESS:
+                    if rc not in expected_unsubscribe_rc:
+                        logger.warning("Unexpected rc {} from Paho .unsubscribe()".format(rc))
                     raise MQTTError(rc)
 
                 # Establish a pending unsubscribe
@@ -619,33 +665,66 @@ class MQTTClient(object):
                 if mid and mid in self._pending_unsubs:
                     del self._pending_unsubs[mid]
 
-    # async def publish(self, topic, payload, qos=1):
-    #     """
-    #     Send a message via the MQTT broker.
+    async def publish(self, topic, payload):
+        """
+        Send a message via the MQTT broker.
 
-    #     :param str topic: topic: The topic that the message should be published on.
-    #     :param payload: The actual message to send.
-    #     :type payload: str, bytes, int, float or None
-    #     :param int qos: the desired quality of service level for the subscription. Defaults to 1.
-    #     :param callback: A callback to be triggered upon completion (Optional).
+        :param str topic: topic: The topic that the message should be published on.
+        :param payload: The actual message to send.
+        :type payload: str, bytes, int, float or None
+        :param int qos: the desired quality of service level for the subscription. Defaults to 1.
+        :param callback: A callback to be triggered upon completion (Optional).
 
-    #     :raises: ValueError if qos is not 0, 1 or 2
-    #     :raises: ValueError if topic is None or has zero string length
-    #     :raises: ValueError if topic contains a wildcard ("+")
-    #     :raises: ValueError if the length of the payload is greater than 268435455 bytes
-    #     :raises: TypeError if payload is not a valid type
-    #     :raises: MQTTError if there is an error publishing
-    #     """
-    #     logger.debug("Attempting publish")
-    #     message_info = await self._loop.run_in_executor(
-    #         None,
-    #         functools.partial(self._mqtt_client.publish, topic=topic, payload=payload, qos=qos),
-    #     )
-    #     if message_info.rc == mqtt.MQTT_ERR_NO_CONN:
-    #         logger.debug("MQTT Client not connected - will publish upon next connect")
-    #     elif message_info.rc != mqtt.MQTT_ERR_SUCCESS:
-    #         raise MQTTError(message_info.rc)
+        :raises: ValueError if topic is None or has zero string length
+        :raises: ValueError if topic contains a wildcard ("+")
+        :raises: ValueError if the length of the payload is greater than 268435455 bytes
+        :raises: TypeError if payload is not a valid type
+        :raises: MQTTError if there is an error publishing
+        """
+        try:
+            mid = None
+            logger.debug("Attempting publish")
+            # Using this lock allows us to be sure that the ACK won't come in before the
+            # Future can be added to the pending dictionary
+            async with self._mid_tracker_lock:
+                message_info = await self._loop.run_in_executor(
+                    None,
+                    functools.partial(
+                        self._mqtt_client.publish, topic=topic, payload=payload, qos=1
+                    ),
+                )
+                mid = message_info.mid
+                rc_msg = mqtt.error_string(message_info.rc)
+                logger.debug("Publish returned rc {} - {}".format(message_info.rc, rc_msg))
+                if message_info.rc == mqtt.MQTT_ERR_NO_CONN:
+                    logger.debug("MQTT Client not connected - will publish upon next connect")
+                elif message_info.rc != mqtt.MQTT_ERR_SUCCESS:
+                    if message_info.rc not in expected_publish_rc:
+                        logger.warning(
+                            "Unexpected rc {} from Paho .publish()".format(message_info.rc)
+                        )
+                    raise MQTTError(message_info.rc)
 
-    #     # TODO: this fails if not connected, how to resolve
-    #     logger.debug("Waiting for publish response")
-    #     await self._loop.run_in_executor(None, message_info.wait_for_publish)
+                # Establish a pending publish
+                pub_done = self._loop.create_future()
+                self._pending_pubs[mid] = pub_done
+
+            logger.debug("Waiting for publish response")
+            # NOTE: Yes, message_info has a method called 'wait_for_publish' which would simplify
+            # things, however it has strange behavior in the case of disconnection - it raises a
+            # RuntimeError. However, the publish actually persists and still will be sent upon a
+            # connection, even though the message_info will NEVER be able to be used to track it
+            # (even after connection established).
+            # So, alas, we do it the messy handler/Future way, same as with sub and unsub.
+            await pub_done
+        except asyncio.CancelledError:
+            if mid:
+                logger.debug("Publish for mid {} was cancelled".format(mid))
+                logger.warning("The cancelled publish may still be delivered if it was in-flight")
+            else:
+                logger.debug("Publish was cancelled before mid was assigned")
+        finally:
+            # Delete any pending operation (if it exists)
+            async with self._mid_tracker_lock:
+                if mid and mid in self._pending_pubs:
+                    del self._pending_pubs[mid]
