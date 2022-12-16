@@ -1065,6 +1065,36 @@ class TestDisconnectWithClientConnected(object):
         assert len(client._pending_subs) == 0
         assert len(client._pending_unsubs) == 0
 
+    @pytest.mark.it("Does not cancel or remove any pending publishes")
+    @pytest.mark.parametrize(
+        "double_response",
+        [
+            pytest.param(False, id="Single Disconnect Response"),
+            pytest.param(True, id="Double Disconnect Response"),
+        ],
+    )
+    async def test_no_cancel_pub(self, mocker, client, mock_paho, double_response):
+        # Set mocked pending Futures
+        mock_pubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        client._pending_pubs[1] = mock_pubs[0]
+        client._pending_pubs[2] = mock_pubs[1]
+        client._pending_pubs[3] = mock_pubs[2]
+
+        # Start a disconnect.
+        disconnect_task = asyncio.create_task(client.disconnect())
+        await asyncio.sleep(0.1)
+        # Trigger disconnect completion
+        mock_paho.trigger_disconnect(rc=0)
+        if double_response:
+            mock_paho.trigger_disconnect(rc=0)
+        await disconnect_task
+
+        # None were cancelled
+        for mock in mock_pubs:
+            assert mock.cancel.call_count == 0
+        # None were removed
+        assert len(client._pending_pubs) == 3
+
 
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Connection Dropped")
 class TestDisconnectWithClientConnectionDrop(object):
@@ -1128,6 +1158,23 @@ class TestDisconnectWithClientConnectionDrop(object):
         assert len(client._pending_subs) == 3
         assert len(client._pending_unsubs) == 3
 
+    # NOTE: Unlike the above, this is a valid scenario. Publishes survive a connection drop.
+    @pytest.mark.it("Does not cancel or remove any pending publishes")
+    async def test_pending_pub(self, mocker, client):
+        # Set mocked pending Futures
+        mock_pubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        client._pending_pubs[1] = mock_pubs[0]
+        client._pending_pubs[2] = mock_pubs[1]
+        client._pending_pubs[3] = mock_pubs[2]
+
+        await client.disconnect()
+
+        # None were cancelled
+        for mock in mock_pubs:
+            assert mock.cancel.call_count == 0
+        # None were removed
+        assert len(client._pending_pubs) == 3
+
     @pytest.mark.it("Leaves the client in a disconnected state")
     async def test_state(self, client, mock_paho):
         assert not client.is_connected()
@@ -1185,7 +1232,7 @@ class DisconnectWithClientFullyDisconnectedTests(object):
     # NOTE: This is an invalid scenario. Being disconnected implies there are
     # no pending subscribes or unsubscribes
     @pytest.mark.it("Does not cancel or remove any pending subscribes or unsubscribes")
-    async def test_pending_sub_unsub(self, mocker, client, mock_paho):
+    async def test_pending_sub_unsub(self, mocker, client):
         # Set mocked pending Futures
         mock_subs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
         mock_unsubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
@@ -1206,6 +1253,23 @@ class DisconnectWithClientFullyDisconnectedTests(object):
         # None were removed
         assert len(client._pending_subs) == 3
         assert len(client._pending_unsubs) == 3
+
+    # NOTE: Unlike the above, this is a valid scenario. Publishes survive a disconnect.
+    @pytest.mark.it("Does not cancel or remove any pending publishes")
+    async def test_pending_pub(self, mocker, client):
+        # Set mocked pending Futures
+        mock_pubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        client._pending_pubs[1] = mock_pubs[0]
+        client._pending_pubs[2] = mock_pubs[1]
+        client._pending_pubs[3] = mock_pubs[2]
+
+        await client.disconnect()
+
+        # None were cancelled
+        for mock in mock_pubs:
+            assert mock.cancel.call_count == 0
+        # None were removed
+        assert len(client._pending_pubs) == 3
 
     @pytest.mark.it("Leaves the client in a disconnected state")
     async def test_state(self, client):
@@ -1301,6 +1365,25 @@ class TestUnexpectedDisconnect(object):
         # All were removed
         assert len(client._pending_subs) == 0
         assert len(client._pending_unsubs) == 0
+
+    @pytest.mark.it("Does not cancel or remove any pending publishes")
+    async def test_no_cancel_pub(self, mocker, client, mock_paho):
+        client_set_connected(client)
+        # Set mocked pending Futures
+        mock_pubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
+        client._pending_pubs[1] = mock_pubs[0]
+        client._pending_pubs[2] = mock_pubs[1]
+        client._pending_pubs[3] = mock_pubs[2]
+
+        # Disconnect
+        mock_paho.trigger_disconnect(rc=7)
+        await asyncio.sleep(0.1)
+
+        # None were cancelled
+        for mock in mock_pubs:
+            assert mock.cancel.call_count == 0
+        # None were removed
+        assert len(client._pending_pubs) == 3
 
 
 @pytest.mark.describe("MQTTClient - Connection Lock")
@@ -1652,7 +1735,7 @@ class TestSubscribe(object):
         subscribe_task = asyncio.create_task(client.subscribe(fake_topic))
         await asyncio.sleep(0.1)
 
-        # Pending subscription is tracked
+        # Pending subscribe is tracked
         mid = mock_paho._last_mid
         assert mid in client._pending_subs
 
@@ -1660,7 +1743,7 @@ class TestSubscribe(object):
         mock_paho.trigger_subscribe(mid)
         await subscribe_task
 
-        # Pending subscription is no longer tracked
+        # Pending subscribe is no longer tracked
         assert mid not in client._pending_subs
 
     @pytest.mark.it(
@@ -1695,7 +1778,7 @@ class TestSubscribe(object):
         subscribe_task = asyncio.create_task(client.subscribe(fake_topic))
         await asyncio.sleep(0.1)
 
-        # Pending subscription is tracked
+        # Pending subscribe is tracked
         mid = mock_paho._last_mid
         assert mid in client._pending_subs
 
@@ -1704,7 +1787,7 @@ class TestSubscribe(object):
         with pytest.raises(asyncio.CancelledError):
             await subscribe_task
 
-        # Pending subscription is no longer tracked
+        # Pending subscribe is no longer tracked
         assert mid not in client._pending_subs
 
     @pytest.mark.it(
@@ -1747,6 +1830,33 @@ class TestSubscribe(object):
 
         with pytest.raises(asyncio.CancelledError):
             await subscribe_task
+
+    @pytest.mark.it(
+        "Can handle receiving a response for a subscribe that was cancelled after it was in-flight"
+    )
+    async def test_ack_after_cancel(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a subscribe. It won't complete
+        subscribe_task = asyncio.create_task(client.subscribe(fake_topic))
+        await asyncio.sleep(0.1)
+
+        # Pending subscribe is tracked
+        mid = mock_paho._last_mid
+        assert mid in client._pending_subs
+
+        # Cancel
+        subscribe_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await subscribe_task
+
+        # Pending subscribe is no longer tracked
+        assert mid not in client._pending_subs
+
+        # Trigger subscribe response after cancellation
+        mock_paho.trigger_subscribe(mid)
+        await asyncio.sleep(0.1)
 
 
 @pytest.mark.describe("MQTTClient - .unsubscribe()")
@@ -1808,7 +1918,7 @@ class TestUnsubscribe(object):
         unsubscribe_task = asyncio.create_task(client.unsubscribe(fake_topic))
         await asyncio.sleep(0.1)
 
-        # Pending subscription is tracked
+        # Pending unsubscribe is tracked
         mid = mock_paho._last_mid
         assert mid in client._pending_unsubs
 
@@ -1816,7 +1926,7 @@ class TestUnsubscribe(object):
         mock_paho.trigger_unsubscribe(mid)
         await unsubscribe_task
 
-        # Pending subscription is no longer tracked
+        # Pending unsubscribe is no longer tracked
         assert mid not in client._pending_unsubs
 
     @pytest.mark.it(
@@ -1851,7 +1961,7 @@ class TestUnsubscribe(object):
         unsubscribe_task = asyncio.create_task(client.unsubscribe(fake_topic))
         await asyncio.sleep(0.1)
 
-        # Pending subscription is tracked
+        # Pending unsubscribe is tracked
         mid = mock_paho._last_mid
         assert mid in client._pending_unsubs
 
@@ -1860,7 +1970,7 @@ class TestUnsubscribe(object):
         with pytest.raises(asyncio.CancelledError):
             await unsubscribe_task
 
-        # Pending subscription is no longer tracked
+        # Pending unsubscribe is no longer tracked
         assert mid not in client._pending_unsubs
 
     @pytest.mark.it(
@@ -1903,3 +2013,30 @@ class TestUnsubscribe(object):
 
         with pytest.raises(asyncio.CancelledError):
             await unsubscribe_task
+
+    @pytest.mark.it(
+        "Can handle receiving a response for an unsubscribe that was cancelled after it was in-flight"
+    )
+    async def test_ack_after_cancel(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # Start a unsubscribe. It won't complete
+        unsubscribe_task = asyncio.create_task(client.unsubscribe(fake_topic))
+        await asyncio.sleep(0.1)
+
+        # Pending unsubscribe is tracked
+        mid = mock_paho._last_mid
+        assert mid in client._pending_unsubs
+
+        # Cancel
+        unsubscribe_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await unsubscribe_task
+
+        # Pending subscribe is no longer tracked
+        assert mid not in client._pending_unsubs
+
+        # Trigger unsubscribe response after cancellation
+        mock_paho.trigger_unsubscribe(mid)
+        await asyncio.sleep(0.1)

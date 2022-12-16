@@ -135,9 +135,11 @@ class MQTTClient(object):
         self._reconnect_daemon = None
         self._pending_subs = {}  # Map mid -> Future
         self._pending_unsubs = {}  # Map mid -> Future
+        self._pending_pubs = {}  # Map mid -> Future
 
         # Incoming Data
         self.incoming_messages = asyncio.Queue()
+        self.incoming_filtered_messages = {}  # Map name -> asyncio.Queue
 
     def _create_mqtt_client(
         self, client_id, transport, ssl_context, proxy_options, websockets_path
