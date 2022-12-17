@@ -758,11 +758,11 @@ class TestGetIncomingMessageGenerator:
         await client._incoming_messages.put(item3)
 
         # Use generator
-        result = await anext(incoming_messages)
+        result = await incoming_messages.__anext__()
         assert result is item1
-        result = await anext(incoming_messages)
+        result = await incoming_messages.__anext__()
         assert result is item2
-        result = await anext(incoming_messages)
+        result = await incoming_messages.__anext__()
         assert result is item3
 
     @pytest.mark.it(
@@ -782,11 +782,11 @@ class TestGetIncomingMessageGenerator:
         await client._incoming_filtered_messages[fake_topic].put(item3)
 
         # Use generator
-        result = await anext(incoming_messages)
+        result = await incoming_messages.__anext__()
         assert result is item1
-        result = await anext(incoming_messages)
+        result = await incoming_messages.__anext__()
         assert result is item2
-        result = await anext(incoming_messages)
+        result = await incoming_messages.__anext__()
         assert result is item3
 
     @pytest.mark.it("Raises a ValueError if a filter has not been added for the given filter topic")
