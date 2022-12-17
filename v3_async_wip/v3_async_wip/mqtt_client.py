@@ -94,7 +94,7 @@ class ConnectionLock(asyncio.Lock):
         return super().release()
 
 
-class MQTTClient(object):
+class MQTTClient:
     """
     Provides an async MQTT message broker interface
 
@@ -470,20 +470,22 @@ class MQTTClient(object):
         # Delete the filter queue
         del self._incoming_filtered_messages[topic]
 
-    # def get_incoming_message_queue(self, topic=None):
-    #     """
-    #     Return the incoming message queue
+    def get_incoming_message_generator(self, filter_topic=None):
+        """
+        Return
+        """
+        if filter_topic is not None and filter_topic not in self._incoming_filtered_messages:
+            raise ValueError("No filter applied for given topic")
+        elif filter_topic is not None:
+            incoming_messages = self._incoming_filtered_messages[filter_topic]
+        else:
+            incoming_messages = self._incoming_messages
 
-    #     :param str topic: If provided, will return a queue specifically for messages received
-    #         on the given topic. Must have already added an incoming message filter for this topic
-    #         via the .add_incoming_message_filter() method.
+        async def message_generator():
+            while True:
+                yield await incoming_messages.get()
 
-    #     :raises: ValueError if the given topic has not already had a filter added for it
-    #     """
-    #     if topic is None:
-    #         return self._incoming_messages
-    #     else:
-    #         return
+        return message_generator()
 
     async def connect(self):
         """

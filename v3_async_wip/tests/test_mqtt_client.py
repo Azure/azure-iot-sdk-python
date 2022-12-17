@@ -53,7 +53,6 @@ def paho_threadpool():
     tpe.shutdown()
 
 
-# TODO: might want some more advanced network loop checks
 @pytest.fixture
 def mock_paho(mocker, paho_threadpool):
     """This mock is quite a bit more complicated than your average mock in order to
@@ -88,7 +87,6 @@ def mock_paho(mocker, paho_threadpool):
     mock_paho._last_mid = 0
 
     # Utility helpers
-    # TODO: this should probably trigger on_disconnect if failed
     def trigger_on_connect(rc=mqtt.CONNACK_ACCEPTED):
         if rc == mqtt.CONNACK_ACCEPTED:
             # State is only set to connected if successfully connecting
@@ -352,7 +350,7 @@ validate_rc_params(on_disconnect_failed_rc_params, expected_on_disconnect_rc)
 
 
 @pytest.mark.describe("MQTTClient - Instantiation")
-class TestInstantiation(object):
+class TestInstantiation:
     @pytest.fixture(
         params=["HTTP - No Auth", "HTTP - Auth", "SOCKS4", "SOCKS5 - No Auth", "SOCKS5 - Auth"]
     )
@@ -601,7 +599,7 @@ class TestInstantiation(object):
 
 
 @pytest.mark.describe("MQTTClient - .set_credentials()")
-class TestSetCredentials(object):
+class TestSetCredentials:
     @pytest.mark.it("Sets a username only")
     def test_username(self, client, mock_paho, mocker):
         assert mock_paho.username_pw_set.call_count == 0
@@ -626,7 +624,7 @@ class TestSetCredentials(object):
 
 
 @pytest.mark.describe("MQTTClient - .is_connected()")
-class TestIsConnected(object):
+class TestIsConnected:
     @pytest.mark.it("Returns a boolean indicating the connection status")
     @pytest.mark.parametrize(
         "connected", [pytest.param(True, id="Connected"), pytest.param(False, id="Disconnected")]
@@ -640,7 +638,7 @@ class TestIsConnected(object):
 
 
 @pytest.mark.describe("MQTTClient - .add_incoming_message_filter()")
-class TestAddIncomingMessageFilter(object):
+class TestAddIncomingMessageFilter:
     @pytest.mark.it("Adds a new incoming message queue for the given topic")
     def test_adds_queue(self, client):
         assert len(client._incoming_filtered_messages) == 0
@@ -686,7 +684,7 @@ class TestAddIncomingMessageFilter(object):
 
 
 @pytest.mark.describe("MQTTClient - .remove_incoming_message_filter()")
-class TestRemoveIncomingMessageFilter(object):
+class TestRemoveIncomingMessageFilter:
     @pytest.mark.it("Removes the callback for the given topic from the Paho MQTT Client")
     def test_removes_callback(self, mocker, client, mock_paho):
         # Add a filter
@@ -727,7 +725,7 @@ class TestRemoveIncomingMessageFilter(object):
         assert mock_paho.message_callback_remove.call_count == 0
 
         # Remove a topic that has not yet been added
-        even_faker_topic = "even/faker_topic"
+        even_faker_topic = "even/faker/topic"
         assert even_faker_topic != fake_topic
         with pytest.raises(ValueError):
             client.remove_incoming_message_filter(even_faker_topic)
@@ -742,10 +740,67 @@ class TestRemoveIncomingMessageFilter(object):
         assert mock_paho.message_callback_remove.call_count == 0
 
 
+@pytest.mark.describe("MQTTClient - .get_incoming_message_generator()")
+class TestGetIncomingMessageGenerator:
+    @pytest.mark.it(
+        "Returns a generator that yields items from the default incoming message queue if no filter topic is provided"
+    )
+    async def test_default_generator(self, client):
+        # Get generator
+        incoming_messages = client.get_incoming_message_generator()
+
+        # Add items to queue
+        item1 = mqtt.MQTTMessage(mid=1)
+        item2 = mqtt.MQTTMessage(mid=2)
+        item3 = mqtt.MQTTMessage(mid=3)
+        await client._incoming_messages.put(item1)
+        await client._incoming_messages.put(item2)
+        await client._incoming_messages.put(item3)
+
+        # Use generator
+        result = await anext(incoming_messages)
+        assert result is item1
+        result = await anext(incoming_messages)
+        assert result is item2
+        result = await anext(incoming_messages)
+        assert result is item3
+
+    @pytest.mark.it(
+        "Returns a generator that yields items from a filtered incoming message queue if a filter topic is provided"
+    )
+    async def test_filtered_generator(self, client):
+        # Add a filter, and get the generator
+        client.add_incoming_message_filter(fake_topic)
+        incoming_messages = client.get_incoming_message_generator(fake_topic)
+
+        # Add items to queue
+        item1 = mqtt.MQTTMessage(mid=1)
+        item2 = mqtt.MQTTMessage(mid=2)
+        item3 = mqtt.MQTTMessage(mid=3)
+        await client._incoming_filtered_messages[fake_topic].put(item1)
+        await client._incoming_filtered_messages[fake_topic].put(item2)
+        await client._incoming_filtered_messages[fake_topic].put(item3)
+
+        # Use generator
+        result = await anext(incoming_messages)
+        assert result is item1
+        result = await anext(incoming_messages)
+        assert result is item2
+        result = await anext(incoming_messages)
+        assert result is item3
+
+    @pytest.mark.it("Raises a ValueError if a filter has not been added for the given filter topic")
+    async def test_no_filter_added(self, client):
+        assert fake_topic not in client._incoming_filtered_messages
+
+        with pytest.raises(ValueError):
+            client.get_incoming_message_generator(fake_topic)
+
+
 # NOTE: Because clients in Disconnected, Connection Dropped, and Fresh states have the same
 # behaviors during a connect, define a parent class that can be subclassed so tests don't have
 # to be written twice.
-class ConnectWithClientNotConnectedTests(object):
+class ConnectWithClientNotConnectedTests:
     @pytest.mark.it(
         "Starts the reconnect daemon and stores its task if auto_reconnect is enabled and the daemon is not yet running"
     )
@@ -789,7 +844,7 @@ class ConnectWithClientNotConnectedTests(object):
         )
 
     @pytest.mark.it(
-        "Raises a MQTTConnectionFailedError if there is a failure invoking Paho's connect"
+        "Raises a MQTTConnectionFailedError (non-fatal) if there is a failure invoking Paho's connect"
     )
     async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
         mock_paho.connect.side_effect = arbitrary_exception
@@ -798,10 +853,11 @@ class ConnectWithClientNotConnectedTests(object):
             await client.connect()
         assert e_info.value.__cause__ is arbitrary_exception
         assert e_info.value.rc is None
+        assert not e_info.value.fatal
 
     # NOTE: This should be an invalid scenario as connect should not be able to return a failed status
     @pytest.mark.it(
-        "Raises a MQTTConnectionFailedError if invoking Paho's connect returns a failed status"
+        "Raises a MQTTConnectionFailedError (non-fatal) if invoking Paho's connect returns a failed status"
     )
     @pytest.mark.parametrize("failing_rc", connect_failed_rc_params)
     async def test_fail_status(self, client, mock_paho, failing_rc):
@@ -810,6 +866,7 @@ class ConnectWithClientNotConnectedTests(object):
         with pytest.raises(MQTTConnectionFailedError) as e_info:
             await client.connect()
         assert e_info.value.rc is None
+        assert not e_info.value.fatal
         cause = e_info.value.__cause__
         assert isinstance(cause, MQTTError)
         assert cause.rc == failing_rc
@@ -873,7 +930,7 @@ class ConnectWithClientNotConnectedTests(object):
         await connect_task
 
     @pytest.mark.it(
-        "Raises a MQTTConnectionFailedError if the connect attempt receives a failure response"
+        "Raises a MQTTConnectionFailedError (non-fatal) if the connect attempt receives a failure response"
     )
     @pytest.mark.parametrize("failing_rc", on_connect_failed_rc_params)
     async def test_fail_response(self, client, mock_paho, failing_rc):
@@ -891,6 +948,7 @@ class ConnectWithClientNotConnectedTests(object):
         with pytest.raises(MQTTConnectionFailedError) as e_info:
             await connect_task
         assert e_info.value.rc == failing_rc
+        assert not e_info.value.fatal
 
     @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
     @pytest.mark.parametrize("early_ack", early_ack_params)
@@ -1074,7 +1132,7 @@ class TestConnectWithClientConnectionDropped(ConnectWithClientNotConnectedTests)
 
 
 @pytest.mark.describe("MQTTClient - .connect() -- Client Already Connected")
-class TestConnectWithClientConnected(object):
+class TestConnectWithClientConnected:
     @pytest.fixture
     async def client(self, fresh_client):
         client = fresh_client
@@ -1131,7 +1189,7 @@ class TestConnectWithClientConnected(object):
 # client is connected. As such, we don't have to test rc != MQTT_ERR_SUCCESS here
 # (it is covered in other test classes)
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Connected")
-class TestDisconnectWithClientConnected(object):
+class TestDisconnectWithClientConnected:
     @pytest.fixture
     async def client(self, fresh_client):
         client = fresh_client
@@ -1323,7 +1381,7 @@ class TestDisconnectWithClientConnected(object):
 
 
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Connection Dropped")
-class TestDisconnectWithClientConnectionDrop(object):
+class TestDisconnectWithClientConnectionDrop:
     @pytest.fixture
     async def client(self, fresh_client):
         client = fresh_client
@@ -1420,7 +1478,7 @@ class TestDisconnectWithClientConnectionDrop(object):
 
 # NOTE: Because clients in Disconnected and Fresh states have the same behaviors during a connect,
 # define a parent class that can be subclassed so tests don't have to be written twice.
-class DisconnectWithClientFullyDisconnectedTests(object):
+class DisconnectWithClientFullyDisconnectedTests:
     @pytest.fixture
     async def client(self, fresh_client):
         client = fresh_client
@@ -1532,7 +1590,7 @@ class TestDisconnectWithClientFresh(DisconnectWithClientFullyDisconnectedTests):
 
 
 @pytest.mark.describe("MQTTClient - OCCURRENCE: Unexpected Disconnect")
-class TestUnexpectedDisconnect(object):
+class TestUnexpectedDisconnect:
     @pytest.mark.it("Puts the client in a disconnected state")
     async def test_state(self, client, mock_paho):
         client_set_connected(client)
@@ -1613,7 +1671,7 @@ class TestUnexpectedDisconnect(object):
 
 
 @pytest.mark.describe("MQTTClient - Connection Lock")
-class TestConnectionLock(object):
+class TestConnectionLock:
     @pytest.mark.it("Waits for a pending connect task to finish before attempting a connect")
     @pytest.mark.parametrize(
         "pending_success",
@@ -1800,7 +1858,7 @@ class TestConnectionLock(object):
 
 @pytest.mark.skipif(sys.version_info < (3, 8), reason="AsyncMock not supported by Python 3.7")
 @pytest.mark.describe("MQTTClient - Reconnect Daemon")
-class TestReconnectDaemon(object):
+class TestReconnectDaemon:
     @pytest.fixture
     async def client(self, fresh_client):
         client = fresh_client
@@ -1911,7 +1969,7 @@ class TestReconnectDaemon(object):
 
 
 @pytest.mark.describe("MQTTClient - .subscribe()")
-class TestSubscribe(object):
+class TestSubscribe:
     @pytest.mark.it("Invokes an MQTT subscribe via Paho")
     async def test_paho_invocation(self, mocker, client, mock_paho):
         assert mock_paho.subscribe.call_count == 0
@@ -2126,7 +2184,7 @@ class TestSubscribe(object):
 
 
 @pytest.mark.describe("MQTTClient - .unsubscribe()")
-class TestUnsubscribe(object):
+class TestUnsubscribe:
     @pytest.mark.it("Invokes an MQTT unsubscribe via Paho")
     async def test_paho_invocation(self, mocker, client, mock_paho):
         assert mock_paho.unsubscribe.call_count == 0
@@ -2341,7 +2399,7 @@ class TestUnsubscribe(object):
 
 
 @pytest.mark.describe("MQTTClient - .publish()")
-class TestPublish(object):
+class TestPublish:
     @pytest.mark.it("Invokes an MQTT publish via Paho")
     async def test_paho_invocation(self, mocker, client, mock_paho):
         assert mock_paho.publish.call_count == 0
@@ -2535,3 +2593,68 @@ class TestPublish(object):
         await asyncio.sleep(0.1)
 
         # No failure, no problem
+
+
+# NOTE: Because so much of the logic of message receives is internal to Paho, to test more detail
+# would really just be testing mocks. So we're just going to test the handlers/callbacks provided
+# and assume the logic regarding when to use them is correct. As a result, the descriptions of
+# these tests somewhat overstate the content of the test, because to truly test what would be
+# described with a mocked Paho, would just be testing mocks and side effects.
+@pytest.mark.describe("MQTTClient - OCCURRENCE: Message Received")
+class TestMessageReceived:
+    @pytest.mark.it(
+        "Puts the received message in the default message queue if no matching topic filter is defined"
+    )
+    async def test_no_filter(self, client):
+        assert client._incoming_messages.empty()
+
+        message = mqtt.MQTTMessage(mid=1)
+        client._mqtt_client.on_message(client, None, message)
+        await asyncio.sleep(0.1)
+
+        assert not client._incoming_messages.empty()
+        assert client._incoming_messages.qsize() == 1
+        item = await client._incoming_messages.get()
+        assert item is message
+
+    @pytest.mark.it(
+        "Puts the received message in a filtered queue if a matching topic filter is defined"
+    )
+    async def test_filter(self, client, mock_paho):
+        topic1 = fake_topic
+        topic2 = "even/faker/topic"
+
+        # Get callbacks and queues for filters
+        client.add_incoming_message_filter(topic1)
+        topic1_incoming_messages = client._incoming_filtered_messages[topic1]
+        assert mock_paho.message_callback_add.call_count == 1
+        topic1_callback = mock_paho.message_callback_add.call_args[0][1]
+
+        client.add_incoming_message_filter(topic2)
+        topic2_incoming_messages = client._incoming_filtered_messages[topic2]
+        assert mock_paho.message_callback_add.call_count == 2
+        topic2_callback = mock_paho.message_callback_add.call_args[0][1]
+
+        assert topic1_incoming_messages.empty()
+        assert topic2_incoming_messages.empty()
+        assert client._incoming_messages.empty()
+
+        # Receive Messages
+        message1 = mqtt.MQTTMessage(mid=1)
+        topic1_callback(client, None, message1)
+        message2 = mqtt.MQTTMessage(mid=2)
+        topic2_callback(client, None, message2)
+        await asyncio.sleep(0.1)
+
+        # Messages were put in correct queue
+        assert client._incoming_messages.empty()
+
+        assert not topic1_incoming_messages.empty()
+        assert topic1_incoming_messages.qsize() == 1
+        item1 = await topic1_incoming_messages.get()
+        assert item1 is message1
+
+        assert not topic2_incoming_messages.empty()
+        assert topic2_incoming_messages.qsize() == 1
+        item2 = await topic2_incoming_messages.get()
+        assert item2 is message2
