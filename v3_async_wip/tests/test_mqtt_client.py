@@ -503,7 +503,7 @@ class TestInstantiation(object):
             proxy_password=proxy_options.proxy_password,
         )
 
-    @pytest.mark.it("Does not set any proxy if no ProxyOptions is provided")
+    @pytest.mark.it("Does not set any proxy on the Paho MQTT Client if no ProxyOptions is provided")
     async def test_no_proxy_options(self, mocker, transport):
         mock_paho = mocker.patch.object(mqtt, "Client").return_value
 
@@ -517,7 +517,9 @@ class TestInstantiation(object):
         # Proxy was not set
         assert mock_paho.proxy_set.call_count == 0
 
-    @pytest.mark.it("Sets the websockets path using the provided value if using websockets")
+    @pytest.mark.it(
+        "Sets the websockets path on the Paho MQTT Client using the provided value if using websockets"
+    )
     async def test_ws_path(self, mocker):
         mock_paho = mocker.patch.object(mqtt, "Client").return_value
 
@@ -533,7 +535,7 @@ class TestInstantiation(object):
         assert mock_paho.ws_set_options.call_count == 1
         assert mock_paho.ws_set_options.call_args == mocker.call(path=fake_ws_path)
 
-    @pytest.mark.it("Does not set the websocket path if it is not provided")
+    @pytest.mark.it("Does not set the websocket path on the Paho MQTT Client if it is not provided")
     async def test_no_ws_path(self, mocker):
         mock_paho = mocker.patch.object(mqtt, "Client").return_value
 
@@ -544,7 +546,9 @@ class TestInstantiation(object):
         # Websockets path was not set
         assert mock_paho.ws_set_options.call_count == 0
 
-    @pytest.mark.it("Does not set the websocket path if not using websockets")
+    @pytest.mark.it(
+        "Does not set the websocket path on the Paho MQTT Client if not using websockets"
+    )
     async def test_ws_path_no_ws(self, mocker):
         mock_paho = mocker.patch.object(mqtt, "Client").return_value
 
@@ -558,6 +562,40 @@ class TestInstantiation(object):
 
         # Websockets path was not set
         assert mock_paho.ws_set_options.call_count == 0
+
+    @pytest.mark.it("Sets the initial connection state")
+    async def test_connection_state(self, mocker):
+        mocker.patch.object(mqtt, "Client")
+        client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+        assert not client._connected
+        assert not client._desire_connection
+
+    @pytest.mark.it("Sets the reconnect daemon to None")
+    async def test_reconnect_daemon(self, mocker):
+        mocker.patch.object(mqtt, "Client")
+        client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+        assert client._reconnect_daemon is None
+
+    @pytest.mark.it("Sets initial operation tracking structures")
+    async def test_pending_ops(self, mocker):
+        mocker.patch.object(mqtt, "Client")
+        client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+        assert client._pending_subs == {}
+        assert client._pending_unsubs == {}
+        assert client._pending_pubs == {}
+
+    @pytest.mark.it("Creates an incoming message queue")
+    async def test_incoming_messages_unfiltered(self, mocker):
+        mocker.patch.object(mqtt, "Client")
+        client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+        assert isinstance(client._incoming_messages, asyncio.Queue)
+        assert client._incoming_messages.empty()
+
+    @pytest.mark.it("Sets initial filtered message queue structures")
+    async def test_incoming_messages_filtered(self, mocker):
+        mocker.patch.object(mqtt, "Client")
+        client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+        assert client._incoming_filtered_messages == {}
 
     # TODO: May need public conditions tests (assuming they stay public)
 
@@ -599,6 +637,109 @@ class TestIsConnected(object):
         else:
             client_set_disconnected(client)
         assert client.is_connected() == connected
+
+
+@pytest.mark.describe("MQTTClient - .add_incoming_message_filter()")
+class TestAddIncomingMessageFilter(object):
+    @pytest.mark.it("Adds a new incoming message queue for the given topic")
+    def test_adds_queue(self, client):
+        assert len(client._incoming_filtered_messages) == 0
+
+        client.add_incoming_message_filter(fake_topic)
+
+        assert len(client._incoming_filtered_messages) == 1
+        assert isinstance(client._incoming_filtered_messages[fake_topic], asyncio.Queue)
+        assert client._incoming_filtered_messages[fake_topic].empty()
+
+    @pytest.mark.it("Adds a callback for the given topic to the Paho MQTT Client")
+    def test_adds_callback(self, mocker, client, mock_paho):
+        assert mock_paho.message_callback_add.call_count == 0
+
+        client.add_incoming_message_filter(fake_topic)
+
+        assert mock_paho.message_callback_add.call_count == 1
+        assert mock_paho.message_callback_add.call_args == mocker.call(fake_topic, mocker.ANY)
+
+    @pytest.mark.it(
+        "Raises a ValueError and does not add an incoming message queue or add a callback to the Paho MQTT Client if the filter already exists"
+    )
+    def test_filter_exists(self, client, mock_paho):
+        client.add_incoming_message_filter(fake_topic)
+        assert fake_topic in client._incoming_filtered_messages
+        assert len(client._incoming_filtered_messages) == 1
+        existing_queue = client._incoming_filtered_messages[fake_topic]
+        assert existing_queue.empty()
+        assert mock_paho.message_callback_add.call_count == 1
+
+        # Try and add the same topic filter again
+        with pytest.raises(ValueError):
+            client.add_incoming_message_filter(fake_topic)
+
+        # No additional filter was added, nor were changes made to the existing one
+        assert fake_topic in client._incoming_filtered_messages
+        assert len(client._incoming_filtered_messages) == 1
+        assert client._incoming_filtered_messages[fake_topic] == existing_queue
+        assert existing_queue.empty()
+        assert mock_paho.message_callback_add.call_count == 1
+
+    # NOTE: To see this filter in action, see the message receive tests
+
+
+@pytest.mark.describe("MQTTClient - .remove_incoming_message_filter()")
+class TestRemoveIncomingMessageFilter(object):
+    @pytest.mark.it("Removes the callback for the given topic from the Paho MQTT Client")
+    def test_removes_callback(self, mocker, client, mock_paho):
+        # Add a filter
+        client.add_incoming_message_filter(fake_topic)
+        assert mock_paho.message_callback_remove.call_count == 0
+
+        # Remove
+        client.remove_incoming_message_filter(fake_topic)
+
+        # Callback was removed
+        assert mock_paho.message_callback_remove.call_count == 1
+        assert mock_paho.message_callback_remove.call_args == mocker.call(fake_topic)
+
+    @pytest.mark.it("Removes the incoming message queue for the given topic")
+    def test_removes_queue(self, client):
+        # Add a filter
+        client.add_incoming_message_filter(fake_topic)
+        assert fake_topic in client._incoming_filtered_messages
+
+        # Remove
+        client.remove_incoming_message_filter(fake_topic)
+
+        # Filter queue was removed
+        assert fake_topic not in client._incoming_filtered_messages
+
+    @pytest.mark.it(
+        "Raises ValueError and does not remove any incoming message queues or remove any callbacks from the Paho MQTT Client if the filter does not exist"
+    )
+    async def test_filter_does_not_exist(self, mocker, client, mock_paho):
+        # Add a different filter
+        client.add_incoming_message_filter(fake_topic)
+        assert fake_topic in client._incoming_filtered_messages
+        assert len(client._incoming_filtered_messages) == 1
+        existing_queue = client._incoming_filtered_messages[fake_topic]
+        fake_item = mocker.MagicMock()
+        await existing_queue.put(fake_item)
+        assert existing_queue.qsize() == 1
+        assert mock_paho.message_callback_remove.call_count == 0
+
+        # Remove a topic that has not yet been added
+        even_faker_topic = "even/faker_topic"
+        assert even_faker_topic != fake_topic
+        with pytest.raises(ValueError):
+            client.remove_incoming_message_filter(even_faker_topic)
+
+        # No filter was removed or modified
+        assert fake_topic in client._incoming_filtered_messages
+        assert len(client._incoming_filtered_messages) == 1
+        existing_queue = client._incoming_filtered_messages[fake_topic]
+        assert existing_queue.qsize() == 1
+        item = await existing_queue.get()
+        assert item is fake_item
+        assert mock_paho.message_callback_remove.call_count == 0
 
 
 # NOTE: Because clients in Disconnected, Connection Dropped, and Fresh states have the same

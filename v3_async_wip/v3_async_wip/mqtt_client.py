@@ -159,13 +159,14 @@ class MQTTClient(object):
 
         # Tasks/Futures
         self._reconnect_daemon = None
+        # NOTE: pending ops are protected by the _mid_tracker_lock above.
         self._pending_subs = {}  # Map mid -> Future
         self._pending_unsubs = {}  # Map mid -> Future
         self._pending_pubs = {}  # Map mid -> Future
 
         # Incoming Data
-        self.incoming_messages = asyncio.Queue()
-        self.incoming_filtered_messages = {}  # Map name -> asyncio.Queue
+        self._incoming_messages = asyncio.Queue()
+        self._incoming_filtered_messages = {}  # Map topic -> asyncio.Queue
 
     def _create_mqtt_client(
         self, client_id, transport, ssl_context, proxy_options, websockets_path
@@ -361,7 +362,7 @@ class MQTTClient(object):
             logger.debug("Incoming MQTT Message received on {}".format(message.topic))
 
             async def add_to_queue():
-                await this.incoming_messages.put(message)
+                await this._incoming_messages.put(message)
 
             asyncio.run_coroutine_threadsafe(add_to_queue(), this._loop)
 
@@ -422,6 +423,67 @@ class MQTTClient(object):
         :param str password: The password for broker authentication (Optional)
         """
         self._mqtt_client.username_pw_set(username=username, password=password)
+
+    def add_incoming_message_filter(self, topic):
+        """
+        Filter incoming messages on a specific topic.
+
+        :param str topic: The topic you wish to filter on
+
+        :raises: ValueError if a filter is already applied for the topic
+        """
+        if topic in self._incoming_filtered_messages:
+            raise ValueError("Filter already applied for this topic")
+
+        # Add a Queue for this filter
+        self._incoming_filtered_messages[topic] = asyncio.Queue()
+
+        # Define a callback that uses the filter queue
+        self_weakref = weakref.ref(self)
+
+        def callback(client, userdata, message):
+            this = self_weakref()
+            logger.debug("Incoming MQTT Message received on filter {}".format(message.topic))
+
+            async def add_to_queue():
+                await this._incoming_filtered_messages[topic].put(message)
+
+            asyncio.run_coroutine_threadsafe(add_to_queue(), this._loop)
+
+        # Add the callback as a filter
+        self._mqtt_client.message_callback_add(topic, callback)
+
+    def remove_incoming_message_filter(self, topic):
+        """
+        Stop filtering incoming messages on a specific topic
+
+        :param str topic: The topic you wish to stop filtering on
+
+        :raises: ValueError if a filter is not already applied for the topic
+        """
+        if topic not in self._incoming_filtered_messages:
+            raise ValueError("Filter not yet applied to this topic")
+
+        # Remove the callback
+        self._mqtt_client.message_callback_remove(topic)
+
+        # Delete the filter queue
+        del self._incoming_filtered_messages[topic]
+
+    # def get_incoming_message_queue(self, topic=None):
+    #     """
+    #     Return the incoming message queue
+
+    #     :param str topic: If provided, will return a queue specifically for messages received
+    #         on the given topic. Must have already added an incoming message filter for this topic
+    #         via the .add_incoming_message_filter() method.
+
+    #     :raises: ValueError if the given topic has not already had a filter added for it
+    #     """
+    #     if topic is None:
+    #         return self._incoming_messages
+    #     else:
+    #         return
 
     async def connect(self):
         """
