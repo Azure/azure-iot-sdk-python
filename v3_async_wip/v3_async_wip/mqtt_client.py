@@ -472,7 +472,14 @@ class MQTTClient:
 
     def get_incoming_message_generator(self, filter_topic=None):
         """
-        Return
+        Return a generator that yields incoming messages
+
+        :param str filter_topic: The topic you wish to receive a generator for.
+            If not provided, will return a generator for non-filtered messages
+
+        :raises: ValueError if a filter is not already applied for the given topic
+
+        :returns: A generator that yields incoming messages
         """
         if filter_topic is not None and filter_topic not in self._incoming_filtered_messages:
             raise ValueError("No filter applied for given topic")
