@@ -1,0 +1,1 @@
+This folder contains a work-in-progress alternate implementation of portions of azure-iot-device. The components contained within will eventually replace those in azure-iot-device, but until then, they will be developed and tested here.
