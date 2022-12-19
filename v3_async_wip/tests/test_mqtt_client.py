@@ -19,6 +19,7 @@ import asyncio
 import logging
 import pytest
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -68,6 +69,8 @@ def mock_paho(mocker, paho_threadpool):
     # For simplicity, I've rolled all the information relevant to mocking behavior into a
     # 4-state value.
     mock_paho._state = PAHO_STATE_NEW
+    # Used to mock out loop_forever behavior.
+    mock_paho._network_loop_exit = threading.Event()
     # Indicates whether or not invocations should automatically trigger callbacks
     mock_paho._manual_mode = False
     # Indicates whether or not invocations should trigger callbacks immediately
@@ -87,6 +90,7 @@ def mock_paho(mocker, paho_threadpool):
     mock_paho._last_mid = 0
 
     # Utility helpers
+    # NOTE: PLEASE USE THESE WHEN WRITING TESTS SO YOU DON'T HAVE TO WORRY ABOUT STATE
     def trigger_on_connect(rc=mqtt.CONNACK_ACCEPTED):
         if rc == mqtt.CONNACK_ACCEPTED:
             # State is only set to connected if successfully connecting
@@ -107,6 +111,8 @@ def mock_paho(mocker, paho_threadpool):
             mock_paho._state = PAHO_STATE_CONNECTION_LOST
         if not mock_paho._early_ack:
             paho_threadpool.submit(time.sleep, ACK_DELAY)
+        # Need to signal that loop_forever will return now
+        mock_paho._network_loop_exit.set()
         paho_threadpool.submit(mock_paho.on_disconnect, client=mock_paho, userdata=None, rc=rc)
 
     mock_paho.trigger_on_disconnect = trigger_on_disconnect
@@ -155,6 +161,15 @@ def mock_paho(mocker, paho_threadpool):
         This is Paho's inner state. It returns True even if connection has been lost.
         """
         return mock_paho._state != PAHO_STATE_DISCONNECTED
+
+    def loop_forever(*args, **kwargs):
+        """
+        Blocks until network loop exit (on disconnect).
+        This is necessary as a Future gets made from this method, and whether or not it is
+        done affects the logic, so we can't just return immediately.
+        """
+        mock_paho._network_loop_exit.clear()
+        return mock_paho._network_loop_exit.wait()
 
     def connect(*args, **kwargs):
         # Only trigger completion if not in manual mode
@@ -206,6 +221,7 @@ def mock_paho(mocker, paho_threadpool):
         return msg_info
 
     mock_paho.is_connected.side_effect = is_connected
+    mock_paho.loop_forever.side_effect = loop_forever
     mock_paho.connect.side_effect = connect
     mock_paho.disconnect.side_effect = disconnect
     mock_paho.subscribe.side_effect = subscribe
@@ -238,12 +254,19 @@ async def client(fresh_client):
 
 # Helper functions for changing client state.
 # Always use these to set the state during tests so that the client state and Paho state
-# do not get out of sync
+# do not get out of sync.
+# There's also network loop Futures running in other threads you don't want to have to
+# consider when writing a test.
+#
+# TODO: Cancellation scenarios?
 def client_set_connected(client):
     """Set the client to a connected state"""
     client._connected = True
     client._desire_connection = True
     client._mqtt_client._state = PAHO_STATE_CONNECTED
+    # A client after a connection should have a currently running network loop Future
+    event_loop = asyncio.get_running_loop()
+    client._network_loop = event_loop.run_in_executor(None, client._mqtt_client.loop_forever)
 
 
 def client_set_disconnected(client):
@@ -251,6 +274,10 @@ def client_set_disconnected(client):
     client._connected = False
     client._desire_connection = False
     client._mqtt_client._state = PAHO_STATE_DISCONNECTED
+    # Ensure any running network loop Future exits, then clean up
+    # An (intentionally) disconnected client should have no network loop Future at all
+    client._mqtt_client._network_loop_exit.set()
+    client._network_loop = None
 
 
 def client_set_connection_dropped(client):
@@ -258,6 +285,12 @@ def client_set_connection_dropped(client):
     client._connected = False
     client._desire_connection = True
     client._mqtt_client._state = PAHO_STATE_CONNECTION_LOST
+    # Ensure any running network loop Future exits.
+    # A client after a connection drop should have a completed network loop Future
+    client._mqtt_client._network_loop_exit.set()
+    if not client._network_loop:
+        client._network_loop = asyncio.Future()
+        client._network_loop.set_result(None)
 
 
 def client_set_fresh(client):
@@ -272,6 +305,11 @@ def client_set_fresh(client):
     client._connected = False
     client._desire_connection = False
     client._mqtt_client._state = PAHO_STATE_NEW
+    # Ensure any running network loop Future exits, then clean up
+    # A fresh client should have no network loop Future at all
+    client._mqtt_client._network_loop_exit.set()
+    client._mqtt_client._network_loop_exit.clear()  # as if it were never set
+    client._network_loop = None
 
 
 # Pytest parametrizations
@@ -568,7 +606,13 @@ class TestInstantiation:
         assert not client._connected
         assert not client._desire_connection
 
-    @pytest.mark.it("Sets the reconnect daemon to None")
+    @pytest.mark.it("Sets the network loop Future to None")
+    async def test_network_loop(self, mocker):
+        mocker.patch.object(mqtt, "Client")
+        client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+        assert client._network_loop is None
+
+    @pytest.mark.it("Sets the reconnect daemon Task to None")
     async def test_reconnect_daemon(self, mocker):
         mocker.patch.object(mqtt, "Client")
         client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
@@ -629,7 +673,7 @@ class TestIsConnected:
     @pytest.mark.parametrize(
         "connected", [pytest.param(True, id="Connected"), pytest.param(False, id="Disconnected")]
     )
-    def test_returns_value(self, client, connected):
+    async def test_returns_value(self, client, connected):
         if connected:
             client_set_connected(client)
         else:
@@ -871,47 +915,63 @@ class ConnectWithClientNotConnectedTests:
         assert isinstance(cause, MQTTError)
         assert cause.rc == failing_rc
 
-    @pytest.mark.it("Starts the Paho network loop if the connect invocation is successful")
-    async def test_network_loop_connect_success(self, mocker, client, mock_paho):
-        assert mock_paho.loop_start.call_count == 0
+    @pytest.mark.it(
+        "Starts the Paho network loop if the connect invocation is successful and the network loop is not already running"
+    )
+    async def test_network_loop_connect_success(self, client, mock_paho):
+        assert not client._network_loop_running()
+        assert mock_paho.loop_forever.call_count == 0
 
         await client.connect()
+        # Due to the way test infrastructure triggers CONNACK, it's possible for .connect() to
+        # return before the mock network loop has started. This isn't a concern in real usage,
+        # since CONNACK cannot be received until the network loop is running.
+        await asyncio.sleep(0.1)
 
-        assert mock_paho.loop_start.call_count == 1
-        assert mock_paho.loop_start.call_args == mocker.call()
+        assert mock_paho.loop_forever.call_count == 1
+        assert isinstance(client._network_loop, asyncio.Future)
+        assert client._network_loop_running()
 
     @pytest.mark.it("Does not start the Paho network loop if the connect invocation fails")
     async def test_network_loop_connect_fail_raise(self, client, mock_paho, arbitrary_exception):
-        assert mock_paho.loop_start.call_count == 0
+        assert not client._network_loop_running()
+        assert mock_paho.loop_forever.call_count == 0
         mock_paho.connect.side_effect = arbitrary_exception
 
         with pytest.raises(MQTTConnectionFailedError):
             await client.connect()
 
-        assert mock_paho.loop_start.call_count == 0
+        assert mock_paho.loop_forever.call_count == 0
+        assert not client._network_loop_running()
 
     # NOTE: This should be an invalid scenario as connect should not be able to return a failed status
-    @pytest.mark.it("Does not start the Paho network loop if the connect returns a failed status")
+    @pytest.mark.it(
+        "Does not start the Paho network loop if the connect invocation returns a failed status"
+    )
     @pytest.mark.parametrize("failing_rc", connect_failed_rc_params)
     async def test_network_loop_connect_fail_status(self, client, mock_paho, failing_rc):
-        assert mock_paho.loop_start.call_count == 0
+        assert not client._network_loop_running()
+        assert mock_paho.loop_forever.call_count == 0
         mock_paho._connect_rc = failing_rc
 
         with pytest.raises(MQTTConnectionFailedError):
             await client.connect()
 
-        assert mock_paho.loop_start.call_count == 0
+        assert mock_paho.loop_forever.call_count == 0
+        assert not client._network_loop_running()
 
-    @pytest.mark.it("Stops, then starts the Paho network loop if the loop is already running")
-    async def test_network_loop_already_running(self, mocker, client, mock_paho):
-        mock_paho.loop_start.side_effect = [3, 0]
-        assert mock_paho.loop_start.call_count == 0
-        assert mock_paho.loop_stop.call_count == 0
+    # NOTE: This is not common, but possible due to cancellation. See more in the cancellation tests
+    @pytest.mark.it("Does not start the Paho network loop if it is already running")
+    async def test_network_loop_already_running(self, client, mock_paho):
+        event_loop = asyncio.get_running_loop()
+        client._network_loop = event_loop.run_in_executor(None, client._mqtt_client.loop_forever)
+        assert not client._network_loop.done()
+        assert mock_paho.loop_forever.call_count == 1
 
         await client.connect()
 
-        assert mock_paho.loop_start.call_count == 2
-        assert mock_paho.loop_stop.call_count == 1
+        assert not client._network_loop.done()
+        assert mock_paho.loop_forever.call_count == 1  # Same as it was before
 
     @pytest.mark.it(
         "Waits to return until Paho receives a success response if the connect invocation succeeded"
@@ -1075,35 +1135,7 @@ class ConnectWithClientNotConnectedTests:
         # TODO: the issue is I think that connect is getting called by the task before it can get cleaned
         client._reconnect_daemon.cancel()
 
-    @pytest.mark.it(
-        "Stops the Paho network loop if the connect attempt receives a failure response"
-    )
-    @pytest.mark.parametrize("failing_rc", on_connect_failed_rc_params)
-    async def test_network_loop_fail_response(self, mocker, client, mock_paho, failing_rc):
-        # Require manual completion
-        mock_paho._manual_mode = True
-        assert mock_paho.loop_start.call_count == 0
-        assert mock_paho.loop_stop.call_count == 0
-
-        # Attempt connect
-        connect_task = asyncio.create_task(client.connect())
-
-        # Network loop was started
-        await asyncio.sleep(0.1)
-        assert mock_paho.loop_start.call_count == 1
-        assert mock_paho.loop_start.call_args == mocker.call()
-        assert mock_paho.loop_stop.call_count == 0
-
-        # Send failure CONNACK response
-        mock_paho.trigger_on_connect(rc=failing_rc)
-        # Any CONNACK failure also results in an ERR_CONN_REFUSED
-        mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_CONN_REFUSED)
-        with pytest.raises(MQTTConnectionFailedError):
-            await connect_task
-
-        # Network loop was stopped
-        assert mock_paho.loop_start.call_count == 1
-        assert mock_paho.loop_stop.call_count == 1
+    # @pytest.mark.it("Stops the reconnect daemon if cancelled")
 
 
 @pytest.mark.describe("MQTTClient - .connect() -- Client Fresh")
@@ -1148,7 +1180,7 @@ class TestConnectWithClientConnected:
         assert mock_paho.connect.call_count == 0
 
     @pytest.mark.it("Does not start the reconnect daemon")
-    async def test_reconnect_daemon(self, client, mock_paho):
+    async def test_reconnect_daemon(self, client):
         client._auto_reconnect = True
         assert client._reconnect_daemon is None
 
@@ -1158,11 +1190,14 @@ class TestConnectWithClientConnected:
 
     @pytest.mark.it("Does not start the Paho network loop")
     async def test_network_loop(self, client, mock_paho):
-        assert mock_paho.loop_start.call_count == 0
+        # loop is already running due to being connected
+        assert client._network_loop_running()
+        assert mock_paho.loop_forever.call_count == 1
 
         await client.connect()
 
-        assert mock_paho.loop_start.call_count == 0
+        assert client._network_loop_running()
+        assert mock_paho.loop_forever.call_count == 1  # unchanged
 
     @pytest.mark.it("Leaves the client in a connected state")
     async def test_state(self, client):
@@ -1262,29 +1297,6 @@ class TestDisconnectWithClientConnected:
         # Daemon was cancelled
         assert mock_task.cancel.call_count == 1
         assert client._reconnect_daemon is None
-
-    @pytest.mark.it("Stops the Paho network loop")
-    @pytest.mark.parametrize(
-        "double_response",
-        [
-            pytest.param(False, id="Single Disconnect Response"),
-            pytest.param(True, id="Double Disconnect Response"),
-        ],
-    )
-    async def test_network_loop(self, client, mock_paho, double_response):
-        # Require manual completion
-        mock_paho._manual_mode = True
-        assert mock_paho.loop_stop.call_count == 0
-
-        # Start a disconnect.
-        disconnect_task = asyncio.create_task(client.disconnect())
-        await asyncio.sleep(0.1)
-        # Trigger disconnect completion
-        mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
-        if double_response:
-            mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
-        await disconnect_task
-        assert mock_paho.loop_stop.call_count == 1
 
     @pytest.mark.it("Puts the client in a disconnected state")
     @pytest.mark.parametrize(
@@ -1408,15 +1420,6 @@ class TestDisconnectWithClientConnectionDrop:
         assert mock_task.cancel.call_count == 1
         assert client._reconnect_daemon is None
 
-    # NOTE: It doesn't stop it because it has already been stopped when the connection dropped
-    @pytest.mark.it("Does not stop the Paho network loop")
-    async def test_network_loop(self, client, mock_paho):
-        assert mock_paho.loop_stop.call_count == 0
-
-        await client.disconnect()
-
-        assert mock_paho.loop_stop.call_count == 0
-
     # NOTE: This is an invalid scenario. Connection being dropped implies there are
     # no pending subscribes or unsubscribes
     @pytest.mark.it("Does not cancel or remove any pending subscribes or unsubscribes")
@@ -1505,14 +1508,6 @@ class DisconnectWithClientFullyDisconnectedTests:
         assert mock_task.cancel.call_count == 0
         assert client._reconnect_daemon is mock_task
 
-    @pytest.mark.it("Does not stop the Paho network loop")
-    async def test_network_loop(self, client, mock_paho):
-        assert mock_paho.loop_stop.call_count == 0
-
-        await client.disconnect()
-
-        assert mock_paho.loop_stop.call_count == 0
-
     # NOTE: This is an invalid scenario. Being disconnected implies there are
     # no pending subscribes or unsubscribes
     @pytest.mark.it("Does not cancel or remove any pending subscribes or unsubscribes")
@@ -1600,16 +1595,6 @@ class TestUnexpectedDisconnect:
         await asyncio.sleep(0.1)
 
         assert not client.is_connected()
-
-    @pytest.mark.it("Stops the Paho network loop")
-    async def test_network_loop(self, client, mock_paho):
-        client_set_connected(client)
-        assert mock_paho.loop_stop.call_count == 0
-
-        mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
-        await asyncio.sleep(0.1)
-
-        assert mock_paho.loop_stop.call_count == 1
 
     @pytest.mark.it("Does not alter the reconnect daemon")
     async def test_reconnect_daemon(self, mocker, client, mock_paho):
