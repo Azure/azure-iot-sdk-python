@@ -888,7 +888,7 @@ class ConnectWithClientNotConnectedTests:
         )
 
     @pytest.mark.it(
-        "Raises a MQTTConnectionFailedError (non-fatal) if there is a failure invoking Paho's connect"
+        "Raises a MQTTConnectionFailedError (non-fatal) if an exception is raised while invoking Paho's connect"
     )
     async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
         mock_paho.connect.side_effect = arbitrary_exception
@@ -932,7 +932,7 @@ class ConnectWithClientNotConnectedTests:
         assert isinstance(client._network_loop, asyncio.Future)
         assert client._network_loop_running()
 
-    @pytest.mark.it("Does not start the Paho network loop if the connect invocation fails")
+    @pytest.mark.it("Does not start the Paho network loop if the connect invocation raises")
     async def test_network_loop_connect_fail_raise(self, client, mock_paho, arbitrary_exception):
         assert not client._network_loop_running()
         assert mock_paho.loop_forever.call_count == 0
@@ -1026,7 +1026,7 @@ class ConnectWithClientNotConnectedTests:
         assert client.is_connected()
 
     @pytest.mark.it(
-        "Leaves the client in a disconnected state if there is a failure invoking Paho's connect"
+        "Leaves the client in a disconnected state if an exception is raised while invoking Paho's connect"
     )
     async def test_state_fail_raise(self, client, mock_paho, arbitrary_exception):
         # Raise failure from connect
@@ -1076,7 +1076,7 @@ class ConnectWithClientNotConnectedTests:
         assert not client.is_connected()
 
     @pytest.mark.it(
-        "Leaves the reconnect daemon running if there is a failure invoking Paho's connect"
+        "Leaves the reconnect daemon running if an exception is raised while invoking Paho's connect"
     )
     async def test_reconnect_daemon_fail_raise(self, client, mock_paho, arbitrary_exception):
         client._auto_reconnect = True
@@ -1134,6 +1134,61 @@ class ConnectWithClientNotConnectedTests:
         # TODO: is there a cleaner way to make sure this happens smoothly?
         # TODO: the issue is I think that connect is getting called by the task before it can get cleaned
         client._reconnect_daemon.cancel()
+
+    @pytest.mark.it(
+        "Raises CancelledError if cancelled while waiting for the Paho invocation to return"
+    )
+    async def test_cancel_waiting_paho_invocation(self, client, mock_paho):
+        # Create a fake connect implementation that doesn't return right away
+        finish_connect = threading.Event()
+        waiting_on_paho = True
+
+        def fake_connect(*args, **kwargs):
+            nonlocal waiting_on_paho
+            waiting_on_paho = True
+            finish_connect.wait()
+            waiting_on_paho = False
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_paho.connect.side_effect = fake_connect
+
+        # Start a connect task that will hang on Paho invocation
+        connect_task = asyncio.create_task(client.connect())
+        await asyncio.sleep(0.1)
+        assert not connect_task.done()
+        # Paho invocation has not returned
+        assert waiting_on_paho
+
+        # Cancel task
+        connect_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await connect_task
+
+        # Allow the fake implementation to finish
+        finish_connect.set()
+
+    # # NOTE: This test differs from the ones seen in Pub/Sub/Unsub because pending operations
+    # # in a connect don't indicate the same thing they with the others. Instead we hack the mock
+    # # some more to prove this.
+    # @pytest.mark.it("Raises CancelledError if cancelled while waiting for a response")
+    # async def test_cancel_waiting_response(self, client, mock_paho):
+    #     paho_invoke_done = False
+    #     def fake_connect(*args, **kwargs):
+    #         nonlocal paho_invoke_done
+    #         paho_invoke_done = True
+    #         return mqtt.MQTT_ERR_SUCCESS
+    #     mock_paho.connect.side_effect = fake_connect
+
+    #     # Start a connect task and cancel it.
+    #     connect_task = asyncio.create_task(client.connect())
+    #     await asyncio.sleep(0.1)
+    #     assert not connect_task.done()
+    #     # i.e. we are now waiting for a response
+    #     assert paho_invoke_done
+
+    #     connect_task.cancel()
+    #     with pytest.raises(asyncio.CancelledError):
+    #         await connect_task
 
     # @pytest.mark.it("Stops the reconnect daemon if cancelled")
 
@@ -1974,7 +2029,7 @@ class TestSubscribe:
         assert e_info.value.rc == failing_rc
 
     @pytest.mark.it("Allows any exceptions raised by invoking Paho's subscribe to propagate")
-    async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
+    async def test_fail_paho_invocation_raises(self, client, mock_paho, arbitrary_exception):
         mock_paho.subscribe.side_effect = arbitrary_exception
 
         with pytest.raises(type(arbitrary_exception)):
@@ -2076,7 +2131,62 @@ class TestSubscribe:
 
         assert len(client._pending_subs) == 0
 
-    @pytest.mark.it("Clears pending subscribe tracking information if cancelled")
+    @pytest.mark.it(
+        "Raises CancelledError if cancelled while waiting for the Paho subscribe invocation to return"
+    )
+    async def test_cancel_waiting_paho_invocation(self, client, mock_paho):
+        # Create a fake subscribe implementation that doesn't return right away
+        finish_subscribe = threading.Event()
+        waiting_on_paho = False
+
+        def fake_subscribe(*args, **kwargs):
+            nonlocal waiting_on_paho
+            waiting_on_paho = True
+            finish_subscribe.wait()
+            waiting_on_paho = False
+
+        mock_paho.subscribe.side_effect = fake_subscribe
+        assert len(client._pending_subs) == 0
+
+        # Start a subscribe task that will hang on Paho invocation
+        subscribe_task = asyncio.create_task(client.subscribe(fake_topic))
+        await asyncio.sleep(0.1)
+        assert not subscribe_task.done()
+        # Paho invocation has not returned
+        assert waiting_on_paho
+        assert len(client._pending_subs) == 0
+
+        # Cancel task
+        subscribe_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await subscribe_task
+
+        # Allow the fake implementation to finish
+        finish_subscribe.set()
+
+    @pytest.mark.it("Raises CancelledError if cancelled while waiting for a response")
+    async def test_cancel_waiting_response(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+        assert len(client._pending_subs) == 0
+
+        # Start an subscribe task and cancel it.
+        subscribe_task = asyncio.create_task(client.subscribe(fake_topic))
+        await asyncio.sleep(0.1)
+        assert not subscribe_task.done()
+        # The sub pending means we received a mid from the invocation
+        # i.e. we are now waiting for a response
+        assert len(client._pending_subs) == 1
+
+        subscribe_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await subscribe_task
+
+    # NOTE: There's no subscribe tracking information if cancelled while waiting for invocation
+    # as we don't have a MID yet.
+    @pytest.mark.it(
+        "Clears pending subscribe tracking information if cancelled while waiting for a response"
+    )
     async def test_pending_cancelled(self, client, mock_paho):
         # Require manual completion
         mock_paho._manual_mode = True
@@ -2189,7 +2299,7 @@ class TestUnsubscribe:
         assert e_info.value.rc == failing_rc
 
     @pytest.mark.it("Allows any exceptions raised by invoking Paho's unsubscribe to propagate")
-    async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
+    async def test_fail_paho_invocation_raises(self, client, mock_paho, arbitrary_exception):
         mock_paho.unsubscribe.side_effect = arbitrary_exception
 
         with pytest.raises(type(arbitrary_exception)):
@@ -2291,6 +2401,54 @@ class TestUnsubscribe:
 
         assert len(client._pending_unsubs) == 0
 
+    @pytest.mark.it(
+        "Raises CancelledError if cancelled while waiting for the Paho unsubscribe invocation to return"
+    )
+    async def test_cancel_waiting_paho_invocation(self, client, mock_paho):
+        # Create a fake unsubscribe implementation that doesn't return right away
+        finish_unsubscribe = threading.Event()
+        waiting_on_paho = False
+
+        def fake_unsubscribe(*args, **kwargs):
+            nonlocal waiting_on_paho
+            waiting_on_paho = True
+            finish_unsubscribe.wait()
+            waiting_on_paho = False
+
+        mock_paho.unsubscribe.side_effect = fake_unsubscribe
+        assert len(client._pending_unsubs) == 0
+
+        # Start a subscribe task that will hang on Paho invocation
+        unsubscribe_task = asyncio.create_task(client.unsubscribe(fake_topic))
+        await asyncio.sleep(0.1)
+        assert not unsubscribe_task.done()
+        # Paho invocation has not returned
+        assert waiting_on_paho
+        assert len(client._pending_unsubs) == 0
+
+        # Allow the fake implementation to finish
+        finish_unsubscribe.set()
+
+    @pytest.mark.it("Raises CancelledError if cancelled while waiting for a response")
+    async def test_cancel_waiting_response(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+        assert len(client._pending_subs) == 0
+
+        # Start an unsubscribe task and cancel it.
+        unsubscribe_task = asyncio.create_task(client.unsubscribe(fake_topic))
+        await asyncio.sleep(0.1)
+        assert not unsubscribe_task.done()
+        # The unsub pending means we received a mid from the invocation
+        # i.e. we are now waiting for a response
+        assert len(client._pending_unsubs) == 1
+
+        unsubscribe_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await unsubscribe_task
+
+    # NOTE: There's no unsubscribe tracking information if cancelled while waiting for invocation
+    # as we don't have a MID yet.
     @pytest.mark.it("Clears pending unsubscribe tracking information if cancelled")
     async def test_pending_cancelled(self, client, mock_paho):
         # Require manual completion
@@ -2407,7 +2565,7 @@ class TestPublish:
         assert e_info.value.rc == failing_rc
 
     @pytest.mark.it("Allows any exceptions raised by invoking Paho's publish to propagate")
-    async def test_fail_paho_invocation(self, client, mock_paho, arbitrary_exception):
+    async def test_fail_paho_invocation_raises(self, client, mock_paho, arbitrary_exception):
         mock_paho.publish.side_effect = arbitrary_exception
 
         with pytest.raises(type(arbitrary_exception)):
@@ -2529,6 +2687,63 @@ class TestPublish:
 
         assert len(client._pending_subs) == 0
 
+    @pytest.mark.it(
+        "Raises CancelledError if cancelled while waiting for the Paho invocation to return"
+    )
+    async def test_cancel_waiting_paho_invocation(
+        self,
+        client,
+        mock_paho,
+    ):
+        # Create a fake publish implementation that doesn't return right away
+        finish_publish = threading.Event()
+        waiting_on_paho = False
+
+        def fake_publish(*args, **kwargs):
+            nonlocal waiting_on_paho
+            waiting_on_paho = True
+            finish_publish.wait()
+            waiting_on_paho = False
+
+        mock_paho.publish.side_effect = fake_publish
+        assert len(client._pending_pubs) == 0
+
+        # Start a publish task that will hang on Paho invocation
+        publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+        await asyncio.sleep(0.1)
+        assert not publish_task.done()
+        # Paho invocation has not returned
+        assert waiting_on_paho
+        assert len(client._pending_pubs) == 0
+
+        # Cancel task
+        publish_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await publish_task
+
+        # Allow the fake implementation to finish
+        finish_publish.set()
+
+    @pytest.mark.it("Raises CancelledError if cancelled while waiting for a response")
+    async def test_cancel_waiting_response(self, client, mock_paho):
+        # Require manual completion
+        mock_paho._manual_mode = True
+        assert len(client._pending_pubs) == 0
+
+        # Start a publish task and cancel it.
+        publish_task = asyncio.create_task(client.publish(fake_topic, fake_payload))
+        await asyncio.sleep(0.1)
+        assert not publish_task.done()
+        # The pub pending means we received a mid from the invocation
+        # i.e. we are now waiting for a response
+        assert len(client._pending_pubs) == 1
+
+        publish_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await publish_task
+
+    # NOTE: There's no publish tracking information if cancelled while waiting for invocation
+    # as we don't have a mid yet.
     @pytest.mark.it("Clears pending publish tracking information if cancelled")
     async def test_pending_cancelled(self, client, mock_paho):
         # Require manual completion
