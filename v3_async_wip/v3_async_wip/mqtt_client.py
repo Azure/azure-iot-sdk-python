@@ -526,6 +526,7 @@ class MQTTClient:
                         # TODO: This means a connection could be established, without a reconnect daemon
                         # and there would be no way to add it later
                         # (calling connect would skip adding the daemon if already connected because we do nothing)
+                    raise
                 finally:
                     self._pending_connect = None
 
@@ -574,7 +575,7 @@ class MQTTClient:
         # This is fine though, as it'll be stopped on the next disconnect.
         # However, this does introduce a case where the network loop may already be running
         # during a connect attempt, so make sure it isn't before trying to start it again.
-        if self._network_loop_running():
+        if not self._network_loop_running():
             logger.debug("Starting Paho network loop")
             self._network_loop = self._loop.run_in_executor(None, self._mqtt_client.loop_forever)
         else:
