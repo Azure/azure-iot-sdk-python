@@ -1278,6 +1278,7 @@ class TestConnectWithClientConnected:
 # NOTE: Paho's .disconnect() method will always return success (rc = MQTT_ERR_SUCCESS) when the
 # client is connected. As such, we don't have to test rc != MQTT_ERR_SUCCESS here
 # (it is covered in other test classes)
+# TODO: the above note is not true
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Connected")
 class TestDisconnectWithClientConnected:
     @pytest.fixture
@@ -1295,7 +1296,7 @@ class TestDisconnectWithClientConnected:
         assert mock_paho.disconnect.call_count == 1
         assert mock_paho.disconnect.call_args == mocker.call()
 
-    @pytest.mark.it("Waits to return until Paho receives a response")
+    @pytest.mark.it("Waits to return until Paho receives a response and the network loop exits")
     @pytest.mark.parametrize(
         "double_response",
         [
@@ -1311,12 +1312,16 @@ class TestDisconnectWithClientConnected:
         disconnect_task = asyncio.create_task(client.disconnect())
         await asyncio.sleep(0.5)
         assert not disconnect_task.done()
+        network_loop_task = client._network_loop
+        assert network_loop_task is not None
+        assert not network_loop_task.done()
 
         # Trigger disconnect completion
         mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         if double_response:
             mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await disconnect_task
+        assert network_loop_task.done()
 
     @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
     @pytest.mark.parametrize("early_ack", early_ack_params)
@@ -1446,6 +1451,34 @@ class TestDisconnectWithClientConnected:
         # None were removed
         assert len(client._pending_pubs) == 3
 
+    @pytest.mark.it("Clears the completed network loop task")
+    @pytest.mark.parametrize(
+        "double_response",
+        [
+            pytest.param(False, id="Single Disconnect Response"),
+            pytest.param(True, id="Double Disconnect Response"),
+        ],
+    )
+    async def test_network_loop(self, client, mock_paho, double_response):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        assert client._network_loop is not None
+        network_loop_task = client._network_loop
+        assert not network_loop_task.done()
+
+        # Start a disconnect.
+        disconnect_task = asyncio.create_task(client.disconnect())
+        await asyncio.sleep(0.1)
+        # Trigger disconnect completion
+        mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
+        if double_response:
+            mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
+        await disconnect_task
+
+        assert network_loop_task.done()
+        assert client._network_loop is None
+
 
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Connection Dropped")
 class TestDisconnectWithClientConnectionDrop:
@@ -1532,6 +1565,19 @@ class TestDisconnectWithClientConnectionDrop:
         # Attempt disconnect
         disconnect_task = asyncio.create_task(client.disconnect())
         await disconnect_task
+
+    @pytest.mark.it("Clears the completed network loop task")
+    async def test_network_loop(self, mocker, client, mock_paho):
+        assert client._network_loop is not None
+        network_loop_task = client._network_loop
+        # Connection Drop means that the loop task is done, but not cleared
+        assert network_loop_task.done()
+
+        await client.disconnect()
+
+        assert network_loop_task.done()
+        # Now the task has been cleared
+        assert client._network_loop is None
 
 
 # NOTE: Because clients in Disconnected and Fresh states have the same behaviors during a connect,
@@ -1622,6 +1668,14 @@ class DisconnectWithClientFullyDisconnectedTests:
         # No waiting for disconnect response trigger was required
         await disconnect_task
 
+    @pytest.mark.it("Does not alter the network loop task")
+    async def test_network_loop(self, client):
+        assert client._network_loop is None
+
+        await client.disconnect()
+
+        assert client._network_loop is None
+
 
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Already Disconnected")
 class TestDisconnectWithClientDisconnected(DisconnectWithClientFullyDisconnectedTests):
@@ -1641,9 +1695,14 @@ class TestDisconnectWithClientFresh(DisconnectWithClientFullyDisconnectedTests):
 
 @pytest.mark.describe("MQTTClient - OCCURRENCE: Unexpected Disconnect")
 class TestUnexpectedDisconnect:
+    @pytest.fixture
+    async def client(self, fresh_client):
+        client = fresh_client
+        client_set_connected(client)
+        return client
+
     @pytest.mark.it("Puts the client in a disconnected state")
     async def test_state(self, client, mock_paho):
-        client_set_connected(client)
         assert client.is_connected()
 
         mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
@@ -1653,7 +1712,6 @@ class TestUnexpectedDisconnect:
 
     @pytest.mark.it("Does not alter the reconnect daemon")
     async def test_reconnect_daemon(self, mocker, client, mock_paho):
-        client_set_connected(client)
         client._auto_reconnect = True
         mock_task = mocker.MagicMock()
         client._reconnect_daemon = mock_task
@@ -1666,7 +1724,6 @@ class TestUnexpectedDisconnect:
 
     @pytest.mark.it("Cancels and removes all pending subscribes and unsubscribes")
     async def test_cancel_sub_unsub(self, mocker, client, mock_paho):
-        client_set_connected(client)
         # Set mocked pending Futures
         mock_subs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
         mock_unsubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
@@ -1692,7 +1749,6 @@ class TestUnexpectedDisconnect:
 
     @pytest.mark.it("Does not cancel or remove any pending publishes")
     async def test_no_cancel_pub(self, mocker, client, mock_paho):
-        client_set_connected(client)
         # Set mocked pending Futures
         mock_pubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
         client._pending_pubs[1] = mock_pubs[0]
@@ -1708,6 +1764,20 @@ class TestUnexpectedDisconnect:
             assert mock.cancel.call_count == 0
         # None were removed
         assert len(client._pending_pubs) == 3
+
+    @pytest.mark.it("Does not remove the network loop task, even though it completes")
+    async def test_network_loop(self, client, mock_paho):
+        assert client._network_loop is not None
+        assert not client._network_loop.done()
+        network_loop_task = client._network_loop
+
+        # Disconnect
+        mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
+        await asyncio.sleep(0.1)
+
+        assert client._network_loop is not None
+        assert client._network_loop.done()
+        assert client._network_loop is network_loop_task
 
 
 @pytest.mark.describe("MQTTClient - Connection Lock")
