@@ -606,23 +606,6 @@ class MQTTClient:
                 # We no longer wish to be connected
                 self._desire_connection = False
 
-                # Start listening for disconnect before performing Paho disconnect to make sure
-                # we don't miss it. This could happen due to timing issues on the Paho thread
-                # (i.e. disconnect received after invoking disconnect, but before our listening
-                # task has started) or due to an unexpected disconnect happening during
-                # the execution of this block.
-                async def wait_for_disconnect():
-                    async with self.disconnected_cond:
-                        await self.disconnected_cond.wait()
-
-                # We use a listener task here rather than waiting for the ConnectionLock's Future
-                # since we don't actually care about the response rc, we just need to wait for
-                # the state change.
-                disconnect_done = asyncio.create_task(wait_for_disconnect())
-
-                # Make sure the task is running
-                await asyncio.sleep(0)
-
                 # Cancel reconnection attempts
                 if self._reconnect_daemon:
                     self._reconnect_daemon.cancel()
@@ -637,8 +620,9 @@ class MQTTClient:
 
                 if rc == mqtt.MQTT_ERR_SUCCESS:
                     # Wait for disconnection to complete
-                    logger.debug("Waiting for disconnect response...")
-                    await disconnect_done
+                    logger.debug("Waiting for disconnect to complete...")
+                    async with self.disconnected_cond:
+                        await self.disconnected_cond.wait_for(lambda: not self.is_connected())
                     logger.debug("Waiting for network loop to exit")
                     await self._network_loop
                     self._network_loop = None
@@ -653,9 +637,8 @@ class MQTTClient:
                     # We still want to do this disconnect however, because doing so changes
                     # Paho's state to indicate we no longer wish to be connected.
                     logger.debug("Early disconnect return (Already disconnected)")
-                    disconnect_done.cancel()
                     if not self._network_loop.done():
-                        # NOTE: This shouldn't be possible
+                        # This block should never execute
                         logger.warning("Network loop unexpectedly still running. Waiting")
                         await self._network_loop
                     logger.debug("Removing finished network loop task")
@@ -665,7 +648,6 @@ class MQTTClient:
                     logger.warning(
                         "Unexpected rc {} from Paho .disconnect(). Doing nothing.".format(rc)
                     )
-                    disconnect_done.cancel()
 
             else:
                 logger.debug("Already disconnected!")
