@@ -507,6 +507,25 @@ class MQTTClient:
                 else:
                     reconnect_started_on_this_attempt = False
 
+                # TODO: MOVE THIS TO AFTER CONNECT
+                # Start Paho network loop, and store the task. This task will complete upon disconnect
+                # whether due to invocation of .disconnect(), or an unexpected network drop.
+
+                # NOTE: If the connect attempt fails, or is cancelled, the network loop cannot be
+                # stopped due to it being in a different thread. This is fine though, as it'll be
+                # stopped on the next disconnect.
+                # However, this does introduce a case where the network loop may already be running
+                # during a connect attempt, so make sure it isn't before trying to start it again.
+                if not self._network_loop_running():
+                    logger.debug("Starting Paho network loop")
+                    self._network_loop = self._loop.run_in_executor(
+                        None, self._mqtt_client.loop_forever
+                    )
+                else:
+                    logger.debug(
+                        "Paho network loop was already running. Likely due to a previous cancellation."
+                    )
+
                 # TODO: Safety?
                 self._pending_connect = self._loop.create_future()
 
