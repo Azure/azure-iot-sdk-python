@@ -16,6 +16,9 @@ The application has significant logging as well to check on progress and trouble
 
 Several log files will be generated as the application runs. The DEBUG and INFO logs are generated 
 on a timed rotating logging handler. So multiple of DEBUG and INFO files based on time-stamp will be generated. 
+The debug log files will be named like `debug.log.2023-01-04_11-28-49` and info log files will be named as 
+`info.log.2023-01-04_11-28-49` with the date and timestamp. The next debug and log files will be generated with names 
+like `debug.log.2023-01-04_12-28-49` and `info.log.2023-01-04_12-28-49` with a rotation interval of 1 hour.
 The `sample.log` file will contain logging output only from the solution. The solution also prints similar texts onto the console for visual purposes.
 Customer can modify the current logging and set it to a different level by changing one of the loggers.
 
