@@ -552,6 +552,7 @@ class MQTTClient:
             logger.debug("Connect returned rc {} - {}".format(rc, rc_msg))
         # TODO: more specialization of errors to indicate which are/aren't retryable
         except asyncio.CancelledError:
+            # TODO: is cancellation during a connect invocation even possible?
             # Handled in outer method
             raise
         except Exception as e:
@@ -601,8 +602,9 @@ class MQTTClient:
         """
         # Wait for permission to alter the connection
         async with self._connection_lock:
-            if self._desire_connection:
 
+            # TODO: why can't this be simplified to 'if self._network_loop'
+            if self._desire_connection or self._network_loop_running():
                 # We no longer wish to be connected
                 self._desire_connection = False
 

@@ -111,8 +111,9 @@ def mock_paho(mocker, paho_threadpool):
             mock_paho._state = PAHO_STATE_CONNECTION_LOST
         if not mock_paho._early_ack:
             paho_threadpool.submit(time.sleep, ACK_DELAY)
-        # Need to signal that loop_forever will return now
-        mock_paho._network_loop_exit.set()
+        # Need to signal that loop_forever will return now (if not already signaled)
+        if not mock_paho._network_loop_exit.is_set():
+            mock_paho._network_loop_exit.set()
         paho_threadpool.submit(mock_paho.on_disconnect, client=mock_paho, userdata=None, rc=rc)
 
     mock_paho.trigger_on_disconnect = trigger_on_disconnect
@@ -189,6 +190,10 @@ def mock_paho(mocker, paho_threadpool):
         else:
             mock_paho._state = PAHO_STATE_DISCONNECTED
             rc = mqtt.MQTT_ERR_NO_CONN
+            # We don't trigger on_disconnect, but do need to exit network loop if it's running.
+            # This only happens in cancellation scenarios.
+            if not mock_paho._network_loop_exit.is_set():
+                mock_paho._network_loop_exit.set()
         return rc
 
     def subscribe(*args, **kwargs):
@@ -869,7 +874,7 @@ class ConnectWithClientNotConnectedTests:
 
     @pytest.mark.it("Does not start the reconnect daemon if it is already running")
     async def test_reconnect_daemon_running(self, mocker, client):
-        client._auto_reconnect is True
+        client._auto_reconnect = True
         mock_task = mocker.MagicMock()
         client._reconnect_daemon = mock_task
 
@@ -961,7 +966,8 @@ class ConnectWithClientNotConnectedTests:
         assert mock_paho.loop_forever.call_count == 0
         assert not client._network_loop_running()
 
-    # NOTE: This is not common, but possible due to cancellation. See more in the cancellation tests
+    # NOTE: This is not common, but possible due to cancellation. See more in the cancellation tests.
+    # Admittedly, this can only really happen in the "Client Fresh" state, but we test it for all.
     @pytest.mark.it("Does not start the Paho network loop if it is already running")
     async def test_network_loop_already_running(self, client, mock_paho):
         event_loop = asyncio.get_running_loop()
@@ -1168,30 +1174,203 @@ class ConnectWithClientNotConnectedTests:
         # Allow the fake implementation to finish
         finish_connect.set()
 
-    # # NOTE: This test differs from the ones seen in Pub/Sub/Unsub because pending operations
-    # # in a connect don't indicate the same thing they with the others. Instead we hack the mock
-    # # some more to prove this.
-    # @pytest.mark.it("Raises CancelledError if cancelled while waiting for a response")
-    # async def test_cancel_waiting_response(self, client, mock_paho):
-    #     paho_invoke_done = False
-    #     def fake_connect(*args, **kwargs):
-    #         nonlocal paho_invoke_done
-    #         paho_invoke_done = True
-    #         return mqtt.MQTT_ERR_SUCCESS
-    #     mock_paho.connect.side_effect = fake_connect
+    @pytest.mark.it(
+        "Stops a reconnect daemon that was started on this current connect when cancelled while waiting for the Paho invocation to return"
+    )
+    async def test_cancel_reconnect_daemon_current_connect_waiting_invoke(self, client, mock_paho):
+        # Create a fake connect implementation that doesn't return right away
+        finish_connect = threading.Event()
+        waiting_on_paho = True
 
-    #     # Start a connect task and cancel it.
-    #     connect_task = asyncio.create_task(client.connect())
-    #     await asyncio.sleep(0.1)
-    #     assert not connect_task.done()
-    #     # i.e. we are now waiting for a response
-    #     assert paho_invoke_done
+        def fake_connect(*args, **kwargs):
+            nonlocal waiting_on_paho
+            waiting_on_paho = True
+            finish_connect.wait()
+            waiting_on_paho = False
+            return mqtt.MQTT_ERR_SUCCESS
 
-    #     connect_task.cancel()
-    #     with pytest.raises(asyncio.CancelledError):
-    #         await connect_task
+        mock_paho.connect.side_effect = fake_connect
 
-    # # @pytest.mark.it("Stops the reconnect daemon if cancelled")
+        # No reconnect daemon has started
+        client._auto_reconnect = True
+        assert client._reconnect_daemon is None
+
+        # Start a connect task that will hang on Paho invocation
+        connect_task = asyncio.create_task(client.connect())
+        await asyncio.sleep(0.1)
+        assert not connect_task.done()
+        # Paho invocation has not returned
+        assert waiting_on_paho
+
+        # Reconnect daemon has been started
+        assert client._reconnect_daemon is not None
+        daemon_task = client._reconnect_daemon
+        assert not daemon_task.done()
+
+        # Cancel task
+        connect_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await connect_task
+
+        # Daemon task was completed and removed
+        assert client._reconnect_daemon is None
+        assert daemon_task.done()
+
+        # Allow the fake implementation to finish
+        finish_connect.set()
+
+    @pytest.mark.it(
+        "Does not stop a reconnect daemon that was started on a previous connect when cancelled while waiting for the Paho invocation to return"
+    )
+    async def test_cancel_reconnect_daemon_previous_connect_waiting_invoke(
+        self, mocker, client, mock_paho
+    ):
+        # Create a fake connect implementation that doesn't return right away
+        finish_connect = threading.Event()
+        waiting_on_paho = True
+
+        def fake_connect(*args, **kwargs):
+            nonlocal waiting_on_paho
+            waiting_on_paho = True
+            finish_connect.wait()
+            waiting_on_paho = False
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_paho.connect.side_effect = fake_connect
+
+        # Reconnect daemon is already running
+        client._auto_reconnect = True
+        daemon_task = mocker.MagicMock()
+        client._reconnect_daemon = daemon_task
+
+        # Start a connect task that will hang on Paho invocation
+        connect_task = asyncio.create_task(client.connect())
+        await asyncio.sleep(0.1)
+        assert not connect_task.done()
+        # Paho invocation has not returned
+        assert waiting_on_paho
+
+        # Reconnect daemon has not been altered
+        assert client._reconnect_daemon is daemon_task
+        assert daemon_task.cancel.call_count == 0
+
+        # Cancel task
+        connect_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await connect_task
+
+        # Daemon task was unaffected
+        assert client._reconnect_daemon is daemon_task
+        assert daemon_task.cancel.call_count == 0
+
+        # Allow the fake implementation to finish
+        finish_connect.set()
+
+    # NOTE: This test differs from the ones seen in Pub/Sub/Unsub because pending operations
+    # in a connect don't indicate the same thing they with the others. Instead we hack the mock
+    # some more to prove the expected behavior
+    @pytest.mark.it("Raises CancelledError if cancelled while waiting for a response")
+    async def test_cancel_waiting_response(self, client, mock_paho):
+        paho_invoke_done = False
+
+        def fake_connect(*args, **kwargs):
+            nonlocal paho_invoke_done
+            paho_invoke_done = True
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_paho.connect.side_effect = fake_connect
+
+        # Start a connect task
+        connect_task = asyncio.create_task(client.connect())
+        await asyncio.sleep(0.1)
+        # We are now waiting for a response
+        assert not connect_task.done()
+        assert paho_invoke_done
+
+        # Cancel the connect task
+        connect_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await connect_task
+
+    @pytest.mark.it(
+        "Stops a reconnect daemon that was started on this current connect when cancelled while waiting for a response"
+    )
+    async def test_cancel_reconnect_daemon_current_connect_waiting_response(
+        self, client, mock_paho
+    ):
+        paho_invoke_done = False
+
+        def fake_connect(*args, **kwargs):
+            nonlocal paho_invoke_done
+            paho_invoke_done = True
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_paho.connect.side_effect = fake_connect
+
+        # No reconnect daemon has started
+        client._auto_reconnect = True
+        assert client._reconnect_daemon is None
+
+        # Start a connect task
+        connect_task = asyncio.create_task(client.connect())
+        await asyncio.sleep(0.1)
+        # We are now waiting for a response
+        assert not connect_task.done()
+        assert paho_invoke_done
+
+        # Reconnect daemon has been started
+        assert client._reconnect_daemon is not None
+        daemon_task = client._reconnect_daemon
+        assert not daemon_task.done()
+
+        # Cancel the connect task
+        connect_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await connect_task
+
+        # Daemon task was completed and removed
+        assert client._reconnect_daemon is None
+        assert daemon_task.done()
+
+    @pytest.mark.it(
+        "Does not stop a reconnect daemon that was started on a previous connect when cancelled while waiting for a response"
+    )
+    async def test_cancel_reconnect_daemon_previous_connect_waiting_response(
+        self, mocker, client, mock_paho
+    ):
+        paho_invoke_done = False
+
+        def fake_connect(*args, **kwargs):
+            nonlocal paho_invoke_done
+            paho_invoke_done = True
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_paho.connect.side_effect = fake_connect
+
+        # Reconnect daemon is already running
+        client._auto_reconnect = True
+        daemon_task = mocker.MagicMock()
+        client._reconnect_daemon = daemon_task
+
+        # Start a connect task
+        connect_task = asyncio.create_task(client.connect())
+        await asyncio.sleep(0.1)
+        # We are now waiting for a response
+        assert not connect_task.done()
+        assert paho_invoke_done
+
+        # Reconnect daemon has not been altered
+        assert client._reconnect_daemon is daemon_task
+        assert daemon_task.cancel.call_count == 0
+
+        # Cancel the connect task
+        connect_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await connect_task
+
+        # Daemon task was unaffected
+        assert client._reconnect_daemon is daemon_task
+        assert daemon_task.cancel.call_count == 0
 
 
 @pytest.mark.describe("MQTTClient - .connect() -- Client Fresh")
