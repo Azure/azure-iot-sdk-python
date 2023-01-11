@@ -518,7 +518,12 @@ class MQTTClient:
                         )
                     raise
                 finally:
+                    # Pending operation is completed
                     self._pending_connect = None
+
+                    # If the connect failed, the network loop will have stopped
+                    if not self._network_loop_running():
+                        self._network_loop = None
 
             else:
                 logger.debug("Already connected!")
@@ -592,8 +597,11 @@ class MQTTClient:
         # Wait for permission to alter the connection
         async with self._connection_lock:
 
-            # TODO: why can't this be simplified to 'if self._network_loop'
-            # if self._desire_connection or self._network_loop_running():
+            # The network loop Future being present (running or not) indicates one of a few things:
+            # 1) We are connected
+            # 2) We were previously connected and the connection was lost
+            # 3) A connection attempt was cancelled
+            # In all of these cases, we need to invoke Paho's .disconnect() to clean up.
             if self._network_loop:
                 # We no longer wish to be connected
                 self._desire_connection = False
@@ -629,7 +637,7 @@ class MQTTClient:
                     # We still want to do this disconnect however, because doing so changes
                     # Paho's state to indicate we no longer wish to be connected.
                     logger.debug("Early disconnect return (Already disconnected)")
-                    if not self._network_loop.done():
+                    if self._network_loop_running():
                         # This block should never execute
                         logger.warning("Network loop unexpectedly still running. Waiting")
                         await self._network_loop

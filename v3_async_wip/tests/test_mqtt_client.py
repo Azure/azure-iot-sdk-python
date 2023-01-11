@@ -1146,6 +1146,37 @@ class ConnectWithClientNotConnectedTests:
         client._reconnect_daemon.cancel()
 
     @pytest.mark.it(
+        "Clears the completed network loop task if the connect attempt receives a failure response"
+    )
+    @pytest.mark.parametrize("failing_rc", on_connect_failed_rc_params)
+    async def test_network_loop_fail_response(self, client, mock_paho, failing_rc):
+        # Require manual completion
+        mock_paho._manual_mode = True
+
+        # NOTE: network loop may or may not already be running depending on state
+
+        # Attempt connect
+        connect_task = asyncio.create_task(client.connect())
+        await asyncio.sleep(0.1)
+
+        # Network Loop is running
+        network_loop_task = client._network_loop
+        assert network_loop_task is not None
+        assert not network_loop_task.done()
+
+        # Send failure CONNACK response
+        mock_paho.trigger_on_connect(rc=failing_rc)
+        # Any CONNACK failure also results in an ERR_CONN_REFUSED to on_disconnect
+        mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_CONN_REFUSED)
+
+        with pytest.raises(MQTTConnectionFailedError):
+            await connect_task
+
+        # Network Loop task finished, and was cleared
+        assert network_loop_task.done()
+        assert client._network_loop is None
+
+    @pytest.mark.it(
         "Raises CancelledError if cancelled while waiting for the Paho invocation to return"
     )
     async def test_cancel_waiting_paho_invocation(self, client, mock_paho):
