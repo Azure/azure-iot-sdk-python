@@ -63,27 +63,6 @@ class MQTTConnectionFailedError(Exception):
         super().__init__(message)
 
 
-class ConnectionLock(asyncio.Lock):
-    """Async Lock with additional attributes corresponding to the operation.
-    These attributes are reset each time the Lock is released"""
-
-    def __init__(self, *args, **kwargs):
-        # Future for connection operation completion.
-        # Currently this is only used for OP_TYPE_CONNECT
-        # self.future = None
-        super().__init__(*args, **kwargs)
-
-    async def acquire(self):
-        rv = await super().acquire()
-        # loop = asyncio.get_running_loop()
-        # self.future = loop.create_future()
-        return rv
-
-    def release(self):
-        # self.future = None
-        return super().release()
-
-
 class MQTTClient:
     """
     Provides an async MQTT message broker interface
@@ -144,13 +123,14 @@ class MQTTClient:
         # Synchronization
         self.connected_cond = asyncio.Condition()
         self.disconnected_cond = asyncio.Condition()
-        self._connection_lock = ConnectionLock()
+        self._connection_lock = asyncio.Lock()
         self._mid_tracker_lock = asyncio.Lock()
 
         # Tasks/Futures
         self._network_loop = None
         self._reconnect_daemon = None
-        # NOTE: pending ops are protected by the _mid_tracker_lock above.
+        # NOTE: pending connect is protected by the connection lock
+        # Other pending ops are protected by the _mid_tracker_lock
         self._pending_connect = None
         self._pending_subs = {}  # Map mid -> Future
         self._pending_unsubs = {}  # Map mid -> Future
