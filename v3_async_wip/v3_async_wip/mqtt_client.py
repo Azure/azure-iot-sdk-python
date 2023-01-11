@@ -521,10 +521,6 @@ class MQTTClient:
                     # Pending operation is completed
                     self._pending_connect = None
 
-                    # If the connect failed, the network loop will have stopped
-                    if not self._network_loop_running():
-                        self._network_loop = None
-
             else:
                 logger.debug("Already connected!")
 
@@ -586,6 +582,11 @@ class MQTTClient:
         logger.debug("Waiting for connect response...")
         rc = await self._pending_connect
         if rc != mqtt.CONNACK_ACCEPTED:
+            # If the connect failed, the network loop will stop due to the on_disconnect handler
+            # being invoked. Might take a moment though, so wait on the network loop completion.
+            # Then clear it.
+            await self._network_loop
+            self._network_loop = None
             raise MQTTConnectionFailedError(rc=rc)
 
     async def disconnect(self):
