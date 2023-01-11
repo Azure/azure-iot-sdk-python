@@ -18,7 +18,7 @@ import gc
 # Interval in sec between consecutive connection attempts in case of retryable error
 CONNECTION_ATTEMPT_INTERVAL = 5
 # Lower limit of random range for queueing message
-LOWER_LIMIT_OF_ENQUEUEING = 10
+LOWER_LIMIT_OF_ENQUEUEING = 5
 # Upper limit of random range for queueing message
 UPPER_LIMIT_OF_ENQUEUEING = 15
 # Time between connections
@@ -155,7 +155,7 @@ class Application(object):
         print(s)
 
     async def enqueue_message(self):
-        message_id = 0
+        message_id = 1
         while True:
             msg = Message("current wind speed ")
             msg.message_id = message_id
@@ -169,7 +169,7 @@ class Application(object):
                 "Will sleep for {} seconds and then enqueue messages".format(randint)
             )
             await asyncio.sleep(randint)
-            message_id += 1
+            # message_id += 1
 
     async def do_all_tasks_and_disconnect(self):
         self.log_info_and_print("Current qsize is: {}".format(self.message_queue.qsize()))
@@ -183,14 +183,20 @@ class Application(object):
                 self.log_info_and_print("sending messages...")
                 await asyncio.gather(*self.task_list)
                 self.log_info_and_print("sent all messages...")
-                self.task_list = []
-                await self.device_client.disconnect()
+                # self.task_list = []
+                # await self.device_client.disconnect()
         except Exception as e:
             self.log_error_and_print(
                 "Caught exception while trying to send message or disconnect: {}".format(
                     get_type_name(e)
                 )
             )
+
+        finally:
+            # Disconnect even if messages were unable to sent due to some exception.
+            # We are losing messages here as we consider connections to be expensive.
+            self.task_list = []
+            await self.device_client.disconnect()
 
     async def connect_with_retry_send_all_and_disconnect(self):
         while True:
