@@ -1,3 +1,9 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
 ## CUSTOMER PERSONA
 This application illustrates that connections are expensive and telemetry is only sent whenever connection is present.
 Since connections are expensive, it is NOT necessary to keep track of lost messages. Telemetry messages are enqueued 

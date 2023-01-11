@@ -1,9 +1,8 @@
-# CUSTOMER PERSONA
-# A producer application is creating messages and inserting inside a list at random times.
-# Customer wants to conserve on their connection time, so once the device client gets connected
-# fetches all messages from the queue and sends all of them as long as connection remains.
-# In case of disconnection the customer wants to retry the connection
-# for errors that are worth retrying.
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
 
 import asyncio
 import psutil
@@ -209,7 +208,9 @@ class Application(object):
                         await self.do_all_tasks_and_disconnect()
                         break
                     except Exception as e:
-                        self.log_error_and_print("Caught exception while trying to connect...")
+                        self.log_error_and_print(
+                            "Caught exception while trying to connect:{}".format(get_type_name(e))
+                        )
                         if type(e) is exceptions.CredentialError:
                             self.log_error_and_print(
                                 "Failed to connect the device client due to incorrect or badly formatted credentials..."
@@ -223,7 +224,9 @@ class Application(object):
                             await asyncio.sleep(CONNECTION_ATTEMPT_INTERVAL)
                         else:
                             self.log_error_and_print(
-                                "Failed to connect the device client due to not-retryable error...."
+                                "Failed to connect the device client due to not-retryable error:{}".format(
+                                    get_type_name(e)
+                                )
                             )
                             raise
             # Sleep for 30 minutes and again collect all messages to send
@@ -271,7 +274,11 @@ class Application(object):
         except Exception as e:
             self.log_error_and_print("Exception in main loop: {}".format(get_type_name(e)))
         finally:
+            self.log_info_and_print("Waiting for all coroutines to exit")
             self.log_info_and_print("Shutting down IoTHubClient and exiting Application")
+            await asyncio.wait_for(
+                asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED), timeout=5
+            )
             await self.device_client.shutdown()
 
 
