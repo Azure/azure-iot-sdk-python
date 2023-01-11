@@ -600,7 +600,7 @@ class MQTTClient:
             # The network loop Future being present (running or not) indicates one of a few things:
             # 1) We are connected
             # 2) We were previously connected and the connection was lost
-            # 3) A connection attempt was cancelled
+            # 3) A connection attempt started the loop before it was cancelled
             # In all of these cases, we need to invoke Paho's .disconnect() to clean up.
             if self._network_loop:
                 # We no longer wish to be connected
@@ -623,13 +623,13 @@ class MQTTClient:
                     logger.debug("Waiting for disconnect to complete...")
                     async with self.disconnected_cond:
                         await self.disconnected_cond.wait_for(lambda: not self.is_connected())
-                    logger.debug("Waiting for network loop to exit")
+                    logger.debug("Waiting for network loop to exit and clearing task")
                     await self._network_loop
                     self._network_loop = None
                     # Wait slightly for tasks started by the on_disconnect handler to finish.
                     # This will prevent warnings.
                     # TODO: improve efficiency by being able to wait on something specific
-                    await asyncio.sleep(0.01)
+                    await asyncio.sleep(0.02)
                 elif rc == mqtt.MQTT_ERR_NO_CONN:
                     # This happens when we disconnect while already disconnected.
                     # In this implementation, it should only happen if Paho's inner state

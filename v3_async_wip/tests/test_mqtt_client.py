@@ -680,14 +680,24 @@ class TestSetCredentials:
 class TestIsConnected:
     @pytest.mark.it("Returns a boolean indicating the connection status")
     @pytest.mark.parametrize(
-        "connected", [pytest.param(True, id="Connected"), pytest.param(False, id="Disconnected")]
+        "state, expected_value",
+        [
+            pytest.param("Connected", True, id="Connected"),
+            pytest.param("Disconnected", False, id="Disconnected"),
+            pytest.param("Fresh", False, id="Fresh"),
+            pytest.param("Connection Dropped", False, id="Connection Dropped"),
+        ],
     )
-    async def test_returns_value(self, client, connected):
-        if connected:
+    async def test_returns_value(self, client, state, expected_value):
+        if state == "Connected":
             client_set_connected(client)
-        else:
+        elif state == "Disconnected":
             client_set_disconnected(client)
-        assert client.is_connected() == connected
+        elif state == "Fresh":
+            client_set_fresh(client)
+        elif state == "Connection Dropped":
+            client_set_connection_dropped
+        assert client.is_connected() == expected_value
 
 
 @pytest.mark.describe("MQTTClient - .add_incoming_message_filter()")
