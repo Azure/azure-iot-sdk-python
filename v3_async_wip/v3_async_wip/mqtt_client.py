@@ -593,7 +593,8 @@ class MQTTClient:
         async with self._connection_lock:
 
             # TODO: why can't this be simplified to 'if self._network_loop'
-            if self._desire_connection or self._network_loop_running():
+            # if self._desire_connection or self._network_loop_running():
+            if self._network_loop:
                 # We no longer wish to be connected
                 self._desire_connection = False
 
