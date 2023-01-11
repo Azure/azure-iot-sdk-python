@@ -114,7 +114,6 @@ class Application(object):
         ]
 
         self.message_queue = asyncio.Queue()
-        self.message_list = {}
         self.task_list = []
         self.device_client = None
 
@@ -162,14 +161,13 @@ class Application(object):
             msg.content_type = "application/json"
             self.log_info_and_print("Created a message...")
             self.message_queue.put_nowait(msg)
-            self.message_list[message_id] = msg
             # time between 10 seconds and less than 30 minutes.
             randint = random.randint(UPPER_LIMIT_OF_ENQUEUEING, UPPER_LIMIT_OF_ENQUEUEING)
             self.log_info_and_print(
                 "Will sleep for {} seconds and then enqueue messages".format(randint)
             )
             await asyncio.sleep(randint)
-            # message_id += 1
+            message_id += 1
 
     async def do_all_tasks_and_disconnect(self):
         self.log_info_and_print("Current qsize is: {}".format(self.message_queue.qsize()))
