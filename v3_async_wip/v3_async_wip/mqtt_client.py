@@ -13,11 +13,7 @@ import weakref
 
 logger = logging.getLogger(__name__)
 
-# TODO: implement these
-RECONNECT_MODE_DROP = "RECONNECT_DROP"
-RECONNECT_MODE_ALL = "RECONNECT_ALL"
 
-# TODO: what about just number values that aren't mapped right?
 # NOTE: Paho can return a lot of rc values. However, most of them shouldn't happen.
 # Here are the ones that we can expect for each method.
 expected_connect_rc = [mqtt.MQTT_ERR_SUCCESS]
@@ -498,9 +494,16 @@ class MQTTClient:
             if not self.is_connected():
 
                 # Start the reconnect daemon (if enabled and not already running)
+                #
                 # NOTE: We need to track if the daemon was started by this attempt to know if
                 # we should cancel it in the event of this attempt being cancelled. Cancelling
                 # a connect attempt should not cancel a pre-existing reconnect daemon.
+                #
+                # Consider the case where a connection is established with a daemon, and the
+                # connection is later lost. In between automatic reconnect attempts, the .connect()
+                # method is invoked manually - if that manual connect attempt is cancelled, we
+                # should not be cancelling the pre-existing reconnect daemon that is trying to
+                # re-establish the original connection.
                 if self._auto_reconnect and not self._reconnect_daemon:
                     self._reconnect_daemon = asyncio.create_task(self._reconnect_loop())
                     reconnect_started_on_this_attempt = True
@@ -514,18 +517,25 @@ class MQTTClient:
                     await self._do_connect()
                 except asyncio.CancelledError:
                     logger.debug("Connect attempt was cancelled")
+                    logger.warning(
+                        "The cancelled connect attempt may still complete as it is in-flight"
+                    )
                     if reconnect_started_on_this_attempt:
                         logger.debug(
                             "Reconnect daemon was started with this connect attempt. Cancelling it."
                         )
-                        logger.warning(
-                            "The cancelled connect attempt may still complete as it is in-flight"
-                        )
                         self._reconnect_daemon.cancel()
                         self._reconnect_daemon = None
-                        # TODO: This means a connection could be established, without a reconnect daemon
-                        # and there would be no way to add it later
-                        # (calling connect would skip adding the daemon if already connected because we do nothing)
+
+                        # NOTE: Because a connection could still complete after cancellation due to
+                        # it being in flight, this means that it's possible a connection could be
+                        # established without a running reconnect daemon, even if auto_reconnect
+                        # is enabled. This could be remedied fairly easily if so desired, but I've
+                        # chosen to leave it out for simplicity.
+                    else:
+                        logger.debug(
+                            "Reconnect daemon was started on a previous connect. Leaving it alone."
+                        )
                     raise
                 finally:
                     self._pending_connect = None
@@ -552,7 +562,6 @@ class MQTTClient:
             logger.debug("Connect returned rc {} - {}".format(rc, rc_msg))
         # TODO: more specialization of errors to indicate which are/aren't retryable
         except asyncio.CancelledError:
-            # TODO: is cancellation during a connect invocation even possible?
             # Handled in outer method
             raise
         except Exception as e:
@@ -630,7 +639,7 @@ class MQTTClient:
                     self._network_loop = None
                     # Wait slightly for tasks started by the on_disconnect handler to finish.
                     # This will prevent warnings.
-                    # TODO: can we remove this? Wait on a queue of tasks or something?
+                    # TODO: improve efficiency by being able to wait on something specific
                     await asyncio.sleep(0.01)
                 elif rc == mqtt.MQTT_ERR_NO_CONN:
                     # This happens when we disconnect while already disconnected.

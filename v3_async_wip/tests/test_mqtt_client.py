@@ -258,12 +258,15 @@ async def client(fresh_client):
 
 
 # Helper functions for changing client state.
+#
 # Always use these to set the state during tests so that the client state and Paho state
 # do not get out of sync.
 # There's also network loop Futures running in other threads you don't want to have to
 # consider when writing a test.
 #
-# TODO: Cancellation scenarios?
+# Arguably invoking .cancel() on a task can put things in additional "states", but the tests
+# in this module approach cancellation and it's effects as modifications of a state rather than
+# itself being a state. The tests themselves should make this clear.
 def client_set_connected(client):
     """Set the client to a connected state"""
     client._connected = True
@@ -325,7 +328,7 @@ early_ack_params = [
 
 # NOTE: disconnect rcs are not necessary as disconnect can't fail and the result is deterministic
 # (See mock_paho implementation for more information)
-# TODO: add exception params too
+# TODO: add raised exception params when we know which ones to expect
 connect_failed_rc_params = [
     pytest.param(UNEXPECTED_PAHO_RC, id="Unexpected Paho result"),
 ]
@@ -1155,6 +1158,7 @@ class ConnectWithClientNotConnectedTests:
             waiting_on_paho = True
             finish_connect.wait()
             waiting_on_paho = False
+            # mock_paho.trigger_on_connect(rc=mqtt.CONNACK_ACCEPTED)
             return mqtt.MQTT_ERR_SUCCESS
 
         mock_paho.connect.side_effect = fake_connect
@@ -1458,7 +1462,6 @@ class TestConnectWithClientConnected:
 # NOTE: Paho's .disconnect() method will always return success (rc = MQTT_ERR_SUCCESS) when the
 # client is connected. As such, we don't have to test rc != MQTT_ERR_SUCCESS here
 # (it is covered in other test classes)
-# TODO: the above note is not true
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Connected")
 class TestDisconnectWithClientConnected:
     @pytest.fixture
@@ -1659,6 +1662,70 @@ class TestDisconnectWithClientConnected:
         assert network_loop_task.done()
         assert client._network_loop is None
 
+    @pytest.mark.it(
+        "Raises CancelledError if cancelled while waiting for the Paho invocation to return"
+    )
+    async def test_cancel_waiting_paho_invocation(self, client, mock_paho):
+        # Create a fake disconnect implementation that doesn't return right away
+        finish_disconnect = threading.Event()
+        waiting_on_paho = True
+
+        def fake_disconnect(*args, **kwargs):
+            nonlocal waiting_on_paho
+            waiting_on_paho = True
+            finish_disconnect.wait()
+            waiting_on_paho = False
+            mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_paho.disconnect.side_effect = fake_disconnect
+
+        # Start a disconnect task that will hang on Paho invocation
+        disconnect_task = asyncio.create_task(client.disconnect())
+        await asyncio.sleep(0.1)
+        assert not disconnect_task.done()
+        # Paho invocation has not returned
+        assert waiting_on_paho
+
+        # Cancel task
+        disconnect_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await disconnect_task
+
+        # Allow the fake implementation to finish
+        finish_disconnect.set()
+        await asyncio.sleep(0.1)
+
+    # NOTE: This test differs from the ones seen in Pub/Sub/Unsub because pending operations
+    # in a disconnect don't indicate the same thing they with the others. Instead we hack the mock
+    # some more to prove the expected behavior
+    @pytest.mark.it("Raises CancelledError if cancelled while waiting for a response")
+    async def test_cancel_waiting_response(self, client, mock_paho):
+        paho_invoke_done = False
+
+        def fake_disconnect(*args, **kwargs):
+            nonlocal paho_invoke_done
+            paho_invoke_done = True
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_paho.disconnect.side_effect = fake_disconnect
+
+        # Start a disconnect task
+        disconnect_task = asyncio.create_task(client.disconnect())
+        await asyncio.sleep(0.1)
+        # We are now waiting for a response
+        assert not disconnect_task.done()
+        assert paho_invoke_done
+
+        # Cancel the disconnect task
+        disconnect_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await disconnect_task
+
+        # TODO: why is this needed
+        mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
+        await asyncio.sleep(0.1)
+
 
 @pytest.mark.describe("MQTTClient - .disconnect() -- Client Connection Dropped")
 class TestDisconnectWithClientConnectionDrop:
@@ -1758,6 +1825,40 @@ class TestDisconnectWithClientConnectionDrop:
         assert network_loop_task.done()
         # Now the task has been cleared
         assert client._network_loop is None
+
+    @pytest.mark.it(
+        "Raises CancelledError if cancelled while waiting for the Paho invocation to return"
+    )
+    async def test_cancel_waiting_paho_invocation(self, client, mock_paho):
+        # Create a fake disconnect implementation that doesn't return right away
+        finish_disconnect = threading.Event()
+        waiting_on_paho = True
+
+        def fake_disconnect(*args, **kwargs):
+            nonlocal waiting_on_paho
+            waiting_on_paho = True
+            finish_disconnect.wait()
+            waiting_on_paho = False
+            mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_paho.disconnect.side_effect = fake_disconnect
+
+        # Start a disconnect task that will hang on Paho invocation
+        disconnect_task = asyncio.create_task(client.disconnect())
+        await asyncio.sleep(0.1)
+        assert not disconnect_task.done()
+        # Paho invocation has not returned
+        assert waiting_on_paho
+
+        # Cancel task
+        disconnect_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await disconnect_task
+
+        # Allow the fake implementation to finish
+        finish_disconnect.set()
+        await asyncio.sleep(0.1)
 
 
 # NOTE: Because clients in Disconnected and Fresh states have the same behaviors during a connect,
