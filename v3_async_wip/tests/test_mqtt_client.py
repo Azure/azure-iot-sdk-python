@@ -16,14 +16,11 @@ from v3_async_wip.mqtt_client import (
 from azure.iot.device.common import ProxyOptions
 import paho.mqtt.client as mqtt
 import asyncio
-import logging
 import pytest
 import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 fake_device_id = "MyDevice"
@@ -1799,7 +1796,7 @@ class TestDisconnectWithClientConnectionDrop:
     # NOTE: This is an invalid scenario. Connection being dropped implies there are
     # no pending subscribes or unsubscribes
     @pytest.mark.it("Does not cancel or remove any pending subscribes or unsubscribes")
-    async def test_pending_sub_unsub(self, mocker, client, mock_paho):
+    async def test_pending_sub_unsub(self, mocker, client):
         # Set mocked pending Futures
         mock_subs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
         mock_unsubs = [mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()]
@@ -1919,8 +1916,9 @@ class DisconnectWithClientFullyDisconnectedTests:
 
         assert mock_paho.disconnect.call_count == 0
 
-    # NOTE: This is a completely invalid scenario, there's no way for it to happen
-    @pytest.mark.it("Does not alter the reconnect daemon")
+    # NOTE: This could happen due to a connect failure that starts the daemon, but leaves the
+    # client in a fully disconnected state.
+    @pytest.mark.it("Cancels and removes the reconnect daemon task if it is running")
     async def test_reconnect_daemon(self, mocker, client):
         # Set a fake daemon task
         mock_task = mocker.MagicMock()
@@ -1928,8 +1926,8 @@ class DisconnectWithClientFullyDisconnectedTests:
 
         await client.disconnect()
 
-        assert mock_task.cancel.call_count == 0
-        assert client._reconnect_daemon is mock_task
+        assert mock_task.cancel.call_count == 1
+        assert client._reconnect_daemon is None
 
     # NOTE: This is an invalid scenario. Being disconnected implies there are
     # no pending subscribes or unsubscribes
@@ -2141,6 +2139,10 @@ class TestConnectionLock:
             mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_CONN_REFUSED)
         await asyncio.sleep(0.1)
         assert connect_task1.done()
+        # Need to retrieve the exception to suppress error logging
+        if not pending_success:
+            with pytest.raises(MQTTConnectionFailedError):
+                connect_task1.result()
 
         if pending_success:
             # Second connect was completed without invoking connect on Paho because it is
@@ -2235,6 +2237,10 @@ class TestConnectionLock:
             mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_CONN_REFUSED)
         await asyncio.sleep(0.1)
         assert connect_task.done()
+        # Need to retrieve the exception to suppress error logging
+        if not pending_success:
+            with pytest.raises(MQTTConnectionFailedError):
+                connect_task.result()
 
         if pending_success:
             assert client.is_connected()
@@ -2817,6 +2823,11 @@ class TestUnsubscribe:
         # Paho invocation has not returned
         assert waiting_on_paho
         assert len(client._pending_unsubs) == 0
+
+        # Cancel task
+        unsubscribe_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await unsubscribe_task
 
         # Allow the fake implementation to finish
         finish_unsubscribe.set()

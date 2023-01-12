@@ -585,6 +585,7 @@ class MQTTClient:
             # If the connect failed, the network loop will stop due to the on_disconnect handler
             # being invoked. Might take a moment though, so wait on the network loop completion.
             # Then clear it.
+            logger.debug("Waiting for network loop to exit and clearing task")
             await self._network_loop
             self._network_loop = None
             raise MQTTConnectionFailedError(rc=rc)
@@ -598,19 +599,21 @@ class MQTTClient:
         # Wait for permission to alter the connection
         async with self._connection_lock:
 
+            # We no longer wish to be connected
+            self._desire_connection = False
+
+            # Cancel reconnection attempts
+            if self._reconnect_daemon:
+                logger.debug("Cancelling reconnect daemon")
+                self._reconnect_daemon.cancel()
+                self._reconnect_daemon = None
+
             # The network loop Future being present (running or not) indicates one of a few things:
             # 1) We are connected
             # 2) We were previously connected and the connection was lost
             # 3) A connection attempt started the loop before it was cancelled
             # In all of these cases, we need to invoke Paho's .disconnect() to clean up.
             if self._network_loop:
-                # We no longer wish to be connected
-                self._desire_connection = False
-
-                # Cancel reconnection attempts
-                if self._reconnect_daemon:
-                    self._reconnect_daemon.cancel()
-                    self._reconnect_daemon = None
 
                 # Paho Disconnect
                 # NOTE: Paho disconnect shouldn't raise any exceptions
