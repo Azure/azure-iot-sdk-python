@@ -116,6 +116,8 @@ class Application(object):
         self.task_list = []
         self.device_client = None
 
+        self.exit_app_event = asyncio.Event()
+
     async def create_client(self, conn_str):
         try:
             # Create a Device Client
@@ -153,8 +155,9 @@ class Application(object):
         print(s)
 
     async def enqueue_message(self):
-        message_id = 1
+        message_id = 0
         while True:
+            message_id += 1
             msg = Message("current wind speed ")
             msg.message_id = message_id
             msg.content_type = "application/json"
@@ -166,7 +169,8 @@ class Application(object):
                 "Will sleep for {} seconds and then enqueue messages".format(randint)
             )
             await asyncio.sleep(randint)
-            message_id += 1
+            if self.exit_app_event.is_set():
+                return
 
     async def do_all_tasks_and_disconnect(self):
         self.log_info_and_print("Current qsize is: {}".format(self.message_queue.qsize()))
@@ -236,6 +240,8 @@ class Application(object):
                 )
             )
             await asyncio.sleep(TIME_BETWEEN_CONNECTIONS)
+            if self.exit_app_event.is_set():
+                return
 
     async def memory_stats(self):
         while True:
@@ -253,6 +259,8 @@ class Application(object):
                 )
             )
             await asyncio.sleep(STATISTICS_INTERVAL)
+            if self.exit_app_event.is_set():
+                return
 
     @profile
     async def main(self):
@@ -274,7 +282,10 @@ class Application(object):
         except Exception as e:
             self.log_error_and_print("Exception in main loop: {}".format(get_type_name(e)))
         finally:
+            self.log_info_and_print("Exiting app")
+            self.exit_app_event.set()
             self.log_info_and_print("Waiting for all coroutines to exit")
+            [x.cancel() for x in pending]
             self.log_info_and_print("Shutting down IoTHubClient and exiting Application")
             await asyncio.wait_for(
                 asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED), timeout=5
