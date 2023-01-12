@@ -113,7 +113,7 @@ class Application(object):
         ]
 
         self.message_queue = asyncio.Queue()
-        self.task_list = []
+        # self.task_list = []
         self.device_client = None
 
         self.exit_app_event = asyncio.Event()
@@ -173,30 +173,28 @@ class Application(object):
                 return
 
     async def do_all_tasks_and_disconnect(self):
+        task_list = []
         self.log_info_and_print("Current qsize is: {}".format(self.message_queue.qsize()))
         while not self.message_queue.empty():
             msg = await self.message_queue.get()
             task = asyncio.create_task(self.device_client.send_message(msg))
-            self.task_list.append(task)
+            task_list.append(task)
             self.message_queue.task_done()
         try:
             if self.device_client.connected:
                 self.log_info_and_print("sending messages...")
-                await asyncio.gather(*self.task_list)
+                await asyncio.gather(*task_list)
                 self.log_info_and_print("sent all messages...")
-                # self.task_list = []
-                # await self.device_client.disconnect()
         except Exception as e:
             self.log_error_and_print(
                 "Caught exception while trying to send message or disconnect: {}".format(
                     get_type_name(e)
                 )
             )
-
         finally:
             # Disconnect even if messages were unable to sent due to some exception.
             # We are losing messages here as we consider connections to be expensive.
-            self.task_list = []
+            task_list = []
             await self.device_client.disconnect()
 
     async def connect_with_retry_send_all_and_disconnect(self):
