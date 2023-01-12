@@ -81,6 +81,7 @@ class Application(object):
 
         self.connected_event = asyncio.Event()
         self.disconnected_event = asyncio.Event()
+        self.exit_app_event = asyncio.Event()
         self.disconnected_event.set()
 
         self.message_queue = asyncio.Queue()
@@ -116,13 +117,15 @@ class Application(object):
     async def enqueue_message(self):
         message_id = 0
         while True:
+            message_id += 1
             msg = Message("current wind speed ")
             msg.message_id = message_id
             msg.content_type = "application/json"
             self.log_info_and_print("Created a message...")
             self.message_queue.put_nowait(msg)
             await asyncio.sleep(TELEMETRY_INTERVAL)
-            message_id += 1
+            if self.exit_app_event.is_set():
+                return
 
     async def wait_for_connect_and_send_telemetry(self):
         while True:
@@ -142,12 +145,24 @@ class Application(object):
                         "Caught exception while trying to send message: {}".format(get_type_name(e))
                     )
                     self.message_queue.put_nowait(msg)
+            if self.exit_app_event.is_set():
+                return
 
     async def if_disconnected_then_connect_with_retry(self):
         i = 0
         while True:
+            done, pending = await asyncio.wait(
+                [
+                    self.disconnected_event.wait(),
+                    self.exit_app_event.wait(),
+                ],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            await asyncio.gather(*done)
+            [x.cancel() for x in pending]
+            if self.exit_app_event.is_set():
+                self.log_info_and_print("Exiting while connected")
             sleep_time = 0
-            await self.disconnected_event.wait()
             if self.first_connect:
                 self.first_connect = False
             else:
@@ -215,6 +230,10 @@ class Application(object):
         except Exception as e:
             self.log_error_and_print("Exception in main loop: {}".format(get_type_name(e)))
         finally:
+            self.log_info_and_print("Exiting app")
+            self.exit_app_event.set()
+            self.log_info_and_print("Waiting for all coroutines to exit")
+            [x.cancel() for x in pending]
             self.log_info_and_print("Shutting down IoTHubClient and exiting Application")
             await self.device_client.shutdown()
 
