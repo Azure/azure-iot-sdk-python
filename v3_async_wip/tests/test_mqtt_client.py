@@ -915,9 +915,9 @@ class ConnectWithClientNotConnectedTests:
         assert e_info.value.rc is None
         assert not e_info.value.fatal
 
-    # NOTE: This should be an invalid scenario as connect should not be able to return a failed status
+    # NOTE: This should be an invalid scenario as connect should not be able to return a failed return code
     @pytest.mark.it(
-        "Raises a MQTTConnectionFailedError (non-fatal) if invoking Paho's connect returns a failed status"
+        "Raises a MQTTConnectionFailedError (non-fatal) if invoking Paho's connect returns a failed return code"
     )
     @pytest.mark.parametrize("failing_rc", connect_failed_rc_params)
     async def test_fail_status(self, client, mock_paho, failing_rc):
@@ -960,9 +960,9 @@ class ConnectWithClientNotConnectedTests:
         assert mock_paho.loop_forever.call_count == 0
         assert not client._network_loop_running()
 
-    # NOTE: This should be an invalid scenario as connect should not be able to return a failed status
+    # NOTE: This should be an invalid scenario as connect should not be able to return a failed return code
     @pytest.mark.it(
-        "Does not start the Paho network loop if the connect invocation returns a failed status"
+        "Does not start the Paho network loop if the connect invocation returns a failed return code"
     )
     @pytest.mark.parametrize("failing_rc", connect_failed_rc_params)
     async def test_network_loop_connect_fail_status(self, client, mock_paho, failing_rc):
@@ -1055,13 +1055,13 @@ class ConnectWithClientNotConnectedTests:
 
         assert not client.is_connected()
 
-    # NOTE: This should be an invalid scenario as connect should not be able to return a failed status
+    # NOTE: This should be an invalid scenario as connect should not be able to return a failed return code
     @pytest.mark.it(
-        "Leaves the client in a disconnected state if invoking Paho's connect returns a failed status"
+        "Leaves the client in a disconnected state if invoking Paho's connect returns a failed return code"
     )
     @pytest.mark.parametrize("failing_rc", connect_failed_rc_params)
     async def test_state_fail_status(self, client, mock_paho, failing_rc):
-        # Return a fail status
+        # Return a fail
         mock_paho._connect_rc = failing_rc
         assert not client.is_connected()
 
@@ -1107,13 +1107,13 @@ class ConnectWithClientNotConnectedTests:
         assert isinstance(client._reconnect_daemon, asyncio.Task)
         assert not client._reconnect_daemon.done()
 
-    # NOTE: This should be an invalid scenario as connect should not be able to return a failed status
+    # NOTE: This should be an invalid scenario as connect should not be able to return a failed return code
     @pytest.mark.it(
-        "Leaves the reconnect daemon running if invoking Paho's connect returns a failed status"
+        "Leaves the reconnect daemon running if invoking Paho's connect returns a failed return code"
     )
     @pytest.mark.parametrize("failing_rc", connect_failed_rc_params)
     async def test_reconnect_daemon_fail_status(self, client, mock_paho, failing_rc):
-        # Return a fail status
+        # Return a fail
         mock_paho._connect_rc = failing_rc
         client._auto_reconnect = True
         assert client._reconnect_daemon is None
@@ -1153,7 +1153,7 @@ class ConnectWithClientNotConnectedTests:
         client._reconnect_daemon.cancel()
 
     @pytest.mark.it(
-        "Clears the completed network loop task if the connect attempt receives a failure response"
+        "Clears the completed network loop Future if the connect attempt receives a failure response"
     )
     @pytest.mark.parametrize("failing_rc", on_connect_failed_rc_params)
     async def test_network_loop_fail_response(self, client, mock_paho, failing_rc):
@@ -1167,9 +1167,9 @@ class ConnectWithClientNotConnectedTests:
         await asyncio.sleep(0.1)
 
         # Network Loop is running
-        network_loop_task = client._network_loop
-        assert network_loop_task is not None
-        assert not network_loop_task.done()
+        network_loop_future = client._network_loop
+        assert isinstance(network_loop_future, asyncio.Future)
+        assert not network_loop_future.done()
 
         # Send failure CONNACK response
         mock_paho.trigger_on_connect(rc=failing_rc)
@@ -1179,8 +1179,8 @@ class ConnectWithClientNotConnectedTests:
         with pytest.raises(MQTTConnectionFailedError):
             await connect_task
 
-        # Network Loop task finished, and was cleared
-        assert network_loop_task.done()
+        # Network Loop future completed, and was cleared
+        assert network_loop_future.done()
         assert client._network_loop is None
 
     @pytest.mark.it(
@@ -1533,16 +1533,16 @@ class TestDisconnectWithClientConnected:
         disconnect_task = asyncio.create_task(client.disconnect())
         await asyncio.sleep(0.5)
         assert not disconnect_task.done()
-        network_loop_task = client._network_loop
-        assert network_loop_task is not None
-        assert not network_loop_task.done()
+        network_loop_future = client._network_loop
+        assert isinstance(network_loop_future, asyncio.Future)
+        assert not network_loop_future.done()
 
         # Trigger disconnect completion
         mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         if double_response:
             mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await disconnect_task
-        assert network_loop_task.done()
+        assert network_loop_future.done()
 
     @pytest.mark.it("Can handle responses received before or after Paho invocation returns")
     @pytest.mark.parametrize("early_ack", early_ack_params)
@@ -1672,7 +1672,7 @@ class TestDisconnectWithClientConnected:
         # None were removed
         assert len(client._pending_pubs) == 3
 
-    @pytest.mark.it("Clears the completed network loop task")
+    @pytest.mark.it("Clears the completed network loop Future")
     @pytest.mark.parametrize(
         "double_response",
         [
@@ -1684,9 +1684,9 @@ class TestDisconnectWithClientConnected:
         # Require manual completion
         mock_paho._manual_mode = True
 
-        assert client._network_loop is not None
-        network_loop_task = client._network_loop
-        assert not network_loop_task.done()
+        assert isinstance(client._network_loop, asyncio.Future)
+        network_loop_future = client._network_loop
+        assert not network_loop_future.done()
 
         # Start a disconnect.
         disconnect_task = asyncio.create_task(client.disconnect())
@@ -1697,7 +1697,7 @@ class TestDisconnectWithClientConnected:
             mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
         await disconnect_task
 
-        assert network_loop_task.done()
+        assert network_loop_future.done()
         assert client._network_loop is None
 
     @pytest.mark.it(
@@ -1851,16 +1851,16 @@ class TestDisconnectWithClientConnectionDrop:
         disconnect_task = asyncio.create_task(client.disconnect())
         await disconnect_task
 
-    @pytest.mark.it("Clears the completed network loop task")
+    @pytest.mark.it("Clears the completed network loop Future")
     async def test_network_loop(self, mocker, client, mock_paho):
-        assert client._network_loop is not None
-        network_loop_task = client._network_loop
+        assert isinstance(client._network_loop, asyncio.Future)
+        network_loop_future = client._network_loop
         # Connection Drop means that the loop task is done, but not cleared
-        assert network_loop_task.done()
+        assert network_loop_future.done()
 
         await client.disconnect()
 
-        assert network_loop_task.done()
+        assert network_loop_future.done()
         # Now the task has been cleared
         assert client._network_loop is None
 
@@ -1988,7 +1988,7 @@ class DisconnectWithClientFullyDisconnectedTests:
         # No waiting for disconnect response trigger was required
         await disconnect_task
 
-    @pytest.mark.it("Does not alter the network loop task")
+    @pytest.mark.it("Does not alter the network loop Future")
     async def test_network_loop(self, client):
         assert client._network_loop is None
 
@@ -2085,11 +2085,12 @@ class TestUnexpectedDisconnect:
         # None were removed
         assert len(client._pending_pubs) == 3
 
-    @pytest.mark.it("Does not remove the network loop task, even though it completes")
+    @pytest.mark.it("Does not remove the network loop Future, even though it completes")
     async def test_network_loop(self, client, mock_paho):
         assert client._network_loop is not None
+        assert isinstance(client._network_loop, asyncio.Future)
         assert not client._network_loop.done()
-        network_loop_task = client._network_loop
+        network_loop_future = client._network_loop
 
         # Disconnect
         mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
@@ -2097,7 +2098,7 @@ class TestUnexpectedDisconnect:
 
         assert client._network_loop is not None
         assert client._network_loop.done()
-        assert client._network_loop is network_loop_task
+        assert client._network_loop is network_loop_future
 
 
 @pytest.mark.describe("MQTTClient - Connection Lock")
@@ -2417,7 +2418,7 @@ class TestSubscribe:
         assert mock_paho.subscribe.call_count == 1
         assert mock_paho.subscribe.call_args == mocker.call(topic=fake_topic, qos=1)
 
-    @pytest.mark.it("Raises a MQTTError if invoking Paho's subscribe returns a failed status")
+    @pytest.mark.it("Raises a MQTTError if invoking Paho's subscribe returns a failed return code")
     @pytest.mark.parametrize("failing_rc", subscribe_failed_rc_params)
     async def test_fail_status(self, client, mock_paho, failing_rc):
         mock_paho._subscribe_rc = failing_rc
@@ -2507,7 +2508,7 @@ class TestSubscribe:
         assert mid not in client._pending_subs
 
     @pytest.mark.it(
-        "Does not establish pending subscribe tracking information if invoking Paho's subscribe returns a failed status"
+        "Does not establish pending subscribe tracking information if invoking Paho's subscribe returns a failed return code"
     )
     @pytest.mark.parametrize("failing_rc", subscribe_failed_rc_params)
     async def test_pending_fail_status(self, client, mock_paho, failing_rc):
@@ -2687,7 +2688,9 @@ class TestUnsubscribe:
         assert mock_paho.unsubscribe.call_count == 1
         assert mock_paho.unsubscribe.call_args == mocker.call(topic=fake_topic)
 
-    @pytest.mark.it("Raises a MQTTError if invoking Paho's unsubscribe returns a failed status")
+    @pytest.mark.it(
+        "Raises a MQTTError if invoking Paho's unsubscribe returns a failed return code"
+    )
     @pytest.mark.parametrize("failing_rc", unsubscribe_failed_rc_params)
     async def test_fail_status(self, client, mock_paho, failing_rc):
         mock_paho._unsubscribe_rc = failing_rc
@@ -2777,7 +2780,7 @@ class TestUnsubscribe:
         assert mid not in client._pending_unsubs
 
     @pytest.mark.it(
-        "Does not establish pending unsubscribe tracking information if invoking Paho's unsubscribe returns a failed status"
+        "Does not establish pending unsubscribe tracking information if invoking Paho's unsubscribe returns a failed return code"
     )
     @pytest.mark.parametrize("failing_rc", unsubscribe_failed_rc_params)
     async def test_pending_fail_status(self, client, mock_paho, failing_rc):
@@ -2958,7 +2961,7 @@ class TestPublish:
         )
 
     # NOTE: MQTT_ERR_NO_CONN is not a failure for publish
-    @pytest.mark.it("Raises a MQTTError if invoking Paho's publish returns a failed status")
+    @pytest.mark.it("Raises a MQTTError if invoking Paho's publish returns a failed return code")
     @pytest.mark.parametrize("failing_rc", publish_failed_rc_params)
     async def test_fail_status(self, client, mock_paho, failing_rc):
         mock_paho._publish_rc = failing_rc
@@ -3068,7 +3071,7 @@ class TestPublish:
         assert mid not in client._pending_pubs
 
     @pytest.mark.it(
-        "Does not establish pending publish tracking information if invoking Paho's publish returns a failed status"
+        "Does not establish pending publish tracking information if invoking Paho's publish returns a failed return code"
     )
     @pytest.mark.parametrize("failing_rc", publish_failed_rc_params)
     async def test_pending_fail_status(self, client, mock_paho, failing_rc):
