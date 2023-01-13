@@ -112,7 +112,7 @@ class MQTTClient:
         )
 
         # Event Loop
-        self._loop = asyncio.get_running_loop()
+        self._event_loop = asyncio.get_running_loop()
 
         # State
         # NOTE: These values do not need to be protected by locks since the code paths that
@@ -202,7 +202,7 @@ class MQTTClient:
                         "Connect response received without outstanding attempt (likely was cancelled)"
                     )
 
-            f = asyncio.run_coroutine_threadsafe(set_result(), this._loop)
+            f = asyncio.run_coroutine_threadsafe(set_result(), this._event_loop)
             # Need to wait for this one to finish since we don't want to let another
             # Paho handler invoke until we know the connection state has been set.
             f.result()
@@ -244,7 +244,7 @@ class MQTTClient:
                     async with this.disconnected_cond:
                         this.disconnected_cond.notify_all()
 
-                f = asyncio.run_coroutine_threadsafe(set_disconnected(), this._loop)
+                f = asyncio.run_coroutine_threadsafe(set_disconnected(), this._event_loop)
                 # Need to wait for this one to finish since we don't want to let another
                 # Paho handler invoke until we know the connection state has been set.
                 f.result()
@@ -267,7 +267,7 @@ class MQTTClient:
 
                 # NOTE: This coroutine might not be able to finish right away due to the
                 # mid_tracker_lock. Don't wait on it's completion or it may deadlock.
-                asyncio.run_coroutine_threadsafe(cancel_pending(), this._loop)
+                asyncio.run_coroutine_threadsafe(cancel_pending(), this._event_loop)
 
         def on_subscribe(client, userdata, mid, granted_qos):
             this = self_weakref()
@@ -285,7 +285,7 @@ class MQTTClient:
             # mid_tracker_lock being held by the invocation of .subscribe(), waiting for a result.
             # Do not wait on the completion of complete_sub() or this callback will deadlock the
             # Paho network loop. Just schedule the eventual completion, and keep it moving.
-            asyncio.run_coroutine_threadsafe(complete_sub(), this._loop)
+            asyncio.run_coroutine_threadsafe(complete_sub(), this._event_loop)
 
         def on_unsubscribe(client, userdata, mid):
             this = self_weakref()
@@ -303,7 +303,7 @@ class MQTTClient:
             # mid_tracker_lock being held by the invocation of .unsubscribe(), waiting for a result.
             # Do not wait on the completion of complete_unsub() or this callback will deadlock the
             # Paho network loop. Just schedule the eventual completion, and keep it moving.
-            asyncio.run_coroutine_threadsafe(complete_unsub(), this._loop)
+            asyncio.run_coroutine_threadsafe(complete_unsub(), this._event_loop)
 
         def on_publish(client, userdata, mid):
             this = self_weakref()
@@ -321,7 +321,7 @@ class MQTTClient:
             # mid_tracker_lock being held by the invocation of .publish(), waiting for a result.
             # Do not wait on the completion of complete_pub() or this callback will deadlock the
             # Paho network loop. Just schedule the eventual completion, and keep it moving.
-            asyncio.run_coroutine_threadsafe(complete_pub(), this._loop)
+            asyncio.run_coroutine_threadsafe(complete_pub(), this._event_loop)
 
         def on_message(client, userdata, message):
             this = self_weakref()
@@ -330,7 +330,7 @@ class MQTTClient:
             async def add_to_queue():
                 await this._incoming_messages.put(message)
 
-            asyncio.run_coroutine_threadsafe(add_to_queue(), this._loop)
+            asyncio.run_coroutine_threadsafe(add_to_queue(), this._event_loop)
 
         mqtt_client.on_connect = on_connect
         mqtt_client.on_disconnect = on_disconnect
@@ -422,7 +422,7 @@ class MQTTClient:
             async def add_to_queue():
                 await this._incoming_filtered_messages[topic].put(message)
 
-            asyncio.run_coroutine_threadsafe(add_to_queue(), this._loop)
+            asyncio.run_coroutine_threadsafe(add_to_queue(), this._event_loop)
 
         # Add the callback as a filter
         self._mqtt_client.message_callback_add(topic, callback)
@@ -503,7 +503,7 @@ class MQTTClient:
                     reconnect_started_on_this_attempt = False
 
                 # NOTE: we know this is safe because of the connection lock
-                self._pending_connect = self._loop.create_future()
+                self._pending_connect = self._event_loop.create_future()
 
                 try:
                     await self._do_connect()
@@ -542,7 +542,7 @@ class MQTTClient:
         # Paho Connect
         logger.debug("Attempting connect using port {}...".format(self._port))
         try:
-            rc = await self._loop.run_in_executor(
+            rc = await self._event_loop.run_in_executor(
                 None,
                 functools.partial(
                     self._mqtt_client.connect,
@@ -593,7 +593,9 @@ class MQTTClient:
         # one.
         if not self._network_loop_running():
             logger.debug("Starting Paho network loop")
-            self._network_loop = self._loop.run_in_executor(None, self._mqtt_client.loop_forever)
+            self._network_loop = self._event_loop.run_in_executor(
+                None, self._mqtt_client.loop_forever
+            )
         else:
             logger.debug(
                 "Paho network loop was already running. Likely due to a previous cancellation."
@@ -638,7 +640,7 @@ class MQTTClient:
                 # Paho Disconnect
                 # NOTE: Paho disconnect shouldn't raise any exceptions
                 logger.debug("Attempting disconnect")
-                rc = await self._loop.run_in_executor(None, self._mqtt_client.disconnect)
+                rc = await self._event_loop.run_in_executor(None, self._mqtt_client.disconnect)
                 rc_msg = mqtt.error_string(rc)
                 logger.debug("Disconnect returned rc {} - {}".format(rc, rc_msg))
 
@@ -692,7 +694,7 @@ class MQTTClient:
             # be invoked on response, as the callback also uses the lock. This ensures that the
             # result cannot be received before we have a Future created for the eventual result.
             async with self._mid_tracker_lock:
-                (rc, mid) = await self._loop.run_in_executor(
+                (rc, mid) = await self._event_loop.run_in_executor(
                     None, functools.partial(self._mqtt_client.subscribe, topic=topic, qos=1)
                 )
                 rc_msg = mqtt.error_string(rc)
@@ -703,7 +705,7 @@ class MQTTClient:
                     raise MQTTError(rc)
 
                 # Establish a pending subscribe
-                sub_done = self._loop.create_future()
+                sub_done = self._event_loop.create_future()
                 self._pending_subs[mid] = sub_done
 
             logger.debug("Waiting for subscribe response for mid {}".format(mid))
@@ -736,7 +738,7 @@ class MQTTClient:
             # be invoked on response, as the callback also uses the lock. This ensures that the
             # result cannot be received before we have a Future created for the eventual result.
             async with self._mid_tracker_lock:
-                (rc, mid) = await self._loop.run_in_executor(
+                (rc, mid) = await self._event_loop.run_in_executor(
                     None, functools.partial(self._mqtt_client.unsubscribe, topic=topic)
                 )
                 rc_msg = mqtt.error_string(rc)
@@ -747,7 +749,7 @@ class MQTTClient:
                     raise MQTTError(rc)
 
                 # Establish a pending unsubscribe
-                unsub_done = self._loop.create_future()
+                unsub_done = self._event_loop.create_future()
                 self._pending_unsubs[mid] = unsub_done
 
             logger.debug("Waiting for unsubscribe response for mid {}".format(mid))
@@ -787,7 +789,7 @@ class MQTTClient:
             # be invoked on response, as the callback also uses the lock. This ensures that the
             # result cannot be received before we have a Future created for the eventual result.
             async with self._mid_tracker_lock:
-                message_info = await self._loop.run_in_executor(
+                message_info = await self._event_loop.run_in_executor(
                     None,
                     functools.partial(
                         self._mqtt_client.publish, topic=topic, payload=payload, qos=1
@@ -806,7 +808,7 @@ class MQTTClient:
                     raise MQTTError(message_info.rc)
 
                 # Establish a pending publish
-                pub_done = self._loop.create_future()
+                pub_done = self._event_loop.create_future()
                 self._pending_pubs[mid] = pub_done
 
             logger.debug("Waiting for publish response")
