@@ -107,7 +107,9 @@ async def test_connect_disconnect_twice(client):
 
 @pytest.mark.it("Queued connects and disconnects")
 async def test_queued_connects_and_disconnects(client):
-    # TODO: can this be made to show they all happened in order?
+    # TODO: this may be unreliable - there's no guarantee that they will resolve in the desired
+    # order, and thus, the assertion at the end may end up being incorrect.
+    # This test likely ought to be redesigned.
     await asyncio.gather(
         client.connect(),
         client.disconnect(),

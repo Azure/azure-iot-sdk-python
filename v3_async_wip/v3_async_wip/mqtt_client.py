@@ -112,7 +112,7 @@ class MQTTClient:
         )
 
         # Event Loop
-        self._loop = asyncio.get_running_loop()
+        self._event_loop = asyncio.get_running_loop()
 
         # State
         # NOTE: These values do not need to be protected by locks since the code paths that
@@ -266,7 +266,7 @@ class MQTTClient:
                             this._pending_unsubs.clear()
 
                 # NOTE: This coroutine might not be able to finish right away due to the
-                # mid_tracker_lock. Don't wait on it's completion or it may lock up.
+                # mid_tracker_lock. Don't wait on it's completion or it may deadlock.
                 asyncio.run_coroutine_threadsafe(cancel_pending(), this._loop)
 
         def on_subscribe(client, userdata, mid, granted_qos):
@@ -281,6 +281,10 @@ class MQTTClient:
                     except KeyError:
                         logger.warning("Unexpected SUBACK received for mid {}".format(mid))
 
+            # NOTE: The complete_sub() coroutine cannot finish right away due to the
+            # mid_tracker_lock being held by the invocation of .subscribe(), waiting for a result.
+            # Do not wait on the completion of complete_sub() or this callback will deadlock the
+            # Paho network loop. Just schedule the eventual completion, and keep it moving.
             asyncio.run_coroutine_threadsafe(complete_sub(), this._loop)
 
         def on_unsubscribe(client, userdata, mid):
@@ -295,6 +299,10 @@ class MQTTClient:
                     except KeyError:
                         logger.warning("Unexpected UNSUBACK received for mid {}".format(mid))
 
+            # NOTE: The complete_unsub() coroutine cannot finish right away due to the
+            # mid_tracker_lock being held by the invocation of .unsubscribe(), waiting for a result.
+            # Do not wait on the completion of complete_unsub() or this callback will deadlock the
+            # Paho network loop. Just schedule the eventual completion, and keep it moving.
             asyncio.run_coroutine_threadsafe(complete_unsub(), this._loop)
 
         def on_publish(client, userdata, mid):
@@ -309,6 +317,10 @@ class MQTTClient:
                     except KeyError:
                         logger.warning("Unexpected PUBACK received for mid {}".format(mid))
 
+            # NOTE: The complete_pub() coroutine cannot finish right away due to the
+            # mid_tracker_lock being held by the invocation of .publish(), waiting for a result.
+            # Do not wait on the completion of complete_pub() or this callback will deadlock the
+            # Paho network loop. Just schedule the eventual completion, and keep it moving.
             asyncio.run_coroutine_threadsafe(complete_pub(), this._loop)
 
         def on_message(client, userdata, message):
@@ -491,7 +503,7 @@ class MQTTClient:
                     reconnect_started_on_this_attempt = False
 
                 # NOTE: we know this is safe because of the connection lock
-                self._pending_connect = self._loop.create_future()
+                self._pending_connect = self._event_loop.create_future()
 
                 try:
                     await self._do_connect()
@@ -530,7 +542,7 @@ class MQTTClient:
         # Paho Connect
         logger.debug("Attempting connect using port {}...".format(self._port))
         try:
-            rc = await self._loop.run_in_executor(
+            rc = await self._event_loop.run_in_executor(
                 None,
                 functools.partial(
                     self._mqtt_client.connect,
@@ -560,31 +572,41 @@ class MQTTClient:
                 raise MQTTConnectionFailedError(message="Unexpected Paho .connect() rc") from e
 
         # Start Paho network loop, and store the task. This task will complete upon disconnect
-        # whether due to invocation of .disconnect(), or an unexpected network drop.
+        # whether due to invocation of .disconnect(), an unexpected network drop, or a connection
+        # failure (which Paho considers to be a disconnect)
         #
         # NOTE: If the connect attempt is cancelled, the network loop cannot be stopped.
-        # This is fine though, as it'll be stopped on the next disconnect.
-        # However, this does introduce a case where the network loop may already be running
-        # during a connect attempt, so make sure it isn't before trying to start it again.
+        # This is because when using .loop_forever(), the loop lifecycle is managed by Paho.
+        # It cannot be manually ended; one of the above termination conditions must be met.
+        #
+        # However, in the case of a cancelled connect, it's likely that none of those conditions
+        # will be met, and thus the network loop will persist.
+        # This is fine, since it'll eventually get cleaned up, as at the very least, a
+        # .disconnect() invocation is required for graceful exit, if not sooner.
+        #
+        # But, this does introduce a case where the network loop may already be running
+        # during a connect attempt due to a previously cancelled attempt, so make sure it isn't
+        # before trying to start it again.
         #
         # NOTE: This MUST be called after connecting - loop_forever requires a socket to have been
         # already established. This is not true of other network loop APIs, but it is true of this
         # one.
         if not self._network_loop_running():
             logger.debug("Starting Paho network loop")
-            self._network_loop = self._loop.run_in_executor(None, self._mqtt_client.loop_forever)
+            self._network_loop = self._event_loop.run_in_executor(
+                None, self._mqtt_client.loop_forever
+            )
         else:
             logger.debug(
                 "Paho network loop was already running. Likely due to a previous cancellation."
             )
 
-        # The result of the CONNACK is received via this future stored on the lock
+        # The result of the CONNACK is received via the pending connect Future
         logger.debug("Waiting for connect response...")
         rc = await self._pending_connect
         if rc != mqtt.CONNACK_ACCEPTED:
-            # If the connect failed, the network loop will stop due to the on_disconnect handler
-            # being invoked. Might take a moment though, so wait on the network loop completion.
-            # Then clear it.
+            # If the connect failed, the network loop will stop.
+            # Might take a moment though, so wait on the network loop completion before clearing
             logger.debug("Waiting for network loop to exit and clearing task")
             await self._network_loop
             self._network_loop = None
@@ -611,14 +633,14 @@ class MQTTClient:
             # The network loop Future being present (running or not) indicates one of a few things:
             # 1) We are connected
             # 2) We were previously connected and the connection was lost
-            # 3) A connection attempt started the loop before it was cancelled
+            # 3) A connect attempt started the loop, and then was cancelled before connect finished
             # In all of these cases, we need to invoke Paho's .disconnect() to clean up.
             if self._network_loop:
 
                 # Paho Disconnect
                 # NOTE: Paho disconnect shouldn't raise any exceptions
                 logger.debug("Attempting disconnect")
-                rc = await self._loop.run_in_executor(None, self._mqtt_client.disconnect)
+                rc = await self._event_loop.run_in_executor(None, self._mqtt_client.disconnect)
                 rc_msg = mqtt.error_string(rc)
                 logger.debug("Disconnect returned rc {} - {}".format(rc, rc_msg))
 
@@ -641,11 +663,7 @@ class MQTTClient:
                     # We still want to do this disconnect however, because doing so changes
                     # Paho's state to indicate we no longer wish to be connected.
                     logger.debug("Early disconnect return (Already disconnected)")
-                    if self._network_loop_running():
-                        # This block should never execute
-                        logger.warning("Network loop unexpectedly still running. Waiting")
-                        await self._network_loop
-                    logger.debug("Removing finished network loop task")
+                    logger.debug("Clearing network loop task")
                     self._network_loop = None
                 else:
                     # This block should never execute
@@ -668,10 +686,11 @@ class MQTTClient:
         try:
             mid = None
             logger.debug("Attempting subscribe")
-            # Using this lock allows us to be sure that the ACK won't come in before the
-            # Future can be added to the pending dictionary
+            # Using this lock postpones any code that runs in the on_subscribe callback that will
+            # be invoked on response, as the callback also uses the lock. This ensures that the
+            # result cannot be received before we have a Future created for the eventual result.
             async with self._mid_tracker_lock:
-                (rc, mid) = await self._loop.run_in_executor(
+                (rc, mid) = await self._event_loop.run_in_executor(
                     None, functools.partial(self._mqtt_client.subscribe, topic=topic, qos=1)
                 )
                 rc_msg = mqtt.error_string(rc)
@@ -682,7 +701,7 @@ class MQTTClient:
                     raise MQTTError(rc)
 
                 # Establish a pending subscribe
-                sub_done = self._loop.create_future()
+                sub_done = self._event_loop.create_future()
                 self._pending_subs[mid] = sub_done
 
             logger.debug("Waiting for subscribe response for mid {}".format(mid))
@@ -711,10 +730,11 @@ class MQTTClient:
         try:
             mid = None
             logger.debug("Attempting unsubscribe")
-            # Using this lock allows us to be sure that the ACK won't come in before the
-            # Future can be added to the pending dictionary
+            # Using this lock postpones any code that runs in the on_unsubscribe callback that will
+            # be invoked on response, as the callback also uses the lock. This ensures that the
+            # result cannot be received before we have a Future created for the eventual result.
             async with self._mid_tracker_lock:
-                (rc, mid) = await self._loop.run_in_executor(
+                (rc, mid) = await self._event_loop.run_in_executor(
                     None, functools.partial(self._mqtt_client.unsubscribe, topic=topic)
                 )
                 rc_msg = mqtt.error_string(rc)
@@ -725,7 +745,7 @@ class MQTTClient:
                     raise MQTTError(rc)
 
                 # Establish a pending unsubscribe
-                unsub_done = self._loop.create_future()
+                unsub_done = self._event_loop.create_future()
                 self._pending_unsubs[mid] = unsub_done
 
             logger.debug("Waiting for unsubscribe response for mid {}".format(mid))
@@ -761,10 +781,11 @@ class MQTTClient:
         try:
             mid = None
             logger.debug("Attempting publish")
-            # Using this lock allows us to be sure that the ACK won't come in before the
-            # Future can be added to the pending dictionary
+            # Using this lock postpones any code that runs in the on_publish callback that will
+            # be invoked on response, as the callback also uses the lock. This ensures that the
+            # result cannot be received before we have a Future created for the eventual result.
             async with self._mid_tracker_lock:
-                message_info = await self._loop.run_in_executor(
+                message_info = await self._event_loop.run_in_executor(
                     None,
                     functools.partial(
                         self._mqtt_client.publish, topic=topic, payload=payload, qos=1
@@ -783,7 +804,7 @@ class MQTTClient:
                     raise MQTTError(message_info.rc)
 
                 # Establish a pending publish
-                pub_done = self._loop.create_future()
+                pub_done = self._event_loop.create_future()
                 self._pending_pubs[mid] = pub_done
 
             logger.debug("Waiting for publish response")
