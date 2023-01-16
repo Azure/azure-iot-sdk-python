@@ -11,7 +11,8 @@ import logging
 import os
 import pytest
 from dev_utils import iptables
-from v3_async_wip import transport_helper, mqtt_client
+from v3_async_wip import mqtt_client
+from . import transport_helper
 
 logger = logging.getLogger(__name__)
 

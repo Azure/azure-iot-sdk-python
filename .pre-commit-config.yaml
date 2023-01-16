@@ -13,4 +13,5 @@ repos:
     rev: v0.991
     hooks:
     -   id: mypy
-        files: v3_async_wip/
+        files: v3_async_wip/    # for now only the new v3 files have typings
+        exclude: v3_async_wip/tests
