@@ -7,8 +7,10 @@
 import asyncio
 import functools
 import logging
-import paho.mqtt.client as mqtt
-import weakref
+import paho.mqtt.client as mqtt  # type: ignore
+import ssl
+from typing import Any, Dict, AsyncGenerator, Optional, Union
+from azure.iot.device.common import ProxyOptions  # type:ignore
 
 
 logger = logging.getLogger(__name__)
@@ -72,17 +74,17 @@ class MQTTClient:
 
     def __init__(
         self,
-        client_id,
-        hostname,
-        port,
-        transport="tcp",
-        keep_alive=60,
-        auto_reconnect=False,
-        reconnect_interval=10,
-        ssl_context=None,
-        websockets_path=None,
-        proxy_options=None,
-    ):
+        client_id: str,
+        hostname: str,
+        port: int,
+        transport: str = "tcp",
+        keep_alive: int = 60,
+        auto_reconnect: bool = False,
+        reconnect_interval: int = 10,
+        ssl_context: Optional[ssl.SSLContext] = None,
+        websockets_path: Optional[str] = None,
+        proxy_options: Optional[ProxyOptions] = None,
+    ) -> None:
         """
         Constructor to instantiate client.
         :param str client_id: The id of the client connecting to the broker.
@@ -98,6 +100,7 @@ class MQTTClient:
         :param str websockets_path: Path for websocket connection.
             Starts with '/' and should be the endpoint of the mqtt connection on the remote server.
         :param proxy_options: Options for sending traffic through proxy servers.
+        :type proxy_options: :class:`azure.iot.device.common.ProxyOptions`
         """
         # Configuration
         self._hostname = hostname
@@ -127,22 +130,27 @@ class MQTTClient:
         self._mid_tracker_lock = asyncio.Lock()
 
         # Tasks/Futures
-        self._network_loop = None
-        self._reconnect_daemon = None
+        self._network_loop: Optional[asyncio.Future] = None
+        self._reconnect_daemon: Optional[asyncio.Task] = None
         # NOTE: pending connect is protected by the connection lock
         # Other pending ops are protected by the _mid_tracker_lock
-        self._pending_connect = None
-        self._pending_subs = {}  # Map mid -> Future
-        self._pending_unsubs = {}  # Map mid -> Future
-        self._pending_pubs = {}  # Map mid -> Future
+        self._pending_connect: Optional[asyncio.Future] = None
+        self._pending_subs: Dict[int, asyncio.Future] = {}
+        self._pending_unsubs: Dict[int, asyncio.Future] = {}
+        self._pending_pubs: Dict[int, asyncio.Future] = {}
 
         # Incoming Data
-        self._incoming_messages = asyncio.Queue()
-        self._incoming_filtered_messages = {}  # Map topic -> asyncio.Queue
+        self._incoming_messages: asyncio.Queue[mqtt.MQTTMessage] = asyncio.Queue()
+        self._incoming_filtered_messages: Dict[str, asyncio.Queue[mqtt.MQTTMessage]] = {}
 
     def _create_mqtt_client(
-        self, client_id, transport, ssl_context, proxy_options, websockets_path
-    ):
+        self,
+        client_id: str,
+        transport: str,
+        ssl_context: Optional[ssl.SSLContext],
+        proxy_options: Optional[ProxyOptions],
+        websockets_path: Optional[str],
+    ) -> mqtt.Client:
         """
         Create the MQTT client object and assign all necessary event handler callbacks.
         """
@@ -177,38 +185,33 @@ class MQTTClient:
         # Configure TLS/SSL. If the value passed is None, will use default.
         mqtt_client.tls_set_context(context=ssl_context)
 
-        # Set event handlers.  Use weak references back into this object to prevent leaks
-        self_weakref = weakref.ref(self)
-
-        def on_connect(client, userdata, flags, rc):
-            this = self_weakref()
+        def on_connect(client: mqtt.Client, userdata: Any, flags: Dict[str, int], rc: int) -> None:
             message = mqtt.connack_string(rc)
             logger.debug("Connect Response: rc {} - {}".format(rc, message))
             if rc not in expected_on_connect_rc:
                 logger.warning("Connect Response rc {} was unexpected".format(rc))
 
             # Change state, report result, and notify connection established
-            async def set_result():
+            async def set_result() -> None:
                 if rc == mqtt.CONNACK_ACCEPTED:
                     logger.debug("Client State: CONNECTED")
-                    this._connected = True
-                    this._desire_connection = True
-                    async with this.connected_cond:
-                        this.connected_cond.notify_all()
-                if this._pending_connect:
-                    this._pending_connect.set_result(rc)
+                    self._connected = True
+                    self._desire_connection = True
+                    async with self.connected_cond:
+                        self.connected_cond.notify_all()
+                if self._pending_connect:
+                    self._pending_connect.set_result(rc)
                 else:
                     logger.warning(
                         "Connect response received without outstanding attempt (likely was cancelled)"
                     )
 
-            f = asyncio.run_coroutine_threadsafe(set_result(), this._event_loop)
+            f = asyncio.run_coroutine_threadsafe(set_result(), self._event_loop)
             # Need to wait for this one to finish since we don't want to let another
             # Paho handler invoke until we know the connection state has been set.
             f.result()
 
-        def on_disconnect(client, userdata, rc):
-            this = self_weakref()
+        def on_disconnect(client: mqtt.Client, userdata: Any, rc: int) -> None:
             rc_msg = mqtt.error_string(rc)
 
             # NOTE: It's not generally safe to use .is_connected() to determine what to do, since
@@ -218,7 +221,7 @@ class MQTTClient:
             # single-threaded. This means there cannot be overlapping invocations that would
             # change the value, and thus that the value will not change during execution of this
             # block.
-            if not this.is_connected():
+            if not self.is_connected():
                 if rc == mqtt.MQTT_ERR_CONN_REFUSED:
                     # When Paho receives a failure response to a connect, the disconnect
                     # handler is also called.
@@ -238,45 +241,44 @@ class MQTTClient:
                     logger.debug("Unexpected Disconnect: rc {} - {}".format(rc, rc_msg))
 
                 # Change state and notify tasks waiting on disconnect
-                async def set_disconnected():
+                async def set_disconnected() -> None:
                     logger.debug("Client State: DISCONNECTED")
-                    this._connected = False
-                    async with this.disconnected_cond:
-                        this.disconnected_cond.notify_all()
+                    self._connected = False
+                    async with self.disconnected_cond:
+                        self.disconnected_cond.notify_all()
 
-                f = asyncio.run_coroutine_threadsafe(set_disconnected(), this._event_loop)
+                f = asyncio.run_coroutine_threadsafe(set_disconnected(), self._event_loop)
                 # Need to wait for this one to finish since we don't want to let another
                 # Paho handler invoke until we know the connection state has been set.
                 f.result()
 
                 # Cancel pending subscribes and unsubscribes only.
                 # Publishes can survive a disconnect.
-                async def cancel_pending():
-                    if len(this._pending_subs) != 0 or len(this._pending_unsubs) != 0:
-                        async with this._mid_tracker_lock:
+                async def cancel_pending() -> None:
+                    if len(self._pending_subs) != 0 or len(self._pending_unsubs) != 0:
+                        async with self._mid_tracker_lock:
                             logger.debug("Cancelling pending subscribes")
-                            mids = this._pending_subs.keys()
+                            mids = self._pending_subs.keys()
                             for mid in mids:
-                                this._pending_subs[mid].cancel()
-                            this._pending_subs.clear()
+                                self._pending_subs[mid].cancel()
+                            self._pending_subs.clear()
                             logger.debug("Cancelling pending unsubscribes")
-                            mids = this._pending_unsubs.keys()
+                            mids = self._pending_unsubs.keys()
                             for mid in mids:
-                                this._pending_unsubs[mid].cancel()
-                            this._pending_unsubs.clear()
+                                self._pending_unsubs[mid].cancel()
+                            self._pending_unsubs.clear()
 
                 # NOTE: This coroutine might not be able to finish right away due to the
                 # mid_tracker_lock. Don't wait on it's completion or it may deadlock.
-                asyncio.run_coroutine_threadsafe(cancel_pending(), this._event_loop)
+                asyncio.run_coroutine_threadsafe(cancel_pending(), self._event_loop)
 
-        def on_subscribe(client, userdata, mid, granted_qos):
-            this = self_weakref()
+        def on_subscribe(client: mqtt.Client, userdata: Any, mid: int, granted_qos: int) -> None:
             logger.debug("SUBACK received for mid {}".format(mid))
 
-            async def complete_sub():
-                async with this._mid_tracker_lock:
+            async def complete_sub() -> None:
+                async with self._mid_tracker_lock:
                     try:
-                        f = this._pending_subs[mid]
+                        f = self._pending_subs[mid]
                         f.set_result(True)
                     except KeyError:
                         logger.warning("Unexpected SUBACK received for mid {}".format(mid))
@@ -285,16 +287,15 @@ class MQTTClient:
             # mid_tracker_lock being held by the invocation of .subscribe(), waiting for a result.
             # Do not wait on the completion of complete_sub() or this callback will deadlock the
             # Paho network loop. Just schedule the eventual completion, and keep it moving.
-            asyncio.run_coroutine_threadsafe(complete_sub(), this._event_loop)
+            asyncio.run_coroutine_threadsafe(complete_sub(), self._event_loop)
 
-        def on_unsubscribe(client, userdata, mid):
-            this = self_weakref()
+        def on_unsubscribe(client: mqtt.Client, userdata: Any, mid: int) -> None:
             logger.debug("UNSUBACK received for mid {}".format(mid))
 
-            async def complete_unsub():
-                async with this._mid_tracker_lock:
+            async def complete_unsub() -> None:
+                async with self._mid_tracker_lock:
                     try:
-                        f = this._pending_unsubs[mid]
+                        f = self._pending_unsubs[mid]
                         f.set_result(True)
                     except KeyError:
                         logger.warning("Unexpected UNSUBACK received for mid {}".format(mid))
@@ -303,16 +304,15 @@ class MQTTClient:
             # mid_tracker_lock being held by the invocation of .unsubscribe(), waiting for a result.
             # Do not wait on the completion of complete_unsub() or this callback will deadlock the
             # Paho network loop. Just schedule the eventual completion, and keep it moving.
-            asyncio.run_coroutine_threadsafe(complete_unsub(), this._event_loop)
+            asyncio.run_coroutine_threadsafe(complete_unsub(), self._event_loop)
 
-        def on_publish(client, userdata, mid):
-            this = self_weakref()
+        def on_publish(client: mqtt.Client, userdata: Any, mid: int) -> None:
             logger.debug("PUBACK received for mid {}".format(mid))
 
-            async def complete_pub():
-                async with this._mid_tracker_lock:
+            async def complete_pub() -> None:
+                async with self._mid_tracker_lock:
                     try:
-                        f = this._pending_pubs[mid]
+                        f = self._pending_pubs[mid]
                         f.set_result(True)
                     except KeyError:
                         logger.warning("Unexpected PUBACK received for mid {}".format(mid))
@@ -321,16 +321,15 @@ class MQTTClient:
             # mid_tracker_lock being held by the invocation of .publish(), waiting for a result.
             # Do not wait on the completion of complete_pub() or this callback will deadlock the
             # Paho network loop. Just schedule the eventual completion, and keep it moving.
-            asyncio.run_coroutine_threadsafe(complete_pub(), this._event_loop)
+            asyncio.run_coroutine_threadsafe(complete_pub(), self._event_loop)
 
-        def on_message(client, userdata, message):
-            this = self_weakref()
+        def on_message(client: mqtt.Client, userdata: Any, message: mqtt.MQTTMessage) -> None:
             logger.debug("Incoming MQTT Message received on {}".format(message.topic))
 
-            async def add_to_queue():
-                await this._incoming_messages.put(message)
+            async def add_to_queue() -> None:
+                await self._incoming_messages.put(message)
 
-            asyncio.run_coroutine_threadsafe(add_to_queue(), this._event_loop)
+            asyncio.run_coroutine_threadsafe(add_to_queue(), self._event_loop)
 
         mqtt_client.on_connect = on_connect
         mqtt_client.on_disconnect = on_disconnect
@@ -341,7 +340,7 @@ class MQTTClient:
 
         return mqtt_client
 
-    async def _reconnect_loop(self):
+    async def _reconnect_loop(self) -> None:
         """Reconnect logic"""
         logger.debug("Reconnect Daemon starting...")
         try:
@@ -371,14 +370,14 @@ class MQTTClient:
             logger.debug("Reconnect Daemon was cancelled")
             raise
 
-    def _network_loop_running(self):
+    def _network_loop_running(self) -> bool:
         """Internal helper method to assess network loop"""
         if self._network_loop and not self._network_loop.done():
             return True
         else:
-            return
+            return False
 
-    def is_connected(self):
+    def is_connected(self) -> bool:
         """
         Returns a boolean indicating whether the MQTT client is currently connected.
 
@@ -387,7 +386,7 @@ class MQTTClient:
         """
         return self._connected
 
-    def set_credentials(self, username, password=None):
+    def set_credentials(self, username: str, password: Optional[str] = None) -> None:
         """
         Set a username and optionally a password for broker authentication.
 
@@ -398,7 +397,7 @@ class MQTTClient:
         """
         self._mqtt_client.username_pw_set(username=username, password=password)
 
-    def add_incoming_message_filter(self, topic):
+    def add_incoming_message_filter(self, topic: str) -> None:
         """
         Filter incoming messages on a specific topic.
 
@@ -412,22 +411,18 @@ class MQTTClient:
         # Add a Queue for this filter
         self._incoming_filtered_messages[topic] = asyncio.Queue()
 
-        # Define a callback that uses the filter queue
-        self_weakref = weakref.ref(self)
-
         def callback(client, userdata, message):
-            this = self_weakref()
             logger.debug("Incoming MQTT Message received on filter {}".format(message.topic))
 
             async def add_to_queue():
-                await this._incoming_filtered_messages[topic].put(message)
+                await self._incoming_filtered_messages[topic].put(message)
 
-            asyncio.run_coroutine_threadsafe(add_to_queue(), this._event_loop)
+            asyncio.run_coroutine_threadsafe(add_to_queue(), self._event_loop)
 
         # Add the callback as a filter
         self._mqtt_client.message_callback_add(topic, callback)
 
-    def remove_incoming_message_filter(self, topic):
+    def remove_incoming_message_filter(self, topic: str) -> None:
         """
         Stop filtering incoming messages on a specific topic
 
@@ -444,7 +439,9 @@ class MQTTClient:
         # Delete the filter queue
         del self._incoming_filtered_messages[topic]
 
-    def get_incoming_message_generator(self, filter_topic=None):
+    def get_incoming_message_generator(
+        self, filter_topic: Optional[str] = None
+    ) -> AsyncGenerator[mqtt.MQTTMessage, None]:
         """
         Return a generator that yields incoming messages
 
@@ -462,13 +459,13 @@ class MQTTClient:
         else:
             incoming_messages = self._incoming_messages
 
-        async def message_generator():
+        async def message_generator() -> AsyncGenerator[mqtt.MQTTMessage, None]:
             while True:
                 yield await incoming_messages.get()
 
         return message_generator()
 
-    async def connect(self):
+    async def connect(self) -> None:
         """
         Connect to the MQTT broker using details set at instantiation.
 
@@ -502,9 +499,6 @@ class MQTTClient:
                 else:
                     reconnect_started_on_this_attempt = False
 
-                # NOTE: we know this is safe because of the connection lock
-                self._pending_connect = self._event_loop.create_future()
-
                 try:
                     await self._do_connect()
                 except asyncio.CancelledError:
@@ -512,7 +506,7 @@ class MQTTClient:
                     logger.warning(
                         "The cancelled connect attempt may still complete as it is in-flight"
                     )
-                    if reconnect_started_on_this_attempt:
+                    if self._reconnect_daemon and reconnect_started_on_this_attempt:
                         logger.debug(
                             "Reconnect daemon was started with this connect attempt. Cancelling it."
                         )
@@ -530,14 +524,18 @@ class MQTTClient:
                         )
                     raise
                 finally:
-                    # Pending operation is completed
+                    # Pending operation is completed regardless of outcome
+                    del self._pending_connect
                     self._pending_connect = None
 
             else:
                 logger.debug("Already connected!")
 
-    async def _do_connect(self):
+    async def _do_connect(self) -> None:
         """Connect, start network loop, and wait for response"""
+
+        # NOTE: we know this is safe because of the connection lock in the outer method
+        self._pending_connect = self._event_loop.create_future()
 
         # Paho Connect
         logger.debug("Attempting connect using port {}...".format(self._port))
@@ -607,12 +605,14 @@ class MQTTClient:
         if rc != mqtt.CONNACK_ACCEPTED:
             # If the connect failed, the network loop will stop.
             # Might take a moment though, so wait on the network loop completion before clearing
-            logger.debug("Waiting for network loop to exit and clearing task")
-            await self._network_loop
-            self._network_loop = None
+            if self._network_loop is not None:
+                # This block should always execute. This condition is just to help the type checker.
+                logger.debug("Waiting for network loop to exit and clearing task")
+                await self._network_loop
+                self._network_loop = None
             raise MQTTConnectionFailedError(rc=rc)
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """
         Disconnect from the MQTT broker.
 
@@ -678,7 +678,7 @@ class MQTTClient:
             else:
                 logger.debug("Already disconnected!")
 
-    async def subscribe(self, topic):
+    async def subscribe(self, topic: str) -> None:
         """
         Subscribe to a topic from the MQTT broker.
 
@@ -722,7 +722,7 @@ class MQTTClient:
                 if mid and mid in self._pending_subs:
                     del self._pending_subs[mid]
 
-    async def unsubscribe(self, topic):
+    async def unsubscribe(self, topic: str) -> None:
         """
         Unsubscribe from a topic on the MQTT broker.
 
@@ -766,7 +766,7 @@ class MQTTClient:
                 if mid and mid in self._pending_unsubs:
                     del self._pending_unsubs[mid]
 
-    async def publish(self, topic, payload):
+    async def publish(self, topic: str, payload: Union[str, bytes, int, float, None]) -> None:
         """
         Send a message via the MQTT broker.
 

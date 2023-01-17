@@ -6,6 +6,7 @@
 """
 This module represents proxy options to enable sending traffic through proxy servers.
 """
+# TODO: If this will continue to be used in V3, add typings
 import socks
 
 string_to_socks_constant_map = {"HTTP": socks.HTTP, "SOCKS4": socks.SOCKS4, "SOCKS5": socks.SOCKS5}
