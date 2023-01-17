@@ -5,10 +5,7 @@
 # for errors that are worth retrying.
 
 import asyncio
-import logging
 from azure.iot.device.iothub.aio import IoTHubDeviceClient
-
-# from azure.iot.device import exceptions, Message
 from azure.iot.device import Message
 import os
 import logging.handlers
@@ -18,8 +15,6 @@ import glob
 TELEMETRY_INTERVAL = 10
 # Initial interval in seconds between consecutive connection attempts
 ATTEMPT_INTERVAL = 2
-# # Power factor for increasing interval between consecutive connection attempts
-# INCREASE_FACTOR = 2
 # Threshold for retrying connection attempts after which the app will error
 THRESHOLD_FOR_RETRY_CONNECTION = 7200
 # Interval for rotating logs, in seconds
@@ -74,17 +69,6 @@ def get_type_name(e):
 
 class Application(object):
     async def initiate(self):
-
-        # self.transient_errors = [
-        #     exceptions.OperationCancelled,
-        #     exceptions.OperationTimeout,
-        #     exceptions.ServiceError,
-        #     exceptions.ConnectionFailedError,
-        #     exceptions.ConnectionDroppedError,
-        #     exceptions.NoConnectionError,
-        #     exceptions.ClientError,  # TODO Only TLSEsxhangeError is actually worth retrying
-        # ]
-
         self.connected_event = asyncio.Event()
         self.disconnected_event = asyncio.Event()
         self.exit_app_event = asyncio.Event()
@@ -93,14 +77,17 @@ class Application(object):
         self.message_queue = asyncio.Queue()
         self.device_client = None
         self.first_connect = True
-        # self.ever_connected = False
+        # Power factor for increasing interval between consecutive connection attempts.
+        # This will increase with iteration
+        self.retry_increase_factor = 1
+        # The nth number for attempting connection
+        self.sleep_time_between_conns = ATTEMPT_INTERVAL
+        self.try_number = 1
 
     async def create_client(self, conn_str):
         try:
             # Create a Device Client
-            self.device_client = IoTHubDeviceClient.create_from_connection_string(
-                conn_str, keep_alive=20
-            )
+            self.device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
             # Attach the connection state handler
             self.device_client.on_connection_state_change = self.handle_on_connection_state_change
         except Exception as e:
@@ -118,6 +105,10 @@ class Application(object):
             self.log_info_and_print("Connected connected_event is set...")
             self.disconnected_event.clear()
             self.connected_event.set()
+            self.retry_increase_factor = 1
+            self.sleep_time_between_conns = ATTEMPT_INTERVAL
+            self.try_number = 1
+
         else:
             self.log_info_and_print("Disconnected connected_event is set...")
             self.disconnected_event.set()
@@ -158,8 +149,6 @@ class Application(object):
                 return
 
     async def if_disconnected_then_connect_with_retry(self):
-        i = 0
-        factor = 1
         while True:
             done, pending = await asyncio.wait(
                 [
@@ -175,14 +164,14 @@ class Application(object):
             if not self.device_client.connected:
                 try:
                     self.log_info_and_print(
-                        "Attempting to connect the device client try number {}....".format(i)
+                        "Attempting to connect the device client try number {}....".format(
+                            self.try_number
+                        )
                     )
                     await self.device_client.connect()
                     if self.first_connect:
                         self.first_connect = False
                     self.log_info_and_print("Successfully connected the device client...")
-                    i = 0
-                    factor = 1
                 except Exception as e:
                     if self.first_connect:
                         self.log_info_and_print(
@@ -193,17 +182,17 @@ class Application(object):
                     else:
                         self.log_info_and_print(
                             "Retry attempt interval is {} and increase power factor is {}".format(
-                                ATTEMPT_INTERVAL, factor
+                                self.sleep_time_between_conns, self.retry_increase_factor
                             )
                         )
-                        sleep_time = pow(ATTEMPT_INTERVAL, factor)
+                        sleep_time = pow(self.sleep_time_between_conns, self.retry_increase_factor)
 
                     if sleep_time > THRESHOLD_FOR_RETRY_CONNECTION:
                         self.log_error_and_print(
                             "Failed to connect the device client couple of times."
                             "Retry time is greater than upper limit set. Will be exiting the application."
                         )
-                        i = 0
+                        self.try_number = 0
                         raise
 
                     self.log_error_and_print("Caught exception while trying to connect...")
@@ -212,34 +201,9 @@ class Application(object):
                             get_type_name(e), sleep_time
                         )
                     )
-                    factor += 1
-                    i += 1
+                    self.retry_increase_factor += 1
+                    self.try_number += 1
                     await asyncio.sleep(sleep_time)
-                    # if type(e) is exceptions.CredentialError:
-                    #     self.log_error_and_print(
-                    #         "Failed to connect the device client due to incorrect or badly formatted credentials..."
-                    #     )
-                    #     i = 0
-                    #     raise
-                    #
-                    # if self.is_retryable(e):
-                    #     self.log_error_and_print(
-                    #         "Failed to connect the device client due to retryable error.Sleeping and retrying after some time..."
-                    #     )
-                    #     i += 1
-                    #     await asyncio.sleep(sleep_time)
-                    # else:
-                    #     self.log_error_and_print(
-                    #         "Failed to connect the device client due to not-retryable error...."
-                    #     )
-                    #     i = 0
-                    #     raise
-
-    # def is_retryable(self, exc):
-    #     if type(exc) in self.transient_errors:
-    #         return True
-    #     else:
-    #         return False
 
     def log_error_and_print(self, s):
         logger.error(s)
