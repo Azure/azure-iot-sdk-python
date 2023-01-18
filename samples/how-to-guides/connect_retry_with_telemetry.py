@@ -9,14 +9,52 @@ from azure.iot.device import exceptions
 import logging
 import traceback
 import os
+import glob
 
-logging.basicConfig(level=logging.DEBUG, filename="debug.log")
-# For more detailed debugging can do the following
-# logging.basicConfig(
-#     level=logging.DEBUG,
-#     format="%(asctime)s %(thread)s %(funcName)s %(message)s",
-#     filename="debug1.log",
-# )
+# Interval for rotating logs, in seconds
+LOG_ROTATION_INTERVAL = 3600
+# How many logs to keep before recycling
+LOG_BACKUP_COUNT = 6
+# Directory for storing log files
+LOG_DIRECTORY = "./logs"
+
+# Prepare the log directory
+os.makedirs(LOG_DIRECTORY, exist_ok=True)
+for filename in glob.glob("{}/*.log".format(LOG_DIRECTORY)):
+    os.remove(filename)
+
+log_formatter = logging.Formatter(
+    "%(asctime)s %(levelname)-5s (%(threadName)s) %(filename)s:%(funcName)s():%(message)s"
+)
+
+info_log_handler = logging.handlers.TimedRotatingFileHandler(
+    filename="{}/info.log".format(LOG_DIRECTORY),
+    when="S",
+    interval=LOG_ROTATION_INTERVAL,
+    backupCount=LOG_BACKUP_COUNT,
+)
+info_log_handler.setLevel(level=logging.INFO)
+info_log_handler.setFormatter(log_formatter)
+
+debug_log_handler = logging.handlers.TimedRotatingFileHandler(
+    filename="{}/debug.log".format(LOG_DIRECTORY),
+    when="S",
+    interval=LOG_ROTATION_INTERVAL,
+    backupCount=LOG_BACKUP_COUNT,
+)
+debug_log_handler.setLevel(level=logging.DEBUG)
+debug_log_handler.setFormatter(log_formatter)
+
+root_logger = logging.getLogger()
+root_logger.setLevel(level=logging.DEBUG)
+root_logger.addHandler(info_log_handler)
+root_logger.addHandler(debug_log_handler)
+
+sample_log_handler = logging.FileHandler(filename="{}/sample.log".format(LOG_DIRECTORY))
+sample_log_handler.setLevel(level=logging.DEBUG)
+sample_log_handler.setFormatter(log_formatter)
+logger = logging.getLogger(__name__)
+logger.addHandler(sample_log_handler)
 
 # The device connection string to authenticate the device with your IoT hub.
 # Using the Azure CLI:
@@ -123,7 +161,7 @@ async def run_sample(device_client):
     encountered_no_error = await connect_with_retry(device_client, RETRY_NOS)
     if not encountered_no_error:
         print("Fatal error encountered. Will exit the application...")
-        raise
+        raise Exception
     while True:
         global connected_event
         print("Client is connected {}".format(device_client.connected))
