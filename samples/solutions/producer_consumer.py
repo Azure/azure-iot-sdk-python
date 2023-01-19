@@ -14,7 +14,7 @@ import glob
 # The interval at which to send telemetry
 TELEMETRY_INTERVAL = 10
 # Initial interval in seconds between consecutive connection attempts
-ATTEMPT_INTERVAL = 2
+INITIAL_SLEEP_TIME_BETWEEN_CONNS = 2
 # Threshold for retrying connection attempts after which the app will error
 THRESHOLD_FOR_RETRY_CONNECTION = 7200
 # Interval for rotating logs, in seconds
@@ -81,18 +81,23 @@ class Application(object):
         # This will increase with iteration
         self.retry_increase_factor = 1
         # The nth number for attempting connection
-        self.sleep_time_between_conns = ATTEMPT_INTERVAL
+        self.sleep_time_between_conns = INITIAL_SLEEP_TIME_BETWEEN_CONNS
         self.try_number = 1
 
     async def create_client(self, conn_str):
         try:
             # Create a Device Client
-            self.device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
+            self.device_client = IoTHubDeviceClient.create_from_connection_string(
+                conn_str, keep_alive=20
+            )
             # Attach the connection state handler
             self.device_client.on_connection_state_change = self.handle_on_connection_state_change
         except Exception as e:
             self.log_error_and_print(
                 "Caught exception while trying to attach handler : {}".format(get_type_name(e))
+            )
+            raise Exception(
+                "Caught exception while trying to attach handler. Will exit application..."
             )
 
     async def handle_on_connection_state_change(self):
@@ -106,7 +111,7 @@ class Application(object):
             self.disconnected_event.clear()
             self.connected_event.set()
             self.retry_increase_factor = 1
-            self.sleep_time_between_conns = ATTEMPT_INTERVAL
+            self.sleep_time_between_conns = INITIAL_SLEEP_TIME_BETWEEN_CONNS
             self.try_number = 1
 
         else:
@@ -133,8 +138,26 @@ class Application(object):
                 self.log_info_and_print("waiting for connection ...")
                 await self.connected_event.wait()
             else:
-                msg = await self.message_queue.get()
+                self.log_info_and_print("Retrieving an item from the queue...")
+                done, pending = await asyncio.wait(
+                    [
+                        self.message_queue.get(),
+                        self.exit_app_event.wait(),
+                    ],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                await asyncio.gather(*done)
+                [x.cancel() for x in pending]
+                if self.exit_app_event.is_set():
+                    self.log_info_and_print("Exiting while waiting for an item")
+                    return
+                # msg = await self.message_queue.get()
+                msg = None
+                for task in done:
+                    msg = task.result()
+
                 try:
+                    self.log_info_and_print('Retrieved "{}"'.format(msg))
                     self.log_info_and_print("sending message...")
                     await self.device_client.send_message(msg)
                     self.log_info_and_print("sent message")
@@ -161,6 +184,7 @@ class Application(object):
             [x.cancel() for x in pending]
             if self.exit_app_event.is_set():
                 self.log_info_and_print("Exiting while connected")
+                return
             if not self.device_client.connected:
                 try:
                     self.log_info_and_print(
@@ -223,7 +247,7 @@ class Application(object):
             asyncio.create_task(self.enqueue_message()),
             asyncio.create_task(self.if_disconnected_then_connect_with_retry()),
         ]
-
+        pending = []
         try:
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
             await asyncio.gather(*done)
@@ -235,7 +259,9 @@ class Application(object):
             self.log_info_and_print("Exiting app")
             self.exit_app_event.set()
             self.log_info_and_print("Waiting for all coroutines to exit")
-            [x.cancel() for x in pending]
+            await asyncio.wait_for(
+                asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED), timeout=5
+            )
             self.log_info_and_print("Shutting down IoTHubClient and exiting Application")
             await self.device_client.shutdown()
 

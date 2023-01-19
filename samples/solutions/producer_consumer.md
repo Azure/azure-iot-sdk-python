@@ -1,8 +1,11 @@
 ## CUSTOMER PERSONA
 A producer application is creating messages and inserting them in a queue uniformly.
 Customer wants to fetch a message from a queue and send the message at some interval consistently
-as long as network connection remains. In case of disconnection the customer wants to retry the connection
-for errors that are worth retrying. Currently, the time at which insertions and retrieval happen is at 10s.
+as long as network connection remains. In case of disconnection the customer wants to retry the connection. 
+Currently, the time at which insertions and retrieval happen is at TELEMETRY_INTERVAL secs. 
+All connection failed attempts are retried starting with an initial value of INITIAL_SLEEP_TIME_BETWEEN_CONNS after 
+which the interval between each retry attempt increases geometrically. Once the sleep time reaches a threshold the 
+application exits.
 
 ## WORKING APP
 
@@ -39,21 +42,11 @@ paho_logger.addHandler(paho_log_handler)
 ```
 
 ## TROUBLESHOOTING TIPS
-Currently, whenever connection drops due to one of the following exceptions it is considered to be recoverable.
-```python
-[
-    exceptions.OperationCancelled,
-    exceptions.OperationTimeout,
-    exceptions.ServiceError,
-    exceptions.ConnectionFailedError,
-    exceptions.ConnectionDroppedError,
-    exceptions.NoConnectionError,
-    exceptions.ClientError,
-]
-```
-In the event the application has stopped working for any of the above errors, 
-it will establish connection on its own and resume the application whenever the network is back.
-Such intermittent disruptions are temporary and this is a correct process of operation.
+Currently, whenever connection drops it is considered to be recoverable.
+
+In the event the application has stopped working for any error, it will establish connection on its own and resume the 
+application whenever the network is back. Such intermittent disruptions are temporary and this is a 
+correct process of operation.
 
 Any other cause of exception is not retryable. In case the application has stopped and exited,
 the cause could be found out from the logs. 
