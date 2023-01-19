@@ -15,7 +15,7 @@ import random
 import gc
 
 # Interval in sec between consecutive connection attempts in case of retryable error
-CONNECTION_ATTEMPT_INTERVAL = 2
+INITIAL_SLEEP_TIME_BETWEEN_CONNS = 2
 # Lower limit of random range for queueing message
 LOWER_LIMIT_OF_ENQUEUEING = 5
 # Upper limit of random range for queueing message
@@ -112,7 +112,7 @@ class Application(object):
         # This will increase with iteration
         self.retry_increase_factor = 1
         # Initial value to sleep between connections.
-        self.sleep_time_between_conns = CONNECTION_ATTEMPT_INTERVAL
+        self.sleep_time_between_conns = INITIAL_SLEEP_TIME_BETWEEN_CONNS
 
     async def create_client(self, conn_str):
         try:
@@ -124,6 +124,9 @@ class Application(object):
             self.log_error_and_print(
                 "Caught exception while trying to attach handler : {}".format(get_type_name(e))
             )
+            raise Exception(
+                "Caught exception while trying to attach handler.Will exit application..."
+            )
 
     async def handle_on_connection_state_change(self):
         self.log_info_and_print(
@@ -134,7 +137,7 @@ class Application(object):
         if self.device_client.connected:
             self.log_info_and_print("Connected connected_event is set...")
             self.retry_increase_factor = 1
-            self.sleep_time_between_conns = CONNECTION_ATTEMPT_INTERVAL
+            self.sleep_time_between_conns = INITIAL_SLEEP_TIME_BETWEEN_CONNS
         else:
             self.log_info_and_print("Disconnected connected_event is set...")
 
@@ -253,6 +256,7 @@ class Application(object):
             asyncio.create_task(self.memory_stats()),
         ]
 
+        pending = []
         try:
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
             await asyncio.gather(*done)
@@ -264,11 +268,10 @@ class Application(object):
             self.log_info_and_print("Exiting app")
             self.exit_app_event.set()
             self.log_info_and_print("Waiting for all coroutines to exit")
-            [x.cancel() for x in pending]
-            self.log_info_and_print("Shutting down IoTHubClient and exiting Application")
             await asyncio.wait_for(
                 asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED), timeout=5
             )
+            self.log_info_and_print("Shutting down IoTHubClient and exiting Application")
             await self.device_client.shutdown()
 
 

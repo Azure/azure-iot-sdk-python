@@ -7,12 +7,13 @@
 ## CUSTOMER PERSONA
 This application illustrates that connections are expensive and telemetry is only sent whenever connection is present.
 Since connections are expensive, it is NOT necessary to keep track of lost messages. By any chance if connection is not 
-established due to some error the retry process happens for a fixed set of NUMBER_OF_TRIES. Each attempt happens after
-an interval that increases geometrically. Meanwhile, telemetry messages are enqueued inside a list at some 
-random intervals. In the current sample connections are established every 120 secs. Once connection is established all 
-messages in the list are sent at once. In case message sending results in an exception that batch of messages are 
-discarded. Regardless of whether messages are successfully transmitted or not the client is disconnected and waits 
-for the next connection to be established.
+established due to some error the retry process happens for a fixed set of NUMBER_OF_TRIES. All connection failed 
+attempts for those NUMBER_OF_TRIES are retried starting with an initial value of INITIAL_SLEEP_TIME_BETWEEN_CONNS after 
+which the interval between each retry attempt increases geometrically. Meanwhile, telemetry messages are enqueued 
+inside a list at some random intervals. In the current sample connections are established every TIME_BETWEEN_CONNECTIONS
+secs. Once connection is established all messages in the list are sent at once. In case message sending results in an 
+exception that batch of messages are discarded. Regardless of whether messages are successfully transmitted or 
+not the client is disconnected and waits for the next connection to be established.
 
 ## TESTING
 Exceptions were thrown artificially and deliberately in the MQTT transport for random messages based on their id 
