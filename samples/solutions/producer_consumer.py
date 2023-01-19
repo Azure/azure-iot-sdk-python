@@ -1,8 +1,8 @@
-# CUSTOMER PERSONA
-# A producer application is creating a message and inserting inside a queue uniformly.
-# Customer wants to fetch a message from a queue and send the message at some interval consistently
-# as long as connection remains. In case of disconnection the customer wants to retry the connection
-# for errors that are worth retrying.
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
 
 import asyncio
 from azure.iot.device.iothub.aio import IoTHubDeviceClient

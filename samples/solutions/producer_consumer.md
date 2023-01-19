@@ -1,11 +1,17 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
 ## CUSTOMER PERSONA
-A producer application is creating messages and inserting them in a queue uniformly.
-Customer wants to fetch a message from a queue and send the message at some interval consistently
-as long as network connection remains. In case of disconnection the customer wants to retry the connection. 
-Currently, the time at which insertions and retrieval happen is at TELEMETRY_INTERVAL secs. 
-All connection failed attempts are retried starting with an initial value of INITIAL_SLEEP_TIME_BETWEEN_CONNS after 
-which the interval between each retry attempt increases geometrically. Once the sleep time reaches a threshold the 
-application exits.
+A producer application is creating messages and inserting them in a queue uniformly at an TELEMETRY_INTERVAL secs.
+Customer wants to fetch a message from a queue and send the message at some interval consistently as long as network 
+connection remains. In case of disconnection the customer wants to retry the connection. Currently, the time at which 
+insertions and retrieval happen is at TELEMETRY_INTERVAL secs. All connection failed attempts are retried starting with 
+an initial value of INITIAL_SLEEP_TIME_BETWEEN_CONNS after which the interval between each retry attempt increases 
+geometrically. Once the sleep time reaches a upper threshold the application exits. All values are configurable and 
+customizable as per the scenario needs.
 
 ## WORKING APP
 

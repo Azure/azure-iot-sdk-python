@@ -1,3 +1,9 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
 ## SCENARIO
 An application is creating random messages and sending them at an interval consistently as long as 
 network connection remains. In case of disconnection the customer wants to retry the connection for 
