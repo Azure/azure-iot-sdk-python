@@ -6,11 +6,13 @@
 
 ## CUSTOMER PERSONA
 This application illustrates that connections are expensive and telemetry is only sent whenever connection is present.
-Since connections are expensive, it is NOT necessary to keep track of lost messages. Telemetry messages are enqueued 
-inside a list at some random intervals. In the current sample connections are established every 120 secs. 
-Once connection is established all messages in the list are sent at once. In case message sending 
-results in an exception that batch of messages are discarded. Regardless of whether messages are successfully 
-transmitted or not the client is disconnected and waits for the next connection to be established.
+Since connections are expensive, it is NOT necessary to keep track of lost messages. By any chance if connection is not 
+established due to some error the retry process happens for a fixed set of NUMBER_OF_TRIES. Each attempt happens after
+an interval that increases geometrically. Meanwhile, telemetry messages are enqueued inside a list at some 
+random intervals. In the current sample connections are established every 120 secs. Once connection is established all 
+messages in the list are sent at once. In case message sending results in an exception that batch of messages are 
+discarded. Regardless of whether messages are successfully transmitted or not the client is disconnected and waits 
+for the next connection to be established.
 
 ## TESTING
 Exceptions were thrown artificially and deliberately in the MQTT transport for random messages based on their id 
@@ -74,24 +76,13 @@ paho_logger.addHandler(paho_log_handler)
 ```
 
 ## TROUBLESHOOTING TIPS
-Currently, whenever connection drops due to one of the following exceptions it is considered to be recoverable.
-```python
-[
-    exceptions.OperationCancelled,
-    exceptions.OperationTimeout,
-    exceptions.ServiceError,
-    exceptions.ConnectionFailedError,
-    exceptions.ConnectionDroppedError,
-    exceptions.NoConnectionError,
-    exceptions.ClientError,
-]
-```
-In the event the application has stopped working for any of the above errors, 
-it will establish connection on its own and resume the application whenever the network is back.
-Such intermittent disruptions are temporary and this is a correct process of operation.
+Currently, whenever connection drops due it is considered to be recoverable, and it is retried for a fixed set of times.
 
-Any other cause of exception is not retryable. In case the application has stopped and exited,
-the cause could be found out from the logs. 
+In the event the application has stopped working for any of the above errors, it will establish connection on its own 
+and resume the application whenever the network is back. Such intermittent disruptions are temporary and this is 
+a correct process of operation.
+
+In case the application has stopped and exited, the cause could be found out from the logs. 
 
 
 
