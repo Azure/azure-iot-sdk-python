@@ -6,3 +6,4 @@ pre-commit
 twine
 pylint
 rope
+mypy
