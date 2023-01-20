@@ -114,8 +114,6 @@ class Application(object):
             self.retry_increase_factor = 1
             self.sleep_time_between_conns = INITIAL_SLEEP_TIME_BETWEEN_CONNS
             self.try_number = 1
-
-
         else:
             self.log_info_and_print("Disconnected connected_event is set...")
             self.disconnected_event.set()
