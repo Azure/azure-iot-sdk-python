@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
+
 import random
 import asyncio
 
@@ -58,6 +59,7 @@ sample_log_handler.setLevel(level=logging.DEBUG)
 sample_log_handler.setFormatter(log_formatter)
 logger = logging.getLogger(__name__)
 logger.addHandler(sample_log_handler)
+
 
 # The device connection string to authenticate the device with your IoT hub.
 # Using the Azure CLI:
@@ -165,6 +167,7 @@ async def run_sample(device_client):
     if not encountered_no_error:
         print("Fatal error encountered. Will exit the application...")
         raise Exception
+
     while True:
         global connected_event
         print("Client is connected {}".format(device_client.connected))
