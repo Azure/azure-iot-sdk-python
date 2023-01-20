@@ -88,7 +88,7 @@ class Application(object):
         try:
             # Create a Device Client
             self.device_client = IoTHubDeviceClient.create_from_connection_string(
-                conn_str, keep_alive=20
+                conn_str
             )
             # Attach the connection state handler
             self.device_client.on_connection_state_change = self.handle_on_connection_state_change
@@ -110,10 +110,10 @@ class Application(object):
             self.log_info_and_print("Connected connected_event is set...")
             self.disconnected_event.clear()
             self.connected_event.set()
+
             self.retry_increase_factor = 1
             self.sleep_time_between_conns = INITIAL_SLEEP_TIME_BETWEEN_CONNS
             self.try_number = 1
-
         else:
             self.log_info_and_print("Disconnected connected_event is set...")
             self.disconnected_event.set()
@@ -122,6 +122,7 @@ class Application(object):
     async def enqueue_message(self):
         message_id = 0
         while True:
+
             message_id += 1
             msg = Message("current wind speed ")
             msg.message_id = message_id
@@ -247,7 +248,9 @@ class Application(object):
             asyncio.create_task(self.enqueue_message()),
             asyncio.create_task(self.if_disconnected_then_connect_with_retry()),
         ]
+
         pending = []
+
         try:
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
             await asyncio.gather(*done)

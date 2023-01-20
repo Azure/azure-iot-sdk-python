@@ -13,6 +13,7 @@ an initial value of INITIAL_SLEEP_TIME_BETWEEN_CONNS after which the interval be
 geometrically. Once the sleep time reaches a upper threshold the application exits. All values are configurable and 
 customizable as per the scenario needs.
 
+
 ## WORKING APP
 
 The application should work seamlessly and continuously as long as the customer does not exit the application. 
@@ -28,6 +29,7 @@ on a timed rotating logging handler. So multiple of DEBUG and INFO files based o
 The debug log files will be named like `debug.log.2023-01-04_11-28-49` and info log files will be named as 
 `info.log.2023-01-04_11-28-49` with the date and timestamp. The next debug and log files will be generated with names 
 like `debug.log.2023-01-04_12-28-49` and `info.log.2023-01-04_12-28-49` with a rotation interval of 1 hour.
+
 The `sample.log` file will contain logging output only from the solution. The solution also prints similar texts onto the console for visual purposes.
 Customer can modify the current logging and set it to a different level by changing one of the loggers.
 
@@ -53,6 +55,7 @@ Currently, whenever connection drops it is considered to be recoverable.
 In the event the application has stopped working for any error, it will establish connection on its own and resume the 
 application whenever the network is back. Such intermittent disruptions are temporary and this is a 
 correct process of operation.
+
 
 Any other cause of exception is not retryable. In case the application has stopped and exited,
 the cause could be found out from the logs. 
