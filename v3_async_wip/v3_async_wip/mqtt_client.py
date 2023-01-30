@@ -8,6 +8,7 @@ import asyncio
 import functools
 import logging
 import paho.mqtt.client as mqtt  # type: ignore
+from paho.mqtt.client import MQTTMessage  # noqa: F401    (Importing directly to re-export)
 import ssl
 from typing import Any, Dict, AsyncGenerator, Optional, Union
 from azure.iot.device.common import ProxyOptions  # type:ignore
@@ -54,8 +55,6 @@ class MQTTConnectionFailedError(Exception):
     Can have a Paho-given connack rc code, or a message"""
 
     def __init__(self, rc=None, message=None, fatal=False):
-        if not rc and not message:
-            raise ValueError("must provide rc or message")
         if rc and message:
             raise ValueError("rc and message are mutually exclusive")
         self.rc = rc
@@ -87,6 +86,7 @@ class MQTTClient:
     ) -> None:
         """
         Constructor to instantiate client.
+
         :param str client_id: The id of the client connecting to the broker.
         :param str hostname: Hostname or IP address of the remote broker.
         :param int port: Network port to connect to
@@ -538,7 +538,9 @@ class MQTTClient:
         self._pending_connect = self._event_loop.create_future()
 
         # Paho Connect
-        logger.debug("Attempting connect using port {}...".format(self._port))
+        logger.debug(
+            "Attempting connect to host {} using port {}...".format(self._hostname, self._port)
+        )
         try:
             rc = await self._event_loop.run_in_executor(
                 None,
@@ -686,10 +688,11 @@ class MQTTClient:
 
         :raises: ValueError if topic is None or has zero string length.
         :raises: MQTTError if there is an error subscribing
+        :raises: CancelledError if network failure occurs while in-flight
         """
         try:
             mid = None
-            logger.debug("Attempting subscribe")
+            logger.debug("Attempting subscribe to topic {}".format(topic))
             # Using this lock postpones any code that runs in the on_subscribe callback that will
             # be invoked on response, as the callback also uses the lock. This ensures that the
             # result cannot be received before we have a Future created for the eventual result.
@@ -708,7 +711,7 @@ class MQTTClient:
                 sub_done = self._event_loop.create_future()
                 self._pending_subs[mid] = sub_done
 
-            logger.debug("Waiting for subscribe response for mid {}".format(mid))
+            logger.debug("Waiting for SUBACK for mid {}".format(mid))
             await sub_done
         except asyncio.CancelledError:
             if mid:
@@ -730,10 +733,11 @@ class MQTTClient:
 
         :raises: ValueError if topic is None or has zero string length.
         :raises: MQTTError if there is an error subscribing
+        :raises: CancelledError if network failure occurs while in-flight
         """
         try:
             mid = None
-            logger.debug("Attempting unsubscribe")
+            logger.debug("Attempting unsubscribe from topic {}".format(topic))
             # Using this lock postpones any code that runs in the on_unsubscribe callback that will
             # be invoked on response, as the callback also uses the lock. This ensures that the
             # result cannot be received before we have a Future created for the eventual result.
@@ -752,7 +756,7 @@ class MQTTClient:
                 unsub_done = self._event_loop.create_future()
                 self._pending_unsubs[mid] = unsub_done
 
-            logger.debug("Waiting for unsubscribe response for mid {}".format(mid))
+            logger.debug("Waiting for UNSUBACK for mid {}".format(mid))
             await unsub_done
         except asyncio.CancelledError:
             if mid:
@@ -774,7 +778,6 @@ class MQTTClient:
         :param payload: The actual message to send.
         :type payload: str, bytes, int, float or None
         :param int qos: the desired quality of service level for the subscription. Defaults to 1.
-        :param callback: A callback to be triggered upon completion (Optional).
 
         :raises: ValueError if topic is None or has zero string length
         :raises: ValueError if topic contains a wildcard ("+")
@@ -784,7 +787,8 @@ class MQTTClient:
         """
         try:
             mid = None
-            logger.debug("Attempting publish")
+            logger.debug("Attempting publish to topic {}".format(topic))
+            logger.debug("Publish payload: {}".format(str(payload)))
             # Using this lock postpones any code that runs in the on_publish callback that will
             # be invoked on response, as the callback also uses the lock. This ensures that the
             # result cannot be received before we have a Future created for the eventual result.
@@ -811,7 +815,7 @@ class MQTTClient:
                 pub_done = self._event_loop.create_future()
                 self._pending_pubs[mid] = pub_done
 
-            logger.debug("Waiting for publish response")
+            logger.debug("Waiting for PUBACK")
             # NOTE: Yes, message_info has a method called 'wait_for_publish' which would simplify
             # things, however it has strange behavior in the case of disconnection - it raises a
             # RuntimeError. However, the publish actually persists and still will be sent upon a

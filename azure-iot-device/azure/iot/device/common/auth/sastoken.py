@@ -7,6 +7,7 @@
 
 import time
 import urllib
+import abc
 
 
 class SasTokenError(Exception):
@@ -15,7 +16,19 @@ class SasTokenError(Exception):
     pass
 
 
-class RenewableSasToken(object):
+class SasToken(abc.ABC):
+    """Abstract parent class for SAS Tokens.
+
+    Doesn't do much, but helps with type hints
+    """
+
+    @property
+    @abc.abstractmethod
+    def expiry_time():
+        pass
+
+
+class RenewableSasToken(SasToken):
     """Renewable Shared Access Signature Token used to authenticate a request.
 
     This token is 'renewable', which means that it can be updated when necessary to
@@ -95,7 +108,7 @@ class RenewableSasToken(object):
         return self._expiry_time
 
 
-class NonRenewableSasToken(object):
+class NonRenewableSasToken(SasToken):
     """NonRenewable Shared Access Signature Token used to authenticate a request.
 
     This token is 'non-renewable', which means that it is invalid once it expires, and there

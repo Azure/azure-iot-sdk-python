@@ -12,7 +12,7 @@ import os
 import pytest
 from dev_utils import iptables
 from v3_async_wip import mqtt_client
-from . import transport_helper
+from dev_utils.dev_utils import mqtt_helper
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ TRANSPORT = "tcp"  # websockets
 IPTABLES_TRANSPORT = "mqtt"  # mqttws
 
 CONNECTION_STRING = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-HOSTNAME = transport_helper.get_hostname(CONNECTION_STRING)
+HOSTNAME = mqtt_helper.get_hostname(CONNECTION_STRING)
 
 
 class Dropper(object):
@@ -51,10 +51,10 @@ def dropper():
 
 @pytest.fixture
 async def client():
-    client_id = transport_helper.get_client_id(CONNECTION_STRING)
-    username = transport_helper.get_username(CONNECTION_STRING)
-    password = transport_helper.get_password(CONNECTION_STRING)
-    ssl_context = transport_helper.create_ssl_context()
+    client_id = mqtt_helper.get_client_id(CONNECTION_STRING)
+    username = mqtt_helper.get_username(CONNECTION_STRING)
+    password = mqtt_helper.get_password(CONNECTION_STRING)
+    ssl_context = mqtt_helper.create_ssl_context()
 
     client = mqtt_client.MQTTClient(
         client_id=client_id,

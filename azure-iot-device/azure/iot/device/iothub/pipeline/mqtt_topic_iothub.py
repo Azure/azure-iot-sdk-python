@@ -10,6 +10,10 @@ import urllib
 
 logger = logging.getLogger(__name__)
 
+# TODO: remove unnecessary encoding logic for outgoing messages for V3
+# TODO: remove unnecessary is_x apis for V3
+# TODO: add type hints for V3
+
 # NOTE: Whenever using standard URL encoding via the urllib.parse.quote() API
 # make sure to specify that there are NO safe values (e.g. safe=""). By default
 # "/" is skipped in encoding, and that is not desirable.

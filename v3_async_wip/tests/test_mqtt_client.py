@@ -17,7 +17,6 @@ from azure.iot.device.common import ProxyOptions
 import paho.mqtt.client as mqtt
 import asyncio
 import pytest
-import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -2295,7 +2294,6 @@ class TestConnectionLock:
         assert not client.is_connected()
 
 
-@pytest.mark.skipif(sys.version_info < (3, 8), reason="AsyncMock not supported by Python 3.7")
 @pytest.mark.describe("MQTTClient - Reconnect Daemon")
 class TestReconnectDaemon:
     @pytest.fixture
