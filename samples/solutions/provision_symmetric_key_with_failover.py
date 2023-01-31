@@ -4,12 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-# -------------------------------------------------------------------------
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License. See License.txt in the project root for
-# license information.
-# --------------------------------------------------------------------------
-
 import asyncio
 from azure.iot.device.iothub.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
@@ -17,13 +11,13 @@ from azure.iot.device import Message
 import logging.handlers
 import glob
 import os
-import uuid
 
-
+# The interval at which to check for registrations
+MONITOR_TIME_BETWEEN_SUCCESS_ASSIGNMENTS = 1800
 # The interval at which to send telemetry
-TELEMETRY_INTERVAL = 10
+TELEMETRY_INTERVAL = 5
 # Initial interval in seconds between consecutive connection attempts
-INITIAL_SLEEP_TIME_BETWEEN_CONNS = 2
+SLEEP_TIME_BETWEEN_REGISTRATIONS = 10
 # Threshold for retrying connection attempts after which the app will error
 THRESHOLD_FOR_RETRY_CONNECTION = 7200
 # Interval for rotating logs, in seconds
@@ -31,11 +25,8 @@ LOG_ROTATION_INTERVAL = 3600
 # How many logs to keep before recycling
 LOG_BACKUP_COUNT = 6
 # Directory for storing log files
-LOG_DIRECTORY = "./logs"
-
-
+LOG_DIRECTORY = "./logs/dpsfailover"
 messages_to_send = 10
-
 
 # Prepare the log directory
 os.makedirs(LOG_DIRECTORY, exist_ok=True)
@@ -85,28 +76,118 @@ class Application(object):
         self.connected_event = asyncio.Event()
         self.disconnected_event = asyncio.Event()
         self.exit_app_event = asyncio.Event()
-        self.iothub_fail_event = asyncio.Event()
-        self.iothub_fail_event.set()
+        self.iothub_assignment_fail_event = asyncio.Event()
+        self.iothub_assignment_sucess_event = asyncio.Event()
+        # Baseline that device has not been assigned
+        self.iothub_assignment_fail_event.set()
+        # Baseline that device has not been connected as well
+        self.disconnected_event.set()
 
-        self.message_queue = asyncio.Queue()
+        self.provisioning_host = None
+        self.id_scope = None
+        self.symmetric_key = None
+        self.registration_id = None
+        self.registration_result = None
+
+        # self.message_queue = asyncio.Queue()
         self.iothub_client = None
         self.provisioning_client = None
-        self.symmetric_key = None
+        # self.symmetric_key = None
         self.first_connect = True
         # Power factor for increasing interval between consecutive connection attempts.
         # This will increase with iteration
         self.retry_increase_factor = 1
         # The nth number for attempting connection
-        self.sleep_time_between_conns = INITIAL_SLEEP_TIME_BETWEEN_CONNS
+        self.sleep_time_between_conns = SLEEP_TIME_BETWEEN_REGISTRATIONS
         self.try_number = 1
 
-    async def create_dps_client(self, provisioning_host, registration_id, id_scope):
+    async def create_dps_client(self):
+        self.log_info_and_print("Will create provisioning device client to provision device...")
         self.provisioning_client = ProvisioningDeviceClient.create_from_symmetric_key(
-            provisioning_host=provisioning_host,
-            registration_id=registration_id,
-            id_scope=id_scope,
+            provisioning_host=self.provisioning_host,
+            registration_id=self.registration_id,
+            id_scope=self.id_scope,
             symmetric_key=self.symmetric_key,
         )
+
+    async def handle_on_connection_state_change(self):
+        self.log_info_and_print(
+            "handle_on_connection_state_change fired. Connected status : {}".format(
+                self.iothub_client.connected
+            )
+        )
+        if self.iothub_client.connected:
+            self.log_info_and_print("Connected connected_event is set...")
+            self.disconnected_event.clear()
+            self.connected_event.set()
+
+            self.retry_increase_factor = 1
+            self.sleep_time_between_conns = SLEEP_TIME_BETWEEN_REGISTRATIONS
+            self.try_number = 1
+        else:
+            self.log_info_and_print("Disconnected connected_event is set...")
+            self.disconnected_event.set()
+            self.connected_event.clear()
+
+    def log_error_and_print(self, s):
+        logger.error(s)
+        print(s)
+
+    def log_info_and_print(self, s):
+        logger.info(s)
+        print(s)
+
+    async def register_loop(self):
+        while True:
+            if self.iothub_assignment_sucess_event.is_set():
+                self.log_info_and_print("Device has been successfully provisioned already...")
+                await asyncio.sleep(MONITOR_TIME_BETWEEN_SUCCESS_ASSIGNMENTS)
+            elif self.iothub_assignment_fail_event.is_set():
+                try:
+                    self.log_info_and_print("Registering the device...")
+                    self.registration_result = await self.provisioning_client.register()
+                    print("The complete registration result is")
+                    print(self.registration_result.registration_state)
+                    if self.registration_result.status == "assigned":
+                        self.log_info_and_print(
+                            "Will create hub client to send telemetry from the provisioned device"
+                        )
+                        await self.create_hub_client(self.registration_result)
+                        # await self.iothub_client.connect()
+                        self.iothub_assignment_sucess_event.set()
+                        self.iothub_assignment_fail_event.clear()
+                    else:
+                        self.log_error_and_print(
+                            "Registration was done but device was not assigned correctly to an "
+                            "IoTHub via the registration process.Will try registration "
+                            "again after some time..."
+                        )
+                        await asyncio.sleep(SLEEP_TIME_BETWEEN_REGISTRATIONS)
+                        self.iothub_assignment_fail_event.set()
+                        self.iothub_assignment_sucess_event.clear()
+                except Exception as e:
+                    self.log_error_and_print(
+                        "Registration process failed because of error {}".format(get_type_name(e))
+                    )
+                    raise Exception(
+                        "Caught an unrecoverable error that needs to be "
+                        "fixed from user end while registering. Will exit application..."
+                    )
+                    # if self.is_assignment_failure(e):
+                    #     self.log_error_and_print("Registration had error out and device was not assigned correctly to "
+                    #                              "an IoTHub via the registration process.Will try registration "
+                    #                              "again after some time...")
+                    #     self.iothub_assignment_fail_event.set()
+                    #     await asyncio.sleep(SLEEP_TIME_BETWEEN_REGISTRATIONS)
+                    # else:
+                    #     self.log_error_and_print("Caught an unrecoverable error that needs to be "
+                    #                              "fixed from user end while registering. Will exit application...")
+                    #     raise Exception(
+                    #         "Caught an unrecoverable error that needs to be "
+                    #                              "fixed from user end while registering. Will exit application..."
+                    #     )
+            if self.exit_app_event.is_set():
+                return
 
     async def create_hub_client(self, registration_result):
         try:
@@ -126,75 +207,148 @@ class Application(object):
                 "Caught exception while trying to attach handler. Will exit application..."
             )
 
-    async def handle_on_connection_state_change(self):
-        self.log_info_and_print(
-            "handle_on_connection_state_change fired. Connected status : {}".format(
-                self.iothub_client.connected
-            )
-        )
-        if self.iothub_client.connected:
-            self.log_info_and_print("Connected connected_event is set...")
-            self.disconnected_event.clear()
-            self.connected_event.set()
+    # async def create_hub_device_client(self):
+    #     while True:
+    #         if self.iothub_assignment_fail_event.is_set():
+    #             self.log_info_and_print("waiting for assignment to IoTHub ...")
+    #             await self.iothub_assignment_sucess_event.wait()
+    #             try:
+    #                 self.iothub_client = IoTHubDeviceClient.create_from_symmetric_key(
+    #                     symmetric_key=self.symmetric_key,
+    #                     hostname=self.registration_result.registration_state.assigned_hub,
+    #                     device_id=self.registration_result.registration_state.device_id,
+    #                 )
+    #                 # Attach the connection state handler
+    #                 self.iothub_client.on_connection_state_change = self.handle_on_connection_state_change
+    #             except Exception as e:
+    #                 self.log_error_and_print(
+    #                     "Caught exception while trying to attach handler : {}".format(get_type_name(e))
+    #                 )
+    #                 raise Exception(
+    #                     "Caught exception while trying to attach handler. Will exit application..."
+    #                 )
+    #         if self.exit_app_event.is_set():
+    #             return
 
-            self.retry_increase_factor = 1
-            self.sleep_time_between_conns = INITIAL_SLEEP_TIME_BETWEEN_CONNS
-            self.try_number = 1
-        else:
-            self.log_info_and_print("Disconnected connected_event is set...")
-            self.disconnected_event.set()
-            self.connected_event.clear()
-
-    def log_error_and_print(self, s):
-        logger.error(s)
-        print(s)
-
-    def log_info_and_print(self, s):
-        logger.info(s)
-        print(s)
-
-    async def register(self):
+    async def if_disconnected_then_connect_with_retry(self):
         while True:
-            if self.iothub_fail_event.is_set():
-                registration_result = await self.provisioning_client.register()
-                print("The complete registration result is")
-                print(registration_result.registration_state)
-                if registration_result.status == "assigned":
-                    print("Will send telemetry from the provisioned device")
-                    await self.create_hub_client(self.symmetric_key, registration_result)
-                    # Connect the client.
+            done, pending = await asyncio.wait(
+                [
+                    self.disconnected_event.wait(),
+                    self.exit_app_event.wait(),
+                ],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            await asyncio.gather(*done)
+            [x.cancel() for x in pending]
+            if self.exit_app_event.is_set():
+                self.log_info_and_print("Exiting while connected")
+                return
+            if self.iothub_client and not self.iothub_client.connected:
+                try:
+                    self.log_info_and_print(
+                        "Attempting to connect the device client try number {}....".format(
+                            self.try_number
+                        )
+                    )
                     await self.iothub_client.connect()
+                    if self.first_connect:
+                        self.first_connect = False
+                    self.log_info_and_print("Successfully connected the device client...")
+                except Exception as e:
+                    # if self.is_assignment_failure(e):
+                    #     self.iothub_assignment_fail_event.set()
+                    if self.first_connect:
+                        self.log_info_and_print(
+                            "Very first connection never occurred so will retry immediately..."
+                        )
+                        self.first_connect = False
+                        sleep_time = 0
+                    else:
+                        self.log_info_and_print(
+                            "Retry attempt interval is {} and increase power factor is {}".format(
+                                self.sleep_time_between_conns, self.retry_increase_factor
+                            )
+                        )
+                        sleep_time = pow(self.sleep_time_between_conns, self.retry_increase_factor)
 
-                    async def send_test_message(i):
-                        print("sending message #" + str(i))
-                        msg = Message("test wind speed " + str(i))
-                        msg.message_id = uuid.uuid4()
-                        await self.iothub_client.send_message(msg)
-                        print("done sending message #" + str(i))
+                    if sleep_time > THRESHOLD_FOR_RETRY_CONNECTION:
+                        self.log_error_and_print(
+                            "Failed to connect the device client couple of times."
+                            "Retry time is greater than upper limit set. Will be exiting the application."
+                        )
+                        self.try_number = 0
+                        raise
 
-                    # send `messages_to_send` messages in parallel
-                    await asyncio.gather(
-                        *[send_test_message(i) for i in range(1, messages_to_send + 1)]
+                    self.log_error_and_print("Caught exception while trying to connect...")
+                    self.log_error_and_print(
+                        "Failed to connect the device client due to error :{}.Sleeping and retrying after {} seconds".format(
+                            get_type_name(e), sleep_time
+                        )
+                    )
+                    self.retry_increase_factor += 1
+                    self.try_number += 1
+                    await asyncio.sleep(sleep_time)
+
+    async def wait_for_connect_and_send_telemetry(self):
+        message_id = 0
+        while True:
+            if not self.iothub_client:
+                # Time to check if iothub client has been registered
+                self.log_info_and_print(
+                    "IoTHub client is still nonexistent. Will check after some time..."
+                )
+                await asyncio.sleep(SLEEP_TIME_BETWEEN_REGISTRATIONS)
+            elif not self.iothub_client.connected:
+                self.log_info_and_print(
+                    "IoTHub client is still existent. But waiting for connection ..."
+                )
+                await self.connected_event.wait()
+            else:
+                try:
+                    message_id += 1
+                    msg = Message("current wind speed ")
+                    msg.message_id = message_id
+                    msg.content_type = "application/json"
+                    self.log_info_and_print("Created a message...")
+                    await self.iothub_client.send_message(msg)
+                    self.log_info_and_print("sent message")
+                    await asyncio.sleep(TELEMETRY_INTERVAL)
+                except Exception as e:
+                    self.log_error_and_print(
+                        "Caught exception while trying to send message: {}".format(get_type_name(e))
                     )
 
-                    # finally, disconnect
-                    await self.iothub_client.disconnect()
-                else:
-                    print("Can not send telemetry from the provisioned device")
             if self.exit_app_event.is_set():
                 return
+
+    def is_assignment_failure(self, e):
+        """
+        Errors where device does not get assigned to IoT Hub. Could mean IoTHub has been deleted or a
+        load balancer has decided to kick the device out.
+        """
+        if (
+            "Unreachable IoT Hub endpoint"
+            or "Expired security token"
+            or "Device disabled in IoT Hub" in e.message
+        ):
+            return True
+        return False
 
     async def main(self):
         await self.initiate()
 
-        provisioning_host = os.getenv("PROVISIONING_HOST")
-        id_scope = os.getenv("PROVISIONING_IDSCOPE")
-        registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
+        self.provisioning_host = os.getenv("PROVISIONING_HOST")
+        self.id_scope = os.getenv("PROVISIONING_IDSCOPE")
+        self.registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
         self.symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
-        await self.create_dps_client(provisioning_host, registration_id, id_scope)
+
+        await self.create_dps_client()
 
         tasks = [
-            asyncio.create_task(self.register()),
+            asyncio.create_task(self.register_loop()),
+            asyncio.create_task(self.if_disconnected_then_connect_with_retry()),
+            asyncio.create_task(self.wait_for_connect_and_send_telemetry()),
         ]
 
         pending = []
