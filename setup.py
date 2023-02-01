@@ -82,6 +82,7 @@ setup(
         "paho-mqtt>=1.6.1,<2.0.0",
         "requests>=2.20.0,<3.0.0",
         "requests-unixsocket>=0.1.5,<1.0.0",
+        "typing-extensions>=4.4.0,<5.0",
         "janus",
         "PySocks",
     ],

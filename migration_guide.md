@@ -30,6 +30,8 @@ Note also that this change does *not* affect automatic reconnection attempts in 
 ## Receiving data from IoTHub
 Similarly to the above, there is an additional explicit step you must now make when trying to receive data. In addition to setting your handler, you must explicitly start/stop receiving. Note also that the above step of manually connecting must also be done before starting to receive data.
 
+Furthermore, note that the content of the message is now referred to by the 'payload' attribute on the message, rather than the 'data' attribute.
+
 ### V2
 ```python
 from azure.iot.device import IoTHubDeviceClient
@@ -55,8 +57,8 @@ client = IoTHubDeviceClient.create_from_connection_string("<Your Connection Stri
 
 # define behavior for receiving a message
 def message_handler(message):
-    print("the data in the message received was ")
-    print(message.data)
+    print("the payload of the message received was ")
+    print(message.payload)
     print("custom properties are")
     print(message.custom_properties)
 

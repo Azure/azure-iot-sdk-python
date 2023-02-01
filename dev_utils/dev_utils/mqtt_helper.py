@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 """Temporary module used to help set up transport for manual testing"""
+# TODO: remove this when not testing at MQTT level
 import ssl
 import logging
 import urllib
