@@ -22,7 +22,7 @@ LOG_ROTATION_INTERVAL = 3600
 # How many logs to keep before recycling
 LOG_BACKUP_COUNT = 6
 # Directory for storing log files
-LOG_DIRECTORY = "./logs"
+LOG_DIRECTORY = "./logs/iothub-delete"
 
 # Prepare the log directory
 os.makedirs(LOG_DIRECTORY, exist_ok=True)
@@ -87,9 +87,7 @@ class Application(object):
     async def create_client(self, conn_str):
         try:
             # Create a Device Client
-            self.device_client = IoTHubDeviceClient.create_from_connection_string(
-                conn_str
-            )
+            self.device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
             # Attach the connection state handler
             self.device_client.on_connection_state_change = self.handle_on_connection_state_change
         except Exception as e:

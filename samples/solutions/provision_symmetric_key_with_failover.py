@@ -11,15 +11,18 @@ from azure.iot.device import Message
 import logging.handlers
 import glob
 import os
+import traceback
 
 # The interval at which to check for registrations
 MONITOR_TIME_BETWEEN_SUCCESS_ASSIGNMENTS = 1800
 # The interval at which to send telemetry
-TELEMETRY_INTERVAL = 5
-# Initial interval in seconds between consecutive connection attempts
-SLEEP_TIME_BETWEEN_REGISTRATIONS = 10
+TELEMETRY_INTERVAL = 10
+# Interval in seconds between to check if device was provisioned to some hub
+SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION = 10
+# Initial interval in seconds between consecutive connection attempts in case of error
+INITIAL_SLEEP_TIME_BETWEEN_CONNECTION_ATTEMPTS = 3
 # Threshold for retrying connection attempts after which the app will error
-THRESHOLD_FOR_RETRY_CONNECTION = 7200
+THRESHOLD_FOR_RETRY_CONNECTION = 81
 # Interval for rotating logs, in seconds
 LOG_ROTATION_INTERVAL = 3600
 # How many logs to keep before recycling
@@ -80,7 +83,7 @@ class Application(object):
         self.iothub_assignment_sucess_event = asyncio.Event()
         # Baseline that device has not been assigned
         self.iothub_assignment_fail_event.set()
-        # Baseline that device has not been connected as well
+        # Baseline that device has not been connected
         self.disconnected_event.set()
 
         self.provisioning_host = None
@@ -98,7 +101,7 @@ class Application(object):
         # This will increase with iteration
         self.retry_increase_factor = 1
         # The nth number for attempting connection
-        self.sleep_time_between_conns = SLEEP_TIME_BETWEEN_REGISTRATIONS
+        self.sleep_time_between_conns = INITIAL_SLEEP_TIME_BETWEEN_CONNECTION_ATTEMPTS
         self.try_number = 1
 
     async def create_dps_client(self):
@@ -121,8 +124,10 @@ class Application(object):
             self.disconnected_event.clear()
             self.connected_event.set()
 
+            # Reset the power factor, sleep time and the try number to what it was originally
+            # on every successful connection.
             self.retry_increase_factor = 1
-            self.sleep_time_between_conns = SLEEP_TIME_BETWEEN_REGISTRATIONS
+            self.sleep_time_between_conns = INITIAL_SLEEP_TIME_BETWEEN_CONNECTION_ATTEMPTS
             self.try_number = 1
         else:
             self.log_info_and_print("Disconnected connected_event is set...")
@@ -136,6 +141,11 @@ class Application(object):
     def log_info_and_print(self, s):
         logger.info(s)
         print(s)
+
+    def print_stacktrace(self, exc):
+        self.log_error_and_print("".join(traceback.format_stack()))
+        if hasattr(exc, "message"):
+            self.log_error_and_print(exc.message)
 
     async def register_loop(self):
         while True:
@@ -162,23 +172,25 @@ class Application(object):
                             "IoTHub via the registration process.Will try registration "
                             "again after some time..."
                         )
-                        await asyncio.sleep(SLEEP_TIME_BETWEEN_REGISTRATIONS)
+                        await asyncio.sleep(SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION)
                         self.iothub_assignment_fail_event.set()
                         self.iothub_assignment_sucess_event.clear()
                 except Exception as e:
                     self.log_error_and_print(
                         "Registration process failed because of error {}".format(get_type_name(e))
                     )
+                    self.print_stacktrace(e)
                     raise Exception(
                         "Caught an unrecoverable error that needs to be "
                         "fixed from user end while registering. Will exit application..."
                     )
+
                     # if self.is_assignment_failure(e):
                     #     self.log_error_and_print("Registration had error out and device was not assigned correctly to "
                     #                              "an IoTHub via the registration process.Will try registration "
                     #                              "again after some time...")
                     #     self.iothub_assignment_fail_event.set()
-                    #     await asyncio.sleep(SLEEP_TIME_BETWEEN_REGISTRATIONS)
+                    #     await asyncio.sleep(SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION)
                     # else:
                     #     self.log_error_and_print("Caught an unrecoverable error that needs to be "
                     #                              "fixed from user end while registering. Will exit application...")
@@ -244,7 +256,14 @@ class Application(object):
             if self.exit_app_event.is_set():
                 self.log_info_and_print("Exiting while connected")
                 return
-            if self.iothub_client and not self.iothub_client.connected:
+            if not self.iothub_client:
+                # Time to check if device has been provisioned
+                self.log_info_and_print(
+                    "IoTHub client is still nonexistent for establishing connection."
+                    "Will check after {} secs...".format(SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION)
+                )
+                await asyncio.sleep(SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION)
+            elif not self.iothub_client.connected:
                 try:
                     self.log_info_and_print(
                         "Attempting to connect the device client try number {}....".format(
@@ -286,6 +305,7 @@ class Application(object):
                             get_type_name(e), sleep_time
                         )
                     )
+                    self.print_stacktrace(e)
                     self.retry_increase_factor += 1
                     self.try_number += 1
                     await asyncio.sleep(sleep_time)
@@ -294,15 +314,14 @@ class Application(object):
         message_id = 0
         while True:
             if not self.iothub_client:
-                # Time to check if iothub client has been registered
+                # Time to check if device has been provisioned
                 self.log_info_and_print(
-                    "IoTHub client is still nonexistent. Will check after some time..."
+                    "IoTHub client is still nonexistent for telemetry. "
+                    "Will check after {} secs...".format(SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION)
                 )
-                await asyncio.sleep(SLEEP_TIME_BETWEEN_REGISTRATIONS)
+                await asyncio.sleep(SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION)
             elif not self.iothub_client.connected:
-                self.log_info_and_print(
-                    "IoTHub client is still existent. But waiting for connection ..."
-                )
+                self.log_info_and_print("IoTHub client is existent. But waiting for connection ...")
                 await self.connected_event.wait()
             else:
                 try:
@@ -310,7 +329,7 @@ class Application(object):
                     msg = Message("current wind speed ")
                     msg.message_id = message_id
                     msg.content_type = "application/json"
-                    self.log_info_and_print("Created a message...")
+                    self.log_info_and_print("Created a message with id {}...".format(message_id))
                     await self.iothub_client.send_message(msg)
                     self.log_info_and_print("sent message")
                     await asyncio.sleep(TELEMETRY_INTERVAL)
@@ -318,6 +337,7 @@ class Application(object):
                     self.log_error_and_print(
                         "Caught exception while trying to send message: {}".format(get_type_name(e))
                     )
+                    self.print_stacktrace(e)
 
             if self.exit_app_event.is_set():
                 return
