@@ -30,6 +30,7 @@ DEFAULT_TOKEN_UPDATE_MARGIN = 120
 # TODO: add exceptions to docstring
 # TODO: background exceptions how
 # TODO: non-background exceptions
+# TODO: error handling in generators
 
 
 class IoTHubError(Exception):
@@ -54,6 +55,7 @@ class IoTHubMQTTClient:
         self._module_id = client_config.module_id
 
         # Sastoken Auth
+        # TODO: Should this be handled by a separate utility? Would make testing easier, and would abstract out the difference
         self._sastoken: Optional[st.SasToken]
         self._sastoken_update_alarm: Optional[alarm.Alarm]
         if client_config.sastoken is not None:
@@ -126,6 +128,7 @@ class IoTHubMQTTClient:
         self._twin_responses_enabled = True
         logger.debug("Twin responses receive enabled")
 
+    # TODO: add background exception handling
     async def _process_twin_responses(self) -> None:
         """Run indefinitely, matching twin responses with request ID"""
         logger.debug("Starting twin response listener")
@@ -239,54 +242,64 @@ class IoTHubMQTTClient:
             await self._enable_twin_responses()
 
         request = await self._request_ledger.create_request()
-        topic = mqtt_topic.get_twin_topic_for_publish(
-            method="PATCH", resource_location="/properties/reported", request_id=request.request_id
-        )
-
-        # Send the patch to IoTHub
         try:
-            logger.debug("Sending twin patch to IoTHub... (rid: {})".format(request.request_id))
-            await self._mqtt_client.publish(topic, json.dumps(patch))
-        except asyncio.CancelledError:
-            logger.warning(
-                "Attempt to send twin patch to IoTHub was cancelled while in flight. It may or may not have been received (rid: {})".format(
-                    request.request_id
-                )
+            topic = mqtt_topic.get_twin_topic_for_publish(
+                method="PATCH",
+                resource_location="/properties/reported",
+                request_id=request.request_id,
             )
-            await self._request_ledger.delete_request(request.request_id)
-            raise
-        except Exception:
-            logger.error("Sending twin patch to IoTHub failed (rid: {})".format(request.request_id))
-            await self._request_ledger.delete_request(request.request_id)
-            raise
 
-        # Wait for a response from IoTHub
-        try:
-            logger.debug(
-                "Waiting for response to the twin patch from IoTHub... (rid: {})".format(
-                    request.request_id
+            # Send the patch to IoTHub
+            try:
+                logger.debug("Sending twin patch to IoTHub... (rid: {})".format(request.request_id))
+                await self._mqtt_client.publish(topic, json.dumps(patch))
+            except asyncio.CancelledError:
+                logger.warning(
+                    "Attempt to send twin patch to IoTHub was cancelled while in flight. It may or may not have been received (rid: {})".format(
+                        request.request_id
+                    )
                 )
-            )
-            response = await request.get_response()
-        except asyncio.CancelledError:
-            logger.debug(
-                "Attempt to send twin patch to IoTHub was cancelled while waiting for response. If the response arrives, it will be discarded (rid: {})".format(
-                    request.request_id
+                raise
+            except Exception:
+                logger.error(
+                    "Sending twin patch to IoTHub failed (rid: {})".format(request.request_id)
                 )
-            )
-            await self._request_ledger.delete_request(request.request_id)
-            raise
+                raise
 
-        logger.debug(
-            "Received twin patch response with status {} (rid: {})".format(
-                response.status, request.request_id
+            # Wait for a response from IoTHub
+            try:
+                logger.debug(
+                    "Waiting for response to the twin patch from IoTHub... (rid: {})".format(
+                        request.request_id
+                    )
+                )
+                response = await request.get_response()
+            except asyncio.CancelledError:
+                logger.debug(
+                    "Attempt to send twin patch to IoTHub was cancelled while waiting for response. If the response arrives, it will be discarded (rid: {})".format(
+                        request.request_id
+                    )
+                )
+                raise
+
+            # Interpret response
+            logger.debug(
+                "Received twin patch response with status {} (rid: {})".format(
+                    response.status, request.request_id
+                )
             )
-        )
-        # TODO: should body be logged? Is there useful info there?
-        if response.status != 200:
-            raise IoTHubError(
-                "IoTHub responded to twin patch with a failed status - {}".format(response.status)
-            )
+            # TODO: should body be logged? Is there useful info there?
+            if response.status != 200:
+                raise IoTHubError(
+                    "IoTHub responded to twin patch with a failed status - {}".format(
+                        response.status
+                    )
+                )
+        finally:
+            # If an exception caused exit before a pending request could be matched with a response
+            # then manually delete to prevent leaks.
+            if request.request_id in self._request_ledger:
+                await self._request_ledger.delete_request(request.request_id)
 
     async def get_twin(self) -> Twin:
         """Request a full twin from IoTHub
@@ -301,46 +314,50 @@ class IoTHubMQTTClient:
             await self._enable_twin_responses()
 
         request = await self._request_ledger.create_request()
-        topic = mqtt_topic.get_twin_topic_for_publish(
-            method="GET", resource_location="/", request_id=request.request_id
-        )
-
-        # Send the twin request to IoTHub
         try:
-            logger.debug(
-                "Sending get twin request to IoTHub... (rid: {})".format(request.request_id)
+            topic = mqtt_topic.get_twin_topic_for_publish(
+                method="GET", resource_location="/", request_id=request.request_id
             )
-            await self._mqtt_client.publish(topic, " ")
-        except asyncio.CancelledError:
-            logger.warning(
-                "Attempt to send get twin request to IoTHub was cancelled while in flight. It may or may not have been received (rid: {})".format(
-                    request.request_id
-                )
-            )
-            await self._request_ledger.delete_request(request.request_id)
-            raise
-        except Exception:
-            logger.error(
-                "Sending get twin request to IoTHub failed (rid: {})".format(request.request_id)
-            )
-            await self._request_ledger.delete_request(request.request_id)
-            raise
 
-        # Wait for a response from IoTHub
-        try:
-            logger.debug(
-                "Waiting to receive twin from IoTHub... (rid: {})".format(request.request_id)
-            )
-            response = await request.get_response()
-        except asyncio.CancelledError:
-            logger.debug(
-                "Attempt to get twin from IoTHub was cancelled while waiting for a response. If the response arrives, it will be discarded (rid: {})".format(
-                    request.request_id
+            # Send the twin request to IoTHub
+            try:
+                logger.debug(
+                    "Sending get twin request to IoTHub... (rid: {})".format(request.request_id)
                 )
-            )
-            await self._request_ledger.delete_request(request.request_id)
-            raise
+                await self._mqtt_client.publish(topic, " ")
+            except asyncio.CancelledError:
+                logger.warning(
+                    "Attempt to send get twin request to IoTHub was cancelled while in flight. It may or may not have been received (rid: {})".format(
+                        request.request_id
+                    )
+                )
+                raise
+            except Exception:
+                logger.error(
+                    "Sending get twin request to IoTHub failed (rid: {})".format(request.request_id)
+                )
+                raise
 
+            # Wait for a response from IoTHub
+            try:
+                logger.debug(
+                    "Waiting to receive twin from IoTHub... (rid: {})".format(request.request_id)
+                )
+                response = await request.get_response()
+            except asyncio.CancelledError:
+                logger.debug(
+                    "Attempt to get twin from IoTHub was cancelled while waiting for a response. If the response arrives, it will be discarded (rid: {})".format(
+                        request.request_id
+                    )
+                )
+                raise
+        finally:
+            # If an exception caused exit before a pending request could be matched with a response
+            # then manually delete to prevent leaks.
+            if request.request_id in self._request_ledger:
+                await self._request_ledger.delete_request(request.request_id)
+
+        # Interpret response
         if response.status != 200:
             raise IoTHubError(
                 "IoTHub responded to get twin request with a failed status - {}".format(

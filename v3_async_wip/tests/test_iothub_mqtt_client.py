@@ -1157,13 +1157,13 @@ class TestIoTHubMQTTClientSendTwinPatch:
         # Override autocompletion behavior on publish (we don't want it here)
         client._mqtt_client.publish = mocker.AsyncMock()
 
-        # Mock out the ledger to return a specific request that will hang when getting a response
+        # Mock Request creation to return a specific, mocked request that hangs on
+        # awaiting a Response
         request = rr.Request()
         request.get_response = custom_mock.HangingAsyncMock()
-        mock_create_request = mocker.patch.object(
-            client._request_ledger, "create_request", return_value=request
-        )
-        mock_delete_request = mocker.patch.object(client._request_ledger, "delete_request")
+        mocker.patch.object(rr, "Request", return_value=request)
+        spy_create_request = mocker.spy(client._request_ledger, "create_request")
+        spy_delete_request = mocker.spy(client._request_ledger, "delete_request")
 
         send_task = asyncio.create_task(client.send_twin_patch(twin_patch))
 
@@ -1172,9 +1172,9 @@ class TestIoTHubMQTTClientSendTwinPatch:
         assert not send_task.done()
 
         # Request was created, but not yet deleted
-        assert mock_create_request.await_count == 1
-        assert mock_create_request.await_args == mocker.call()
-        assert mock_delete_request.await_count == 0
+        assert spy_create_request.await_count == 1
+        assert spy_create_request.await_args == mocker.call()
+        assert spy_delete_request.await_count == 0
 
         # Cancel
         send_task.cancel()
@@ -1182,8 +1182,8 @@ class TestIoTHubMQTTClientSendTwinPatch:
             await send_task
 
         # The Request that was created was also deleted
-        assert mock_delete_request.await_count == 1
-        assert mock_delete_request.await_args == mocker.call(request.request_id)
+        assert spy_delete_request.await_count == 1
+        assert spy_delete_request.await_args == mocker.call(request.request_id)
 
 
 @pytest.mark.describe("IoTHubMQTTClient - .get_twin()")
@@ -1479,13 +1479,13 @@ class TestIoTHubMQTTClientGetTwin:
         # Override autocompletion behavior on publish (we don't want it here)
         client._mqtt_client.publish = mocker.AsyncMock()
 
-        # Mock out the ledger to return a specific request that will hang when getting a response
+        # Mock Request creation to return a specific, mocked request that hangs on
+        # awaiting a Response
         request = rr.Request()
         request.get_response = custom_mock.HangingAsyncMock()
-        mock_create_request = mocker.patch.object(
-            client._request_ledger, "create_request", return_value=request
-        )
-        mock_delete_request = mocker.patch.object(client._request_ledger, "delete_request")
+        mocker.patch.object(rr, "Request", return_value=request)
+        spy_create_request = mocker.spy(client._request_ledger, "create_request")
+        spy_delete_request = mocker.spy(client._request_ledger, "delete_request")
 
         send_task = asyncio.create_task(client.get_twin())
 
@@ -1494,9 +1494,9 @@ class TestIoTHubMQTTClientGetTwin:
         assert not send_task.done()
 
         # Request was created, but not yet deleted
-        assert mock_create_request.await_count == 1
-        assert mock_create_request.await_args == mocker.call()
-        assert mock_delete_request.await_count == 0
+        assert spy_create_request.await_count == 1
+        assert spy_create_request.await_args == mocker.call()
+        assert spy_delete_request.await_count == 0
 
         # Cancel
         send_task.cancel()
@@ -1504,8 +1504,8 @@ class TestIoTHubMQTTClientGetTwin:
             await send_task
 
         # The Request that was created was also deleted
-        assert mock_delete_request.await_count == 1
-        assert mock_delete_request.await_args == mocker.call(request.request_id)
+        assert spy_delete_request.await_count == 1
+        assert spy_delete_request.await_args == mocker.call(request.request_id)
 
 
 class IoTHubMQTTClientEnableReceiveTest(abc.ABC):

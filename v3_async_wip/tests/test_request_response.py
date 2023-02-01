@@ -190,3 +190,26 @@ class TestRequestLedger:
         resp2 = Response(request_id=req2.request_id, status=fake_status, body=fake_body)
         await ledger.match_response(resp2)
         assert len(ledger.pending) == len(ledger) == 0
+
+    @pytest.mark.it("Implements support for identifying if a request_id is currently pending")
+    async def test_contains(self, ledger):
+        assert len(ledger) == 0
+
+        req1 = await ledger.create_request()
+        assert len(ledger) == 1
+        assert req1.request_id in ledger
+        req2 = await ledger.create_request()
+        assert len(ledger) == 2
+        assert req2.request_id in ledger
+
+        # Remove req1 from ledger by matching
+        resp = Response(request_id=req1.request_id, status=fake_status, body=fake_body)
+        await ledger.match_response(resp)
+        assert len(ledger) == 1
+        assert req1.request_id not in ledger
+        assert req2.request_id in ledger
+
+        # Remove req2 from ledger by deletion
+        await ledger.delete_request(req2.request_id)
+        assert len(ledger) == 0
+        assert req2.request_id not in ledger

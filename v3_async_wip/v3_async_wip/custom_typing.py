@@ -4,12 +4,19 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from typing import Union, Dict, List, Tuple, Any
+from typing import Union, Dict, List, Tuple
 
-# typing does not support recursion, so unfortunately, we have to use Any for elements of
-# collections rather than another reference to JSONSerializable. This means that this type isn't
-# exactly accurate, as some nested object that can't be serialized would pass static analysis
-JSONSerializable = Union[Dict[str, Any], List[Any], Tuple[Any, ...], str, int, float, bool, None]
+# typing does not support recursion, so we must use forward references here (PEP484)
+JSONSerializable = Union[
+    Dict[str, "JSONSerializable"],
+    List["JSONSerializable"],
+    Tuple["JSONSerializable", ...],
+    str,
+    int,
+    float,
+    bool,
+    None,
+]
 # TODO: verify that the JSON specification requires str as keys in dict. Not sure why that's defined here.
 
 Twin = Dict[str, Dict[str, JSONSerializable]]

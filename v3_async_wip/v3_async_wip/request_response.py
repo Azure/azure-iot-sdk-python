@@ -33,6 +33,9 @@ class RequestLedger:
     def __len__(self) -> int:
         return len(self.pending)
 
+    def __contains__(self, request_id):
+        return request_id in self.pending
+
     async def create_request(self) -> Request:
         request = Request()
         async with self.lock:
