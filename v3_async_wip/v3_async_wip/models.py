@@ -8,8 +8,10 @@ from typing import Optional, Dict
 from .custom_typing import JSONSerializable
 from . import constant
 
+# TODO: json docs
 
-class Message(object):
+
+class Message:
     """Represents a message to or from IoTHub
 
     :ivar payload: The data that constitutes the payload
@@ -32,7 +34,7 @@ class Message(object):
         content_encoding: Optional[str] = None,
         content_type: Optional[str] = None,
         output_name: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initializer for Message
 
@@ -93,7 +95,7 @@ class Message(object):
         return total
 
 
-class MethodRequest(object):
+class MethodRequest:
     """Represents a request to invoke a direct method.
 
     :ivar str request_id: The request id.
@@ -102,7 +104,7 @@ class MethodRequest(object):
     :type payload: dict, str, int, float, bool, or None (JSON compatible values)
     """
 
-    def __init__(self, request_id: str, name: str, payload: JSONSerializable):
+    def __init__(self, request_id: str, name: str, payload: JSONSerializable) -> None:
         """Initializer for a MethodRequest.
 
         :param str request_id: The request id.
@@ -115,7 +117,7 @@ class MethodRequest(object):
         self.payload = payload
 
 
-class MethodResponse(object):
+class MethodResponse:
     """Represents a response to a direct method.
 
     :ivar str request_id: The request id of the MethodRequest being responded to.
@@ -124,7 +126,7 @@ class MethodResponse(object):
     :type payload: dict, str, int, float, bool, or None (JSON compatible values)
     """
 
-    def __init__(self, request_id: str, status: int, payload: JSONSerializable = None):
+    def __init__(self, request_id: str, status: int, payload: JSONSerializable = None) -> None:
         """Initializer for MethodResponse.
 
         :param str request_id: The request id of the MethodRequest being responded to.

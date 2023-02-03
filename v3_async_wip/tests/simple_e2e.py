@@ -24,7 +24,7 @@ CONNECTION_STRING = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 HOSTNAME = mqtt_helper.get_hostname(CONNECTION_STRING)
 
 
-class Dropper(object):
+class Dropper:
     def __init__(self, transport):
         self.transport = transport
 

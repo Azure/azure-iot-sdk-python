@@ -11,10 +11,9 @@ import urllib.parse
 from typing import Optional, AsyncGenerator
 from .custom_typing import TwinPatch, Twin
 from .models import Message, MethodResponse, MethodRequest
-from . import config, constant
+from . import config, constant, user_agent
 from . import request_response as rr
 from . import mqtt_client as mqtt
-from azure.iot.device import user_agent  # type: ignore
 from azure.iot.device.iothub.pipeline import mqtt_topic_iothub as mqtt_topic  # type: ignore
 from azure.iot.device.common.auth import sastoken as st  # type: ignore
 from azure.iot.device.common import alarm  # type: ignore

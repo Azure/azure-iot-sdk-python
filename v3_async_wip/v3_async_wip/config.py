@@ -12,6 +12,7 @@ from azure.iot.device.common.auth import sastoken as st  # type: ignore
 
 # TODO: add typings for imports
 # TODO: update docs to ensure types are correct
+# TODO: can these just be TypeDicts?
 
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ string_to_socks_constant_map = {"HTTP": socks.HTTP, "SOCKS4": socks.SOCKS4, "SOC
 socks_constant_to_string_map = {socks.HTTP: "HTTP", socks.SOCKS4: "SOCKS4", socks.SOCKS5: "SOCKS5"}
 
 
-class ProxyOptions(object):
+class ProxyOptions:
     """
     A class containing various options to send traffic through proxy servers by enabling
     proxying of MQTT connection.
