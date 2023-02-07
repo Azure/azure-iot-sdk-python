@@ -4,9 +4,9 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-from azure.iot.device import user_agent
+from v3_async_wip import user_agent
 import platform
-from azure.iot.device.constant import VERSION, IOTHUB_IDENTIFIER, PROVISIONING_IDENTIFIER
+from v3_async_wip.constant import VERSION, IOTHUB_IDENTIFIER, PROVISIONING_IDENTIFIER
 
 
 check_agent_format = (
@@ -15,7 +15,7 @@ check_agent_format = (
 
 
 @pytest.mark.describe(".get_iothub_user_agent()")
-class TestGetIothubUserAgent(object):
+class TestGetIothubUserAgent:
     @pytest.mark.it(
         "Returns a user agent string formatted for IoTHub, containing python version, operating system and architecture of the system"
     )
@@ -40,7 +40,7 @@ class TestGetIothubUserAgent(object):
 
 
 @pytest.mark.describe(".get_provisioning_user_agent()")
-class TestGetProvisioningUserAgent(object):
+class TestGetProvisioningUserAgent:
     @pytest.mark.it(
         "Returns a user agent string formatted for the Provisioning Service, containing python version, operating system and architecture of the system"
     )

@@ -116,6 +116,85 @@ class TestMessage:
         msg.set_as_security_message()
         assert msg.iothub_interface_id == constant.SECURITY_MESSAGE_INTERFACE_ID
 
+    # NOTE: This test tests all system properties, even though they shouldn't all be present simultaneously
+    @pytest.mark.it("Can return the system properties set on the Message as a dictionary via API")
+    def test_system_properties_dict_all(self):
+        msg = Message("some message")
+        msg.message_id = "message id"
+        msg.content_encoding = "application/json"
+        msg.content_type = "utf-16"
+        msg.output_name = "output name"
+        msg._iothub_interface_id = "interface id"
+        msg.input_name = "input name"
+        msg.ack = "value"
+        msg.expiry_time_utc = "time"
+        msg.user_id = "user id"
+        msg.correlation_id = "correlation id"
+        sys_prop = msg.get_system_properties_dict()
+
+        assert sys_prop["$.mid"] == msg.message_id
+        assert sys_prop["$.ce"] == msg.content_encoding
+        assert sys_prop["$.ct"] == msg.content_type
+        assert sys_prop["$.on"] == msg.output_name
+        assert sys_prop["$.ifid"] == msg._iothub_interface_id
+        assert sys_prop["$.to"] == msg.input_name
+        assert sys_prop["iothub-ack"] == msg.ack
+        assert sys_prop["$.exp"] == msg.expiry_time_utc
+        assert sys_prop["$.uid"] == msg.user_id
+        assert sys_prop["$.cid"] == msg.correlation_id
+
+    @pytest.mark.it(
+        "Only contains the system properties present on the Message in the system properties dictionary"
+    )
+    def test_system_properties_dict_partial(self):
+        msg = Message("some message")
+        msg.message_id = "message id"
+        sys_prop = msg.get_system_properties_dict()
+        assert len(sys_prop) == 1
+        assert sys_prop["$.mid"] == msg.message_id
+
+    # NOTE: This test tests all system properties, even though they shouldn't all be present simultaneously
+    @pytest.mark.it("Can be instantiated from a properties dictionary")
+    @pytest.mark.parametrize(
+        "custom_properties",
+        [
+            pytest.param({}, id="System Properties Only"),
+            pytest.param(
+                {"cust1": "v1", "cust2": "v2"}, id="System Properties and Custom Properties"
+            ),
+        ],
+    )
+    def test_create_from_dict(self, custom_properties):
+        system_properties = {
+            "$.mid": "message id",
+            "$.ce": "application/json",
+            "$.ct": "utf-16",
+            "$.on": "output name",
+            "$.ifid": "interface id",
+            "$.to": "input name",
+            "iothub-ack": "value",
+            "$.exp": "time",
+            "$.uid": "user id",
+            "$.cid": "correlation id",
+        }
+        properties = dict(system_properties)
+        properties.update(custom_properties)
+        message = Message.create_from_properties_dict("some payload", properties)
+
+        assert message.message_id == system_properties["$.mid"]
+        assert message.content_encoding == system_properties["$.ce"]
+        assert message.content_type == system_properties["$.ct"]
+        assert message.output_name == system_properties["$.on"]
+        assert message._iothub_interface_id == system_properties["$.ifid"]
+        assert message.input_name == system_properties["$.to"]
+        assert message.ack == system_properties["iothub-ack"]
+        assert message.expiry_time_utc == system_properties["$.exp"]
+        assert message.user_id == system_properties["$.uid"]
+        assert message.correlation_id == system_properties["$.cid"]
+
+        for key in custom_properties:
+            assert message.custom_properties[key] == custom_properties[key]
+
 
 @pytest.mark.describe("MethodRequest")
 class TestMethodRequest:

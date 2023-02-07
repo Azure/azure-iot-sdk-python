@@ -34,7 +34,7 @@ class ProxyOptions:
     def __init__(
         self,
         proxy_type: str,
-        proxy_addr: str,
+        proxy_address: str,
         proxy_port: int,
         proxy_username: Optional[str] = None,
         proxy_password: Optional[str] = None,
@@ -48,11 +48,11 @@ class ProxyOptions:
          If it is not provided, authentication will not be used (servers may accept unauthenticated requests).
         :param str proxy_password: (optional) This parameter is valid only for SOCKS5 servers and specifies the respective password for the username provided.
         """
-        (self._proxy_type, self._proxy_type_socks) = _format_proxy_type(proxy_type)
-        self._proxy_addr = proxy_addr
-        self._proxy_port = int(proxy_port)
-        self._proxy_username = proxy_username
-        self._proxy_password = proxy_password
+        (self.proxy_type, self.proxy_type_socks) = _format_proxy_type(proxy_type)
+        self.proxy_address = proxy_address
+        self.proxy_port = int(proxy_port)
+        self.proxy_username = proxy_username
+        self.proxy_password = proxy_password
 
 
 class ClientConfig:

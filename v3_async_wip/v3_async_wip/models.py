@@ -3,12 +3,13 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import sys
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from .custom_typing import JSONSerializable
 from . import constant
 
 # TODO: json docs
+
+# TODO: only valid content encodings are utf-7, utf-16, utf-32
 
 
 class Message:
@@ -49,22 +50,25 @@ class Message:
         self.message_id = message_id
         self.content_encoding = content_encoding
         self.content_type = content_type  # TODO: is this supposed to have a default?
-        self.custom_properties: Dict[str, str] = {}
+        self.custom_properties: Dict[str, Any] = {}  # TODO: do tests cover any?
 
-        # D2C Messages
+        # Outgoing Messages (D2C/Output)
         self.output_name = output_name
 
-        # C2D Messages
+        # Incoming Messages (C2D/Input)
         # NOTE: These are not settable via the __init__ since the end user does not create
         # C2D Messages, they are only created internally
         self.input_name: Optional[str] = None
         self.ack: Optional[str] = None
-        self.expiry_time_utc: Optional[str] = None
+        self.expiry_time_utc: Optional[str] = None  # TODO: what is this type?
         self.user_id: Optional[str] = None
         self.correlation_id: Optional[str] = None
 
-        # Internal
+        # Internal  # TODO: is this just for outgoing?
         self._iothub_interface_id: Optional[str] = None
+
+    def __str__(self) -> str:
+        return str(self.payload)
 
     @property
     def iothub_interface_id(self):
@@ -76,23 +80,71 @@ class Message:
         """
         self._iothub_interface_id = constant.SECURITY_MESSAGE_INTERFACE_ID
 
-    def __str__(self) -> str:
-        return str(self.payload)
+    def get_system_properties_dict(self) -> Dict[str, str]:
+        """Return a dictionary of system properties"""
+        d = {}
+        # All messages
+        if self.message_id:
+            d["$.mid"] = self.message_id
+        if self.content_encoding:
+            d["$.ce"] = self.content_encoding
+        if self.content_type:
+            d["$.ct"] = self.content_type
+        # Outgoing Messages (D2C/Output)
+        if self.output_name:
+            d["$.on"] = self.output_name
+        if self._iothub_interface_id:
+            d["$.ifid"] = self._iothub_interface_id
+        # Incoming Messages (C2D/Input)
+        if self.input_name:
+            d["$.to"] = self.input_name
+        if self.ack:
+            d["iothub-ack"] = self.ack
+        if self.expiry_time_utc:
+            d["$.exp"] = self.expiry_time_utc
+        if self.user_id:
+            d["$.uid"] = self.user_id
+        if self.correlation_id:
+            d["$.cid"] = self.correlation_id
+        return d
 
-    def get_size(self) -> int:
-        # TODO: this isn't actually accurate for what we use it for.
-        # Should we just remove it?
-        total = 0
-        total = total + sum(
-            sys.getsizeof(v)
-            for v in self.__dict__.values()
-            if v is not None and v is not self.custom_properties
-        )
-        if self.custom_properties:
-            total = total + sum(
-                sys.getsizeof(v) for v in self.custom_properties.values() if v is not None
-            )
-        return total
+    @classmethod
+    # TODO: should this just replace the __init__?
+    def create_from_properties_dict(
+        cls, payload: JSONSerializable, properties: Dict[str, Optional[str]]
+    ) -> "Message":
+        message = cls(payload)
+
+        for key in properties:
+            # All messages
+            if key == "$.mid":
+                message.message_id = properties[key]
+            elif key == "$.ce":
+                message.content_encoding = properties[key]
+            elif key == "$.ct":
+                message.content_type = properties[key]
+            # D2C Messages
+            elif key == "$.on":
+                message.output_name = properties[key]
+            elif key == "$.ifid":
+                message._iothub_interface_id = properties[key]
+            # C2D Messages
+            elif key == "$.to":
+                message.input_name = properties[key]
+            elif key == "iothub-ack":
+                message.ack = properties[key]
+            elif key == "$.exp":
+                message.expiry_time_utc = properties[key]
+            elif key == "$.uid":
+                message.user_id = properties[key]
+            elif key == "$.cid":
+                message.correlation_id = properties[key]
+            else:
+                message.custom_properties[key] = properties[key]
+
+        # TODO: should there be a default encoding type?
+
+        return message
 
 
 class MethodRequest:
