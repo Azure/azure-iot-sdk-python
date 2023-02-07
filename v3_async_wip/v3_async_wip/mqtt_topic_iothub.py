@@ -6,7 +6,7 @@
 
 import logging
 import urllib.parse
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -130,10 +130,13 @@ def get_twin_patch_topic_for_publish(request_id: str) -> str:
     )
 
 
+# TODO: ensure valueless key support
+
+
 def insert_message_properties_in_topic(
     topic: str,
     system_properties: Dict[str, str],
-    custom_properties: Dict[str, Any],
+    custom_properties: Dict[str, str],
 ) -> str:
     """
     URI encode system and custom properties into a message topic.
@@ -157,7 +160,7 @@ def insert_message_properties_in_topic(
     return topic
 
 
-def extract_properties_from_message_topic(topic: str) -> Dict[str, Optional[str]]:
+def extract_properties_from_message_topic(topic: str) -> Dict[str, str]:
     """
     Extract key=value pairs from an incoming message topic, returning them as a dictionary.
     If a key has no matching value, the value will be set to None.
@@ -259,16 +262,14 @@ def extract_request_id_from_twin_response_topic(topic: str) -> str:
         raise ValueError("topic has incorrect format")
 
 
-def _extract_properties(properties_str: str) -> Dict[str, Optional[str]]:
+def _extract_properties(properties_str: str) -> Dict[str, str]:
     """Return a dictionary of properties from a string in the format
     {key1}={value1}&{key2}={value2}...&{keyn}={valuen}
 
     For extracting values corresponding to keys the following rules are followed:-
-    If there is NO "=", the value is None
-    If there is "=" with no value, the value is an empty string
-    For anything else, the value after "=" and before `&` is considered as the proper value
+    If there is a just a key with no "=", the value is an empty string
     """
-    d: Dict[str, Optional[str]] = {}
+    d: Dict[str, str] = {}
     if len(properties_str) == 0:
         # There are no properties, return empty
         return d
@@ -282,7 +283,7 @@ def _extract_properties(properties_str: str) -> Dict[str, Optional[str]]:
             value = urllib.parse.unquote(pair[1])
         else:
             # Key with no value -> value = None
-            value = None
+            value = ""
         d[key] = value
 
     return d

@@ -542,16 +542,6 @@ class TestExtractPropertiesFromMessageTopic:
         properties = mqtt_topic_iothub.extract_properties_from_message_topic(topic)
         assert properties == expected_property_dict
 
-    @pytest.mark.it(
-        "Maps the extracted key to value of None if there is no corresponding value present"
-    )
-    def test_key_only(self, message_topic_base):
-        property_string = "key1&key2&key3=value"
-        expected_property_dict = {"key1": None, "key2": None, "key3": "value"}
-        topic = message_topic_base + property_string
-        properties = mqtt_topic_iothub.extract_properties_from_message_topic(topic)
-        assert properties == expected_property_dict
-
     @pytest.mark.it("Supports empty string in properties")
     @pytest.mark.parametrize(
         "property_string, expected_property_dict",
@@ -561,6 +551,16 @@ class TestExtractPropertiesFromMessageTopic:
         ],
     )
     def test_empty_string(self, message_topic_base, property_string, expected_property_dict):
+        topic = message_topic_base + property_string
+        properties = mqtt_topic_iothub.extract_properties_from_message_topic(topic)
+        assert properties == expected_property_dict
+
+    @pytest.mark.it(
+        "Maps the extracted key to value of empty string if there is a key with no corresponding value present"
+    )
+    def test_key_only(self, message_topic_base):
+        property_string = "key1&key2&key3=value"
+        expected_property_dict = {"key1": "", "key2": "", "key3": "value"}
         topic = message_topic_base + property_string
         properties = mqtt_topic_iothub.extract_properties_from_message_topic(topic)
         assert properties == expected_property_dict
@@ -695,7 +695,8 @@ class TestExtractRequestIdFromMethodRequestTopic:
         "topic",
         [
             pytest.param("$iothub/methods/POST/fake_method/?$mid=1", id="No request id key"),
-            pytest.param("$iothub/methods/POST/fake_method/?$rid=", id="No request id value"),
+            pytest.param("$iothub/methods/POST/fake_method/?$rid", id="No request id value"),
+            pytest.param("$iothub/methods/POST/fake_method/?$rid=", id="Empty request id value"),
         ],
     )
     def test_no_request_id(self, topic):
@@ -803,7 +804,8 @@ class TestExtractRequestIdFromTwinResponseTopic:
         "topic",
         [
             pytest.param("$iothub/twin/res/200/?$mid=1", id="No request id key"),
-            pytest.param("$iothub/twin/res/200/?$rid=", id="No request id value"),
+            pytest.param("$iothub/twin/res/200/?$rid", id="No request id value"),
+            pytest.param("$iothub/twin/res/200/?$rid=", id="Empty request id value"),
         ],
     )
     def test_no_request_id(self, topic):

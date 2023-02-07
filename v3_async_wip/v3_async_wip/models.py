@@ -3,13 +3,13 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from .custom_typing import JSONSerializable
 from . import constant
 
 # TODO: json docs
 
-# TODO: only valid content encodings are utf-7, utf-16, utf-32
+# TODO: only valid content encodings are utf-8, utf-16, utf-32
 
 
 class Message:
@@ -48,9 +48,11 @@ class Message:
         # All Messages
         self.payload = payload
         self.message_id = message_id
-        self.content_encoding = content_encoding  # TODO: default?
-        self.content_type = content_type  # TODO: is this supposed to have a default?
-        self.custom_properties: Dict[str, Any] = {}  # TODO: Make this more accurate
+        self.content_encoding = content_encoding  # TODO: default? YES utf-8?
+        self.content_type = (
+            content_type  # TODO: is this supposed to have a default?      YES application/json
+        )
+        self.custom_properties: Dict[str, str] = {}
 
         # Outgoing Messages (D2C/Output)
         self.output_name = output_name
@@ -111,7 +113,7 @@ class Message:
     @classmethod
     # TODO: should this just replace the __init__?
     def create_from_properties_dict(
-        cls, payload: JSONSerializable, properties: Dict[str, Optional[str]]
+        cls, payload: JSONSerializable, properties: Dict[str, str]
     ) -> "Message":
         message = cls(payload)
 
