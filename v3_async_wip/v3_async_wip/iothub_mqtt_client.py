@@ -18,7 +18,6 @@ from . import mqtt_topic_iothub as mqtt_topic
 from azure.iot.device.common.auth import sastoken as st  # type: ignore
 from azure.iot.device.common import alarm  # type: ignore
 
-# TODO: add typings to reused V2 code
 # TODO: update docstrings with correct class paths once repo structured better
 
 logger = logging.getLogger(__name__)

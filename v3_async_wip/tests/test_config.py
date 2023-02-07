@@ -4,4 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-# TODO: Add
+"""This is a placeholder file. It will likely not be necessary if the config objects are converted
+into TypeDicts as is planned."""
+# TODO: Remove if no longer necessary, or complete

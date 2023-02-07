@@ -48,9 +48,9 @@ class Message:
         # All Messages
         self.payload = payload
         self.message_id = message_id
-        self.content_encoding = content_encoding
+        self.content_encoding = content_encoding  # TODO: default?
         self.content_type = content_type  # TODO: is this supposed to have a default?
-        self.custom_properties: Dict[str, Any] = {}  # TODO: do tests cover any?
+        self.custom_properties: Dict[str, Any] = {}  # TODO: Make this more accurate
 
         # Outgoing Messages (D2C/Output)
         self.output_name = output_name
@@ -60,7 +60,7 @@ class Message:
         # C2D Messages, they are only created internally
         self.input_name: Optional[str] = None
         self.ack: Optional[str] = None
-        self.expiry_time_utc: Optional[str] = None  # TODO: what is this type?
+        self.expiry_time_utc: Optional[str] = None
         self.user_id: Optional[str] = None
         self.correlation_id: Optional[str] = None
 
