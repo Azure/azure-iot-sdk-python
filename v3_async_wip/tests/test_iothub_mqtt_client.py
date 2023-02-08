@@ -731,7 +731,130 @@ class TestIoTHubMQTTClientSendMessage:
         return models.Message("some payload")
 
     @pytest.mark.it(
-        "Awaits a publish to the telemetry topic using the MQTTClient, sending the given Message's payload, formatted according to its content type and content encoding properties"
+        "Awaits a publish to the telemetry topic using the MQTTClient, sending the given Message's payload converted to bytes"
+    )
+    @pytest.mark.parametrize(
+        "device_id, module_id",
+        [
+            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
+            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
+        ],
+    )
+    async def test_mqtt_publish(self, mocker, client, device_id, module_id):
+        assert client._mqtt_client.publish.await_count == 0
+        client._device_id = device_id
+        client._module_id = module_id
+        message = models.Message(payload="some_payload")
+        base_topic = mqtt_topic.get_telemetry_topic_for_publish(device_id, module_id)
+        expected_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=base_topic,
+            system_properties=message.get_system_properties_dict(),
+            custom_properties=message.custom_properties,
+        )
+        expected_payload = message.payload.encode("utf-8")
+
+        assert client._mqtt_client.publish.await_count == 0
+        await client.send_message(message)
+
+        assert client._mqtt_client.publish.await_count == 1
+        assert client._mqtt_client.publish.await_args == mocker.call(
+            expected_topic, expected_payload
+        )
+        assert isinstance(expected_payload, bytes)
+
+    @pytest.mark.it(
+        "Derives the byte payload from the Message payload according to the Message's content encoding and content type properties"
+    )
+    @pytest.mark.parametrize(
+        "device_id, module_id",
+        [
+            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
+            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
+        ],
+    )
+    @pytest.mark.parametrize("content_encoding", ["utf-8", "utf-16", "utf-32"])
+    @pytest.mark.parametrize(
+        "content_type, payload, expected_str_payload",
+        [
+            pytest.param("text/plain", "some_text", "some_text", id="text/plain"),
+            pytest.param(
+                "application/json", {"some": "json"}, '{"some": "json"}', id="application/json"
+            ),
+        ],
+    )
+    async def test_publish_payload(
+        self,
+        mocker,
+        client,
+        device_id,
+        module_id,
+        content_encoding,
+        content_type,
+        payload,
+        expected_str_payload,
+    ):
+        client._device_id = device_id
+        client._module_id = module_id
+        message = models.Message(
+            payload=payload, content_encoding=content_encoding, content_type=content_type
+        )
+        base_topic = mqtt_topic.get_telemetry_topic_for_publish(device_id, module_id)
+        expected_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=base_topic,
+            system_properties=message.get_system_properties_dict(),
+            custom_properties=message.custom_properties,
+        )
+        expected_byte_payload = expected_str_payload.encode(content_encoding)
+
+        await client.send_message(message)
+
+        assert client._mqtt_client.publish.await_count == 1
+        assert client._mqtt_client.publish.await_args == mocker.call(
+            expected_topic, expected_byte_payload
+        )
+
+    @pytest.mark.it("Supports any string-convertible payload when using text/plain content type")
+    @pytest.mark.parametrize(
+        "device_id, module_id",
+        [
+            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
+            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            pytest.param("String Payload", id="String Payload"),
+            pytest.param(1234, id="Int Payload"),
+            pytest.param(2.0, id="Float Payload"),
+            pytest.param(True, id="Boolean Payload"),
+            pytest.param([1, 2, 3], id="List Payload"),
+            pytest.param({"some": {"dictionary": "value"}}, id="Dictionary Payload"),
+            pytest.param((1, 2), id="Tuple Payload"),
+            pytest.param(None, id="No Payload"),
+        ],
+    )
+    async def test_text_plain_payload(self, mocker, client, device_id, module_id, payload):
+        client._device_id = device_id
+        client._module_id = module_id
+        message = models.Message(payload=payload, content_type="text/plain")
+        base_topic = mqtt_topic.get_telemetry_topic_for_publish(device_id, module_id)
+        expected_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=base_topic,
+            system_properties=message.get_system_properties_dict(),
+            custom_properties=message.custom_properties,
+        )
+        expected_byte_payload = str(message.payload).encode("utf-8")
+
+        await client.send_message(message)
+
+        assert client._mqtt_client.publish.await_count == 1
+        assert client._mqtt_client.publish.await_args == mocker.call(
+            expected_topic, expected_byte_payload
+        )
+
+    @pytest.mark.it(
+        "Supports any JSON-serializable payload when using application/json content type"
     )
     @pytest.mark.parametrize(
         "device_id, module_id",
@@ -753,36 +876,23 @@ class TestIoTHubMQTTClientSendMessage:
             pytest.param(None, id="No Payload"),
         ],
     )
-    @pytest.mark.parametrize("content_encoding", ["utf-8", "utf-16", "utf-32"])
-    @pytest.mark.parametrize("content_type", ["text/plain", "application/json"])
-    async def test_mqtt_publish(
-        self, mocker, client, device_id, module_id, payload, content_encoding, content_type
-    ):
-        assert client._mqtt_client.publish.await_count == 0
+    async def test_application_json_payload(self, mocker, client, device_id, module_id, payload):
         client._device_id = device_id
         client._module_id = module_id
-        message = models.Message(
-            payload=payload, content_encoding=content_encoding, content_type=content_type
-        )
+        message = models.Message(payload=payload, content_type="application/json")
         base_topic = mqtt_topic.get_telemetry_topic_for_publish(device_id, module_id)
         expected_topic = mqtt_topic.insert_message_properties_in_topic(
             topic=base_topic,
             system_properties=message.get_system_properties_dict(),
             custom_properties=message.custom_properties,
         )
-        if content_type == "text/plain":
-            expected_payload = str(payload)
-        else:
-            expected_payload = json.dumps(payload)
-        expected_payload = expected_payload.encode(content_encoding)
-
-        assert client._mqtt_client.publish.await_count == 0
+        expected_byte_payload = json.dumps(message.payload).encode("utf-8")
 
         await client.send_message(message)
 
         assert client._mqtt_client.publish.await_count == 1
         assert client._mqtt_client.publish.await_args == mocker.call(
-            expected_topic, expected_payload
+            expected_topic, expected_byte_payload
         )
 
     @pytest.mark.it("Inserts any Message properties in the telemetry topic")
