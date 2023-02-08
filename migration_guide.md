@@ -93,7 +93,7 @@ All receives should now be done using the handlers in the table above.
 
 Some changes have been made to the `Message` object used for sending and receiving data.
 * The `.data` attribute is now called `.payload` for consistency with other objects in the API
-* The `message_id` parameter is no longer part of the constructor arguments. It should be manually added as an attribute
+* The `message_id` parameter is no longer part of the constructor arguments. It should be manually added as an attribute, just like all other attributes
 * The payload of a received Message is now a unicode string value instead of a bytestring value.
 It will be decoded according to the content encoding property sent along with the message.
 
