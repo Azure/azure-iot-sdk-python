@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 # values that are not Device ID or Module ID, since it won't make a difference in production as
 # the narrow range of acceptable values for, say, status code, or request ID don't contain any
 # characters that require URL encoding/decoding in the first place. Thus it doesn't break on Hub,
-# but it's still done here as a client-side best practice - Hub will eventually be doing a new API
+# but it's still done here as a client-side best practice - Hub may eventually be doing a new API
 # that does correctly URL encode/decode all values, so it's not good to roll back more than
 # is currently necessary to avoid errors.
 

@@ -1906,6 +1906,39 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
         assert msg.payload == expected_payload
 
     @pytest.mark.it(
+        "Supports conversion to JSON object for any valid JSON string payload when using application/json content type"
+    )
+    @pytest.mark.parametrize(
+        "str_payload, expected_json_payload",
+        [
+            pytest.param('"String Payload"', "String Payload", id="String Payload"),
+            pytest.param("1234", 1234, id="Int Payload"),
+            pytest.param("2.0", 2.0, id="Float Payload"),
+            pytest.param("true", True, id="Boolean Payload"),
+            pytest.param("[1, 2, 3]", [1, 2, 3], id="List Payload"),
+            pytest.param(
+                '{"some": {"dictionary": "value"}}',
+                {"some": {"dictionary": "value"}},
+                id="Dictionary Payload",
+            ),
+            pytest.param("null", None, id="No Payload"),
+        ],
+    )
+    async def test_application_json_payload(self, client, str_payload, expected_json_payload):
+        sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#"),
+            system_properties={"$.ct": "application/json"},
+            custom_properties={},
+        )
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg.payload = str_payload.encode("utf-8")
+
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
+        msg = await client.incoming_c2d_messages.__anext__()
+        assert msg.payload == expected_json_payload
+
+    @pytest.mark.it(
         "Uses a default utf-8 codec to decode the MQTTMessage byte payload if no content encoding property is contained in the MQTTMessage's topic"
     )
     @pytest.mark.parametrize(
@@ -2084,6 +2117,39 @@ class TestIoTHubMQTTClientIncomingInputMessages:
         msg = await client.incoming_input_messages.__anext__()
         assert msg.payload != mqtt_msg.payload
         assert msg.payload == expected_payload
+
+    @pytest.mark.it(
+        "Supports conversion to JSON object for any valid JSON string payload when using application/json content type"
+    )
+    @pytest.mark.parametrize(
+        "str_payload, expected_json_payload",
+        [
+            pytest.param('"String Payload"', "String Payload", id="String Payload"),
+            pytest.param("1234", 1234, id="Int Payload"),
+            pytest.param("2.0", 2.0, id="Float Payload"),
+            pytest.param("true", True, id="Boolean Payload"),
+            pytest.param("[1, 2, 3]", [1, 2, 3], id="List Payload"),
+            pytest.param(
+                '{"some": {"dictionary": "value"}}',
+                {"some": {"dictionary": "value"}},
+                id="Dictionary Payload",
+            ),
+            pytest.param("null", None, id="No Payload"),
+        ],
+    )
+    async def test_application_json_payload(self, client, str_payload, expected_json_payload):
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/",
+            system_properties={"$.ct": "application/json"},
+            custom_properties={},
+        )
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg.payload = str_payload.encode("utf-8")
+
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload == expected_json_payload
 
     @pytest.mark.it(
         "Uses a default utf-8 codec to decode the MQTTMessage byte payload if no content encoding property is contained in the MQTTMessage's topic"

@@ -65,8 +65,6 @@ class Message:
         self._iothub_interface_id: Optional[str] = None
 
         # Incoming Messages (C2D/Input)
-        # NOTE: These are not settable via the __init__ since the end user does not create
-        # C2D Messages, they are only created internally
         self.input_name: Optional[str] = None
         self.ack: Optional[str] = None
         self.expiry_time_utc: Optional[str] = None
