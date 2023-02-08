@@ -1764,6 +1764,7 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
         assert isinstance(msg1, models.Message)
         msg2 = await client.incoming_c2d_messages.__anext__()
         assert isinstance(msg2, models.Message)
+        assert msg1 != msg2
 
     @pytest.mark.it(
         "Derives the yielded Message payload from the MQTTMessage byte payload according to the content encoding and content type properties contained in the MQTTMessage's topic"
@@ -1943,6 +1944,7 @@ class TestIoTHubMQTTClientIncomingInputMessages:
         assert isinstance(msg1, models.Message)
         msg2 = await client.incoming_input_messages.__anext__()
         assert isinstance(msg2, models.Message)
+        assert msg1 != msg2
 
     @pytest.mark.it(
         "Derives the yielded Message payload from the MQTTMessage byte payload according to the content encoding and content type properties contained in the MQTTMessage's topic"
@@ -2102,7 +2104,7 @@ class TestIoTHubMQTTClientIncomingInputMessages:
 @pytest.mark.describe("IoTHubMQTTClient - .incoming_method_requests")
 class TestIoTHubMQTTClientIncomingMethodRequests:
     @pytest.mark.it(
-        "Yields a MethodRequest containing the request ID and method name from the topic, as well as the JSON-converted payload of an MQTTMessage whenever the MQTTClient receives an MQTTMessage on the incoming method request topic"
+        "Yields a MethodRequest whenever the MQTTClient receives an MQTTMessage on the incoming method request topic"
     )
     async def test_yields_method_request(self, client):
         generic_topic = mqtt_topic.get_method_topic_for_subscribe()
@@ -2126,23 +2128,53 @@ class TestIoTHubMQTTClientIncomingMethodRequests:
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
 
         # Get items from generator
-        req1 = await client.incoming_method_requests.__anext__()
-        assert isinstance(req1, models.MethodRequest)
-        assert req1.name == mreq1_name
-        assert req1.request_id == mreq1_id
-        assert req1.payload == json.loads(mqtt_msg1.payload)
+        mreq1 = await client.incoming_method_requests.__anext__()
+        assert isinstance(mreq1, models.MethodRequest)
+        mreq2 = await client.incoming_method_requests.__anext__()
+        assert isinstance(mreq2, models.MethodRequest)
+        assert mreq1 != mreq2
 
-        req2 = await client.incoming_method_requests.__anext__()
-        assert isinstance(req2, models.MethodRequest)
-        assert req2.name == mreq2_name
-        assert req2.request_id == mreq2_id
-        assert req2.payload == json.loads(mqtt_msg2.payload)
+    @pytest.mark.it(
+        "Extracts the method name and request id from the MQTTMessage's topic and sets them on the resulting MethodRequest"
+    )
+    async def test_method_request_attributes(self, client):
+        generic_topic = mqtt_topic.get_method_topic_for_subscribe()
+
+        mreq_name = "some_method"
+        mreq_id = "12"
+        mreq_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name, mreq_id)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic.encode("utf-8"))
+        mqtt_msg1.payload = '{"json": "in", "a": {"string": "format"}}'.encode("utf-8")
+
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        mreq = await client.incoming_method_requests.__anext__()
+
+        assert mreq.name == mreq_name
+        assert mreq.request_id == mreq_id
+
+    @pytest.mark.it(
+        "Derives the yielded MethodRequest JSON payload from the MQTTMessage's byte payload using the utf-8 codec"
+    )
+    async def test_payload(self, client):
+        generic_topic = mqtt_topic.get_method_topic_for_subscribe()
+        expected_payload = {"json": "derived", "from": {"byte": "payload"}}
+
+        mreq_name = "some_method"
+        mreq_id = "12"
+        mreq_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name, mreq_id)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(expected_payload).encode("utf-8")
+
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        mreq = await client.incoming_method_requests.__anext__()
+
+        assert mreq.payload == expected_payload
 
 
 @pytest.mark.describe("IoTHubMQTTClient - .incoming_twin_patches")
 class TestIoTHubMQTTClientIncomingTwinPatches:
     @pytest.mark.it(
-        "Yields a JSON-converted dictionary derived from the payload of an MQTTMessage whenever the MQTTClient receives an MQTTMessage on the incoming twin patch topic"
+        "Yields a JSON-formatted dictionary whenever the MQTTClient receives an MQTTMessage on the incoming twin patch topic"
     )
     async def test_yields_twin(self, client):
         generic_topic = mqtt_topic.get_twin_patch_topic_for_subscribe()
@@ -2163,14 +2195,24 @@ class TestIoTHubMQTTClientIncomingTwinPatches:
         # Get items form generator
         patch1 = await client.incoming_twin_patches.__anext__()
         assert isinstance(patch1, dict)
-        assert patch1 == json.loads(mqtt_msg1.payload)
+        assert json.dumps(patch1)  # This would fail if it's not valid JSON
         patch2 = await client.incoming_twin_patches.__anext__()
         assert isinstance(patch2, dict)
-        assert patch2 == json.loads(mqtt_msg2.payload)
+        assert json.dumps(patch1)  # This would fail if it's not valid JSON
 
+    @pytest.mark.it(
+        "Derives the yielded JSON-formatted dictionary from the MQTTMessage's byte payload using the utf-8 codec"
+    )
+    async def test_payload(self, client):
+        generic_topic = mqtt_topic.get_twin_patch_topic_for_subscribe()
+        patch_topic = generic_topic.rstrip("#") + "?$version=1"
+        expected_json = {"property1": "value1", "property2": "value2", "$version": 1}
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=patch_topic.encode("utf-8"))
+        mqtt_msg.payload = json.dumps(expected_json).encode("utf-8")
 
-# TODO: topics on messages in the above tests may be wrong. Probably need at the very least, mid?
-# TODO: probably should just fully mock out the topic logic to avoid edge cases
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg)
+        patch = await client.incoming_twin_patches.__anext__()
+        assert patch == expected_json
 
 
 @pytest.mark.describe("IoTHubMQTTClient - OCCURRENCE: Twin Response Received")
