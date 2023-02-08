@@ -36,32 +36,41 @@ class TestMessage:
         msg = Message(payload)
         assert msg.payload == payload
 
-    @pytest.mark.it("Instantiates with optional provided message id set as an attribute")
-    def test_instantiates_with_optional_message_id(self):
-        message_id = "Postage12323"
-        msg = Message("some message", message_id)
-        assert msg.message_id == message_id
-
     @pytest.mark.it(
         "Instantiates with optional provided content type and content encoding set as attributes"
     )
     def test_instantiates_with_optional_contenttype_encoding(self):
         ctype = "application/json"
         encoding = "utf-16"
-        msg = Message("some message", None, encoding, ctype)
+        msg = Message("some message", encoding, ctype)
         assert msg.content_encoding == encoding
         assert msg.content_type == ctype
 
-    @pytest.mark.it("Instantiates with no custom properties set")
-    def test_default_custom_properties(self):
+    @pytest.mark.it("Defaults content encoding to 'utf-8' if not provided")
+    def test_default_content_encoding(self):
         msg = Message("some message")
-        assert msg.custom_properties == {}
+        assert msg.content_encoding == "utf-8"
+
+    @pytest.mark.it("Defaults content type to 'text/plain' if not provided")
+    def test_default_content_type(self):
+        msg = Message("some message")
+        assert msg.content_type == "text/plain"
 
     @pytest.mark.it("Instantiates with optional provided output name set as an attribute")
     def test_instantiates_with_optional_output_name(self):
         output_name = "some_output"
         msg = Message("some message", output_name=output_name)
         assert msg.output_name == output_name
+
+    @pytest.mark.it("Instantiates with no message id set")
+    def test_default_message_id(self):
+        msg = Message("some message")
+        assert msg.message_id is None
+
+    @pytest.mark.it("Instantiates with no custom properties set")
+    def test_default_custom_properties(self):
+        msg = Message("some message")
+        assert msg.custom_properties == {}
 
     @pytest.mark.it("Instantiates with no set input name")
     def test_default_input_name(self):
@@ -111,7 +120,7 @@ class TestMessage:
     def test_setting_message_as_security_message(self):
         ctype = "application/json"
         encoding = "utf-16"
-        msg = Message("some message", None, encoding, ctype)
+        msg = Message("some message", encoding, ctype)
         assert msg.iothub_interface_id is None
         msg.set_as_security_message()
         assert msg.iothub_interface_id == constant.SECURITY_MESSAGE_INTERFACE_ID
@@ -149,9 +158,14 @@ class TestMessage:
     def test_system_properties_dict_partial(self):
         msg = Message("some message")
         msg.message_id = "message id"
+        assert msg.content_encoding is not None
+        assert msg.content_type is not None
+
         sys_prop = msg.get_system_properties_dict()
-        assert len(sys_prop) == 1
+        assert len(sys_prop) == 3
         assert sys_prop["$.mid"] == msg.message_id
+        assert sys_prop["$.ce"] == msg.content_encoding
+        assert sys_prop["$.ct"] == msg.content_type
 
     # NOTE: This test tests all system properties, even though they shouldn't all be present simultaneously
     @pytest.mark.it("Can be instantiated from a properties dictionary")
@@ -194,6 +208,17 @@ class TestMessage:
 
         for key in custom_properties:
             assert message.custom_properties[key] == custom_properties[key]
+
+    @pytest.mark.it(
+        "Uses default values for system properties when creating from a properties dictionary if they are not in the properties dictionary"
+    )
+    def test_create_from_dict_defaults(self):
+        properties = {
+            "$.mid": "message id",
+        }
+        message = Message.create_from_properties_dict("some payload", properties)
+        assert message.content_encoding == "utf-8"
+        assert message.content_type == "text/plain"
 
 
 @pytest.mark.describe("MethodRequest")

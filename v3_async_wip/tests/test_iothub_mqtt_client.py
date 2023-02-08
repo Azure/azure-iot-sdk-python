@@ -731,7 +731,7 @@ class TestIoTHubMQTTClientSendMessage:
         return models.Message("some payload")
 
     @pytest.mark.it(
-        "Awaits a publish to the telemetry topic using the MQTTClient, sending the given Message's JSON-converted payload"
+        "Awaits a publish to the telemetry topic using the MQTTClient, sending the given Message's payload, formatted according to its content type and content encoding properties"
     )
     @pytest.mark.parametrize(
         "device_id, module_id",
@@ -753,15 +753,31 @@ class TestIoTHubMQTTClientSendMessage:
             pytest.param(None, id="No Payload"),
         ],
     )
-    async def test_mqtt_publish(self, mocker, client, device_id, module_id, payload):
+    @pytest.mark.parametrize("content_encoding", ["utf-8", "utf-16", "utf-32"])
+    @pytest.mark.parametrize("content_type", ["text/plain", "application/json"])
+    async def test_mqtt_publish(
+        self, mocker, client, device_id, module_id, payload, content_encoding, content_type
+    ):
         assert client._mqtt_client.publish.await_count == 0
         client._device_id = device_id
         client._module_id = module_id
-        expected_topic = mqtt_topic.get_telemetry_topic_for_publish(device_id, module_id)
+        message = models.Message(
+            payload=payload, content_encoding=content_encoding, content_type=content_type
+        )
+        base_topic = mqtt_topic.get_telemetry_topic_for_publish(device_id, module_id)
+        expected_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=base_topic,
+            system_properties=message.get_system_properties_dict(),
+            custom_properties=message.custom_properties,
+        )
+        if content_type == "text/plain":
+            expected_payload = str(payload)
+        else:
+            expected_payload = json.dumps(payload)
+        expected_payload = expected_payload.encode(content_encoding)
+
         assert client._mqtt_client.publish.await_count == 0
 
-        message = models.Message(payload)
-        expected_payload = json.dumps(payload)
         await client.send_message(message)
 
         assert client._mqtt_client.publish.await_count == 1
@@ -769,7 +785,7 @@ class TestIoTHubMQTTClientSendMessage:
             expected_topic, expected_payload
         )
 
-    @pytest.mark.it("Encodes any Message properties in the telemetry topic")
+    @pytest.mark.it("Inserts any Message properties in the telemetry topic")
     @pytest.mark.parametrize(
         "device_id, module_id",
         [
@@ -782,11 +798,9 @@ class TestIoTHubMQTTClientSendMessage:
         client._device_id = device_id
         client._module_id = module_id
 
-        payload = "some payload"
-        expected_payload = json.dumps(payload)
         message.message_id = "some message id"
         message.content_encoding = "utf-8"
-        message.content_type = "application/json"
+        message.content_type = "text/plain"
         message.output_name = "some output"
         message.custom_properties["custom_property1"] = 123
         message.custom_properties["custom_property2"] = "456"
@@ -809,9 +823,7 @@ class TestIoTHubMQTTClientSendMessage:
         await client.send_message(message)
 
         assert client._mqtt_client.publish.await_count == 1
-        assert client._mqtt_client.publish.await_args == mocker.call(
-            expected_topic, expected_payload
-        )
+        assert client._mqtt_client.publish.await_args == mocker.call(expected_topic, mocker.ANY)
 
     @pytest.mark.it("Allows any exceptions raised from the MQTTClient publish to propagate")
     @pytest.mark.parametrize("exception", mqtt_publish_exceptions)
@@ -1743,9 +1755,7 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
         sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
         receive_topic = sub_topic.rstrip("#")
         mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
-        mqtt_msg1.payload = "some payload".encode("utf-8")
         mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=receive_topic.encode("utf-8"))
-        mqtt_msg2.payload = "some other payload".encode("utf-8")
         # Load the MQTTMessages into the MQTTClient's filtered message queue
         await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
         await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
@@ -1756,38 +1766,89 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
         assert isinstance(msg2, models.Message)
 
     @pytest.mark.it(
-        "Derives the yielded Message payload by decoding the MQTTMessage byte payload according to the content encoding property contained in the MQTTMessage's topic"
+        "Derives the yielded Message payload from the MQTTMessage byte payload according to the content encoding and content type properties contained in the MQTTMessage's topic"
     )
-    @pytest.mark.parametrize("encoding_type", ["utf-8", "utf-16", "utf-32"])
-    async def test_payload_decoding(self, client, encoding_type):
+    @pytest.mark.parametrize("content_encoding", ["utf-8", "utf-16", "utf-32"])
+    @pytest.mark.parametrize(
+        "content_type, payload_str, expected_payload",
+        [
+            pytest.param("text/plain", "some_payload", "some_payload", id="text/plain"),
+            pytest.param(
+                "application/json", '{"some": "json"}', {"some": "json"}, id="application/json"
+            ),
+        ],
+    )
+    async def test_payload(
+        self, client, content_encoding, payload_str, content_type, expected_payload
+    ):
         sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
         receive_topic = mqtt_topic.insert_message_properties_in_topic(
             topic=sub_topic.rstrip("#"),
-            system_properties={"$.ce": encoding_type},
+            system_properties={"$.ce": content_encoding, "$.ct": content_type},
             custom_properties={},
         )
         # NOTE: topics are always utf-8 encoded, even if the payload is different
         mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
-        mqtt_msg.payload = "some payload".encode(encoding_type)
+        mqtt_msg.payload = payload_str.encode(content_encoding)
 
         await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
         msg = await client.incoming_c2d_messages.__anext__()
         assert msg.payload != mqtt_msg.payload
-        assert msg.payload == mqtt_msg.payload.decode(encoding_type)
+        assert msg.payload == expected_payload
 
     @pytest.mark.it(
         "Uses a default utf-8 codec to decode the MQTTMessage byte payload if no content encoding property is contained in the MQTTMessage's topic"
     )
-    async def test_payload_decoding_default(self, client):
+    @pytest.mark.parametrize(
+        "content_type, payload_str, expected_payload",
+        [
+            pytest.param("text/plain", "some_payload", "some_payload", id="text/plain"),
+            pytest.param(
+                "application/json", '{"some": "json"}', {"some": "json"}, id="application/json"
+            ),
+        ],
+    )
+    async def test_payload_content_encoding_default(
+        self, client, content_type, payload_str, expected_payload
+    ):
         sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
-        receive_topic = sub_topic.rstrip("#")
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#"),
+            system_properties={"$.ct": content_type},
+            custom_properties={},
+        )
+        assert "$.ce" not in receive_topic
+
         mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
-        mqtt_msg.payload = "some payload".encode("utf-8")
+        mqtt_msg.payload = payload_str.encode("utf-8")
 
         await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
         msg = await client.incoming_c2d_messages.__anext__()
         assert msg.payload != mqtt_msg.payload
-        assert msg.payload == mqtt_msg.payload.decode("utf-8")
+        assert msg.payload == expected_payload
+
+    @pytest.mark.it(
+        "Treats the payload as text/plain content by default if no content type property is contained in the MQTTMessage's topic"
+    )
+    @pytest.mark.parametrize("content_encoding", ["utf-8", "utf-16", "utf-32"])
+    async def test_payload_content_type_default(self, client, content_encoding):
+        sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#"),
+            system_properties={"$.ce": content_encoding},
+            custom_properties={},
+        )
+        assert "$.ct" not in receive_topic
+
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        payload_str = '{"payload": "that", "could": "be", "json": {"or could be": "string"}}'
+        mqtt_msg.payload = payload_str.encode(content_encoding)
+
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
+        msg = await client.incoming_c2d_messages.__anext__()
+        assert msg.payload != mqtt_msg.payload
+        assert msg.payload == payload_str
+        assert msg.payload != json.loads(payload_str)
 
     @pytest.mark.it(
         "Sets any message properties contained in the MQTTMessage's topic onto the resulting Message"
@@ -1795,12 +1856,11 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
     @pytest.mark.parametrize(
         "system_properties, custom_properties",
         [
-            pytest.param({}, {}, id="No properties"),
             pytest.param(
                 {
                     "$.mid": "message_id",
                     "$.ce": "utf-8",
-                    "$.ct": "application/json",
+                    "$.ct": "text/plain",
                     "iothub-ack": "ack",
                     "$.exp": "expiry_time",
                     "$.uid": "user_id",
@@ -1810,13 +1870,10 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
                 id="System Properties Only",
             ),
             pytest.param(
-                {}, {"cust_prop1": "value1", "cust_prop2": "value2"}, id="Custom Properties Only"
-            ),
-            pytest.param(
                 {
                     "$.mid": "message_id",
                     "$.ce": "utf-8",
-                    "$.ct": "application/json",
+                    "$.ct": "text/plain",
                     "iothub-ack": "ack",
                     "$.exp": "expiry_time",
                     "$.uid": "user_id",
@@ -1842,6 +1899,24 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
         assert msg.get_system_properties_dict() == system_properties
         assert msg.custom_properties == custom_properties
 
+    @pytest.mark.it(
+        "Sets default system properties onto the resulting Message if they are not provided in the MQTTMessage's topic"
+    )
+    async def test_message_property_defaults(self, client):
+        sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#"),
+            system_properties={},
+            custom_properties={},
+        )
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
+        msg = await client.incoming_c2d_messages.__anext__()
+        assert msg.get_system_properties_dict() == {"$.ce": "utf-8", "$.ct": "text/plain"}
+        assert msg.content_type == "text/plain"
+        assert msg.content_encoding == "utf-8"
+
 
 @pytest.mark.describe("IoTHubMQTTClient - .incoming_input_messages")
 class TestIoTHubMQTTClientIncomingInputMessages:
@@ -1853,45 +1928,175 @@ class TestIoTHubMQTTClientIncomingInputMessages:
         client_config.module_id = FAKE_MODULE_ID
 
     @pytest.mark.it(
-        "Yields a Message containing the string-decoded byte payload of an MQTTMessage whenever the MQTTClient receives an MQTTMessage on the incoming input message topic"
+        "Yields a Message whenever the MQTTClient receives an MQTTMessage on the incoming Input message topic"
     )
     async def test_yields_message(self, client):
-        generic_topic = mqtt_topic.get_input_topic_for_subscribe(
-            client._device_id, client._module_id
-        )
-        specific_topic = generic_topic.rstrip("#")
-        specific_topic += FAKE_INPUT_NAME
-        # Create MQTTMessages (not to be confused with Messages)
-        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=specific_topic.encode("utf-8"))
-        mqtt_msg1.payload = b"some payload"
-        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=specific_topic.encode("utf-8"))
-        mqtt_msg2.payload = b"some other payload"
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/"
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=receive_topic.encode("utf-8"))
         # Load the MQTTMessages into the MQTTClient's filtered message queue
-        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
-        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
-        # Get items from generator
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+        # Get items from the generator
         msg1 = await client.incoming_input_messages.__anext__()
         assert isinstance(msg1, models.Message)
-        assert msg1.payload == mqtt_msg1.payload.decode("utf-8")
         msg2 = await client.incoming_input_messages.__anext__()
-        assert isinstance(msg1, models.Message)
-        assert msg2.payload == mqtt_msg2.payload.decode("utf-8")
+        assert isinstance(msg2, models.Message)
 
-    # TODO: Do this in a separate PR after making some changes to how mqtt_topic works
-    @pytest.mark.skip(reason="Need to modify mqtt_topic logic")
     @pytest.mark.it(
-        "Decodes the byte payload of the MQTTMessage according to the content encoding property contained in the MQTTMessage's topic"
+        "Derives the yielded Message payload from the MQTTMessage byte payload according to the content encoding and content type properties contained in the MQTTMessage's topic"
     )
-    async def test_payload_decoding(self, client):
-        pass
+    @pytest.mark.parametrize("content_encoding", ["utf-8", "utf-16", "utf-32"])
+    @pytest.mark.parametrize(
+        "content_type, payload_str, expected_payload",
+        [
+            pytest.param("text/plain", "some_payload", "some_payload", id="text/plain"),
+            pytest.param(
+                "application/json", '{"some": "json"}', {"some": "json"}, id="application/json"
+            ),
+        ],
+    )
+    async def test_payload(
+        self, client, content_encoding, payload_str, content_type, expected_payload
+    ):
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/",
+            system_properties={"$.ce": content_encoding, "$.ct": content_type},
+            custom_properties={},
+        )
+        # NOTE: topics are always utf-8 encoded, even if the payload is different
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg.payload = payload_str.encode(content_encoding)
 
-    # TODO: Do this in a separate PR after making some changes to how mqtt_topic works
-    @pytest.mark.skip(reason="Need to modify mqtt_topic logic")
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload != mqtt_msg.payload
+        assert msg.payload == expected_payload
+
+    @pytest.mark.it(
+        "Uses a default utf-8 codec to decode the MQTTMessage byte payload if no content encoding property is contained in the MQTTMessage's topic"
+    )
+    @pytest.mark.parametrize(
+        "content_type, payload_str, expected_payload",
+        [
+            pytest.param("text/plain", "some_payload", "some_payload", id="text/plain"),
+            pytest.param(
+                "application/json", '{"some": "json"}', {"some": "json"}, id="application/json"
+            ),
+        ],
+    )
+    async def test_payload_content_encoding_default(
+        self, client, content_type, payload_str, expected_payload
+    ):
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/",
+            system_properties={"$.ct": content_type},
+            custom_properties={},
+        )
+        assert "$.ce" not in receive_topic
+
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg.payload = payload_str.encode("utf-8")
+
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload != mqtt_msg.payload
+        assert msg.payload == expected_payload
+
+    @pytest.mark.it(
+        "Treats the payload as text/plain content by default if no content type property is contained in the MQTTMessage's topic"
+    )
+    @pytest.mark.parametrize("content_encoding", ["utf-8", "utf-16", "utf-32"])
+    async def test_payload_content_type_default(self, client, content_encoding):
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/",
+            system_properties={"$.ce": content_encoding},
+            custom_properties={},
+        )
+        assert "$.ct" not in receive_topic
+
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        payload_str = '{"payload": "that", "could": "be", "json": {"or could be": "string"}}'
+        mqtt_msg.payload = payload_str.encode(content_encoding)
+
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload != mqtt_msg.payload
+        assert msg.payload == payload_str
+        assert msg.payload != json.loads(payload_str)
+
     @pytest.mark.it(
         "Sets any message properties contained in the MQTTMessage's topic onto the resulting Message"
     )
-    async def test_message_properties(self, client):
-        pass
+    @pytest.mark.parametrize(
+        "system_properties, custom_properties",
+        [
+            pytest.param(
+                {
+                    "$.mid": "message_id",
+                    "$.to": "some_input",
+                    "$.ce": "utf-8",
+                    "$.ct": "text/plain",
+                    "iothub-ack": "ack",
+                    "$.exp": "expiry_time",
+                    "$.uid": "user_id",
+                    "$.cid": "correlation_id",
+                },
+                {},
+                id="System Properties Only",
+            ),
+            pytest.param(
+                {
+                    "$.mid": "message_id",
+                    "$.to": "some_input",
+                    "$.ce": "utf-8",
+                    "$.ct": "text/plain",
+                    "iothub-ack": "ack",
+                    "$.exp": "expiry_time",
+                    "$.uid": "user_id",
+                    "$.cid": "correlation_id",
+                },
+                {"cust_prop1": "value1", "cust_prop2": "value2"},
+                id="System Properties and Custom Properties",
+            ),
+        ],
+    )
+    async def test_message_properties(self, client, system_properties, custom_properties):
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/",
+            system_properties=system_properties,
+            custom_properties=custom_properties,
+        )
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg.payload = "some payload".encode("utf-8")
+
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.get_system_properties_dict() == system_properties
+        assert msg.custom_properties == custom_properties
+
+    @pytest.mark.it(
+        "Sets default system properties onto the resulting Message if they are not provided in the MQTTMessage's topic"
+    )
+    async def test_message_property_defaults(self, client):
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/",
+            system_properties={},
+            custom_properties={},
+        )
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg)
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.get_system_properties_dict() == {"$.ce": "utf-8", "$.ct": "text/plain"}
+        assert msg.content_type == "text/plain"
+        assert msg.content_encoding == "utf-8"
 
 
 @pytest.mark.describe("IoTHubMQTTClient - .incoming_method_requests")

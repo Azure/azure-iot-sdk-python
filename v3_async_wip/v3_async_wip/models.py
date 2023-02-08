@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 from .custom_typing import JSONSerializable
 from . import constant
 
@@ -16,9 +16,9 @@ class Message:
     """Represents a message to or from IoTHub
 
     :ivar payload: The data that constitutes the payload
-    :ivar message id: A user-settable identifier for the message used for request-reply patterns. Format: A case-sensitive string (up to 128 characters long) of ASCII 7-bit alphanumeric characters + {'-', ':', '.', '+', '%', '_', '#', '*', '?', '!', '(', ')', ',', '=', '@', ';', '$', '''}
     :ivar content_encoding: Content encoding of the message data. Can be 'utf-8', 'utf-16' or 'utf-32'
     :ivar content_type: Content type property used to route messages with the message-body. Can be 'application/json'
+    :ivar message id: A user-settable identifier for the message used for request-reply patterns. Format: A case-sensitive string (up to 128 characters long) of ASCII 7-bit alphanumeric characters + {'-', ':', '.', '+', '%', '_', '#', '*', '?', '!', '(', ')', ',', '=', '@', ';', '$', '''}
     :ivar custom_properties: Dictionary of custom message properties. The keys and values of these properties will always be string.
     :ivar output_name: Name of the output that the message is being sent to.
     :ivar input_name: Name of the input that the message was received on.
@@ -30,32 +30,31 @@ class Message:
 
     def __init__(
         self,
-        payload: JSONSerializable,
-        message_id: Optional[str] = None,
-        content_encoding: Optional[str] = None,
-        content_type: Optional[str] = None,
+        payload: Union[str, JSONSerializable],
+        content_encoding: str = "utf-8",
+        content_type: str = "text/plain",
         output_name: Optional[str] = None,
     ) -> None:
         """
         Initializer for Message
 
-        :param data: The JSON serializable data that constitutes the payload
-        :param str message_id: A user-settable identifier for the message used for request-reply patterns. Format: A case-sensitive string (up to 128 characters long) of ASCII 7-bit alphanumeric characters + {'-', ':', '.', '+', '%', '_', '#', '*', '?', '!', '(', ')', ',', '=', '@', ';', '$', '''}
-        :param str content_encoding: Content encoding of the message data. Other values can be utf-16' or 'utf-32'
-        :param str content_type: Content type property used to routes with the message body.
-        :param str output_name: Name of the output that the is being sent to.
+        :param payload: The JSON serializable data that constitutes the payload.
+        :param str content_encoding: Content encoding of the message payload.
+            Acceptable values are 'utf-8', 'utf-16' and 'utf-32'
+        :param str content_type: Content type of the message payload.
+            Acceptable values are 'text/plain' and 'application/json'
+        :param str output_name: Name of the output that the message is being sent to.
         """
         # All Messages
         self.payload = payload
-        self.message_id = message_id
-        self.content_encoding = content_encoding  # TODO: default? YES utf-8?
-        self.content_type = (
-            content_type  # TODO: is this supposed to have a default?      YES application/json
-        )
+        self.content_encoding = content_encoding
+        self.content_type = content_type
+        self.message_id: Optional[str] = None
         self.custom_properties: Dict[str, str] = {}
 
         # Outgoing Messages (D2C/Output)
         self.output_name = output_name
+        self._iothub_interface_id: Optional[str] = None
 
         # Incoming Messages (C2D/Input)
         # NOTE: These are not settable via the __init__ since the end user does not create
@@ -65,9 +64,6 @@ class Message:
         self.expiry_time_utc: Optional[str] = None
         self.user_id: Optional[str] = None
         self.correlation_id: Optional[str] = None
-
-        # Internal  # TODO: is this just for outgoing?
-        self._iothub_interface_id: Optional[str] = None
 
     def __str__(self) -> str:
         return str(self.payload)
@@ -125,12 +121,12 @@ class Message:
                 message.content_encoding = properties[key]
             elif key == "$.ct":
                 message.content_type = properties[key]
-            # D2C Messages
+            # Outgoing Messages (D2C/Output)
             elif key == "$.on":
                 message.output_name = properties[key]
             elif key == "$.ifid":
                 message._iothub_interface_id = properties[key]
-            # C2D Messages
+            # Incoming Messages (C2D/Input)
             elif key == "$.to":
                 message.input_name = properties[key]
             elif key == "iothub-ack":
@@ -143,8 +139,6 @@ class Message:
                 message.correlation_id = properties[key]
             else:
                 message.custom_properties[key] = properties[key]
-
-        # TODO: should there be a default encoding type?
 
         return message
 

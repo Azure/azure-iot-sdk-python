@@ -205,6 +205,7 @@ class IoTHubMQTTClient:
         :raises: MQTTError if there is an error sending the Message
         :raises: ValueError if the size of the Message payload is too large
         """
+        # Format topic with message properties
         telemetry_topic = mqtt_topic.get_telemetry_topic_for_publish(
             self._device_id, self._module_id
         )
@@ -213,8 +214,15 @@ class IoTHubMQTTClient:
             system_properties=message.get_system_properties_dict(),
             custom_properties=message.custom_properties,
         )
+        # Format payload based on content configuration
+        if message.content_type == "application/json":
+            str_payload = json.dumps(message.payload)
+        else:
+            str_payload = str(message.payload)
+        byte_payload = str_payload.encode(message.content_encoding)
+        # Send
         logger.debug("Sending telemetry message to IoTHub...")
-        await self._mqtt_client.publish(topic, json.dumps(message.payload))
+        await self._mqtt_client.publish(topic, byte_payload)
         logger.debug("Sending telemetry message succeeded")
 
     async def send_method_response(self, method_response: MethodResponse):
@@ -584,7 +592,8 @@ def _create_username(hostname: str, client_id: str, product_info: str) -> str:
     return username
 
 
-# TODO: add tests for properties, encoding type variations
+# TODO: error handling on extraction, decoding, json loading
+# TODO; don't forget json loading can fail if improper decoding occurs
 def _create_c2d_message_generator(
     device_id: str, mqtt_client: mqtt.MQTTClient
 ) -> AsyncGenerator[Message, None]:
@@ -595,13 +604,7 @@ def _create_c2d_message_generator(
         incoming_mqtt_messages: AsyncGenerator[mqtt.MQTTMessage, None]
     ) -> AsyncGenerator[Message, None]:
         async for mqtt_message in incoming_mqtt_messages:
-            properties = mqtt_topic.extract_properties_from_message_topic(mqtt_message.topic)
-            # Decode the payload based on content encoding in the topic. If not present, use utf-8
-            encoding_type = properties.get("$.ce", "utf-8")
-            payload = mqtt_message.payload.decode(encoding_type)
-            c2d_message = Message.create_from_properties_dict(
-                payload=payload, properties=properties
-            )
+            c2d_message = _create_hub_message_from_mqtt_message(mqtt_message)
             yield c2d_message
 
     return c2d_message_generator(mqtt_msg_generator)
@@ -622,13 +625,7 @@ def _create_input_message_generator(
         incoming_mqtt_messages: AsyncGenerator[mqtt.MQTTMessage, None]
     ) -> AsyncGenerator[Message, None]:
         async for mqtt_message in incoming_mqtt_messages:
-            properties = mqtt_topic.extract_properties_from_message_topic(mqtt_message.topic)
-            # Decode the payload based on content encoding in the topic. If not present, use utf-8
-            encoding_type = properties.get("$.ce", "utf-8")
-            payload = mqtt_message.payload.decode(encoding_type)
-            input_message = Message.create_from_properties_dict(
-                payload=payload, properties=properties
-            )
+            input_message = _create_hub_message_from_mqtt_message(mqtt_message)
             yield input_message
 
     return input_message_generator(mqtt_msg_generator)
@@ -666,3 +663,15 @@ def _create_twin_patch_generator(mqtt_client: mqtt.MQTTClient) -> AsyncGenerator
             yield patch
 
     return twin_patch_generator(mqtt_msg_generator)
+
+
+def _create_hub_message_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> Message:
+    """Given an MQTTMessage, create and return a Message"""
+    properties = mqtt_topic.extract_properties_from_message_topic(mqtt_message.topic)
+    # Decode the payload based on content encoding in the topic. If not present, use utf-8
+    content_encoding = properties.get("$.ce", "utf-8")
+    content_type = properties.get("$.ct", "text/plain")
+    payload = mqtt_message.payload.decode(content_encoding)
+    if content_type == "application/json":
+        payload = json.loads(payload)
+    return Message.create_from_properties_dict(payload=payload, properties=properties)

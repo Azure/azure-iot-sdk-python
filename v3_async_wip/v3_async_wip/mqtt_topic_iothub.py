@@ -130,9 +130,6 @@ def get_twin_patch_topic_for_publish(request_id: str) -> str:
     )
 
 
-# TODO: ensure valueless key support
-
-
 def insert_message_properties_in_topic(
     topic: str,
     system_properties: Dict[str, str],
@@ -163,7 +160,7 @@ def insert_message_properties_in_topic(
 def extract_properties_from_message_topic(topic: str) -> Dict[str, str]:
     """
     Extract key=value pairs from an incoming message topic, returning them as a dictionary.
-    If a key has no matching value, the value will be set to None.
+    If a key has no matching value, the value will be set to empty string.
 
     :param str topic: The topic string
     :returns: dictionary mapping keys to values.
