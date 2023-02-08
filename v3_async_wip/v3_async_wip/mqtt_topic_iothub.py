@@ -10,8 +10,6 @@ from typing import Optional, Union, Dict
 
 logger = logging.getLogger(__name__)
 
-# TODO: Can TypeDicts be used for properties?
-
 # NOTE: Whenever using standard URL encoding via the urllib.parse.quote() API
 # make sure to specify that there are NO safe values (e.g. safe=""). By default
 # "/" is skipped in encoding, and that is not desirable.

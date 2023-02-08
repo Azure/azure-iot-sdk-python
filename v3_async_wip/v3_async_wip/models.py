@@ -7,9 +7,7 @@ from typing import Optional, Dict, Union
 from .custom_typing import JSONSerializable
 from . import constant
 
-# TODO: json docs
-
-# TODO: only valid content encodings are utf-8, utf-16, utf-32
+# TODO: Should Message property dictionaries be TypeDicts?
 
 
 class Message:
@@ -45,6 +43,16 @@ class Message:
             Acceptable values are 'text/plain' and 'application/json'
         :param str output_name: Name of the output that the message is being sent to.
         """
+        # Sanitize
+        if content_encoding not in ["utf-8", "utf-16", "utf-32"]:
+            raise ValueError(
+                "Invalid content encoding. Supported codecs are 'utf-8', 'utf-16' and 'utf-32'"
+            )
+        if content_type not in ["text/plain", "application/json"]:
+            raise ValueError(
+                "Invalid content type. Supported types are 'text/plain' and 'application/json'"
+            )
+
         # All Messages
         self.payload = payload
         self.content_encoding = content_encoding

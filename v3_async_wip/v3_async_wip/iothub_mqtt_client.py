@@ -73,6 +73,7 @@ class IoTHubMQTTClient:
         self._mqtt_client = _create_mqtt_client(client_config)
 
         # Create incoming IoTHub data generators
+        # TODO: expose these via method to make the device/module split cleaner
         self.incoming_c2d_messages: AsyncGenerator[Message, None] = _create_c2d_message_generator(
             self._device_id, self._mqtt_client
         )
@@ -90,9 +91,6 @@ class IoTHubMQTTClient:
         self._request_ledger = rr.RequestLedger()
         self._twin_responses_enabled = False
         self._twin_response_listener = asyncio.create_task(self._process_twin_responses())
-
-        # TODO: do we need to track what features are enabled?
-        # I don't think so, but check what happens on double subscribe
 
     def _create_token_update_alarm(self) -> alarm.Alarm:
         if not self._sastoken:
@@ -141,7 +139,6 @@ class IoTHubMQTTClient:
 
         async for mqtt_message in twin_responses:
             request_id = mqtt_topic.extract_request_id_from_twin_response_topic(mqtt_message.topic)
-            # TODO: move the int conversion into the topic module?
             status_code = int(
                 mqtt_topic.extract_status_code_from_twin_response_topic(mqtt_message.topic)
             )

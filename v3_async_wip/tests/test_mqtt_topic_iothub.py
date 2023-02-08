@@ -26,9 +26,6 @@ logging.basicConfig(level=logging.DEBUG)
 # PLEASE DO THESE TESTS FOR EVEN CASES WHERE THOSE CHARACTERS SHOULD NOT OCCUR, FOR SAFETY.
 
 
-# TODO: are str conversion tests necessary?
-
-
 @pytest.mark.describe(".get_c2d_topic_for_subscribe()")
 class TestGetC2DTopicForSubscribe:
     @pytest.mark.it("Returns the topic for subscribing to C2D messages from IoTHub")

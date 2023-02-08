@@ -4,8 +4,8 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-from v3_async_wip import user_agent
 import platform
+from v3_async_wip import user_agent
 from v3_async_wip.constant import VERSION, IOTHUB_IDENTIFIER, PROVISIONING_IDENTIFIER
 
 

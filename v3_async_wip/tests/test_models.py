@@ -39,22 +39,32 @@ class TestMessage:
     @pytest.mark.it(
         "Instantiates with optional provided content type and content encoding set as attributes"
     )
-    def test_instantiates_with_optional_contenttype_encoding(self):
-        ctype = "application/json"
-        encoding = "utf-16"
-        msg = Message("some message", encoding, ctype)
-        assert msg.content_encoding == encoding
-        assert msg.content_type == ctype
+    @pytest.mark.parametrize("content_type", ["text/plain", "application/json"])
+    @pytest.mark.parametrize("content_encoding", ["utf-8", "utf-16", "utf-32"])
+    def test_instantiates_with_optional_contenttype_encoding(self, content_type, content_encoding):
+        msg = Message("some message", content_encoding, content_type)
+        assert msg.content_encoding == content_encoding
+        assert msg.content_type == content_type
 
     @pytest.mark.it("Defaults content encoding to 'utf-8' if not provided")
     def test_default_content_encoding(self):
         msg = Message("some message")
         assert msg.content_encoding == "utf-8"
 
+    @pytest.mark.it("Raises ValueError if unsupported content encoding provided")
+    def test_unsupported_content_encoding(self):
+        with pytest.raises(ValueError):
+            Message("some message", content_encoding="ascii")
+
     @pytest.mark.it("Defaults content type to 'text/plain' if not provided")
     def test_default_content_type(self):
         msg = Message("some message")
         assert msg.content_type == "text/plain"
+
+    @pytest.mark.it("Raises ValueError if unsupported content type provided")
+    def test_unsupported_content_type(self):
+        with pytest.raises(ValueError):
+            Message("some message", content_type="text/javascript")
 
     @pytest.mark.it("Instantiates with optional provided output name set as an attribute")
     def test_instantiates_with_optional_output_name(self):

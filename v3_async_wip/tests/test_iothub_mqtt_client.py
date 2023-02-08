@@ -27,8 +27,6 @@ from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common import alarm
 
 
-# TODO: mock layer below
-
 FAKE_DEVICE_ID = "fake_device_id"
 FAKE_MODULE_ID = "fake_module_id"
 FAKE_HOSTNAME = "fake.hostname"
@@ -2393,6 +2391,3 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         resp1 = spy_response_factory.spy_return
         assert mock_ledger.match_response.call_count == 1
         assert mock_ledger.match_response.call_args == mocker.call(resp1)
-
-
-# TODO: Sas Renewal tests
