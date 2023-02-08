@@ -23,6 +23,8 @@ from .async_inbox import AsyncClientInbox
 from . import async_handler_manager
 from azure.iot.device import constant as device_constant
 
+# import traceback
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,6 +34,14 @@ async def handle_result(callback):
     except pipeline_exceptions.ConnectionDroppedError as e:
         raise exceptions.ConnectionDroppedError("Lost connection to IoTHub") from e
     except pipeline_exceptions.ConnectionFailedError as e:
+        # logger.error(
+        #     "Detailed exception in async clients: {}".format(traceback.format_exception_only(type(e), e))
+        # )
+        # if "broker unavailable" in e:
+        #     raise exceptions.ConnectionFailedError("Could not connect to IoTHub for connection "
+        #                                            "refusal as broker is unavailable") from e
+        # else:
+        #     raise exceptions.ConnectionFailedError("Could not connect to IoTHub") from e
         raise exceptions.ConnectionFailedError("Could not connect to IoTHub") from e
     except pipeline_exceptions.NoConnectionError as e:
         raise exceptions.NoConnectionError("Client is not connected to IoTHub") from e

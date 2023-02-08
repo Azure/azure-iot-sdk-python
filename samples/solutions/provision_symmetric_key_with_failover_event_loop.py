@@ -29,7 +29,7 @@ LOG_ROTATION_INTERVAL = 3600
 # How many logs to keep before recycling
 LOG_BACKUP_COUNT = 6
 # Directory for storing log files
-LOG_DIRECTORY = "./logs/dpsfailover_5_no_queue/hub-delete"
+LOG_DIRECTORY = "./logs/event_loop_dpsfailover_6_no_queue/hub-delete"
 messages_to_send = 10
 
 # logger = logging.getLogger()
@@ -383,7 +383,7 @@ class Application(object):
             return True
         return False
 
-    async def main(self):
+    async def run_sample(self):
         await self.initiate()
 
         self.provisioning_host = os.getenv("PROVISIONING_HOST")
@@ -412,7 +412,7 @@ class Application(object):
         except KeyboardInterrupt:
             self.log_error_and_print("IoTHubClient sample stopped by user")
         except Exception as e:
-            self.log_error_and_print("Exception in main loop: {}".format(get_type_name(e)))
+            self.log_error_and_print("Exception in run sample loop: {}".format(get_type_name(e)))
         finally:
             self.log_info_and_print("Exiting app")
             self.exit_app_event.set()
@@ -427,6 +427,28 @@ class Application(object):
             await self.iothub_client.shutdown()
             await self.provisioning_client.shutdown()
 
+    def main(self):
+        global main_event_loop
+        print("IoT Hub Sample #1 - Constant Connection With Telemetry")
+        print("Press Ctrl-C to exit")
+
+        # # Instantiate the client. Use the same instance of the client for the duration of
+        # # your application
+        # device_client = create_client()
+
+        main_event_loop = asyncio.get_event_loop()
+
+        try:
+            main_event_loop.run_until_complete(Application().run_sample())
+        except Exception as e:
+            self.log_error_and_print(
+                "Any other exception in the main calling: {}".format(get_type_name(e))
+            )
+        except KeyboardInterrupt:
+            print("IoTHubClient sample stopped by user")
+        finally:
+            main_event_loop.close()
+
 
 if __name__ == "__main__":
-    asyncio.run(Application().main())
+    Application().main()
