@@ -11,7 +11,7 @@ import paho.mqtt.client as mqtt  # type: ignore
 from paho.mqtt.client import MQTTMessage  # noqa: F401    (Importing directly to re-export)
 import ssl
 from typing import Any, Dict, AsyncGenerator, Optional, Union
-from azure.iot.device.common import ProxyOptions  # type:ignore
+from v3_async_wip.config import ProxyOptions
 
 
 logger = logging.getLogger(__name__)

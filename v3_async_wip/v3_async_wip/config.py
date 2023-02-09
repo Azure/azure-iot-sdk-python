@@ -12,6 +12,7 @@ from azure.iot.device.common.auth import sastoken as st  # type: ignore
 
 # TODO: add typings for imports
 # TODO: update docs to ensure types are correct
+# TODO: can these just be TypeDicts?
 
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ string_to_socks_constant_map = {"HTTP": socks.HTTP, "SOCKS4": socks.SOCKS4, "SOC
 socks_constant_to_string_map = {socks.HTTP: "HTTP", socks.SOCKS4: "SOCKS4", socks.SOCKS5: "SOCKS5"}
 
 
-class ProxyOptions(object):
+class ProxyOptions:
     """
     A class containing various options to send traffic through proxy servers by enabling
     proxying of MQTT connection.
@@ -33,7 +34,7 @@ class ProxyOptions(object):
     def __init__(
         self,
         proxy_type: str,
-        proxy_addr: str,
+        proxy_address: str,
         proxy_port: int,
         proxy_username: Optional[str] = None,
         proxy_password: Optional[str] = None,
@@ -47,11 +48,11 @@ class ProxyOptions(object):
          If it is not provided, authentication will not be used (servers may accept unauthenticated requests).
         :param str proxy_password: (optional) This parameter is valid only for SOCKS5 servers and specifies the respective password for the username provided.
         """
-        (self._proxy_type, self._proxy_type_socks) = _format_proxy_type(proxy_type)
-        self._proxy_addr = proxy_addr
-        self._proxy_port = int(proxy_port)
-        self._proxy_username = proxy_username
-        self._proxy_password = proxy_password
+        (self.proxy_type, self.proxy_type_socks) = _format_proxy_type(proxy_type)
+        self.proxy_address = proxy_address
+        self.proxy_port = int(proxy_port)
+        self.proxy_username = proxy_username
+        self.proxy_password = proxy_password
 
 
 class ClientConfig:

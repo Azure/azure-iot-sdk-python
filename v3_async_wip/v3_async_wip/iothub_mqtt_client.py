@@ -11,15 +11,13 @@ import urllib.parse
 from typing import Optional, AsyncGenerator
 from .custom_typing import TwinPatch, Twin
 from .models import Message, MethodResponse, MethodRequest
-from . import config, constant
+from . import config, constant, user_agent
 from . import request_response as rr
 from . import mqtt_client as mqtt
-from azure.iot.device import user_agent  # type: ignore
-from azure.iot.device.iothub.pipeline import mqtt_topic_iothub as mqtt_topic  # type: ignore
+from . import mqtt_topic_iothub as mqtt_topic
 from azure.iot.device.common.auth import sastoken as st  # type: ignore
 from azure.iot.device.common import alarm  # type: ignore
 
-# TODO: add typings to reused V2 code
 # TODO: update docstrings with correct class paths once repo structured better
 
 logger = logging.getLogger(__name__)
@@ -35,6 +33,12 @@ DEFAULT_TOKEN_UPDATE_MARGIN = 120
 
 class IoTHubError(Exception):
     """Represents a failure reported by IoTHub"""
+
+    pass
+
+
+class IoTHubClientError(Exception):
+    """Represents a failure from the IoTHub Client"""
 
     pass
 
@@ -69,6 +73,7 @@ class IoTHubMQTTClient:
         self._mqtt_client = _create_mqtt_client(client_config)
 
         # Create incoming IoTHub data generators
+        # TODO: expose these via method to make the device/module split cleaner
         self.incoming_c2d_messages: AsyncGenerator[Message, None] = _create_c2d_message_generator(
             self._device_id, self._mqtt_client
         )
@@ -86,9 +91,6 @@ class IoTHubMQTTClient:
         self._request_ledger = rr.RequestLedger()
         self._twin_responses_enabled = False
         self._twin_response_listener = asyncio.create_task(self._process_twin_responses())
-
-        # TODO: do we need to track what features are enabled?
-        # I don't think so, but check what happens on double subscribe
 
     def _create_token_update_alarm(self) -> alarm.Alarm:
         if not self._sastoken:
@@ -136,9 +138,10 @@ class IoTHubMQTTClient:
         twin_responses = self._mqtt_client.get_incoming_message_generator(twin_response_topic)
 
         async for mqtt_message in twin_responses:
-            request_id = mqtt_topic.get_twin_request_id_from_topic(mqtt_message.topic)
-            # TODO: move the int conversion into the topic module?
-            status_code = int(mqtt_topic.get_twin_status_code_from_topic(mqtt_message.topic))
+            request_id = mqtt_topic.extract_request_id_from_twin_response_topic(mqtt_message.topic)
+            status_code = int(
+                mqtt_topic.extract_status_code_from_twin_response_topic(mqtt_message.topic)
+            )
             # NOTE: We don't know what the content of the body is until we match the rid, so don't
             # do more than just decode it here - leave interpreting the string to the coroutine
             # waiting for the response.
@@ -199,12 +202,24 @@ class IoTHubMQTTClient:
         :raises: MQTTError if there is an error sending the Message
         :raises: ValueError if the size of the Message payload is too large
         """
+        # Format topic with message properties
         telemetry_topic = mqtt_topic.get_telemetry_topic_for_publish(
             self._device_id, self._module_id
         )
-        topic = mqtt_topic.encode_message_properties_in_topic(message, telemetry_topic)
+        topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=telemetry_topic,
+            system_properties=message.get_system_properties_dict(),
+            custom_properties=message.custom_properties,
+        )
+        # Format payload based on content configuration
+        if message.content_type == "application/json":
+            str_payload = json.dumps(message.payload)
+        else:
+            str_payload = str(message.payload)
+        byte_payload = str_payload.encode(message.content_encoding)
+        # Send
         logger.debug("Sending telemetry message to IoTHub...")
-        await self._mqtt_client.publish(topic, json.dumps(message.payload))
+        await self._mqtt_client.publish(topic, byte_payload)
         logger.debug("Sending telemetry message succeeded")
 
     async def send_method_response(self, method_response: MethodResponse):
@@ -243,11 +258,7 @@ class IoTHubMQTTClient:
 
         request = await self._request_ledger.create_request()
         try:
-            topic = mqtt_topic.get_twin_topic_for_publish(
-                method="PATCH",
-                resource_location="/properties/reported",
-                request_id=request.request_id,
-            )
+            topic = mqtt_topic.get_twin_patch_topic_for_publish(request.request_id)
 
             # Send the patch to IoTHub
             try:
@@ -315,9 +326,7 @@ class IoTHubMQTTClient:
 
         request = await self._request_ledger.create_request()
         try:
-            topic = mqtt_topic.get_twin_topic_for_publish(
-                method="GET", resource_location="/", request_id=request.request_id
-            )
+            topic = mqtt_topic.get_twin_request_topic_for_publish(request_id=request.request_id)
 
             # Send the twin request to IoTHub
             try:
@@ -374,7 +383,10 @@ class IoTHubMQTTClient:
 
         :raises: MQTTError if there is an error enabling C2D message receive
         :raises: CancelledError if enabling C2D message receive is cancelled by network failure
+        :raises: IoTHubClientError if client not configured for a Device
         """
+        if self._module_id:
+            raise IoTHubClientError("C2D messages not available on Modules")
         logger.debug("Enabling receive for C2D messages...")
         topic = mqtt_topic.get_c2d_topic_for_subscribe(self._device_id)
         await self._mqtt_client.subscribe(topic)
@@ -385,7 +397,10 @@ class IoTHubMQTTClient:
 
         :raises: MQTTError if there is an error disabling C2D message receive
         :raises: CancelledError if disabling C2D message receive is cancelled by network failure
+        :raises: IoTHubClientError if client not configured for a Device
         """
+        if self._module_id:
+            raise IoTHubClientError("C2D messages not available on Modules")
         logger.debug("Disabling receive for C2D messages...")
         topic = mqtt_topic.get_c2d_topic_for_subscribe(self._device_id)
         await self._mqtt_client.unsubscribe(topic)
@@ -396,7 +411,10 @@ class IoTHubMQTTClient:
 
         :raises: MQTTError if there is an error enabling input message receive
         :raises: CancelledError if enabling input message receive is cancelled by network failure
+        :raises: IoTHubClientError if client not configured for a Module
         """
+        if not self._module_id:
+            raise IoTHubClientError("Input messages not available on Devices")
         logger.debug("Enabling receive for input messages...")
         topic = mqtt_topic.get_input_topic_for_subscribe(self._device_id, self._module_id)
         await self._mqtt_client.subscribe(topic)
@@ -407,7 +425,10 @@ class IoTHubMQTTClient:
 
         :raises: MQTTError if there is an error disabling input message receive
         :raises: CancelledError if disabling input message receive is cancelled by network failure
+        :raises: IoTHubClientError if client not configured for a Module
         """
+        if not self._module_id:
+            raise IoTHubClientError("Input messages not available on Devices")
         logger.debug("Disabling receive for input messages...")
         topic = mqtt_topic.get_input_topic_for_subscribe(self._device_id, self._module_id)
         await self._mqtt_client.unsubscribe(topic)
@@ -568,6 +589,8 @@ def _create_username(hostname: str, client_id: str, product_info: str) -> str:
     return username
 
 
+# TODO: error handling on extraction, decoding, json loading
+# TODO; don't forget json loading can fail if improper decoding occurs
 def _create_c2d_message_generator(
     device_id: str, mqtt_client: mqtt.MQTTClient
 ) -> AsyncGenerator[Message, None]:
@@ -578,9 +601,7 @@ def _create_c2d_message_generator(
         incoming_mqtt_messages: AsyncGenerator[mqtt.MQTTMessage, None]
     ) -> AsyncGenerator[Message, None]:
         async for mqtt_message in incoming_mqtt_messages:
-            # TODO: decode differently depending on encoding type from topic
-            c2d_message = Message(mqtt_message.payload.decode("utf-8"))
-            mqtt_topic.extract_message_properties_from_topic(mqtt_message.topic, c2d_message)
+            c2d_message = _create_hub_message_from_mqtt_message(mqtt_message)
             yield c2d_message
 
     return c2d_message_generator(mqtt_msg_generator)
@@ -601,10 +622,7 @@ def _create_input_message_generator(
         incoming_mqtt_messages: AsyncGenerator[mqtt.MQTTMessage, None]
     ) -> AsyncGenerator[Message, None]:
         async for mqtt_message in incoming_mqtt_messages:
-            # TODO: decode differently depending on encoding type from topic
-            input_message = Message(mqtt_message.payload.decode("utf-8"))
-            input_message.input_name = mqtt_topic.get_input_name_from_topic(mqtt_message.topic)
-            mqtt_topic.extract_message_properties_from_topic(mqtt_message.topic, input_message)
+            input_message = _create_hub_message_from_mqtt_message(mqtt_message)
             yield input_message
 
     return input_message_generator(mqtt_msg_generator)
@@ -621,8 +639,8 @@ def _create_method_request_generator(
     ) -> AsyncGenerator[MethodRequest, None]:
         async for mqtt_message in incoming_mqtt_messages:
             # TODO: should request_id be an int in this context?
-            request_id = mqtt_topic.get_method_request_id_from_topic(mqtt_message.topic)
-            method_name = mqtt_topic.get_method_name_from_topic(mqtt_message.topic)
+            request_id = mqtt_topic.extract_request_id_from_method_request_topic(mqtt_message.topic)
+            method_name = mqtt_topic.extract_name_from_method_request_topic(mqtt_message.topic)
             payload = json.loads(mqtt_message.payload.decode("utf-8"))
             method_request = MethodRequest(request_id=request_id, name=method_name, payload=payload)
             yield method_request
@@ -642,3 +660,15 @@ def _create_twin_patch_generator(mqtt_client: mqtt.MQTTClient) -> AsyncGenerator
             yield patch
 
     return twin_patch_generator(mqtt_msg_generator)
+
+
+def _create_hub_message_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> Message:
+    """Given an MQTTMessage, create and return a Message"""
+    properties = mqtt_topic.extract_properties_from_message_topic(mqtt_message.topic)
+    # Decode the payload based on content encoding in the topic. If not present, use utf-8
+    content_encoding = properties.get("$.ce", "utf-8")
+    content_type = properties.get("$.ct", "text/plain")
+    payload = mqtt_message.payload.decode(content_encoding)
+    if content_type == "application/json":
+        payload = json.loads(payload)
+    return Message.create_from_properties_dict(payload=payload, properties=properties)

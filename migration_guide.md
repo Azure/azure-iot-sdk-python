@@ -30,7 +30,7 @@ Note also that this change does *not* affect automatic reconnection attempts in 
 ## Receiving data from IoTHub
 Similarly to the above, there is an additional explicit step you must now make when trying to receive data. In addition to setting your handler, you must explicitly start/stop receiving. Note also that the above step of manually connecting must also be done before starting to receive data.
 
-Furthermore, note that the content of the message is now referred to by the 'payload' attribute on the message, rather than the 'data' attribute.
+Furthermore, note that the content of the message is now referred to by the 'payload' attribute on the message, rather than the 'data' attribute (see "Message" section below)
 
 ### V2
 ```python
@@ -88,6 +88,38 @@ Finally, it should be clarified that the following receive APIs that were deprec
 
 All receives should now be done using the handlers in the table above.
 
+
+## Message object - IoTHubDeviceClient/IoTHubModuleClient
+
+Some changes have been made to the `Message` object used for sending and receiving data.
+* The `.data` attribute is now called `.payload` for consistency with other objects in the API
+* The `message_id` parameter is no longer part of the constructor arguments. It should be manually added as an attribute, just like all other attributes
+* The payload of a received Message is now a unicode string value instead of a bytestring value.
+It will be decoded according to the content encoding property sent along with the message.
+
+### V2
+```python
+from azure.iot.device import Message
+
+payload = "this is a payload"
+message_id = "1234"
+m = Message(data=payload, message_id=message_id)
+
+assert m.data == payload
+assert m.message_id = message_id
+```
+
+### V3
+```python
+from azure.iot.device import Message
+
+payload = "this is a payload"
+message_id = "1234"
+m = Message(payload=payload)
+m.message_id = message_id
+
+assert m.payload == payload
+```
 
 ## Modified Client Options - IoTHubDeviceClient/IoTHubModuleClient
 
