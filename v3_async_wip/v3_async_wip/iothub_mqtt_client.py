@@ -10,6 +10,7 @@ import logging
 import urllib.parse
 from typing import Optional, AsyncGenerator
 from .custom_typing import TwinPatch, Twin
+from .iot_exceptions import IoTHubError, IoTHubClientError
 from .models import Message, MethodResponse, MethodRequest
 from . import config, constant, user_agent
 from . import request_response as rr
@@ -29,18 +30,6 @@ DEFAULT_TOKEN_UPDATE_MARGIN = 120
 # TODO: background exceptions how
 # TODO: non-background exceptions
 # TODO: error handling in generators
-
-
-class IoTHubError(Exception):
-    """Represents a failure reported by IoTHub"""
-
-    pass
-
-
-class IoTHubClientError(Exception):
-    """Represents a failure from the IoTHub Client"""
-
-    pass
 
 
 class IoTHubMQTTClient:
