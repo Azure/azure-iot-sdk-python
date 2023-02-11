@@ -15,10 +15,9 @@ from pytest_lazyfixture import lazy_fixture
 from dev_utils import custom_mock
 from v3_async_wip.iothub_mqtt_client import (
     IoTHubMQTTClient,
-    IoTHubError,
-    IoTHubClientError,
     DEFAULT_RECONNECT_INTERVAL,
 )
+from v3_async_wip.iot_exceptions import IoTHubClientError, IoTHubError
 from v3_async_wip import config, constant, models, user_agent
 from v3_async_wip import mqtt_client as mqtt
 from v3_async_wip import request_response as rr
@@ -31,7 +30,6 @@ FAKE_DEVICE_ID = "fake_device_id"
 FAKE_MODULE_ID = "fake_module_id"
 FAKE_HOSTNAME = "fake.hostname"
 FAKE_GATEWAY_HOSTNAME = "fake.gateway.hostname"
-# FAKE_SHARED_ACCESS_KEY = "Zm9vYmFy"
 FAKE_SIGNATURE = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
 FAKE_EXPIRY = str(int(time.time()) + 3600)
 FAKE_URI = "fake/resource/location"
