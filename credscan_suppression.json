@@ -14,7 +14,15 @@
       "_justification": "Test containing fake keys"
     },
     {
+      "file": "\\v3_async_wip\\tests\\test_signing_mechanism.py",
+      "_justification": "Test containing fake keys"
+    },
+    {
       "file": "\\tests\\unit\\common\\auth\\test_sastoken.py",
+      "_justification": "Test containing fake signed data"
+    },
+    {
+      "file": "\\v3_async_wip\\tests\\test_sastoken.py",
       "_justification": "Test containing fake signed data"
     },
     {
