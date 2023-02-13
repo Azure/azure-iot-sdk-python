@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+from dev_utils import iptables
+
+iptables.disconnect_output_port("REJECT", "mqtt")
+iptables.disconnect_output_port("REJECT", "mqttws")

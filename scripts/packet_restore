@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+from dev_utils import iptables
+
+iptables.reconnect_all("mqtt")
+iptables.reconnect_all("mqttws")
