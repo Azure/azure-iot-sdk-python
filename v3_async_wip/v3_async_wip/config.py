@@ -8,7 +8,7 @@ import logging
 import socks
 import ssl
 from typing import Optional, Any
-from azure.iot.device.common.auth import sastoken as st  # type: ignore
+from .sastoken import SasTokenProvider
 
 # TODO: add typings for imports
 # TODO: update docs to ensure types are correct
@@ -67,8 +67,8 @@ class ClientConfig:
         ssl_context: ssl.SSLContext,
         hostname: str,
         gateway_hostname: Optional[str] = None,
+        sastoken_provider: Optional[SasTokenProvider] = None,
         proxy_options: Optional[ProxyOptions] = None,
-        sastoken: Optional[st.SasToken] = None,
         keep_alive: int = 60,
         auto_reconnect: bool = True,
         websockets: bool = False,
@@ -77,12 +77,12 @@ class ClientConfig:
 
         :param str hostname: The hostname being connected to
         :param str gateway_hostname: The gateway hostname optionally being used
+        :param sastoken_provider: Object that can provide SasTokens
+        :type sastoken_provider: :class:`SasTokenProvider`
         :param proxy_options: Details of proxy configuration
         :type proxy_options: :class:`azure.iot.device.common.models.ProxyOptions`
         :param ssl_context: SSLContext to use with the client
         :type ssl_context: :class:`ssl.SSLContext`
-        :param sastoken: SasToken to be used for authentication. Mutually exclusive with x509.
-        :type sastoken: :class:`azure.iot.device.common.auth.SasToken`
         :param int keepalive: Maximum period in seconds between communications with the
             broker.
         :param bool auto_reconnect: Indicates if dropped connection should result in attempts to
@@ -94,10 +94,10 @@ class ClientConfig:
         self.hostname = hostname
         self.gateway_hostname = gateway_hostname
         self.proxy_options = proxy_options
-        self.ssl_context = ssl_context
 
         # Auth
-        self.sastoken = sastoken
+        self.sastoken_provider = sastoken_provider
+        self.ssl_context = ssl_context
 
         # MQTT
         self.keep_alive = _sanitize_keep_alive(keep_alive)

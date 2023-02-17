@@ -15,7 +15,6 @@ from typing import AnyStr
 
 class SigningMechanism(abc.ABC):
     @abc.abstractmethod
-    # async def sign(self, data_str: Union[str, bytes]) -> str:
     async def sign(self, data_str: AnyStr) -> str:
         # NOTE: This is defined as a coroutine to allow for flexibility of implementation.
         # Some implementations may not require a coroutine, but others may, so we err on the side
@@ -24,7 +23,6 @@ class SigningMechanism(abc.ABC):
 
 
 class SymmetricKeySigningMechanism(SigningMechanism):
-    # def __init__(self, key: Union[str, bytes]) -> None:
     def __init__(self, key: AnyStr) -> None:
         """
         A mechanism that signs data using a symmetric key
@@ -46,7 +44,6 @@ class SymmetricKeySigningMechanism(SigningMechanism):
         except (binascii.Error):
             raise ValueError("Invalid Symmetric Key")
 
-    # def sign(self, data_str: Union[str, bytes]) -> str:
     async def sign(self, data_str: AnyStr) -> str:
         """
         Sign a data string with symmetric key and the HMAC-SHA256 algorithm.

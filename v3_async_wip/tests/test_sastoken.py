@@ -354,7 +354,7 @@ class TestSasTokenProviderInstantiation:
         assert not provider._keep_token_fresh_task.done()
         if sys.version_info >= (3, 8):
             # NOTE: There isn't a way to validate the contents of a task until 3.8
-            # as far as I can tell. This probably
+            # as far as I can tell.
             task_coro = provider._keep_token_fresh_task.get_coro()
             assert task_coro.__qualname__ == "SasTokenProvider._keep_token_fresh"
         await provider.shutdown()

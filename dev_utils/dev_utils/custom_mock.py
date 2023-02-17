@@ -19,8 +19,11 @@ class HangingAsyncMock(mock.AsyncMock):
         self._stop_hanging = asyncio.Event()
 
     async def _do_hang(self, *args, **kwargs):
-        self._is_hanging.set()
+        if not self._is_hanging.is_set():
+            self._stop_hanging.clear()
+            self._is_hanging.set()
         await self._stop_hanging.wait()
+        return self.return_value
 
     async def wait_for_hang(self):
         await self._is_hanging.wait()
@@ -29,4 +32,8 @@ class HangingAsyncMock(mock.AsyncMock):
         return self._is_hanging.is_set()
 
     def stop_hanging(self):
-        self._stop_hanging.set()
+        if self._is_hanging.is_set():
+            self._stop_hanging.set()
+            self._is_hanging.clear()
+        else:
+            raise RuntimeError("Not hanging")

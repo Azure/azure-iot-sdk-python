@@ -16,15 +16,12 @@ from . import config, constant, user_agent
 from . import request_response as rr
 from . import mqtt_client as mqtt
 from . import mqtt_topic_iothub as mqtt_topic
-from azure.iot.device.common.auth import sastoken as st  # type: ignore
-from azure.iot.device.common import alarm  # type: ignore
 
 # TODO: update docstrings with correct class paths once repo structured better
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_RECONNECT_INTERVAL = 10
-DEFAULT_TOKEN_UPDATE_MARGIN = 120
+DEFAULT_RECONNECT_INTERVAL: int = 10
 
 # TODO: add exceptions to docstring
 # TODO: background exceptions how
@@ -43,23 +40,29 @@ class IoTHubMQTTClient:
         :param client_config: The config object for the client
         :type client_config: :class:`IoTHubClientConfig`
         """
-        # Basic Information
+        # Identity
         self._device_id = client_config.device_id
         self._module_id = client_config.module_id
+        self._client_id = _format_client_id(self._device_id, self._module_id)
+        self._username = _format_username(
+            # NOTE: Always use the original hostname, even if gateway hostname is set
+            hostname=client_config.hostname,
+            client_id=self._client_id,
+            product_info=client_config.product_info,
+        )
 
-        # Sastoken Auth
-        # TODO: Should this be handled by a separate utility? Would make testing easier, and would abstract out the difference
-        self._sastoken: Optional[st.SasToken]
-        self._sastoken_update_alarm: Optional[alarm.Alarm]
-        if client_config.sastoken is not None:
-            self._sastoken = client_config.sastoken
-            self._sastoken_update_alarm = self._create_token_update_alarm()
-        else:
-            self._sastoken = None
-            self._sastoken_update_alarm = None
+        # SAS (Optional)
+        self._sastoken_provider = client_config.sastoken_provider
 
         # MQTT Configuration
-        self._mqtt_client = _create_mqtt_client(client_config)
+        self._mqtt_client = _create_mqtt_client(self._client_id, client_config)
+        if self._sastoken_provider:
+            logger.debug("Using SASToken as password")
+            password = str(self._sastoken_provider.get_current_sastoken())
+        else:
+            logger.debug("No password used")
+            password = None
+        self._mqtt_client.set_credentials(self._username, password)
 
         # Create incoming IoTHub data generators
         # TODO: expose these via method to make the device/module split cleaner
@@ -79,40 +82,21 @@ class IoTHubMQTTClient:
         # Internal request/response infrastructure
         self._request_ledger = rr.RequestLedger()
         self._twin_responses_enabled = False
-        self._twin_response_listener = asyncio.create_task(self._process_twin_responses())
 
-    def _create_token_update_alarm(self) -> alarm.Alarm:
-        if not self._sastoken:
-            # This should never happen, it's just for the type checker
-            raise ValueError("Can't create alarm for no SASToken")
-
-        update_time = self._sastoken.expiry_time - DEFAULT_TOKEN_UPDATE_MARGIN
-
-        if isinstance(self._sastoken, st.RenewableSasToken):
-
-            def on_token_needs_update():
-                # Renew the token
-                logger.debug("Renewing SAS Token...")
-                try:
-                    self._sastoken.refresh()
-                    logger.debug("SAS Token renewal succeeded")
-                except st.SasTokenError:
-                    logger.error("SAS Token renewal failed")
-                    # TODO: background exception?
-                # With the token renewed, now set a new Alarm
-                self._sastoken_update_alarm = self._create_token_update_alarm()
-
+        # Background Tasks
+        self._process_twin_responses_bg_task: asyncio.Task[None] = asyncio.create_task(
+            self._process_twin_responses()
+        )
+        self._keep_credentials_fresh_bg_task: Optional[asyncio.Task[None]]
+        if self._sastoken_provider:
+            self._keep_credentials_fresh_bg_task = asyncio.create_task(
+                self._keep_credentials_fresh()
+            )
         else:
-
-            def on_token_needs_update():
-                pass
-
-        update_alarm = alarm.Alarm(update_time, on_token_needs_update)
-        update_alarm.daemon = True
-        update_alarm.start()
-        return update_alarm
+            self._keep_credentials_fresh_bg_task = None
 
     async def _enable_twin_responses(self) -> None:
+        """Enable receiving of twin responses (for twin requests, or twin patches) from IoTHub"""
         logger.debug("Enabling receive of twin responses...")
         topic = mqtt_topic.get_twin_response_topic_for_subscribe()
         await self._mqtt_client.subscribe(topic)
@@ -122,7 +106,7 @@ class IoTHubMQTTClient:
     # TODO: add background exception handling
     async def _process_twin_responses(self) -> None:
         """Run indefinitely, matching twin responses with request ID"""
-        logger.debug("Starting twin response listener")
+        logger.debug("Starting the 'process_twin_responses' background task")
         twin_response_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
         twin_responses = self._mqtt_client.get_incoming_message_generator(twin_response_topic)
 
@@ -144,6 +128,22 @@ class IoTHubMQTTClient:
                 # in-flight operations
                 logger.warning("Twin response (rid: {}) does not match any request")
 
+    async def _keep_credentials_fresh(self) -> None:
+        """Run indefinitely, updating MQTT credentials when new SAS Token is available"""
+        logger.debug("Starting the 'keep_credentials_fresh' background task")
+        while True:
+            if self._sastoken_provider:
+                logger.debug("Waiting for new SAS Token to become available")
+                new_sastoken = await self._sastoken_provider.wait_for_new_sastoken()
+                logger.debug("New SAS Token available, updating MQTTClient credentials")
+                self._mqtt_client.set_credentials(self._username, str(new_sastoken))
+                # TODO: should we reconnect here? Or just wait for drop?
+            else:
+                # NOTE: This should never execute, it's mostly just here to keep the
+                # type checker happy
+                logger.error("No SasTokenProvider. Cannot update credentials")
+                break
+
     async def shutdown(self) -> None:
         """
         Shut down the client.
@@ -153,19 +153,19 @@ class IoTHubMQTTClient:
         # TODO: this breaks when called twice. Build some protections.
         # TODO: is there an issue with cancellation here?
         await self.disconnect()
-        # Cancel the SAS token update alarm. Note that this is not a task, it's a threaded Alarm.
-        # No need to wait for the result.
-        if self._sastoken_update_alarm:
-            logger.debug("Cancelling SAS Token update alarm")
-            self._sastoken_update_alarm.cancel()
-        # Cancel and wait for the completion of the twin response task
-        logger.debug("Cancelling twin response listener")
-        self._twin_response_listener.cancel()
+        cancelled_tasks = []
+
+        logger.debug("Cancelling 'process_twin_responses' background task")
+        self._process_twin_responses_bg_task.cancel()
+        cancelled_tasks.append(self._process_twin_responses_bg_task)
+
+        if self._keep_credentials_fresh_bg_task:
+            logger.debug("Cancelling 'keep_credentials_fresh' background task")
+            self._keep_credentials_fresh_bg_task.cancel()
+            cancelled_tasks.append(self._keep_credentials_fresh_bg_task)
+
         # Wait for the cancellation to complete before returning
-        try:
-            await self._twin_response_listener
-        except asyncio.CancelledError:
-            pass
+        await asyncio.gather(*cancelled_tasks, return_exceptions=True)
 
     async def connect(self) -> None:
         """Connect to IoTHub
@@ -468,17 +468,22 @@ class IoTHubMQTTClient:
         logger.debug("Twin patch receive disabled")
 
 
-# Auth Helpers
+def _format_client_id(device_id: str, module_id: Optional[str] = None) -> str:
+    if module_id:
+        client_id = "{}/{}".format(device_id, module_id)
+    else:
+        client_id = device_id
+    return client_id
 
 
-def _create_mqtt_client(client_config: config.IoTHubClientConfig) -> mqtt.MQTTClient:
+def _create_mqtt_client(
+    client_id: str, client_config: config.IoTHubClientConfig
+) -> mqtt.MQTTClient:
     logger.debug("Creating MQTTClient")
 
     if client_config.module_id:
-        client_id = "{}/{}".format(client_config.device_id, client_config.module_id)
         logger.debug("Using IoTHub Module. Client ID is {}".format(client_id))
     else:
-        client_id = client_config.device_id
         logger.debug("Using IoTHub Device. Client ID is {}".format(client_id))
 
     if client_config.gateway_hostname:
@@ -512,24 +517,6 @@ def _create_mqtt_client(client_config: config.IoTHubClientConfig) -> mqtt.MQTTCl
         proxy_options=client_config.proxy_options,
     )
 
-    # NOTE: we use the original hostname here, even if gateway hostname is set
-    username = _create_username(
-        hostname=client_config.hostname,
-        client_id=client_id,
-        product_info=client_config.product_info,
-    )
-    logger.debug("Using {} as username".format(username))
-
-    if client_config.sastoken:
-        logger.debug("Using SASToken as password")
-        password = str(client_config.sastoken)
-
-    else:
-        logger.debug("No password used")
-        password = None
-
-    client.set_credentials(username, password)
-
     # Add topic filters for receive
     # IoTHub Receives
     c2d_msg_topic = mqtt_topic.get_c2d_topic_for_subscribe(client_config.device_id)
@@ -550,7 +537,7 @@ def _create_mqtt_client(client_config: config.IoTHubClientConfig) -> mqtt.MQTTCl
     return client
 
 
-def _create_username(hostname: str, client_id: str, product_info: str) -> str:
+def _format_username(hostname: str, client_id: str, product_info: str) -> str:
     query_param_seq = []
 
     # Apply query parameters (i.e. key1=value1&key2=value2...&keyN=valueN format)
@@ -573,8 +560,12 @@ def _create_username(hostname: str, client_id: str, product_info: str) -> str:
     username = "{hostname}/{client_id}/?{query_params}".format(
         hostname=hostname,
         client_id=client_id,
-        query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),
+        query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),  # type: ignore [type-var]
     )
+    # NOTE: I think there's a bug in urllib's typing. By all accounts, this is acceptable
+    # and correctly typed code, but there seems to be some confusion with the overload
+    # of the passed in quote function. Will open a GH issue on this, and see if we can
+    # get it fixed.
     return username
 
 

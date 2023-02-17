@@ -97,7 +97,7 @@ class ExternalSasTokenGenerator(SasTokenGenerator):
         This callable can be a function or a coroutine function.
 
         :param generator_fn: A callable that takes no arguments and returns a SAS Token string
-        :type generator_fn: Function or Coroutine Function
+        :type generator_fn: Function or Coroutine Function which returns a string
         """
         self.generator_fn = generator_fn
 
@@ -182,7 +182,7 @@ class SasTokenProvider:
         return self._sastoken
 
     async def wait_for_new_sastoken(self) -> SasToken:
-        """Waits for a new SAS Token to become available, and return it as a string"""
+        """Waits for a new SasToken to become available, and return it"""
         async with self._new_sastoken_available:
             await self._new_sastoken_available.wait()
         return self.get_current_sastoken()
