@@ -140,20 +140,16 @@ def insert_message_properties_in_topic(
     :param dict custom_properties: A dictionary mapping custom properties to their values.
     :return: The modified topic containing the encoded properties
     """
-    # NOTE: I think there's a bug in urllib's typing. By all accounts, this is acceptable
-    # and correctly typed code, but there seems to be some confusion with the overload
-    # of the passed in quote function. Will open a GH issue on this, and see if we can
-    # get it fixed.
     if system_properties:
         encoded_system_properties = urllib.parse.urlencode(
-            system_properties, quote_via=urllib.parse.quote  # type: ignore [type-var]
+            system_properties, quote_via=urllib.parse.quote
         )
         topic += encoded_system_properties
     if system_properties and custom_properties:
         topic += "&"
     if custom_properties:
         encoded_custom_properties = urllib.parse.urlencode(
-            custom_properties, quote_via=urllib.parse.quote  # type: ignore [type-var]
+            custom_properties, quote_via=urllib.parse.quote
         )
         topic += encoded_custom_properties
     return topic

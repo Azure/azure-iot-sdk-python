@@ -560,12 +560,8 @@ def _format_username(hostname: str, client_id: str, product_info: str) -> str:
     username = "{hostname}/{client_id}/?{query_params}".format(
         hostname=hostname,
         client_id=client_id,
-        query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),  # type: ignore [type-var]
+        query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),
     )
-    # NOTE: I think there's a bug in urllib's typing. By all accounts, this is acceptable
-    # and correctly typed code, but there seems to be some confusion with the overload
-    # of the passed in quote function. Will open a GH issue on this, and see if we can
-    # get it fixed.
     return username
 
 
