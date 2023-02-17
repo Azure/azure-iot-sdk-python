@@ -47,7 +47,8 @@ class IoTEdgeHsm(SigningMechanism):
         self.generation_id = generation_id
         self.workload_uri = _format_socket_uri(workload_uri)
 
-    def get_certificate(self) -> str:
+    # TODO: Use async http to make use of this being a coroutine
+    async def get_certificate(self) -> str:
         """
         Return the server verification certificate from the trust bundle that can be used to
         validate the server-side SSL TLS connection that we use to talk to Edge
@@ -79,7 +80,8 @@ class IoTEdgeHsm(SigningMechanism):
             raise IoTEdgeError("No certificate in trust bundle") from e
         return cert
 
-    def sign(self, data_str: Union[str, bytes]) -> str:
+    # TODO: Use async http to make use of this being a coroutine
+    async def sign(self, data_str: Union[str, bytes]) -> str:
         """
         Use the IoTEdge HSM to sign a piece of string data.  The caller should then insert the
         returned value (the signature) into the 'sig' field of a SharedAccessSignature string.

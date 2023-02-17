@@ -74,13 +74,13 @@ class TestSymmetricKeySigningMechanismSign(object):
     @pytest.mark.it(
         "Generates an HMAC message digest from the signing key and provided data string, using the HMAC-SHA256 algorithm"
     )
-    def test_hmac(self, mocker, signing_mechanism):
+    async def test_hmac(self, mocker, signing_mechanism):
         hmac_mock = mocker.patch.object(hmac, "HMAC")
         hmac_digest_mock = hmac_mock.return_value.digest
         hmac_digest_mock.return_value = b"\xd2\x06\xf7\x12\xf1\xe9\x95$\x90\xfd\x12\x9a\xb1\xbe\xb4\xf8\xf3\xc4\x1ap\x8a\xab'\x8a.D\xfb\x84\x96\xca\xf3z"
 
         data_string = "sign this message"
-        signing_mechanism.sign(data_string)
+        await signing_mechanism.sign(data_string)
 
         assert hmac_mock.call_count == 1
         assert hmac_mock.call_args == mocker.call(
@@ -93,13 +93,13 @@ class TestSymmetricKeySigningMechanismSign(object):
     @pytest.mark.it(
         "Returns the base64 encoded HMAC message digest (converted to string) as the signed data"
     )
-    def test_b64encode(self, mocker, signing_mechanism):
+    async def test_b64encode(self, mocker, signing_mechanism):
         hmac_mock = mocker.patch.object(hmac, "HMAC")
         hmac_digest_mock = hmac_mock.return_value.digest
         hmac_digest_mock.return_value = b"\xd2\x06\xf7\x12\xf1\xe9\x95$\x90\xfd\x12\x9a\xb1\xbe\xb4\xf8\xf3\xc4\x1ap\x8a\xab'\x8a.D\xfb\x84\x96\xca\xf3z"
 
         data_string = "sign this message"
-        signature = signing_mechanism.sign(data_string)
+        signature = await signing_mechanism.sign(data_string)
 
         assert signature == base64.b64encode(hmac_digest_mock.return_value).decode("utf-8")
 
@@ -115,11 +115,11 @@ class TestSymmetricKeySigningMechanismSign(object):
             ),
         ],
     )
-    def test_supported_types(self, signing_mechanism, data_string, expected_signature):
-        assert signing_mechanism.sign(data_string) == expected_signature
+    async def test_supported_types(self, signing_mechanism, data_string, expected_signature):
+        assert await signing_mechanism.sign(data_string) == expected_signature
 
     @pytest.mark.it("Raises a ValueError if unable to sign the provided data string")
     @pytest.mark.parametrize("data_string", [pytest.param(123, id="Integer input")])
-    def test_bad_input(self, signing_mechanism, data_string):
+    async def test_bad_input(self, signing_mechanism, data_string):
         with pytest.raises(ValueError):
-            signing_mechanism.sign(data_string)
+            await signing_mechanism.sign(data_string)

@@ -109,14 +109,14 @@ class TestIoTEdgeHsmGetCertificate(object):
         return mocker.patch.object(requests, "get")
 
     @pytest.mark.it("Sends an HTTP GET request to retrieve the trust bundle from Edge")
-    def test_requests_trust_bundle(self, mocker, edge_hsm, mock_requests_get):
+    async def test_requests_trust_bundle(self, mocker, edge_hsm, mock_requests_get):
         expected_url = edge_hsm.workload_uri + "trust-bundle"
         expected_params = {"api-version": edge_hsm.api_version}
         expected_headers = {
             "User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())
         }
 
-        edge_hsm.get_certificate()
+        await edge_hsm.get_certificate()
 
         assert mock_requests_get.call_count == 1
         assert mock_requests_get.call_args == mocker.call(
@@ -124,43 +124,43 @@ class TestIoTEdgeHsmGetCertificate(object):
         )
 
     @pytest.mark.it("Returns the certificate from the trust bundle received from Edge")
-    def test_returns_certificate(self, edge_hsm, mock_requests_get):
+    async def test_returns_certificate(self, edge_hsm, mock_requests_get):
         mock_response = mock_requests_get.return_value
         certificate = "my certificate"
         mock_response.json.return_value = {"certificate": certificate}
 
-        returned_cert = edge_hsm.get_certificate()
+        returned_cert = await edge_hsm.get_certificate()
 
         assert returned_cert is certificate
 
     @pytest.mark.it("Raises IoTEdgeError if a bad request is made to Edge")
-    def test_bad_request(self, edge_hsm, mock_requests_get):
+    async def test_bad_request(self, edge_hsm, mock_requests_get):
         mock_response = mock_requests_get.return_value
         error = requests.exceptions.HTTPError()
         mock_response.raise_for_status.side_effect = error
 
         with pytest.raises(IoTEdgeError) as e_info:
-            edge_hsm.get_certificate()
+            await edge_hsm.get_certificate()
         assert e_info.value.__cause__ is error
 
     @pytest.mark.it("Raises IoTEdgeError if there is an error in json decoding the trust bundle")
-    def test_bad_json(self, edge_hsm, mock_requests_get):
+    async def test_bad_json(self, edge_hsm, mock_requests_get):
         mock_response = mock_requests_get.return_value
         error = ValueError()
         mock_response.json.side_effect = error
 
         with pytest.raises(IoTEdgeError) as e_info:
-            edge_hsm.get_certificate()
+            await edge_hsm.get_certificate()
         assert e_info.value.__cause__ is error
 
     @pytest.mark.it("Raises IoTEdgeError if the certificate is missing from the trust bundle")
-    def test_bad_trust_bundle(self, edge_hsm, mock_requests_get):
+    async def test_bad_trust_bundle(self, edge_hsm, mock_requests_get):
         mock_response = mock_requests_get.return_value
         # Return an empty json dict with no 'certificate' key
         mock_response.json.return_value = {}
 
         with pytest.raises(IoTEdgeError):
-            edge_hsm.get_certificate()
+            await edge_hsm.get_certificate()
 
 
 @pytest.mark.describe("IoTEdgeHsm - .sign()")
@@ -172,7 +172,7 @@ class TestIoTEdgeHsmSign(object):
     @pytest.mark.it(
         "Makes an HTTP request to Edge to sign a piece of string data using the HMAC-SHA256 algorithm"
     )
-    def test_requests_data_signing(self, mocker, edge_hsm, mock_requests_post):
+    async def test_requests_data_signing(self, mocker, edge_hsm, mock_requests_post):
         data_str = "somedata"
         data_str_b64 = "c29tZWRhdGE="
         mock_requests_post.return_value.json.return_value = {"digest": "somedigest"}
@@ -187,7 +187,7 @@ class TestIoTEdgeHsmSign(object):
         }
         expected_json = json.dumps({"keyId": "primary", "algo": "HMACSHA256", "data": data_str_b64})
 
-        edge_hsm.sign(data_str)
+        await edge_hsm.sign(data_str)
 
         assert mock_requests_post.call_count == 1
         assert mock_requests_post.call_args == mocker.call(
@@ -195,14 +195,14 @@ class TestIoTEdgeHsmSign(object):
         )
 
     @pytest.mark.it("Base64 encodes the string data in the request")
-    def test_b64_encodes_data(self, edge_hsm, mock_requests_post):
+    async def test_b64_encodes_data(self, edge_hsm, mock_requests_post):
         # This test is actually implicitly tested in the first test, but it's
         # important to have an explicit test for it since it's a requirement
         data_str = "somedata"
         data_str_b64 = base64.b64encode(data_str.encode("utf-8")).decode()
         mock_requests_post.return_value.json.return_value = {"digest": "somedigest"}
 
-        edge_hsm.sign(data_str)
+        await edge_hsm.sign(data_str)
 
         sent_data = json.loads(mock_requests_post.call_args[1]["data"])["data"]
 
@@ -210,11 +210,11 @@ class TestIoTEdgeHsmSign(object):
         assert sent_data == data_str_b64
 
     @pytest.mark.it("Returns the signed data received from Edge")
-    def test_returns_signed_data(self, edge_hsm, mock_requests_post):
+    async def test_returns_signed_data(self, edge_hsm, mock_requests_post):
         expected_digest = "somedigest"
         mock_requests_post.return_value.json.return_value = {"digest": expected_digest}
 
-        signed_data = edge_hsm.sign("somedata")
+        signed_data = await edge_hsm.sign("somedata")
 
         assert signed_data == expected_digest
 
@@ -226,38 +226,38 @@ class TestIoTEdgeHsmSign(object):
             pytest.param(b"sign this message", "c2lnbiB0aGlzIG1lc3NhZ2U=", id="Bytes"),
         ],
     )
-    def test_supported_types(
+    async def test_supported_types(
         self, edge_hsm, data_string, expected_request_data, mock_requests_post
     ):
         mock_requests_post.return_value.json.return_value = {"digest": "somedigest"}
-        edge_hsm.sign(data_string)
+        await edge_hsm.sign(data_string)
         sent_data = json.loads(mock_requests_post.call_args[1]["data"])["data"]
 
         assert sent_data == expected_request_data
 
     @pytest.mark.it("Raises IoTEdgeError if a bad request is made to EdgeHub")
-    def test_bad_request(self, edge_hsm, mock_requests_post):
+    async def test_bad_request(self, edge_hsm, mock_requests_post):
         mock_response = mock_requests_post.return_value
         error = requests.exceptions.HTTPError()
         mock_response.raise_for_status.side_effect = error
 
         with pytest.raises(IoTEdgeError) as e_info:
-            edge_hsm.sign("somedata")
+            await edge_hsm.sign("somedata")
         assert e_info.value.__cause__ is error
 
     @pytest.mark.it("Raises IoTEdgeError if there is an error in json decoding the signed response")
-    def test_bad_json(self, edge_hsm, mock_requests_post):
+    async def test_bad_json(self, edge_hsm, mock_requests_post):
         mock_response = mock_requests_post.return_value
         error = ValueError()
         mock_response.json.side_effect = error
         with pytest.raises(IoTEdgeError) as e_info:
-            edge_hsm.sign("somedata")
+            await edge_hsm.sign("somedata")
         assert e_info.value.__cause__ is error
 
     @pytest.mark.it("Raises IoTEdgeError if the signed data is missing from the response")
-    def test_bad_response(self, edge_hsm, mock_requests_post):
+    async def test_bad_response(self, edge_hsm, mock_requests_post):
         mock_response = mock_requests_post.return_value
         mock_response.json.return_value = {}
 
         with pytest.raises(IoTEdgeError):
-            edge_hsm.sign("somedata")
+            await edge_hsm.sign("somedata")
