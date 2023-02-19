@@ -8,7 +8,7 @@ import asyncio
 import json
 import logging
 import urllib.parse
-from typing import Optional, AsyncGenerator
+from typing import Optional, Union, AsyncGenerator
 from .custom_typing import TwinPatch, Twin
 from .iot_exceptions import IoTHubError, IoTHubClientError
 from .models import Message, MethodResponse, MethodRequest
@@ -149,10 +149,22 @@ class IoTHubMQTTClient:
         Shut down the client.
 
         Invoke only when completely finished with the client for graceful exit.
+        Cannot be cancelled - if you try, the client will still fully shut down as much as
+        possible.
         """
-        # TODO: this breaks when called twice. Build some protections.
-        # TODO: is there an issue with cancellation here?
-        await self.disconnect()
+        # NOTE: .disconnect() really shouldn't fail, but if it does, we temporarily suppress
+        # the exception so we can still do as much cleanup as possible.
+        cached_exception: Optional[Union[Exception, asyncio.CancelledError]] = None
+        logger.debug("Attempting disconnect in shutdown")
+        try:
+            await self.disconnect()
+        except asyncio.CancelledError as e:
+            logger.warning("Cancellation during shutdown. Still attempting to clean up.")
+            cached_exception = e
+        except Exception as e:
+            logger.warning("Unexpected error disconnecting. Continuing shutdown procedure")
+            cached_exception = e
+
         cancelled_tasks = []
 
         logger.debug("Cancelling 'process_twin_responses' background task")
@@ -165,7 +177,13 @@ class IoTHubMQTTClient:
             cancelled_tasks.append(self._keep_credentials_fresh_bg_task)
 
         # Wait for the cancellation to complete before returning
+        # NOTE: If cancelled while awaiting here, all tasks in gather will still be cancelled
+        # because the cancellations have already been issued.
+        # NOTE: Also, cancelling a gather implicitly cancels all the tasks that are gathered anyway
         await asyncio.gather(*cancelled_tasks, return_exceptions=True)
+
+        if cached_exception:
+            raise cached_exception
 
     async def connect(self) -> None:
         """Connect to IoTHub

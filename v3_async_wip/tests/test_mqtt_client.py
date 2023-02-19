@@ -13,7 +13,7 @@ from v3_async_wip.mqtt_client import (
     expected_on_connect_rc,
     expected_on_disconnect_rc,
 )
-from azure.iot.device.common import ProxyOptions
+from v3_async_wip.config import ProxyOptions
 import paho.mqtt.client as mqtt
 import asyncio
 import pytest
@@ -406,11 +406,13 @@ class TestInstantiation:
             proxy_type = "SOCKS5"
 
         if "No Auth" in request.param:
-            proxy = ProxyOptions(proxy_type=proxy_type, proxy_addr="fake.address", proxy_port=1080)
+            proxy = ProxyOptions(
+                proxy_type=proxy_type, proxy_address="fake.address", proxy_port=1080
+            )
         else:
             proxy = ProxyOptions(
                 proxy_type=proxy_type,
-                proxy_addr="fake.address",
+                proxy_address="fake.address",
                 proxy_port=1080,
                 proxy_username="fake_username",
                 proxy_password="fake_password",

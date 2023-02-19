@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 """This module contains tools for working with Shared Access Signature (SAS) Tokens"""
 
+import abc
 import asyncio
 import logging
 import time
@@ -55,7 +56,13 @@ class SasToken:
         return urllib.parse.unquote(signature)
 
 
-class SasTokenGenerator:
+class SasTokenGenerator(abc.ABC):
+    @abc.abstractmethod
+    async def generate_sastoken(self):
+        pass
+
+
+class InternalSasTokenGenerator(SasTokenGenerator):
     def __init__(self, signing_mechanism: SigningMechanism, uri: str, ttl: int = 3600) -> None:
         """An object that can generate SasTokens using provided values
 

@@ -720,9 +720,18 @@ class TestIoTHubMQTTClientInstantiation:
 
 # TODO: exceptions
 @pytest.mark.describe("IoTHubMQTTClient - .shutdown()")
-class TestIotHubMQTTClientShutdown:
+class TestIoTHubMQTTClientShutdown:
+    @pytest.fixture(autouse=True)
+    def modify_client_config(self, client_config, mock_sastoken_provider):
+        # NOTE: This has to be changed on the config, not the client,
+        # because it affects client initialization
+        client_config.sastoken_provider = mock_sastoken_provider
+
     @pytest.mark.it("Disconnects the MQTTClient")
     async def test_disconnect(self, mocker, client):
+        # NOTE: rather than mocking the MQTTClient, we just mock the .disconnect() method of the
+        # IoTHubMQTTClient instead, since it's been fully tested elsewhere, and we assume
+        # correctness, lest we have to repeat all .disconnect() tests here.
         client.disconnect = mocker.AsyncMock()
         assert client.disconnect.await_count == 0
 
@@ -742,11 +751,7 @@ class TestIotHubMQTTClientShutdown:
         assert client._process_twin_responses_bg_task.cancelled()
 
     @pytest.mark.it("Cancels the 'keep_credentials_fresh' background task, if it exists")
-    async def test_keep_credentials_fresh_bg_task_exists(
-        self, client_config, mock_sastoken_provider
-    ):
-        client_config.sastoken_provider = mock_sastoken_provider
-        client = IoTHubMQTTClient(client_config)
+    async def test_keep_credentials_fresh_bg_task_exists(self, client):
         assert isinstance(client._keep_credentials_fresh_bg_task, asyncio.Task)
         assert not client._keep_credentials_fresh_bg_task.done()
 
@@ -756,10 +761,114 @@ class TestIotHubMQTTClientShutdown:
         assert client._keep_credentials_fresh_bg_task.cancelled()
 
     @pytest.mark.it("Handles the case where no 'keep_credentials_fresh' background task exists")
-    async def test_keep_credentials_fresh_bg_task_no_exist(self, client):
+    async def test_keep_credentials_fresh_bg_task_no_exist(self, client, client_config):
+        # NOTE: in this test we don't want to have the SAS bg task, so override the modified fixture
+        client_config.sastoken_provider = None
+        client = IoTHubMQTTClient(client_config)
         assert client._keep_credentials_fresh_bg_task is None
         await client.shutdown()
         # No AttributeError means success!
+
+    @pytest.mark.it(
+        "Allows any exception raised during MQTTClient disconnect to propagate, but only after cancelling background tasks"
+    )
+    @pytest.mark.parametrize("exception", mqtt_disconnect_exceptions)
+    async def test_disconnect_raises(self, mocker, client, exception):
+        # NOTE: rather than mocking the MQTTClient, we just mock the .disconnect() method of the
+        # IoTHubMQTTClient instead, since it's been fully tested elsewhere, and we assume
+        # correctness, lest we have to repeat all .disconnect() tests here.
+        original_disconnect = client.disconnect
+        client.disconnect = mocker.AsyncMock(side_effect=exception)
+        client.disconnect.side_effect = exception
+        assert not client._keep_credentials_fresh_bg_task.done()
+        assert not client._process_twin_responses_bg_task.done()
+
+        with pytest.raises(type(exception)) as e_info:
+            await client.shutdown()
+        assert e_info.value is exception
+
+        # Background tasks were also cancelled despite the exception
+        assert client._keep_credentials_fresh_bg_task.done()
+        assert client._keep_credentials_fresh_bg_task.cancelled()
+        assert client._process_twin_responses_bg_task.done()
+        assert client._process_twin_responses_bg_task.cancelled()
+
+        # Unset the mock so that tests can clean up
+        client.disconnect = original_disconnect
+
+    @pytest.mark.it(
+        "Can be cancelled while waiting for the MQTTClient disconnect to finish, but it won't stop background task cancellation"
+    )
+    async def test_cancel_disconnect(self, client):
+        # NOTE: rather than mocking the MQTTClient, we just mock the .disconnect() method of the
+        # IoTHubMQTTClient instead, since it's been fully tested elsewhere, and we assume
+        # correctness, lest we have to repeat all .disconnect() tests here.
+        original_disconnect = client.disconnect
+        client.disconnect = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(client.shutdown())
+
+        # Hanging, waiting for disconnect to finish
+        await client.disconnect.wait_for_hang()
+        assert not t.done()
+        # Background tasks have not been cancelled
+        assert not client._keep_credentials_fresh_bg_task.done()
+        assert not client._process_twin_responses_bg_task.done()
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+        # Unset the mock so that tests can clean up.
+        # And do it now so that test assertion failure doesn't hang
+        client.disconnect = original_disconnect
+
+        # And yet the background tasks still were cancelled anyway
+        assert client._keep_credentials_fresh_bg_task.done()
+        assert client._keep_credentials_fresh_bg_task.cancelled()
+        assert client._process_twin_responses_bg_task.done()
+        assert client._process_twin_responses_bg_task.cancelled()
+
+    @pytest.mark.it(
+        "Can be cancelled while waiting for the background tasks to finish cancellation, but it won't stop the background task cancellation"
+    )
+    async def test_cancel_gather(self, mocker, client):
+        original_gather = asyncio.gather
+        asyncio.gather = custom_mock.HangingAsyncMock()
+
+        spy_twin_response_bg_task_cancel = mocker.spy(
+            client._process_twin_responses_bg_task, "cancel"
+        )
+        spy_credentials_bg_task_cancel = mocker.spy(
+            client._keep_credentials_fresh_bg_task, "cancel"
+        )
+
+        t = asyncio.create_task(client.shutdown())
+
+        # Hanging waiting for gather to return (indicating tasks are all done cancellation)
+        await asyncio.gather.wait_for_hang()
+        assert not t.done()
+        # Background tests may or may not have completed cancellation yet, hard to test accurately.
+        # But their cancellation HAS been requested.
+        assert spy_twin_response_bg_task_cancel.call_count == 1
+        assert spy_credentials_bg_task_cancel.call_count == 1
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+        # Unset the mock so that tests can clean up.
+        # And do it now so that test assertion failure doesn't hang
+        asyncio.gather = original_gather
+
+        # Tasks will be cancelled very soon (if they aren't already)
+        await asyncio.sleep(0.1)
+        assert client._keep_credentials_fresh_bg_task.done()
+        assert client._keep_credentials_fresh_bg_task.cancelled()
+        assert client._process_twin_responses_bg_task.done()
+        assert client._process_twin_responses_bg_task.cancelled()
 
 
 @pytest.mark.describe("IoTHubMQTTClient - .connect()")
@@ -2507,6 +2616,9 @@ class TestIoTHubMQTTClientIncomingTwinPatches:
         assert patch == expected_json
 
 
+# TODO: To reflect the complexity of background tasks, these tests need to be adjusted
+# to be about the background task itself, not a reaction to an event. This is probably the
+# end of any "OCCURRENCE" tests in the client layer
 @pytest.mark.describe("IoTHubMQTTClient - OCCURRENCE: Twin Response Received")
 class TestIoTHubMQTTClientIncomingTwinResponse:
     # NOTE: This test suite exists for simplicity - twin responses are used in both
@@ -2577,6 +2689,9 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         assert mock_ledger.match_response.call_args == mocker.call(resp1)
 
 
+# TODO: To reflect the complexity of background tasks, these tests need to be adjusted
+# to be about the background task itself, not a reaction to an event. This is probably the
+# end of any "OCCURRENCE" tests in the client layer
 @pytest.mark.describe("IoTHubMQTTClient - OCCURRENCE: SasTokenProvider Updates SasToken")
 class TestIoTHubMQTTClientSasTokenUpdate:
     @pytest.fixture(autouse=True)
