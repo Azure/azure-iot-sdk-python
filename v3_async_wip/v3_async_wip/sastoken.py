@@ -109,6 +109,10 @@ class ExternalSasTokenGenerator(SasTokenGenerator):
         self.generator_fn = generator_fn
 
     async def generate_sastoken(self) -> SasToken:
+        """Generate a new SasToken
+
+        :raises: SasTokenError if the token cannot be generated
+        """
         try:
             # NOTE: the typechecker has some problems here, so we help it with a cast.
             if asyncio.iscoroutinefunction(self.generator_fn):
@@ -196,6 +200,7 @@ class SasTokenProvider:
 
 
 def _get_sastoken_info_from_string(sastoken_string: str) -> Dict[str, str]:
+    """Given a SAS Token string, return a dictionary of it's keys and values"""
     pieces = sastoken_string.split("SharedAccessSignature ")
     if len(pieces) != 2:
         raise ValueError("Invalid SAS Token string: Not a SAS Token ")
