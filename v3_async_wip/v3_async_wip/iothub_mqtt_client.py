@@ -145,8 +145,7 @@ class IoTHubMQTTClient:
                 break
 
     async def shutdown(self) -> None:
-        """
-        Shut down the client.
+        """Shut down the client.
 
         Invoke only when completely finished with the client for graceful exit.
         Cannot be cancelled - if you try, the client will still fully shut down as much as

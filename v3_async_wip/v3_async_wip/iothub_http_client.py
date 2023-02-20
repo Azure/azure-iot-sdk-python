@@ -54,6 +54,14 @@ class IoTHubHTTPClient:
                 device_id=self._device_id, module_id=self._module_id
             )
 
+    async def shutdown(self):
+        """Shut down the client
+
+        Invoke only when complete finished with the client for graceful exit.
+        """
+        await self._session.close()
+        # TODO: do we need to do a sleep after this? Docs imply that
+
     # TODO: direct method?
     # TODO: should this raise IoTEdgeError instead of IoTHubError?
     # TODO: what is the rtype?
