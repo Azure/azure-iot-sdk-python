@@ -10,4 +10,5 @@ setup(
     description="Internal development utilities for Azure IoT. NOT FOR DISTRIBUTION.",
     version="0.0.0a1",  # Alpha Release
     license="MIT License",
+    install_requires=["aiohttp[speedups]"],
 )

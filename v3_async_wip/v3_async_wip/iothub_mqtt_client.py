@@ -229,7 +229,7 @@ class IoTHubMQTTClient:
         await self._mqtt_client.publish(topic, byte_payload)
         logger.debug("Sending telemetry message succeeded")
 
-    async def send_method_response(self, method_response: MethodResponse):
+    async def send_method_response(self, method_response: MethodResponse) -> None:
         """Send a method response to IoTHub.
 
         :param method_response: The MethodResponse to be sent
