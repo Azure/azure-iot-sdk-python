@@ -14,5 +14,5 @@ def arbitrary_exception():
     class ArbitraryException(Exception):
         pass
 
-    e = ArbitraryException()
+    e = ArbitraryException("arbitrary description")
     return e

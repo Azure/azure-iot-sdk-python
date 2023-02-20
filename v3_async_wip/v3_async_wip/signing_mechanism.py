@@ -8,17 +8,22 @@ import base64
 import binascii
 import hmac
 import hashlib
-from typing import Union
+from typing import AnyStr
+
+# TODO: remove commented signatures
 
 
 class SigningMechanism(abc.ABC):
     @abc.abstractmethod
-    def sign(self, data_str: Union[str, bytes]) -> str:
+    async def sign(self, data_str: AnyStr) -> str:
+        # NOTE: This is defined as a coroutine to allow for flexibility of implementation.
+        # Some implementations may not require a coroutine, but others may, so we err on the side
+        # of a coroutine for consistent interface.
         pass
 
 
 class SymmetricKeySigningMechanism(SigningMechanism):
-    def __init__(self, key: Union[str, bytes]) -> None:
+    def __init__(self, key: AnyStr) -> None:
         """
         A mechanism that signs data using a symmetric key
 
@@ -34,13 +39,12 @@ class SymmetricKeySigningMechanism(SigningMechanism):
             key_bytes = key
 
         # Derives the signing key
-        # CT-TODO: is "signing key" the right term?
         try:
             self._signing_key = base64.b64decode(key_bytes)
         except (binascii.Error):
             raise ValueError("Invalid Symmetric Key")
 
-    def sign(self, data_str: Union[str, bytes]) -> str:
+    async def sign(self, data_str: AnyStr) -> str:
         """
         Sign a data string with symmetric key and the HMAC-SHA256 algorithm.
 
@@ -52,6 +56,9 @@ class SymmetricKeySigningMechanism(SigningMechanism):
 
         :raises: ValueError if an invalid data string is provided
         """
+        # NOTE: This implementation doesn't take advantage of being a coroutine, but this is by
+        # design. See the definition of the abstract base class above.
+
         # Convert data_str to bytes (if not already)
         if isinstance(data_str, str):
             data_bytes = data_str.encode("utf-8")

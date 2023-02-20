@@ -6,7 +6,7 @@
 """This module is for creating agent strings for all clients"""
 
 import platform
-from azure.iot.device.constant import VERSION, IOTHUB_IDENTIFIER, PROVISIONING_IDENTIFIER
+from .constant import VERSION, IOTHUB_IDENTIFIER, PROVISIONING_IDENTIFIER
 
 python_runtime = platform.python_version()
 os_type = platform.system()
