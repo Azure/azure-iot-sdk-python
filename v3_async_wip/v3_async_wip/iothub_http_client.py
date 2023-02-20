@@ -104,6 +104,7 @@ class IoTHubHTTPClient:
                     )
                 )
             else:
+                logger.debug("Successfully received response from ??? for method invocation")
                 # TODO: what type is this? What is the format?
                 method_response = await response.json()
         return method_response
