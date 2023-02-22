@@ -1,4 +1,4 @@
-# -------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
@@ -16,12 +16,8 @@ from . import http_path_iothub as http_path
 logger = logging.getLogger(__name__)
 
 # Header Definitions
-HEADER_ACCEPT = "Accept"
 HEADER_AUTHORIZATION = "Authorization"
-HEADER_CONTENT_TYPE = "Content-Type"
-HEADER_CONTENT_LENGTH = "Content-Length"
 HEADER_EDGE_MODULE_ID = "x-ms-edge-moduleId"
-HEADER_HOST = "Host"
 HEADER_USER_AGENT = "User-Agent"
 
 # Query parameter definitions
