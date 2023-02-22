@@ -34,8 +34,7 @@ class IoTHubMQTTClient:
         self,
         client_config: config.IoTHubClientConfig,
     ) -> None:
-        """
-        Instantiate the client
+        """Instantiate the client
 
         :param client_config: The config object for the client
         :type client_config: :class:`IoTHubClientConfig`
