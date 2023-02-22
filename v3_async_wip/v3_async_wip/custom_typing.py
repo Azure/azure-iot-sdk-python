@@ -4,7 +4,8 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from typing import Union, Dict, List, Tuple, TypedDict
+from typing import Union, Dict, List, Tuple
+from typing_extensions import TypedDict
 
 # typing does not support recursion, so we must use forward references here (PEP484)
 JSONSerializable = Union[
@@ -33,8 +34,8 @@ class MethodParameters(TypedDict):
 
 
 class StorageInfo(TypedDict):
+    correlationId: str
     hostName: str
     containerName: str
     blobName: str
     sasToken: str
-    correlationId: str

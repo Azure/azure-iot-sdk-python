@@ -121,7 +121,7 @@ async def client(mocker, client_config):
     await client.shutdown()
 
 
-@pytest.mark.describe("IoTHubMQTTClient - Instantiation")
+@pytest.mark.describe("IoTHubMQTTClient -- Instantiation")
 class TestIoTHubMQTTClientInstantiation:
     # NOTE: As the instantiation is the unit under test here, we shouldn't use the client fixture.
     # This means that you must do graceful exit by shutting down the client at the end of all tests
@@ -718,7 +718,6 @@ class TestIoTHubMQTTClientInstantiation:
         await client.shutdown()
 
 
-# TODO: exceptions
 @pytest.mark.describe("IoTHubMQTTClient - .shutdown()")
 class TestIoTHubMQTTClientShutdown:
     @pytest.fixture(autouse=True)

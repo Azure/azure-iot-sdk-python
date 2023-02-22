@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import aiohttp
+import asyncio
 import logging
 import urllib.parse
 from typing import Optional, cast
@@ -30,29 +31,60 @@ PARAM_API_VERISON = "api-version"
 HTTP_TIMEOUT = 10
 
 
+# NOTE: aiohttp 3.x is bugged on Windows on Python 3.8.x - 3.10.6
+# If running the application using asyncio.run(), there will be an issue with the Event Loop
+# raising a spurious RuntimeError on application exit.
+#
+# Windows Event Loops are notoriously tricky to deal with. This issue stems from the use of the
+# default ProactorEventLoop, and can be mitigated by switching to a SelectorEventLoop, but
+# we as SDK developers really ought not be modifying the end user's event loop, or monkeypatching
+# error suppression into it. Furthermore, switching to a SelectorEvenLoop has some degradation of
+# functionality.
+#
+# The best course of action is for the end user to use loop.run_until_complete() instead of
+# asyncio.run() in their application, as this will allow for better cleanup.
+#
+# Eventually when there is an aiohttp 4.x released, this bug will be eliminated from all versions
+# of Python, but until then, there's not much to be done about it.
+#
+# See: https://github.com/aio-libs/aiohttp/issues/4324, as well as many, many other similar issues
+# for more details.
+
+# TODO: document aiohttp exceptions that can be raised
+
+
 class IoTHubHTTPClient:
     def __init__(self, client_config: config.IoTHubClientConfig) -> None:
+        """Instantiate the client
+
+        :param client_config: The config object for the client
+        :type client_config: :class:`IoTHubClientConfig`
+        """
         self._device_id = client_config.device_id
         self._module_id = client_config.module_id
+        self._edge_module_id = _format_edge_module_id(
+            self._device_id, self._module_id, client_config.is_edge_module
+        )
         self._user_agent_string = user_agent.get_iothub_user_agent() + client_config.product_info
         if client_config.gateway_hostname:
             self._hostname = client_config.gateway_hostname
         else:
             self._hostname = client_config.hostname
 
-        self._sastoken_provider = client_config.sastoken_provider
+        # TODO: add proxy support
+        # Doing so will require building a custom "Connector" that can be injected into the
+        # Session object. There are many examples around online.
+        # The built in per-request proxy of aiohttp is only partly functional, so I decided to
+        # not even bother implementing it, if it only does half the job.
+        if client_config.proxy_options:
+            # TODO: these warnings should probably be at API level
+            logger.warning("Proxy use with .invoke_method() not supported")
+            logger.warning("Proxy use with .get_storage_info_for_blob() not supported")
+            logger.warning("Proxy use with .notify_blob_upload_status() not supported")
 
         self._session = _create_client_session(self._hostname)
         self._ssl_context = client_config.ssl_context
-
-    async def _get_edge_module_id(self):
-        """Returns the Edge Module ID, or raises IoTHubClientError if not using Edge"""
-        if not self._module_id:
-            raise IoTHubClientError("Cannot generate Edge Module ID when not a Module")
-        else:
-            return "{device_id}/{module_id}".format(
-                device_id=self._device_id, module_id=self._module_id
-            )
+        self._sastoken_provider = client_config.sastoken_provider
 
     async def shutdown(self):
         """Shut down the client
@@ -60,11 +92,14 @@ class IoTHubHTTPClient:
         Invoke only when complete finished with the client for graceful exit.
         """
         await self._session.close()
-        # TODO: do we need to do a sleep after this? Docs imply that
+        # Wait 250ms for the underlying SSL connections to close
+        # See: https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
+        await asyncio.sleep(0.25)
 
     # TODO: direct method?
     # TODO: should this raise IoTEdgeError instead of IoTHubError?
     # TODO: what is the rtype?
+    # TODO: are these supposed to target Edge Devices and Edge Modules, or just any device/module?
     async def invoke_method(
         self, *, device_id: str, module_id: Optional[str] = None, method_params: MethodParameters
     ):
@@ -77,14 +112,16 @@ class IoTHubHTTPClient:
         :raises: :class:`IoTHubClientError` if not using an Edge Module
         :raises: :class:`IoTHubError` if IoTHub responds with failure
         """
+        if not self._edge_module_id:
+            raise IoTHubClientError(".invoke_method() only available for Edge Modules")
+
         path = http_path.get_method_invoke_path(device_id, module_id)
         query_params = {PARAM_API_VERISON: constant.IOTHUB_API_VERSION}
+        # NOTE: Other headers are auto-generated by aiohttp
+        # TODO: we may need to explicitly add the Host header depending on how host/gateway host works out
         headers = {
-            HEADER_HOST: self._hostname,  # TODO: this is always supposed to be Edge gateway hostname, yeah?
-            HEADER_CONTENT_TYPE: "application/json",
-            HEADER_CONTENT_LENGTH: str(len(str(method_params))),
             HEADER_USER_AGENT: urllib.parse.quote_plus(self._user_agent_string),
-            HEADER_EDGE_MODULE_ID: self._get_edge_module_id(),  # TODO: I assume this isn't supposed to be URI encoded just like in MQTT?
+            HEADER_EDGE_MODULE_ID: self._edge_module_id,  # TODO: I assume this isn't supposed to be URI encoded just like in MQTT?
         }
         # If using SAS auth, pass the auth header
         if self._sastoken_provider:
@@ -95,13 +132,14 @@ class IoTHubHTTPClient:
                 device_id=device_id, module_id=module_id
             )
         )
-        async with self._session as session:
-            response = await session.post(
-                url=path,
-                json=method_params,
-                params=query_params,
-                ssl=self._ssl_context,
-            )
+        async with self._session.post(
+            url=path,
+            json=method_params,
+            params=query_params,
+            headers=headers,
+            ssl=self._ssl_context,
+        ) as response:
+
             if response.status >= 300:
                 # TODO: semantics - failure response from where?
                 logger.error("Received failure response from ??? for method invocation")
@@ -115,6 +153,7 @@ class IoTHubHTTPClient:
                 logger.debug("Successfully received response from ??? for method invocation")
                 # TODO: what type is this? What is the format?
                 method_response = await response.json()
+
         return method_response
 
     async def get_storage_info_for_blob(self, *, blob_name: str) -> StorageInfo:
@@ -125,30 +164,32 @@ class IoTHubHTTPClient:
         :returns: The Azure Storage information returned by IoTHub
         :rtype: dict
 
+        :raises: :class:`IoTHubClientError` if not using a Device
         :raises: :class:`IoTHubError` if IoTHub responds with failure
         """
-        path = http_path.get_storage_info_for_blob_path(self._device_id)
+        if self._module_id:
+            raise IoTHubClientError(".get_storage_info_for_blob() only available for Devices")
+
+        path = http_path.get_storage_info_for_blob_path(
+            self._device_id
+        )  # TODO: is this bad that this is encoding? aiohttp encodes automatically
         query_params = {PARAM_API_VERISON: constant.IOTHUB_API_VERSION}
         data = {"blobName": blob_name}
-        headers = {
-            HEADER_HOST: self._hostname,  # TODO: if using Edge, should this be regular, or gateway? Because this value is dynamic right now
-            HEADER_ACCEPT: "application/json",
-            HEADER_CONTENT_TYPE: "application/json",
-            HEADER_CONTENT_LENGTH: str(len(str(data))),
-            HEADER_USER_AGENT: urllib.parse.quote_plus(self._user_agent_string),
-        }
+        # NOTE: Other headers are auto-generated by aiohttp
+        headers = {HEADER_USER_AGENT: urllib.parse.quote_plus(self._user_agent_string)}
         # If using SAS auth, pass the auth header
         if self._sastoken_provider:
             headers[HEADER_AUTHORIZATION] = str(self._sastoken_provider.get_current_sastoken())
 
         logger.debug("Sending storage info request to IoTHub...")
-        async with self._session as session:
-            response = await session.post(
-                url=path,
-                json=data,
-                params=query_params,
-                ssl=self._ssl_context,
-            )
+        async with self._session.post(
+            url=path,
+            json=data,
+            params=query_params,
+            headers=headers,
+            ssl=self._ssl_context,
+        ) as response:
+
             if response.status >= 300:
                 logger.error("Received failure response from IoTHub for storage info request")
                 raise IoTHubError(
@@ -158,8 +199,8 @@ class IoTHubHTTPClient:
                 )
             else:
                 logger.debug("Successfully received response from IoTHub for storage info request")
-                # TODO: what if this json decoding fails?
                 storage_info = cast(StorageInfo, await response.json())
+
         return storage_info
 
     async def notify_blob_upload_status(
@@ -172,8 +213,12 @@ class IoTHubHTTPClient:
         :param int status_code: A numeric status code for the file upload
         :param str status_description: A description that corresponds to the status_code
 
+        :raises: :class:`IoTHubClientError` if not using a Device
         :raises: :class:`IoTHubError` if IoTHub responds with failure
         """
+        if self._module_id:
+            raise IoTHubClientError(".notify_blob_upload_status() only available for Devices")
+
         path = http_path.get_notify_blob_upload_status_path(self._device_id)
         query_params = {PARAM_API_VERISON: constant.IOTHUB_API_VERSION}
         data = {
@@ -182,24 +227,21 @@ class IoTHubHTTPClient:
             "statusCode": status_code,
             "statusDescription": status_description,
         }
-        headers = {
-            HEADER_HOST: self._hostname,  # TODO: if using Edge, should this be regular, or gateway? Because this value is dynamic right now
-            HEADER_CONTENT_TYPE: "application/json; charset=utf-8",
-            HEADER_CONTENT_LENGTH: str(len(str(data))),
-            HEADER_USER_AGENT: urllib.parse.quote_plus(self._user_agent_string),
-        }
+        # NOTE: Other headers are auto-generated by aiohttp
+        headers = {HEADER_USER_AGENT: urllib.parse.quote_plus(self._user_agent_string)}
         # If using SAS auth, pass the auth header
         if self._sastoken_provider:
             headers[HEADER_AUTHORIZATION] = str(self._sastoken_provider.get_current_sastoken())
 
         logger.debug("Sending blob upload notification to IoTHub...")
-        async with self._session as session:
-            response = await session.post(
-                url=path,
-                json=data,
-                params=query_params,
-                ssl=self._ssl_context,
-            )
+        async with self._session.post(
+            url=path,
+            json=data,
+            params=query_params,
+            headers=headers,
+            ssl=self._ssl_context,
+        ) as response:
+
             if response.status >= 300:
                 logger.error("Received failure response from IoTHub for blob upload notification")
                 raise IoTHubError(
@@ -211,6 +253,22 @@ class IoTHubHTTPClient:
                 logger.debug(
                     "Successfully received from response from IoTHub for blob upload notification"
                 )
+
+        return None
+
+
+def _format_edge_module_id(
+    device_id: str, module_id: Optional[str], is_edge_module
+) -> Optional[str]:
+    """Returns the edge module identifier"""
+    if is_edge_module:
+        if module_id:
+            return "{device_id}/{module_id}".format(device_id=device_id, module_id=module_id)
+        else:
+            # This shouldn't ever happen
+            raise ValueError("Invalid configuration - Edge Module with no Module ID")
+    else:
+        return None
 
 
 def _create_client_session(hostname: str) -> aiohttp.ClientSession:
