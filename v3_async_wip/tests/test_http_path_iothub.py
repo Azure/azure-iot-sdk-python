@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.DEBUG)
 # make sure any URL encoded value can encode a '+' specifically, in addition to regular encoding.
 
 
-@pytest.mark.describe(".get_method_invoke_path()")
+@pytest.mark.describe(".get_direct_method_invoke_path()")
 class TestGetMethodInvokePath(object):
     @pytest.mark.it("Returns the relative method invoke HTTP path")
     @pytest.mark.parametrize(
@@ -59,7 +59,9 @@ class TestGetMethodInvokePath(object):
         ],
     )
     def test_path(self, device_id, module_id, expected_path):
-        path = http_path_iothub.get_method_invoke_path(device_id=device_id, module_id=module_id)
+        path = http_path_iothub.get_direct_method_invoke_path(
+            device_id=device_id, module_id=module_id
+        )
         assert path == expected_path
 
 

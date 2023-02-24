@@ -121,11 +121,11 @@ class TestGetInputTopicForSubscribe:
         assert topic == expected_topic
 
 
-@pytest.mark.describe(".get_method_topic_for_subscribe()")
+@pytest.mark.describe(".get_direct_method_request_topic_for_subscribe()")
 class TestGetMethodTopicForSubscribe:
     @pytest.mark.it("Returns the topic for subscribing to methods from IoTHub")
     def test_returns_topic(self):
-        topic = mqtt_topic_iothub.get_method_topic_for_subscribe()
+        topic = mqtt_topic_iothub.get_direct_method_request_topic_for_subscribe()
         assert topic == "$iothub/methods/POST/#"
 
 
@@ -229,9 +229,9 @@ class TestGetTelemetryTopicForPublish:
         assert topic == expected_topic
 
 
-@pytest.mark.describe(".get_method_topic_for_publish()")
+@pytest.mark.describe(".get_direct_method_response_topic_for_publish()")
 class TestGetMethodTopicForPublish:
-    @pytest.mark.it("Returns the topic for sending a method response to IoTHub")
+    @pytest.mark.it("Returns the topic for sending a direct method response to IoTHub")
     @pytest.mark.parametrize(
         "request_id, status, expected_topic",
         [
@@ -242,7 +242,7 @@ class TestGetMethodTopicForPublish:
         ],
     )
     def test_returns_topic(self, request_id, status, expected_topic):
-        topic = mqtt_topic_iothub.get_method_topic_for_publish(request_id, status)
+        topic = mqtt_topic_iothub.get_direct_method_response_topic_for_publish(request_id, status)
         assert topic == expected_topic
 
     @pytest.mark.it("URL encodes provided values when generating the topic")
@@ -270,7 +270,7 @@ class TestGetMethodTopicForPublish:
         ],
     )
     def test_url_encoding(self, request_id, status, expected_topic):
-        topic = mqtt_topic_iothub.get_method_topic_for_publish(request_id, status)
+        topic = mqtt_topic_iothub.get_direct_method_response_topic_for_publish(request_id, status)
         assert topic == expected_topic
 
     @pytest.mark.it("Converts the provided values to strings when generating the topic")
@@ -278,7 +278,7 @@ class TestGetMethodTopicForPublish:
         request_id = 1
         status = 200
         expected_topic = "$iothub/methods/res/200/?$rid=1"
-        topic = mqtt_topic_iothub.get_method_topic_for_publish(request_id, status)
+        topic = mqtt_topic_iothub.get_direct_method_response_topic_for_publish(request_id, status)
         assert topic == expected_topic
 
 
@@ -588,15 +588,16 @@ class TestExtractPropertiesFromMessageTopic:
             mqtt_topic_iothub.extract_properties_from_message_topic(topic)
 
 
-@pytest.mark.describe(".extract_name_from_method_request_topic()")
+@pytest.mark.describe(".extract_name_from_direct_method_request_topic()")
 class TestExtractNameFromMethodRequestTopic:
     @pytest.mark.it("Returns the method name from a method topic")
-    def test_valid_method_topic(self):
+    def test_valid_direct_method_topic(self):
         topic = "$iothub/methods/POST/fake_method/?$rid=1"
         expected_method_name = "fake_method"
 
         assert (
-            mqtt_topic_iothub.extract_name_from_method_request_topic(topic) == expected_method_name
+            mqtt_topic_iothub.extract_name_from_direct_method_request_topic(topic)
+            == expected_method_name
         )
 
     @pytest.mark.it("URL decodes the returned method name")
@@ -617,7 +618,8 @@ class TestExtractNameFromMethodRequestTopic:
     )
     def test_url_decodes_value(self, topic, expected_method_name):
         assert (
-            mqtt_topic_iothub.extract_name_from_method_request_topic(topic) == expected_method_name
+            mqtt_topic_iothub.extract_name_from_direct_method_request_topic(topic)
+            == expected_method_name
         )
 
     @pytest.mark.it("Raises a ValueError if the provided topic is not a method topic")
@@ -632,20 +634,20 @@ class TestExtractNameFromMethodRequestTopic:
             pytest.param("$iothub/methdos/POST/fake_method/?$rid=1", id="Malformed topic"),
         ],
     )
-    def test_invalid_method_topic(self, topic):
+    def test_invalid_direct_method_topic(self, topic):
         with pytest.raises(ValueError):
-            mqtt_topic_iothub.extract_name_from_method_request_topic(topic)
+            mqtt_topic_iothub.extract_name_from_direct_method_request_topic(topic)
 
 
-@pytest.mark.describe(".extract_request_id_from_method_request_topic()")
+@pytest.mark.describe(".extract_request_id_from_direct_method_request_topic()")
 class TestExtractRequestIdFromMethodRequestTopic:
     @pytest.mark.it("Returns the request id from a method topic")
-    def test_valid_method_topic(self):
+    def test_valid_direct_method_topic(self):
         topic = "$iothub/methods/POST/fake_method/?$rid=1"
         expected_request_id = "1"
 
         assert (
-            mqtt_topic_iothub.extract_request_id_from_method_request_topic(topic)
+            mqtt_topic_iothub.extract_request_id_from_direct_method_request_topic(topic)
             == expected_request_id
         )
 
@@ -667,7 +669,7 @@ class TestExtractRequestIdFromMethodRequestTopic:
     )
     def test_url_decodes_value(self, topic, expected_request_id):
         assert (
-            mqtt_topic_iothub.extract_request_id_from_method_request_topic(topic)
+            mqtt_topic_iothub.extract_request_id_from_direct_method_request_topic(topic)
             == expected_request_id
         )
 
@@ -683,9 +685,9 @@ class TestExtractRequestIdFromMethodRequestTopic:
             pytest.param("$iothub/methdos/POST/fake_method/?$rid=1", id="Malformed topic"),
         ],
     )
-    def test_invalid_method_topic(self, topic):
+    def test_invalid_direct_method_topic(self, topic):
         with pytest.raises(ValueError):
-            mqtt_topic_iothub.extract_request_id_from_method_request_topic(topic)
+            mqtt_topic_iothub.extract_request_id_from_direct_method_request_topic(topic)
 
     @pytest.mark.it("Raises a ValueError if the provided topic does not contain a request id")
     @pytest.mark.parametrize(
@@ -698,7 +700,7 @@ class TestExtractRequestIdFromMethodRequestTopic:
     )
     def test_no_request_id(self, topic):
         with pytest.raises(ValueError):
-            mqtt_topic_iothub.extract_request_id_from_method_request_topic(topic)
+            mqtt_topic_iothub.extract_request_id_from_direct_method_request_topic(topic)
 
 
 @pytest.mark.describe(".extract_status_code_from_twin_response_topic()")

@@ -66,9 +66,9 @@ def get_input_topic_for_subscribe(device_id: str, module_id: str) -> str:
     return _get_topic_base(device_id, module_id) + "/inputs/#"
 
 
-def get_method_topic_for_subscribe() -> str:
+def get_direct_method_request_topic_for_subscribe() -> str:
     """
-    :return: The topic for ALL incoming methods. It is of the format
+    :return: The topic for ALL incoming direct methods. It is of the format
     "$iothub/methods/POST/#"
     """
     return "$iothub/methods/POST/#"
@@ -97,9 +97,9 @@ def get_telemetry_topic_for_publish(device_id: str, module_id: Optional[str] = N
     return _get_topic_base(device_id, module_id) + "/messages/events/"
 
 
-def get_method_topic_for_publish(request_id: str, status: Union[str, int]) -> str:
+def get_direct_method_response_topic_for_publish(request_id: str, status: Union[str, int]) -> str:
     """
-    :return: The topic for publishing method responses. It is of the format
+    :return: The topic for publishing direct method responses. It is of the format
     "$iothub/methods/res/<status>/?$rid=<requestId>"
     """
     return "$iothub/methods/res/{status}/?$rid={request_id}".format(
@@ -182,10 +182,10 @@ def extract_properties_from_message_topic(topic: str) -> Dict[str, str]:
     return _extract_properties(properties_string)
 
 
-def extract_name_from_method_request_topic(topic: str) -> str:
+def extract_name_from_direct_method_request_topic(topic: str) -> str:
     """
-    Extract the method name from the method topic.
-    Topics for methods are of the following format:
+    Extract the direct method name from the direct method topic.
+    Topics for direct methods are of the following format:
     "$iothub/methods/POST/{method name}/?$rid={request id}"
 
     :param str topic: The topic string
@@ -198,10 +198,10 @@ def extract_name_from_method_request_topic(topic: str) -> str:
         raise ValueError("topic has incorrect format")
 
 
-def extract_request_id_from_method_request_topic(topic: str) -> str:
+def extract_request_id_from_direct_method_request_topic(topic: str) -> str:
     """
-    Extract the Request ID (RID) from the method topic.
-    Topics for methods are of the following format:
+    Extract the Request ID (RID) from the direct method topic.
+    Topics for direct methods are of the following format:
     "$iothub/methods/POST/{method name}/?$rid={request id}"
 
     :param str topic: the topic string

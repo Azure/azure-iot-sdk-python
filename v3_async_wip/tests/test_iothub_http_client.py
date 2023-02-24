@@ -14,7 +14,7 @@ from dev_utils import custom_mock
 from v3_async_wip import config, constant, user_agent
 from v3_async_wip import http_path_iothub as http_path
 from v3_async_wip import sastoken as st
-from v3_async_wip.iot_exceptions import IoTHubClientError, IoTHubError
+from v3_async_wip.iot_exceptions import IoTHubClientError, IoTHubError, IoTEdgeError
 from v3_async_wip.iothub_http_client import IoTHubHTTPClient
 
 FAKE_DEVICE_ID = "fake_device_id"
@@ -369,8 +369,8 @@ class TestIoTHubHTTPClientShutdown:
         asyncio.sleep = original_sleep
 
 
-@pytest.mark.describe("IoTHubHTTPClient - .invoke_method()")
-class TestIoTHubHTTPClientInvokeMethod:
+@pytest.mark.describe("IoTHubHTTPClient - .invoke_direct_method()")
+class TestIoTHubHTTPClientInvokeDirectMethod:
     @pytest.fixture(autouse=True)
     def modify_client_config(self, client_config):
         """Modify the client config to always be an Edge Module"""
@@ -381,8 +381,10 @@ class TestIoTHubHTTPClientInvokeMethod:
 
     @pytest.fixture(autouse=True)
     def modify_post_response(self, client):
-        # TODO: what is a realistic response JSON?
-        fake_method_response = {}
+        fake_method_response = {
+            "status": 200,
+            "payload": "fake payload",
+        }
         mock_response = client._session.post.return_value.__aenter__.return_value
         mock_response.json.return_value = fake_method_response
 
@@ -401,7 +403,7 @@ class TestIoTHubHTTPClientInvokeMethod:
     ]
 
     @pytest.mark.it(
-        "Does an asynchronous POST request operation to the relative 'method invoke' path using the aiohttp ClientSession and the stored SSL context"
+        "Does an asynchronous POST request operation to the relative 'direct method invoke' path using the aiohttp ClientSession and the stored SSL context"
     )
     @pytest.mark.parametrize("target_device_id, target_module_id", targets)
     async def test_http_post(
@@ -410,9 +412,9 @@ class TestIoTHubHTTPClientInvokeMethod:
         post_ctx_manager = client._session.post.return_value
         assert client._session.post.call_count == 0
         assert post_ctx_manager.__aenter__.await_count == 0
-        expected_path = http_path.get_method_invoke_path(target_device_id, target_module_id)
+        expected_path = http_path.get_direct_method_invoke_path(target_device_id, target_module_id)
 
-        await client.invoke_method(
+        await client.invoke_direct_method(
             device_id=target_device_id, module_id=target_module_id, method_params=method_params
         )
 
@@ -436,7 +438,7 @@ class TestIoTHubHTTPClientInvokeMethod:
     ):
         assert client._session.post.call_count == 0
 
-        await client.invoke_method(
+        await client.invoke_direct_method(
             device_id=target_device_id, module_id=target_module_id, method_params=method_params
         )
 
@@ -457,7 +459,7 @@ class TestIoTHubHTTPClientInvokeMethod:
         assert client._session.post.call_count == 0
         expected_params = {"api-version": constant.IOTHUB_API_VERSION}
 
-        await client.invoke_method(
+        await client.invoke_direct_method(
             device_id=target_device_id, module_id=target_module_id, method_params=method_params
         )
 
@@ -481,7 +483,7 @@ class TestIoTHubHTTPClientInvokeMethod:
         expected_user_agent = urllib.parse.quote_plus(client._user_agent_string)
         assert expected_user_agent != client._user_agent_string
 
-        await client.invoke_method(
+        await client.invoke_direct_method(
             device_id=target_device_id, module_id=target_module_id, method_params=method_params
         )
 
@@ -498,7 +500,7 @@ class TestIoTHubHTTPClientInvokeMethod:
     ):
         assert client._session.post.call_count == 0
 
-        await client.invoke_method(
+        await client.invoke_direct_method(
             device_id=target_device_id, module_id=target_module_id, method_params=method_params
         )
 
@@ -518,7 +520,7 @@ class TestIoTHubHTTPClientInvokeMethod:
         assert mock_sastoken_provider.get_current_sastoken.call_count == 0
         expected_sastoken_string = str(mock_sastoken_provider.get_current_sastoken.return_value)
 
-        await client.invoke_method(
+        await client.invoke_direct_method(
             device_id=target_device_id, module_id=target_module_id, method_params=method_params
         )
 
@@ -536,7 +538,7 @@ class TestIoTHubHTTPClientInvokeMethod:
         assert client._session.post.call_count == 0
         assert client._sastoken_provider is None
 
-        await client.invoke_method(
+        await client.invoke_direct_method(
             device_id=target_device_id, module_id=target_module_id, method_params=method_params
         )
 
@@ -554,14 +556,14 @@ class TestIoTHubHTTPClientInvokeMethod:
         mock_response = client._session.post.return_value.__aenter__.return_value
         assert mock_response.status == 200
 
-        method_response = await client.invoke_method(
+        method_response = await client.invoke_direct_method(
             device_id=target_device_id, module_id=target_module_id, method_params=method_params
         )
 
         assert method_response is mock_response.json.return_value
 
     @pytest.mark.it(
-        "Raises an IoTHubError if a HTTP response is received with a failed status code"
+        "Raises an IoTEdgeError if a HTTP response is received with a failed status code"
     )
     @pytest.mark.parametrize("target_device_id, target_module_id", targets)
     @pytest.mark.parametrize("failed_status", failed_status_codes)
@@ -571,8 +573,8 @@ class TestIoTHubHTTPClientInvokeMethod:
         mock_response = client._session.post.return_value.__aenter__.return_value
         mock_response.status = failed_status
 
-        with pytest.raises(IoTHubError):
-            await client.invoke_method(
+        with pytest.raises(IoTEdgeError):
+            await client.invoke_direct_method(
                 device_id=target_device_id, module_id=target_module_id, method_params=method_params
             )
 
@@ -592,7 +594,7 @@ class TestIoTHubHTTPClientInvokeMethod:
         client._edge_module_id = None
 
         with pytest.raises(IoTHubClientError):
-            await client.invoke_method(
+            await client.invoke_direct_method(
                 device_id=target_device_id, module_id=target_module_id, method_params=method_params
             )
 
@@ -605,7 +607,7 @@ class TestIoTHubHTTPClientInvokeMethod:
         client._session.post.side_effect = exception
 
         with pytest.raises(type(exception)) as e_info:
-            await client.invoke_method(
+            await client.invoke_direct_method(
                 device_id=target_device_id, module_id=target_module_id, method_params=method_params
             )
         assert e_info.value is exception
@@ -620,7 +622,7 @@ class TestIoTHubHTTPClientInvokeMethod:
         mock_response.json.side_effect = exception
 
         with pytest.raises(type(exception)) as e_info:
-            await client.invoke_method(
+            await client.invoke_direct_method(
                 device_id=target_device_id, module_id=target_module_id, method_params=method_params
             )
         assert e_info.value is exception
@@ -634,7 +636,7 @@ class TestIoTHubHTTPClientInvokeMethod:
         post_ctx_manager.__aenter__ = custom_mock.HangingAsyncMock()
 
         t = asyncio.create_task(
-            client.invoke_method(
+            client.invoke_direct_method(
                 device_id=target_device_id, module_id=target_module_id, method_params=method_params
             )
         )
@@ -657,7 +659,7 @@ class TestIoTHubHTTPClientInvokeMethod:
         response.json = custom_mock.HangingAsyncMock()
 
         t = asyncio.create_task(
-            client.invoke_method(
+            client.invoke_direct_method(
                 device_id=target_device_id, module_id=target_module_id, method_params=method_params
             )
         )

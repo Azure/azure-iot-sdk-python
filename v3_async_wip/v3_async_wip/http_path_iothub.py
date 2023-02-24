@@ -11,7 +11,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-def get_method_invoke_path(device_id: str, module_id: Optional[str] = None) -> str:
+def get_direct_method_invoke_path(device_id: str, module_id: Optional[str] = None) -> str:
     """
     :return: The relative path for invoking methods from one module to a device or module. It is of the format
     /twins/uri_encode($device_id)/modules/uri_encode($module_id)/methods

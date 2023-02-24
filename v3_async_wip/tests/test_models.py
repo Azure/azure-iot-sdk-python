@@ -6,7 +6,7 @@
 
 import pytest
 import logging
-from v3_async_wip.models import Message, MethodRequest, MethodResponse
+from v3_async_wip.models import Message, DirectMethodRequest, DirectMethodResponse
 from v3_async_wip import constant
 
 logging.basicConfig(level=logging.DEBUG)
@@ -231,51 +231,51 @@ class TestMessage:
         assert message.content_type == "text/plain"
 
 
-@pytest.mark.describe("MethodRequest")
-class TestMethodRequest:
+@pytest.mark.describe("DirectMethodRequest")
+class TestDirectMethodRequest:
     @pytest.mark.it("Instantiates with the provided 'request_id' set as an attribute")
     def test_request_id(self):
-        m_req = MethodRequest(request_id=FAKE_RID, name=FAKE_METHOD_NAME, payload={})
+        m_req = DirectMethodRequest(request_id=FAKE_RID, name=FAKE_METHOD_NAME, payload={})
         assert m_req.request_id == FAKE_RID
 
     @pytest.mark.it("Instantiates with the provided 'name' set as an attribute")
     def test_name(self):
-        m_req = MethodRequest(request_id=FAKE_RID, name=FAKE_METHOD_NAME, payload={})
+        m_req = DirectMethodRequest(request_id=FAKE_RID, name=FAKE_METHOD_NAME, payload={})
         assert m_req.name == FAKE_METHOD_NAME
 
     @pytest.mark.it("Instantiates with the provided 'payload' set as an attribute")
     @pytest.mark.parametrize("payload", json_serializable_payload_params)
     def test_payload(self, payload):
-        m_req = MethodRequest(request_id=FAKE_RID, name=FAKE_METHOD_NAME, payload=payload)
+        m_req = DirectMethodRequest(request_id=FAKE_RID, name=FAKE_METHOD_NAME, payload=payload)
         assert m_req.payload == payload
 
 
-@pytest.mark.describe("MethodResponse")
-class TestMethodResponse:
+@pytest.mark.describe("DirectMethodResponse")
+class TestDirectMethodResponse:
     @pytest.mark.it("Instantiates with the provided 'request_id' set as an attribute")
     def test_request_id(self):
-        m_resp = MethodResponse(request_id=FAKE_RID, status=FAKE_STATUS, payload={})
+        m_resp = DirectMethodResponse(request_id=FAKE_RID, status=FAKE_STATUS, payload={})
         assert m_resp.request_id == FAKE_RID
 
     @pytest.mark.it("Instantiates with the provided 'status' set as an attribute")
     def test_status(self):
-        m_resp = MethodResponse(request_id=FAKE_RID, status=FAKE_STATUS, payload={})
+        m_resp = DirectMethodResponse(request_id=FAKE_RID, status=FAKE_STATUS, payload={})
         assert m_resp.status == FAKE_STATUS
 
     @pytest.mark.it("Instantiates with the optional provided 'payload' set as an attribute")
     @pytest.mark.parametrize("payload", json_serializable_payload_params)
     def test_payload(self, payload):
-        m_resp = MethodResponse(request_id=FAKE_RID, status=FAKE_STATUS, payload=payload)
+        m_resp = DirectMethodResponse(request_id=FAKE_RID, status=FAKE_STATUS, payload=payload)
         assert m_resp.payload == payload
 
-    @pytest.mark.it("Can be instantiated from a MethodResponse via factory API")
+    @pytest.mark.it("Can be instantiated from a DirectMethodResponse via factory API")
     @pytest.mark.parametrize("payload", json_serializable_payload_params)
     def test_factory(self, payload):
-        m_req = MethodRequest(request_id=FAKE_RID, name=FAKE_METHOD_NAME, payload={})
-        m_resp = MethodResponse.create_from_method_request(
+        m_req = DirectMethodRequest(request_id=FAKE_RID, name=FAKE_METHOD_NAME, payload={})
+        m_resp = DirectMethodResponse.create_from_method_request(
             method_request=m_req, status=FAKE_STATUS, payload=payload
         )
-        assert isinstance(m_resp, MethodResponse)
+        assert isinstance(m_resp, DirectMethodResponse)
         assert m_resp.request_id == m_req.request_id
         assert m_resp.status == FAKE_STATUS
         assert m_resp.payload == payload
