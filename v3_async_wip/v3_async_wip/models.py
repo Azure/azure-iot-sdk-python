@@ -149,7 +149,7 @@ class Message:
         return message
 
 
-class MethodRequest:
+class DirectMethodRequest:
     """Represents a request to invoke a direct method.
 
     :ivar str request_id: The request id.
@@ -159,7 +159,7 @@ class MethodRequest:
     """
 
     def __init__(self, request_id: str, name: str, payload: JSONSerializable) -> None:
-        """Initializer for a MethodRequest.
+        """Initializer for a DirectMethodRequest.
 
         :param str request_id: The request id.
         :param str name: The name of the method to be invoked
@@ -171,20 +171,20 @@ class MethodRequest:
         self.payload = payload
 
 
-class MethodResponse:
+class DirectMethodResponse:
     """Represents a response to a direct method.
 
-    :ivar str request_id: The request id of the MethodRequest being responded to.
-    :ivar int status: The status of the execution of the MethodRequest.
+    :ivar str request_id: The request id of the DirectMethodRequest being responded to.
+    :ivar int status: The status of the execution of the DirectMethodRequest.
     :ivar payload: The JSON payload to be sent with the response.
     :type payload: dict, str, int, float, bool, or None (JSON compatible values)
     """
 
     def __init__(self, request_id: str, status: int, payload: JSONSerializable = None) -> None:
-        """Initializer for MethodResponse.
+        """Initializer for DirectMethodResponse.
 
-        :param str request_id: The request id of the MethodRequest being responded to.
-        :param int status: The status of the execution of the MethodRequest.
+        :param str request_id: The request id of the DirectMethodRequest being responded to.
+        :param int status: The status of the execution of the DirectMethodRequest.
         :param payload: The JSON payload to be sent with the response. (OPTIONAL)
         :type payload: dict, str, int, float, bool, or None (JSON compatible values)
         """
@@ -194,13 +194,13 @@ class MethodResponse:
 
     @classmethod
     def create_from_method_request(
-        cls, method_request: MethodRequest, status: int, payload: JSONSerializable = None
+        cls, method_request: DirectMethodRequest, status: int, payload: JSONSerializable = None
     ):
-        """Factory method for creating a MethodResponse from a MethodRequest.
+        """Factory method for creating a DirectMethodResponse from a DirectMethodRequest.
 
-        :param method_request: The MethodRequest object to respond to.
-        :type method_request: MethodRequest.
-        :param int status: The status of the execution of the MethodRequest.
+        :param method_request: The DirectMethodRequest object to respond to.
+        :type method_request: DirectMethodRequest.
+        :param int status: The status of the execution of the DirectMethodRequest.
         :type payload: dict, str, int, float, bool, or None (JSON compatible values)
         """
         return cls(request_id=method_request.request_id, status=status, payload=payload)

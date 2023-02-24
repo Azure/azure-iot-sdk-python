@@ -121,7 +121,7 @@ async def client(mocker, client_config):
     await client.shutdown()
 
 
-@pytest.mark.describe("IoTHubMQTTClient - Instantiation")
+@pytest.mark.describe("IoTHubMQTTClient -- Instantiation")
 class TestIoTHubMQTTClientInstantiation:
     # NOTE: As the instantiation is the unit under test here, we shouldn't use the client fixture.
     # This means that you must do graceful exit by shutting down the client at the end of all tests
@@ -425,7 +425,7 @@ class TestIoTHubMQTTClientInstantiation:
 
         await client.shutdown()
 
-    @pytest.mark.it("Adds incoming message filter on the MQTTClient for method requests")
+    @pytest.mark.it("Adds incoming message filter on the MQTTClient for direct method requests")
     @pytest.mark.parametrize(
         "device_id, module_id",
         [
@@ -433,10 +433,10 @@ class TestIoTHubMQTTClientInstantiation:
             pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
         ],
     )
-    async def test_method_request_filter(self, mocker, client_config, device_id, module_id):
+    async def test_direct_method_request_filter(self, mocker, client_config, device_id, module_id):
         client_config.device_id = device_id
         client_config.module_id = module_id
-        expected_topic = mqtt_topic.get_method_topic_for_subscribe()
+        expected_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
 
         mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
         client = IoTHubMQTTClient(client_config)
@@ -552,8 +552,10 @@ class TestIoTHubMQTTClientInstantiation:
 
         await client.shutdown()
 
-    # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingMethodRequests)
-    @pytest.mark.it("Creates and stores an incoming method request generator as an attribute")
+    # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingDirectDirectMethodRequests)
+    @pytest.mark.it(
+        "Creates and stores an incoming direct method request generator as an attribute"
+    )
     @pytest.mark.parametrize(
         "device_id, module_id",
         [
@@ -561,11 +563,11 @@ class TestIoTHubMQTTClientInstantiation:
             pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
         ],
     )
-    async def test_method_request_generator(self, client_config, device_id, module_id):
+    async def test_direct_method_request_generator(self, client_config, device_id, module_id):
         client_config.device_id = device_id
         client_config.module_id = module_id
         client = IoTHubMQTTClient(client_config)
-        assert isinstance(client.incoming_method_requests, typing.AsyncGenerator)
+        assert isinstance(client.incoming_direct_method_requests, typing.AsyncGenerator)
 
         await client.shutdown()
 
@@ -718,7 +720,6 @@ class TestIoTHubMQTTClientInstantiation:
         await client.shutdown()
 
 
-# TODO: exceptions
 @pytest.mark.describe("IoTHubMQTTClient - .shutdown()")
 class TestIoTHubMQTTClientShutdown:
     @pytest.fixture(autouse=True)
@@ -1185,26 +1186,28 @@ class TestIoTHubMQTTClientSendMessage:
             await t
 
 
-@pytest.mark.describe("IoTHubMQTTClient - .send_method_response()")
-class TestIoTHubMQTTClientSendMethodResponse:
+@pytest.mark.describe("IoTHubMQTTClient - .send_direct_method_response()")
+class TestIoTHubMQTTClientSendDirectMethodResponse:
     @pytest.fixture
     def method_response(self):
         json_response = {"some": {"json": "payload"}}
-        method_response = models.MethodResponse(request_id="123", status=200, payload=json_response)
+        method_response = models.DirectMethodResponse(
+            request_id="123", status=200, payload=json_response
+        )
         return method_response
 
     @pytest.mark.it(
-        "Awaits a publish to the method response topic using the MQTTClient, sending the given MethodResponse's JSON payload converted to string"
+        "Awaits a publish to the direct method response topic using the MQTTClient, sending the given DirectMethodResponse's JSON payload converted to string"
     )
     async def test_mqtt_publish(self, mocker, client, method_response):
         assert client._mqtt_client.publish.await_count == 0
 
-        expected_topic = mqtt_topic.get_method_topic_for_publish(
+        expected_topic = mqtt_topic.get_direct_method_response_topic_for_publish(
             method_response.request_id, method_response.status
         )
         expected_payload = json.dumps(method_response.payload)
 
-        await client.send_method_response(method_response)
+        await client.send_direct_method_response(method_response)
 
         assert client._mqtt_client.publish.await_count == 1
         assert client._mqtt_client.publish.await_args == mocker.call(
@@ -1217,14 +1220,14 @@ class TestIoTHubMQTTClientSendMethodResponse:
         client._mqtt_client.publish.side_effect = exception
 
         with pytest.raises(type(exception)) as e_info:
-            await client.send_method_response(method_response)
+            await client.send_direct_method_response(method_response)
         assert e_info.value is exception
 
     @pytest.mark.it("Can be cancelled while waiting for the MQTTClient publish to finish")
     async def test_cancel(self, client, method_response):
         client._mqtt_client.publish = custom_mock.HangingAsyncMock()
 
-        t = asyncio.create_task(client.send_method_response(method_response))
+        t = asyncio.create_task(client.send_direct_method_response(method_response))
 
         # Hanging, waiting for MQTT publish to finish
         await client._mqtt_client.publish.wait_for_hang()
@@ -2037,26 +2040,26 @@ class TestIoTHubMQTTClientDisableInputMessageReceive(IoTHubMQTTClientDisableRece
             await client.disable_input_message_receive()
 
 
-@pytest.mark.describe("IoTHubMQTTClient - .enable_method_request_receive()")
-class TestIoTHubMQTTClientEnableMethodRequestReceive(IoTHubMQTTClientEnableReceiveTest):
+@pytest.mark.describe("IoTHubMQTTClient - .enable_direct_method_request_receive()")
+class TestIoTHubMQTTClientEnableDirectMethodRequestReceive(IoTHubMQTTClientEnableReceiveTest):
     @pytest.fixture
     def method_name(self):
-        return "enable_method_request_receive"
+        return "enable_direct_method_request_receive"
 
     @pytest.fixture
     def expected_topic(self):
-        return mqtt_topic.get_method_topic_for_subscribe()
+        return mqtt_topic.get_direct_method_request_topic_for_subscribe()
 
 
-@pytest.mark.describe("IoTHubMQTTClient - .disable_method_request_receive()")
-class TestIoTHubMQTTClientDisableMethodRequestReceive(IoTHubMQTTClientDisableReceiveTest):
+@pytest.mark.describe("IoTHubMQTTClient - .disable_direct_method_request_receive()")
+class TestIoTHubMQTTClientDisableDirectMethodRequestReceive(IoTHubMQTTClientDisableReceiveTest):
     @pytest.fixture
     def method_name(self):
-        return "disable_method_request_receive"
+        return "disable_direct_method_request_receive"
 
     @pytest.fixture
     def expected_topic(self):
-        return mqtt_topic.get_method_topic_for_subscribe()
+        return mqtt_topic.get_direct_method_request_topic_for_subscribe()
 
 
 @pytest.mark.describe("IoTHubMQTTClient - .enable_twin_patch_receive()")
@@ -2502,13 +2505,13 @@ class TestIoTHubMQTTClientIncomingInputMessages:
         assert msg.content_encoding == "utf-8"
 
 
-@pytest.mark.describe("IoTHubMQTTClient - .incoming_method_requests")
-class TestIoTHubMQTTClientIncomingMethodRequests:
+@pytest.mark.describe("IoTHubMQTTClient - .incoming_direct_s")
+class TestIoTHubMQTTClientIncomingDirectMethodRequests:
     @pytest.mark.it(
-        "Yields a MethodRequest whenever the MQTTClient receives an MQTTMessage on the incoming method request topic"
+        "Yields a DirectMethodRequest whenever the MQTTClient receives an MQTTMessage on the incoming direct method request topic"
     )
-    async def test_yields_method_request(self, client):
-        generic_topic = mqtt_topic.get_method_topic_for_subscribe()
+    async def test_yields_direct_(self, client):
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
 
         # Create MQTTMessages
         mreq1_name = "some_method"
@@ -2529,17 +2532,17 @@ class TestIoTHubMQTTClientIncomingMethodRequests:
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
 
         # Get items from generator
-        mreq1 = await client.incoming_method_requests.__anext__()
-        assert isinstance(mreq1, models.MethodRequest)
-        mreq2 = await client.incoming_method_requests.__anext__()
-        assert isinstance(mreq2, models.MethodRequest)
+        mreq1 = await client.incoming_direct_method_requests.__anext__()
+        assert isinstance(mreq1, models.DirectMethodRequest)
+        mreq2 = await client.incoming_direct_method_requests.__anext__()
+        assert isinstance(mreq2, models.DirectMethodRequest)
         assert mreq1 != mreq2
 
     @pytest.mark.it(
-        "Extracts the method name and request id from the MQTTMessage's topic and sets them on the resulting MethodRequest"
+        "Extracts the method name and request id from the MQTTMessage's topic and sets them on the resulting DirectMethodRequest"
     )
-    async def test_method_request_attributes(self, client):
-        generic_topic = mqtt_topic.get_method_topic_for_subscribe()
+    async def test_direct_method_request_attributes(self, client):
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
 
         mreq_name = "some_method"
         mreq_id = "12"
@@ -2548,16 +2551,16 @@ class TestIoTHubMQTTClientIncomingMethodRequests:
         mqtt_msg1.payload = '{"json": "in", "a": {"string": "format"}}'.encode("utf-8")
 
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
-        mreq = await client.incoming_method_requests.__anext__()
+        mreq = await client.incoming_direct_method_requests.__anext__()
 
         assert mreq.name == mreq_name
         assert mreq.request_id == mreq_id
 
     @pytest.mark.it(
-        "Derives the yielded MethodRequest JSON payload from the MQTTMessage's byte payload using the utf-8 codec"
+        "Derives the yielded DirectMethodRequest JSON payload from the MQTTMessage's byte payload using the utf-8 codec"
     )
     async def test_payload(self, client):
-        generic_topic = mqtt_topic.get_method_topic_for_subscribe()
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
         expected_payload = {"json": "derived", "from": {"byte": "payload"}}
 
         mreq_name = "some_method"
@@ -2567,7 +2570,7 @@ class TestIoTHubMQTTClientIncomingMethodRequests:
         mqtt_msg1.payload = json.dumps(expected_payload).encode("utf-8")
 
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
-        mreq = await client.incoming_method_requests.__anext__()
+        mreq = await client.incoming_direct_method_requests.__anext__()
 
         assert mreq.payload == expected_payload
 

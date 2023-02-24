@@ -1,40 +1,44 @@
 # TODO: REMOVE THIS WHEN NO LONGER TESTING AT IOTHUB-MQTT LEVEL
 
 from v3_async_wip.config import IoTHubClientConfig
+from v3_async_wip import sastoken as st
+from v3_async_wip import signing_mechanism as sm
 from azure.iot.device.common.auth import connection_string as cs
-from azure.iot.device.common.auth import sastoken as st
-from azure.iot.device.common.auth import signing_mechanism as sm
 import ssl
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def create_client_config(cs_str):
+async def create_client_config(cs_str):
     connection_string = cs.ConnectionString(cs_str)
     hostname = connection_string[cs.HOST_NAME]
     device_id = connection_string[cs.DEVICE_ID]
     module_id = connection_string.get(cs.MODULE_ID)
-    sastoken = _create_sastoken(connection_string)
+
+    generator = _create_sastoken_generator(connection_string)
+    sastoken_provider = await st.SasTokenProvider.create_from_generator(generator)
+
     ssl_context = _create_ssl_context()
+
     return IoTHubClientConfig(
         device_id=device_id,
         module_id=module_id,
         hostname=hostname,
-        sastoken=sastoken,
+        sastoken_provider=sastoken_provider,
         ssl_context=ssl_context,
     )
 
 
-def _create_sastoken(connection_string, ttl=3600):
+def _create_sastoken_generator(connection_string, ttl=3600):
     uri = _form_sas_uri(
         hostname=connection_string[cs.HOST_NAME],
         device_id=connection_string[cs.DEVICE_ID],
         module_id=connection_string.get(cs.MODULE_ID),
     )
     signing_mechanism = sm.SymmetricKeySigningMechanism(key=connection_string[cs.SHARED_ACCESS_KEY])
-    sastoken = st.RenewableSasToken(uri=uri, signing_mechanism=signing_mechanism, ttl=ttl)
-    return sastoken
+    sastoken_generator = st.InternalSasTokenGenerator(signing_mechanism, uri, ttl)
+    return sastoken_generator
 
 
 def _form_sas_uri(hostname, device_id, module_id=None):

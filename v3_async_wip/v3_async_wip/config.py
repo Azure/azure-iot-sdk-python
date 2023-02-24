@@ -35,7 +35,7 @@ class ProxyOptions:
         self,
         proxy_type: str,
         proxy_address: str,
-        proxy_port: int,
+        proxy_port: Optional[int] = None,
         proxy_username: Optional[str] = None,
         proxy_password: Optional[str] = None,
     ):
@@ -48,9 +48,14 @@ class ProxyOptions:
          If it is not provided, authentication will not be used (servers may accept unauthenticated requests).
         :param str proxy_password: (optional) This parameter is valid only for SOCKS5 servers and specifies the respective password for the username provided.
         """
+        # TODO: port default
+        # TODO: is that documentation about auth only being used on SOCKS accurate? Seems inaccurate.
         (self.proxy_type, self.proxy_type_socks) = _format_proxy_type(proxy_type)
         self.proxy_address = proxy_address
-        self.proxy_port = int(proxy_port)
+        if proxy_port is None:
+            self.proxy_port = _derive_default_proxy_port(self.proxy_type)
+        else:
+            self.proxy_port = int(proxy_port)
         self.proxy_username = proxy_username
         self.proxy_password = proxy_password
 
@@ -111,6 +116,7 @@ class IoTHubClientConfig(ClientConfig):
         *,
         device_id: str,
         module_id: Optional[str] = None,
+        is_edge_module: bool = False,
         product_info: str = "",
         **kwargs: Any,
     ) -> None:
@@ -119,12 +125,14 @@ class IoTHubClientConfig(ClientConfig):
 
         :param str device_id: The device identity being used with the IoTHub
         :param str module_id: The module identity being used with the IoTHub
+        :param bool is_edge_module: Boolean indicating whether or not using an Edge Module
         :param str product_info: A custom identification string.
 
         Additional parameters found in the docstring of the parent class
         """
         self.device_id = device_id
         self.module_id = module_id
+        self.is_edge_module = is_edge_module
         self.product_info = product_info
         super().__init__(**kwargs)
 
@@ -155,6 +163,13 @@ def _format_proxy_type(proxy_type):
             return (socks_constant_to_string_map[proxy_type], proxy_type)
         except KeyError:
             raise ValueError("Invalid Proxy Type")
+
+
+def _derive_default_proxy_port(proxy_type):
+    if proxy_type == "HTTP":
+        return 8080
+    else:
+        return 1080
 
 
 def _sanitize_keep_alive(keep_alive):

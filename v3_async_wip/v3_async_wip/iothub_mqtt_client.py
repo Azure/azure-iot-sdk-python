@@ -11,7 +11,7 @@ import urllib.parse
 from typing import Optional, Union, AsyncGenerator
 from .custom_typing import TwinPatch, Twin
 from .iot_exceptions import IoTHubError, IoTHubClientError
-from .models import Message, MethodResponse, MethodRequest
+from .models import Message, DirectMethodResponse, DirectMethodRequest
 from . import config, constant, user_agent
 from . import request_response as rr
 from . import mqtt_client as mqtt
@@ -34,8 +34,7 @@ class IoTHubMQTTClient:
         self,
         client_config: config.IoTHubClientConfig,
     ) -> None:
-        """
-        Instantiate the client
+        """Instantiate the client
 
         :param client_config: The config object for the client
         :type client_config: :class:`IoTHubClientConfig`
@@ -72,9 +71,9 @@ class IoTHubMQTTClient:
         self.incoming_input_messages: Optional[
             AsyncGenerator[Message, None]
         ] = _create_input_message_generator(self._device_id, self._module_id, self._mqtt_client)
-        self.incoming_method_requests: AsyncGenerator[
-            MethodRequest, None
-        ] = _create_method_request_generator(self._mqtt_client)
+        self.incoming_direct_method_requests: AsyncGenerator[
+            DirectMethodRequest, None
+        ] = _create_direct_method_request_generator(self._mqtt_client)
         self.incoming_twin_patches: AsyncGenerator[TwinPatch, None] = _create_twin_patch_generator(
             self._mqtt_client
         )
@@ -145,8 +144,7 @@ class IoTHubMQTTClient:
                 break
 
     async def shutdown(self) -> None:
-        """
-        Shut down the client.
+        """Shut down the client.
 
         Invoke only when completely finished with the client for graceful exit.
         Cannot be cancelled - if you try, the client will still fully shut down as much as
@@ -229,25 +227,27 @@ class IoTHubMQTTClient:
         await self._mqtt_client.publish(topic, byte_payload)
         logger.debug("Sending telemetry message succeeded")
 
-    async def send_method_response(self, method_response: MethodResponse):
-        """Send a method response to IoTHub.
+    async def send_direct_method_response(self, method_response: DirectMethodResponse) -> None:
+        """Send a direct method response to IoTHub.
 
-        :param method_response: The MethodResponse to be sent
-        :type method_response: :class:`models.MethodResponse`
+        :param method_response: The DirectMethodResponse to be sent
+        :type method_response: :class:`models.DirectMethodResponse`
 
-        :raises: MQTTError if there is an error sending the MethodResponse
-        :raises: ValueError if the size of the MethodResponse payload is too large
+        :raises: MQTTError if there is an error sending the DirectMethodResponse
+        :raises: ValueError if the size of the DirectMethodResponse payload is too large
         """
-        topic = mqtt_topic.get_method_topic_for_publish(
+        topic = mqtt_topic.get_direct_method_response_topic_for_publish(
             method_response.request_id, method_response.status
         )
         payload = json.dumps(method_response.payload)
         logger.debug(
-            "Sending method response to IoTHub... (rid: {})".format(method_response.request_id)
+            "Sending direct method response to IoTHub... (rid: {})".format(
+                method_response.request_id
+            )
         )
         await self._mqtt_client.publish(topic, payload)
         logger.debug(
-            "Sending method response succeeded (rid: {})".format(method_response.request_id)
+            "Sending direct method response succeeded (rid: {})".format(method_response.request_id)
         )
 
     async def send_twin_patch(self, patch: TwinPatch) -> None:
@@ -441,27 +441,29 @@ class IoTHubMQTTClient:
         await self._mqtt_client.unsubscribe(topic)
         logger.debug("Input message receive disabled")
 
-    async def enable_method_request_receive(self) -> None:
-        """Enable the ability to receive method requests
+    async def enable_direct_method_request_receive(self) -> None:
+        """Enable the ability to receive direct method requests
 
-        :raises: MQTTError if there is an error enabling method request receive
-        :raises: CancelledError if enabling method request receive is cancelled by network failure
+        :raises: MQTTError if there is an error enabling direct method request receive
+        :raises: CancelledError if enabling direct method request receive is cancelled by
+            network failure
         """
-        logger.debug("Enabling receive for method requests...")
-        topic = mqtt_topic.get_method_topic_for_subscribe()
+        logger.debug("Enabling receive for direct method requests...")
+        topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
         await self._mqtt_client.subscribe(topic)
-        logger.debug("Method request receive enabled")
+        logger.debug("Direct method request receive enabled")
 
-    async def disable_method_request_receive(self) -> None:
-        """Disable the ability to receive method requests
+    async def disable_direct_method_request_receive(self) -> None:
+        """Disable the ability to receive direct method requests
 
-        :raises: MQTTError if there is an error disabling method request receive
-        :raises: CancelledError if disabling method request receive is cancelled by network failure
+        :raises: MQTTError if there is an error disabling direct method request receive
+        :raises: CancelledError if disabling direct method request receive is cancelled by
+            network failure
         """
-        logger.debug("Disabling receive for method requests...")
-        topic = mqtt_topic.get_method_topic_for_subscribe()
+        logger.debug("Disabling receive for direct method requests...")
+        topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
         await self._mqtt_client.unsubscribe(topic)
-        logger.debug("Method request receive disabled")
+        logger.debug("Direct method request receive disabled")
 
     async def enable_twin_patch_receive(self) -> None:
         """Enable the ability to receive twin patches
@@ -544,7 +546,7 @@ def _create_mqtt_client(
             client_config.device_id, client_config.module_id
         )
         client.add_incoming_message_filter(input_msg_topic)
-    method_request_topic = mqtt_topic.get_method_topic_for_subscribe()
+    method_request_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
     client.add_incoming_message_filter(method_request_topic)
     twin_patch_topic = mqtt_topic.get_twin_patch_topic_for_subscribe()
     client.add_incoming_message_filter(twin_patch_topic)
@@ -622,24 +624,30 @@ def _create_input_message_generator(
     return input_message_generator(mqtt_msg_generator)
 
 
-def _create_method_request_generator(
+def _create_direct_method_request_generator(
     mqtt_client: mqtt.MQTTClient,
-) -> AsyncGenerator[MethodRequest, None]:
-    method_request_topic = mqtt_topic.get_method_topic_for_subscribe()
+) -> AsyncGenerator[DirectMethodRequest, None]:
+    method_request_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
     mqtt_msg_generator = mqtt_client.get_incoming_message_generator(method_request_topic)
 
-    async def method_request_generator(
+    async def direct_method_request_generator(
         incoming_mqtt_messages: AsyncGenerator[mqtt.MQTTMessage, None]
-    ) -> AsyncGenerator[MethodRequest, None]:
+    ) -> AsyncGenerator[DirectMethodRequest, None]:
         async for mqtt_message in incoming_mqtt_messages:
             # TODO: should request_id be an int in this context?
-            request_id = mqtt_topic.extract_request_id_from_method_request_topic(mqtt_message.topic)
-            method_name = mqtt_topic.extract_name_from_method_request_topic(mqtt_message.topic)
+            request_id = mqtt_topic.extract_request_id_from_direct_method_request_topic(
+                mqtt_message.topic
+            )
+            method_name = mqtt_topic.extract_name_from_direct_method_request_topic(
+                mqtt_message.topic
+            )
             payload = json.loads(mqtt_message.payload.decode("utf-8"))
-            method_request = MethodRequest(request_id=request_id, name=method_name, payload=payload)
+            method_request = DirectMethodRequest(
+                request_id=request_id, name=method_name, payload=payload
+            )
             yield method_request
 
-    return method_request_generator(mqtt_msg_generator)
+    return direct_method_request_generator(mqtt_msg_generator)
 
 
 def _create_twin_patch_generator(mqtt_client: mqtt.MQTTClient) -> AsyncGenerator[TwinPatch, None]:
