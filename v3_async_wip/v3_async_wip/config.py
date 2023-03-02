@@ -113,7 +113,6 @@ class IoTHubClientConfig(ClientConfig):
         *,
         device_id: str,
         module_id: Optional[str] = None,
-        is_edge_module: bool = False,
         product_info: str = "",
         **kwargs: Any,
     ) -> None:
@@ -122,14 +121,12 @@ class IoTHubClientConfig(ClientConfig):
 
         :param str device_id: The device identity being used with the IoTHub
         :param str module_id: The module identity being used with the IoTHub
-        :param bool is_edge_module: Boolean indicating whether or not using an Edge Module
         :param str product_info: A custom identification string.
 
         Additional parameters found in the docstring of the parent class
         """
         self.device_id = device_id
         self.module_id = module_id
-        self.is_edge_module = is_edge_module
         self.product_info = product_info
         super().__init__(**kwargs)
 
