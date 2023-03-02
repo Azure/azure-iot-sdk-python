@@ -334,5 +334,6 @@ Some keyword arguments provided at client creation have changed or been removed
 | `ensure_desired_properties` | **REMOVED** | No more implicit twin updates                            |
 | `sastoken_ttl`              | **REMOVED** | Unnecessary, but open to re-adding if a use case emerges |
 | `connection_retry_interval` | **REMOVED** | Connection retry no longer uses a static interval        |
-| `server_verification_cert`  | **REMOVED** | SSL injection now supported                              |
-| `cipher`                    | **REMOVED** | SSL injection now supported                              |
+| `gateway_hostname`          | **REMOVED** | Supported via `hostname` parameter                       |
+| `server_verification_cert`  | **REMOVED** | Supported via SSL injection                              |
+| `cipher`                    | **REMOVED** | Supported via SSL injection                              |

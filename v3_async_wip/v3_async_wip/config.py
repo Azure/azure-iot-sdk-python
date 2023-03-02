@@ -71,7 +71,6 @@ class ClientConfig:
         *,
         ssl_context: ssl.SSLContext,
         hostname: str,
-        gateway_hostname: Optional[str] = None,
         sastoken_provider: Optional[SasTokenProvider] = None,
         proxy_options: Optional[ProxyOptions] = None,
         keep_alive: int = 60,
@@ -81,7 +80,6 @@ class ClientConfig:
         """Initializer for ClientConfig
 
         :param str hostname: The hostname being connected to
-        :param str gateway_hostname: The gateway hostname optionally being used
         :param sastoken_provider: Object that can provide SasTokens
         :type sastoken_provider: :class:`SasTokenProvider`
         :param proxy_options: Details of proxy configuration
@@ -97,7 +95,6 @@ class ClientConfig:
         """
         # Network
         self.hostname = hostname
-        self.gateway_hostname = gateway_hostname
         self.proxy_options = proxy_options
 
         # Auth

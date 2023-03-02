@@ -3,24 +3,20 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
-from typing import Union, Dict, List, Tuple, Callable, Awaitable, TypeVar
+import sys
+from typing import Union, Dict, List, Tuple, Callable, Awaitable, TypeVar, Any
 from typing_extensions import TypedDict, ParamSpec
 
-# import sys
 
 P = ParamSpec("P")
 T = TypeVar("T")
 
-# if sys.version_info >= (3, 10):
-#     # NOTE: Despite the backport of ParamSpec to pre-3.10 Python, it doesn't work when passing
-#     # 0 arguments
-#     FunctionOrCoroutine = Union[Callable[P, T], Callable[P, Awaitable[T]]]
-# else:
-#     # TODO: is there a better way to do this?
-#     FunctionOrCoroutine = Any
 
-FunctionOrCoroutine = Callable[P, Union[T, Awaitable[T]]]
+if sys.version_info >= (3, 10):
+    # FunctionOrCoroutine = Union[Callable[P, T], Callable[P, Awaitable[T]]]
+    FunctionOrCoroutine = Callable[P, Union[T, Awaitable[T]]]
+else:
+    FunctionOrCoroutine = Callable[P, Any]
 
 # typing does not support recursion, so we must use forward references here (PEP484)
 JSONSerializable = Union[

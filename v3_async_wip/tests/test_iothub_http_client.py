@@ -57,7 +57,7 @@ def mock_sastoken_provider(mocker, sastoken):
     return provider
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_session(mocker):
     mock_session = mocker.MagicMock(spec=aiohttp.ClientSession)
     # Mock out POST and it's response
@@ -114,9 +114,8 @@ class TestIoTHubHTTPClientInstantiation:
     # This means that you must do graceful exit by shutting down the client at the end of all tests
     # and you may need to do a manual mock of the underlying HTTP client where appropriate.
     configurations = [
-        pytest.param(FAKE_DEVICE_ID, None, False, id="Device Configuration"),
-        pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, False, id="Module Configuration"),
-        pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, True, id="Edge Module Configuration"),
+        pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
+        pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
     ]
 
     @pytest.fixture(autouse=True)
@@ -127,11 +126,10 @@ class TestIoTHubHTTPClientInstantiation:
     @pytest.mark.it(
         "Stores the `device_id` and `module_id` values from the IoTHubClientConfig as attributes"
     )
-    @pytest.mark.parametrize("device_id, module_id, is_edge_module", configurations)
-    async def test_simple_ids(self, client_config, device_id, module_id, is_edge_module):
+    @pytest.mark.parametrize("device_id, module_id", configurations)
+    async def test_simple_ids(self, client_config, device_id, module_id):
         client_config.device_id = device_id
         client_config.module_id = module_id
-        client_config.is_edge_module = is_edge_module
 
         client = IoTHubHTTPClient(client_config)
         assert client._device_id == device_id
@@ -140,12 +138,11 @@ class TestIoTHubHTTPClientInstantiation:
         await client.shutdown()
 
     @pytest.mark.it(
-        "Derives the `edge_module_id` from the `device_id` and `module_id` if the IoTHubClientConfig indicates use of an Edge Module"
+        "Derives the `edge_module_id` from the `device_id` and `module_id` if the IoTHubClientConfig contains a `module_id`"
     )
     async def test_edge_module_id(self, client_config):
         client_config.device_id = FAKE_DEVICE_ID
         client_config.module_id = FAKE_MODULE_ID
-        client_config.is_edge_module = True
         expected_edge_module_id = "{device_id}/{module_id}".format(
             device_id=FAKE_DEVICE_ID, module_id=FAKE_MODULE_ID
         )
@@ -155,18 +152,12 @@ class TestIoTHubHTTPClientInstantiation:
 
         await client.shutdown()
 
-    @pytest.mark.it("Sets the `edge_module_id` to None if not using an Edge Module")
-    @pytest.mark.parametrize(
-        "device_id, module_id",
-        [
-            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
-            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Non-Edge Module Configuration"),
-        ],
-    )
-    async def test_no_edge_module_id(self, client_config, device_id, module_id):
-        client_config.device_id = device_id
-        client_config.module_id = module_id
-        client_config.is_edge_module = False
+    # NOTE: It would be nice if we could only do this for Edge modules, but there's no way to
+    # indicate a Module is Edge vs non-Edge
+    @pytest.mark.it("Sets the `edge_module_id` to None if not using a Module")
+    async def test_no_edge_module_id(self, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = None
 
         client = IoTHubHTTPClient(client_config)
         assert client._edge_module_id is None
@@ -176,7 +167,7 @@ class TestIoTHubHTTPClientInstantiation:
     @pytest.mark.it(
         "Constructs the `user_agent_string` by concatenating the base IoTHub user agent with the `product_info` from the IoTHubClientConfig"
     )
-    @pytest.mark.parametrize("device_id, module_id, is_edge_module", configurations)
+    @pytest.mark.parametrize("device_id, module_id", configurations)
     @pytest.mark.parametrize(
         "product_info",
         [
@@ -188,12 +179,9 @@ class TestIoTHubHTTPClientInstantiation:
             ),
         ],
     )
-    async def test_user_agent(
-        self, client_config, device_id, module_id, is_edge_module, product_info
-    ):
+    async def test_user_agent(self, client_config, device_id, module_id, product_info):
         client_config.device_id = device_id
         client_config.module_id = module_id
-        client_config.is_edge_module = is_edge_module
         client_config.product_info = product_info
         expected_user_agent = user_agent.get_iothub_user_agent() + product_info
 
@@ -203,7 +191,7 @@ class TestIoTHubHTTPClientInstantiation:
         await client.shutdown()
 
     @pytest.mark.it("Does not URL encode the user agent string")
-    @pytest.mark.parametrize("device_id, module_id, is_edge_module", configurations)
+    @pytest.mark.parametrize("device_id, module_id", configurations)
     @pytest.mark.parametrize(
         "product_info",
         [
@@ -215,12 +203,11 @@ class TestIoTHubHTTPClientInstantiation:
         ],
     )
     async def test_user_agent_no_url_encoding(
-        self, client_config, device_id, module_id, is_edge_module, product_info
+        self, client_config, device_id, module_id, product_info
     ):
         # NOTE: The user agent DOES eventually get url encoded, just not here, and not yet
         client_config.device_id = device_id
         client_config.module_id = module_id
-        client_config.is_edge_module = is_edge_module
         client_config.product_info = product_info
         expected_user_agent = user_agent.get_iothub_user_agent() + product_info
         url_encoded_expected_user_agent = urllib.parse.quote_plus(expected_user_agent)
@@ -231,23 +218,13 @@ class TestIoTHubHTTPClientInstantiation:
 
         await client.shutdown()
 
-    #
-    #
-    # TODO: hostname / gateway hostname test once we know whats going on there
-    #
-    #
-
     @pytest.mark.it(
-        "Creates a aiohttp ClientSession configured for accessing a URL based on the hostname with a timeout of 10 seconds"
+        "Creates a aiohttp ClientSession configured for accessing a URL based on the IoTHubClientConfig's `hostname`, with a timeout of 10 seconds"
     )
-    @pytest.mark.parametrize("device_id, module_id, is_edge_module", configurations)
-    async def test_client_session(
-        self, mocker, client_config, device_id, module_id, is_edge_module
-    ):
-        # TODO: this test needs to be altered when hostname/gateway hostname logic is worked out
+    @pytest.mark.parametrize("device_id, module_id", configurations)
+    async def test_client_session(self, mocker, client_config, device_id, module_id):
         client_config.device_id = device_id
         client_config.module_id = module_id
-        client_config.is_edge_module = is_edge_module
 
         spy_session_init = mocker.spy(aiohttp, "ClientSession")
         expected_base_url = "https://" + client_config.hostname
@@ -266,11 +243,10 @@ class TestIoTHubHTTPClientInstantiation:
         await client.shutdown()
 
     @pytest.mark.it("Stores the `ssl_context` from the IoTHubClientConfig as an attribute")
-    @pytest.mark.parametrize("device_id, module_id, is_edge_module", configurations)
-    async def test_ssl_context(self, client_config, device_id, module_id, is_edge_module):
+    @pytest.mark.parametrize("device_id, module_id", configurations)
+    async def test_ssl_context(self, client_config, device_id, module_id):
         client_config.device_id = device_id
         client_config.module_id = module_id
-        client_config.is_edge_module = is_edge_module
         assert client_config.ssl_context is not None
 
         client = IoTHubHTTPClient(client_config)
@@ -279,7 +255,7 @@ class TestIoTHubHTTPClientInstantiation:
         await client.shutdown()
 
     @pytest.mark.it("Stores the `sastoken_provider` from the IoTHubClientConfig as an attribute")
-    @pytest.mark.parametrize("device_id, module_id, is_edge_module", configurations)
+    @pytest.mark.parametrize("device_id, module_id", configurations)
     @pytest.mark.parametrize(
         "sastoken_provider",
         [
@@ -287,12 +263,9 @@ class TestIoTHubHTTPClientInstantiation:
             pytest.param(None, id="No SasTokenProvider present"),
         ],
     )
-    async def test_sastoken_provider(
-        self, client_config, device_id, module_id, is_edge_module, sastoken_provider
-    ):
+    async def test_sastoken_provider(self, client_config, device_id, module_id, sastoken_provider):
         client_config.device_id = device_id
         client_config.module_id = module_id
-        client_config.is_edge_module = is_edge_module
         client_config.sastoken_provider = sastoken_provider
 
         client = IoTHubHTTPClient(client_config)
@@ -374,10 +347,8 @@ class TestIoTHubHTTPClientInvokeDirectMethod:
     @pytest.fixture(autouse=True)
     def modify_client_config(self, client_config):
         """Modify the client config to always be an Edge Module"""
-        # TODO: likely need to modify once hostname/gateway hostname is ironed out
         client_config.device_id = FAKE_DEVICE_ID
         client_config.module_id = FAKE_MODULE_ID
-        client_config.is_edge_module = True
 
     @pytest.fixture(autouse=True)
     def modify_post_response(self, client):
@@ -578,19 +549,11 @@ class TestIoTHubHTTPClientInvokeDirectMethod:
                 device_id=target_device_id, module_id=target_module_id, method_params=method_params
             )
 
-    @pytest.mark.it("Raises IoTHubClientError if not configured as an Edge Module")
-    @pytest.mark.parametrize(
-        "module_id",
-        [
-            pytest.param(None, id="Device Configuration"),
-            pytest.param(FAKE_MODULE_ID, id="Non-Edge Module Configuration"),
-        ],
-    )
+    # NOTE: It'd be really great if we could reject non-Edge modules, but we can't.
+    @pytest.mark.it("Raises IoTHubClientError if not configured as a Module")
     @pytest.mark.parametrize("target_device_id, target_module_id", targets)
-    async def test_not_edge(
-        self, client, module_id, target_device_id, target_module_id, method_params
-    ):
-        client._module_id = module_id
+    async def test_not_edge(self, client, target_device_id, target_module_id, method_params):
+        client._module_id = None
         client._edge_module_id = None
 
         with pytest.raises(IoTHubClientError):
@@ -678,10 +641,9 @@ class TestIoTHubHTTPClientInvokeDirectMethod:
 class TestIoTHubHTTPClientGetStorageInfoForBlob:
     @pytest.fixture(autouse=True)
     def modify_client_config(self, client_config):
-        """Modify the client config to always be an Device"""
+        """Modify the client config to always be a Device"""
         client_config.device_id = FAKE_DEVICE_ID
         client_config.module_id = None
-        client_config.is_edge_module = False
 
     @pytest.fixture(autouse=True)
     def modify_post_response(self, client):
@@ -885,10 +847,9 @@ class TestIoTHubHTTPClientGetStorageInfoForBlob:
 class TestIoTHubHTTPClientNotifyBlobUploadStatus:
     @pytest.fixture(autouse=True)
     def modify_client_config(self, client_config):
-        """Modify the client config to always be an Device"""
+        """Modify the client config to always be a Device"""
         client_config.device_id = FAKE_DEVICE_ID
         client_config.module_id = None
-        client_config.is_edge_module = False
 
     @pytest.fixture(params=["Notify Upload Success", "Notify Upload Failure"])
     def kwargs(self, request):

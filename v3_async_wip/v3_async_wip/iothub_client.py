@@ -81,7 +81,6 @@ class IoTHubClient(abc.ABC):
         device_id: str,
         module_id: Optional[str],
         hostname: str,
-        gateway_hostname: Optional[str] = None,
         ssl_context: Optional[ssl.SSLContext] = None,
         symmetric_key: Optional[str] = None,
         sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
@@ -115,7 +114,6 @@ class IoTHubClient(abc.ABC):
             device_id=device_id,
             module_id=module_id,
             hostname=hostname,
-            gateway_hostname=gateway_hostname,
             ssl_context=ssl_context,
             sas_signing_mechanism=signing_mechanism,
             sastoken_fn=sastoken_fn,
@@ -129,11 +127,9 @@ class IoTHubClient(abc.ABC):
         device_id: str,
         module_id: Optional[str] = None,
         hostname: str,
-        gateway_hostname: Optional[str] = None,
         ssl_context: Optional[ssl.SSLContext] = None,
         sas_signing_mechanism: Optional[sm.SigningMechanism] = None,
         sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
-        is_edge_module: bool = False,
         **kwargs,
     ) -> "IoTHubClient":
         """Internal factory method that creates a client for a all configurations
@@ -168,12 +164,10 @@ class IoTHubClient(abc.ABC):
         # Config setup
         client_config = config.IoTHubClientConfig(
             hostname=hostname,
-            gateway_hostname=gateway_hostname,
             device_id=device_id,
             module_id=module_id,
             sastoken_provider=sastoken_provider,
             ssl_context=ssl_context,
-            is_edge_module=is_edge_module,
             **kwargs,
         )
 
@@ -188,7 +182,6 @@ class IoTHubDeviceClient(IoTHubClient):
         cls,
         device_id: str,
         hostname: str,
-        gateway_hostname: Optional[str] = None,
         ssl_context: Optional[ssl.SSLContext] = None,
         symmetric_key: Optional[str] = None,
         sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
@@ -207,8 +200,7 @@ class IoTHubDeviceClient(IoTHubClient):
         One of the these three types of authentication is required to instantiate the client.
 
         :param str device_id: The device identity for the IoT Hub device
-        :param str hostname: Hostname of the IoT Hub hosting the device
-        :param str gateway_hostname: Hostname of the gateway device in use      # TODO: what??
+        :param str hostname: Hostname of the IoT Hub or IoT Edge the device should connect to
         :param ssl_context: Custom SSL context to be used by the client
             If not provided, a default one will be used
         :type ssl_context: :class:`ssl.SSLContext`
@@ -238,7 +230,6 @@ class IoTHubDeviceClient(IoTHubClient):
         client = await cls._shared_client_create(
             device_id=device_id,
             hostname=hostname,
-            gateway_hostname=gateway_hostname,
             ssl_context=ssl_context,
             symmetric_key=symmetric_key,
             sastoken_fn=sastoken_fn,
@@ -280,10 +271,12 @@ class IoTHubDeviceClient(IoTHubClient):
 
         signing_mechanism = sm.SymmetricKeySigningMechanism(cs_obj[cs.SHARED_ACCESS_KEY])
 
-        # TODO: are gatewayhostnames valid on devices?
+        # If the Gateway Hostname exists, use it instead of the Hostname
+        hostname = cs_obj.get(cs.GATEWAY_HOST_NAME, cs_obj[cs.HOST_NAME])
+
         client = await cls._internal_factory(
             device_id=cs_obj[cs.DEVICE_ID],
-            hostname=cs_obj[cs.HOST_NAME],
+            hostname=hostname,
             sas_signing_mechanism=signing_mechanism,
             ssl_context=ssl_context,
             **kwargs,
@@ -300,7 +293,6 @@ class IoTHubModuleClient(IoTHubClient):
         device_id: str,
         module_id: str,
         hostname: str,
-        gateway_hostname: Optional[str] = None,
         ssl_context: Optional[ssl.SSLContext] = None,
         symmetric_key: Optional[str] = None,
         sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
@@ -321,8 +313,7 @@ class IoTHubModuleClient(IoTHubClient):
         :param str device_id: The device identity for the IoT Hub device containing the
             IoT Hub module
         :param str module_id: The module identity for the IoT Hub module
-        :param str hostname: Hostname of the IoT Hub hosting the device
-        :param str gateway_hostname: Hostname of the gateway device in use      # TODO: what??
+        :param str hostname: Hostname of the IoT Hub or IoT Edge the device should connect to
         :param ssl_context: Custom SSL context to be used by the client
             If not provided, a default one will be used
         :type ssl_context: :class:`ssl.SSLContext`
@@ -353,7 +344,6 @@ class IoTHubModuleClient(IoTHubClient):
             device_id=device_id,
             module_id=module_id,
             hostname=hostname,
-            gateway_hostname=gateway_hostname,
             ssl_context=ssl_context,
             symmetric_key=symmetric_key,
             sastoken_fn=sastoken_fn,
@@ -392,19 +382,14 @@ class IoTHubModuleClient(IoTHubClient):
         if cs.MODULE_ID not in cs_obj:
             raise ValueError("IoT Hub device connection string provided for IoTHubModuleClient")
 
-        # TODO: is this correct?
-        if cs.GATEWAY_HOST_NAME in cs_obj:
-            is_edge_module = True
-        else:
-            is_edge_module = False
+        # If the Gateway Hostname exists, use it instead of the Hostname
+        hostname = cs_obj.get(cs.GATEWAY_HOST_NAME, cs_obj[cs.HOST_NAME])
 
         client = await cls._internal_factory(
             device_id=cs_obj[cs.DEVICE_ID],
-            hostname=cs_obj[cs.HOST_NAME],
-            gateway_hostname=cs_obj.get(cs.GATEWAY_HOST_NAME),
+            hostname=hostname,
             symmetric_key=cs_obj[cs.SHARED_ACCESS_KEY],
             ssl_context=ssl_context,
-            is_edge_module=is_edge_module,
             **kwargs,
         )
         return cast(IoTHubModuleClient, client)
@@ -457,10 +442,9 @@ class IoTHubModuleClient(IoTHubClient):
         """
         # Read values from the IoT Edge environment variables
         try:
-            hostname = os.environ["IOTEDGE_IOTHUBHOSTNAME"]
             device_id = os.environ["IOTEDGE_DEVICEID"]
             module_id = os.environ["IOTEDGE_MODULEID"]
-            gateway_hostname = os.environ["IOTEDGE_GATEWAYHOSTNAME"]
+            hostname = os.environ["IOTEDGE_GATEWAYHOSTNAME"]
             module_generation_id = os.environ["IOTEDGE_MODULEGENERATIONID"]
             workload_uri = os.environ["IOTEDGE_WORKLOADURI"]
             api_version = os.environ["IOTEDGE_APIVERSION"]
@@ -487,10 +471,9 @@ class IoTHubModuleClient(IoTHubClient):
             device_id=device_id,
             module_id=module_id,
             hostname=hostname,
-            gateway_hostname=gateway_hostname,
             ssl_context=ssl_context,
             sas_signing_mechanism=hsm,
-            is_edge_module=True,
+            **kwargs,
         )
         return cast(IoTHubModuleClient, client)
 
