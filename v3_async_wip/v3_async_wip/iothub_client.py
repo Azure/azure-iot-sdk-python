@@ -83,7 +83,8 @@ class IoTHubClient(abc.ABC):
         hostname: str,
         ssl_context: Optional[ssl.SSLContext] = None,
         symmetric_key: Optional[str] = None,
-        sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
+        sastoken_fn: Optional[FunctionOrCoroutine] = None,
+        # sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
         **kwargs,
     ) -> "IoTHubClient":
         """Agnostic implementation of .create() shared between Devices and Modules
@@ -339,7 +340,6 @@ class IoTHubModuleClient(IoTHubClient):
 
         :return: An IoTHubModuleClient instance
         """
-        # TODO: can an edge device be created this way?
         client = await cls._shared_client_create(
             device_id=device_id,
             module_id=module_id,
@@ -498,7 +498,6 @@ class IoTHubModuleClient(IoTHubClient):
         ssl_context.load_verify_locations(cafile=ca_cert_filepath)
 
         # Since we have a connection string, just use the connection string factory
-        # TODO: do we need to manually indicate this is Edge Module?
         return await cls.create_from_connection_string(
             connection_string, ssl_context=ssl_context, **kwargs
         )

@@ -3,20 +3,14 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import sys
-from typing import Union, Dict, List, Tuple, Callable, Awaitable, TypeVar, Any
+from typing import Union, Dict, List, Tuple, Callable, Awaitable, TypeVar
 from typing_extensions import TypedDict, ParamSpec
 
 
-P = ParamSpec("P")
-T = TypeVar("T")
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+FunctionOrCoroutine = Union[Callable[_P, _R], Callable[_P, Awaitable[_R]]]
 
-
-if sys.version_info >= (3, 10):
-    # FunctionOrCoroutine = Union[Callable[P, T], Callable[P, Awaitable[T]]]
-    FunctionOrCoroutine = Callable[P, Union[T, Awaitable[T]]]
-else:
-    FunctionOrCoroutine = Callable[P, Any]
 
 # typing does not support recursion, so we must use forward references here (PEP484)
 JSONSerializable = Union[

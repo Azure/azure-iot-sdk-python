@@ -101,7 +101,7 @@ class InternalSasTokenGenerator(SasTokenGenerator):
 
 
 class ExternalSasTokenGenerator(SasTokenGenerator):
-    def __init__(self, generator_fn: FunctionOrCoroutine[[], str]):
+    def __init__(self, generator_fn: FunctionOrCoroutine):
         """An object that can generate SasTokens by invoking a provided callable.
         This callable can be a function or a coroutine function.
 
