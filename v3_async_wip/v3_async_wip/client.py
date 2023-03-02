@@ -41,14 +41,11 @@ class IoTHubClient(abc.ABC):
         self._http_client = IoTHubHTTPClient(client_config)
 
     # ~~~~~ Abstract declarations ~~~~~
-    # TODO: remove these. Do we even need any abstract declarations?
-    # @abc.abstractclassmethod
-    # async def create(cls, *args, **kwargs):
-    #     pass
-
-    # @abc.abstractclassmethod
-    # async def create_from_connection_string(cls):
-    #     pass
+    # NOTE: rigid typechecking doesn't like when the signature changes in the child class
+    # implementation of an abstract method. This creates problems, given that Device/Module
+    # clients have some methods with different signatures. It may be worth considering
+    # dropping abstract definitions altogether if their use is too inconsistent, or at least
+    # paring them back to only the crucial ones (connect, shutdown)
 
     @abc.abstractmethod
     async def shutdown(self) -> None:
