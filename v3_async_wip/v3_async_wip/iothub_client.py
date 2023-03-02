@@ -83,7 +83,7 @@ class IoTHubClient(abc.ABC):
         hostname: str,
         ssl_context: Optional[ssl.SSLContext] = None,
         symmetric_key: Optional[str] = None,
-        sastoken_fn: Optional[FunctionOrCoroutine] = None,
+        sastoken_fn: Optional[FunctionOrCoroutine] = None,  # TODO: need more rigid definition
         # sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
         **kwargs,
     ) -> "IoTHubClient":
@@ -130,7 +130,8 @@ class IoTHubClient(abc.ABC):
         hostname: str,
         ssl_context: Optional[ssl.SSLContext] = None,
         sas_signing_mechanism: Optional[sm.SigningMechanism] = None,
-        sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
+        sastoken_fn: Optional[FunctionOrCoroutine] = None,  # TODO: need more rigid definition
+        # sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
         **kwargs,
     ) -> "IoTHubClient":
         """Internal factory method that creates a client for a all configurations
@@ -185,7 +186,8 @@ class IoTHubDeviceClient(IoTHubClient):
         hostname: str,
         ssl_context: Optional[ssl.SSLContext] = None,
         symmetric_key: Optional[str] = None,
-        sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
+        sastoken_fn: Optional[FunctionOrCoroutine] = None,  # TODO: more rigid definition
+        # sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
         **kwargs,
     ) -> "IoTHubDeviceClient":
         """
@@ -296,7 +298,8 @@ class IoTHubModuleClient(IoTHubClient):
         hostname: str,
         ssl_context: Optional[ssl.SSLContext] = None,
         symmetric_key: Optional[str] = None,
-        sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
+        # sastoken_fn: Optional[FunctionOrCoroutine[[], str]] = None,
+        sastoken_fn: Optional[FunctionOrCoroutine] = None,  # TODO: more rigid definition
         **kwargs,
     ) -> "IoTHubModuleClient":
         """
