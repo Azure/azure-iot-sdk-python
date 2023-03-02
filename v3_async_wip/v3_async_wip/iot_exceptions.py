@@ -7,15 +7,19 @@
 
 
 class IoTHubError(Exception):
-    """Represents a failure reported by IoTHub"""
+    """Represents a failure reported by IoT Hub"""
 
     pass
 
 
 class IoTEdgeError(Exception):
-    """Represents a failure reported by IoTEdge"""
+    """Represents a failure reported by IoT Edge"""
 
     pass
+
+
+class IoTEdgeEnvironmentError(Exception):
+    """Represents a failure retrieving data from the IoT Edge environment"""
 
 
 class IoTHubClientError(Exception):

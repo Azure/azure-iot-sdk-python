@@ -4,8 +4,14 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from typing import Union, Dict, List, Tuple
-from typing_extensions import TypedDict
+from typing import Union, Dict, List, Tuple, Callable, Awaitable, TypeVar
+from typing_extensions import TypedDict, ParamSpec
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+FunctionOrCoroutine = Union[Callable[P, T], Callable[P, Awaitable[T]]]
+# FunctionOrCoroutine = Union[Callable[[], T], Callable[[], Awaitable[T]]]
 
 # typing does not support recursion, so we must use forward references here (PEP484)
 JSONSerializable = Union[
@@ -25,12 +31,16 @@ Twin = Dict[str, Dict[str, JSONSerializable]]
 TwinPatch = Dict[str, JSONSerializable]
 
 
-# TODO: should this be "direct method?"
-class MethodParameters(TypedDict):
+class DirectMethodParameters(TypedDict):
     methodName: str
-    payload: str
+    payload: JSONSerializable
     connectTimeoutInSeconds: int
     responseTimeoutInSeconds: int
+
+
+class DirectMethodResult(TypedDict):
+    status: int
+    payload: str
 
 
 class StorageInfo(TypedDict):

@@ -10,8 +10,10 @@ import asyncio
 import logging
 import time
 import urllib.parse
-from typing import Dict, List, Union, Awaitable, Callable, cast
+from typing import Dict, List, Awaitable, Callable, cast
+from .custom_typing import FunctionOrCoroutine
 from .signing_mechanism import SigningMechanism
+
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +101,7 @@ class InternalSasTokenGenerator(SasTokenGenerator):
 
 
 class ExternalSasTokenGenerator(SasTokenGenerator):
-    def __init__(self, generator_fn: Union[Callable[[], str], Callable[[], Awaitable[str]]]):
+    def __init__(self, generator_fn: FunctionOrCoroutine[[], str]):
         """An object that can generate SasTokens by invoking a provided callable.
         This callable can be a function or a coroutine function.
 

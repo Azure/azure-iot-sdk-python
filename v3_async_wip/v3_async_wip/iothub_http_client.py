@@ -8,7 +8,7 @@ import asyncio
 import logging
 import urllib.parse
 from typing import Optional, cast
-from .custom_typing import MethodParameters, StorageInfo
+from .custom_typing import DirectMethodParameters, DirectMethodResult, StorageInfo
 from .iot_exceptions import IoTHubClientError, IoTHubError, IoTEdgeError
 from . import config, constant, user_agent
 from . import http_path_iothub as http_path
@@ -98,16 +98,21 @@ class IoTHubHTTPClient:
         # See: https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
         await asyncio.sleep(0.25)
 
-    # TODO: Should this return type be a MethodResponse? Or should we get rid of those objects entirely?
-    # TODO: Either way, need a better rtype than "dict"
     async def invoke_direct_method(
-        self, *, device_id: str, module_id: Optional[str] = None, method_params: MethodParameters
-    ) -> dict:
+        self,
+        *,
+        device_id: str,
+        module_id: Optional[str] = None,
+        method_params: DirectMethodParameters
+    ) -> DirectMethodResult:
         """Send a request to invoke a direct method on a target device or module
 
         :param str device_id: The target device ID
         :param str module_id: The target module ID
         :param dict method_params: The parameters for the direct method invocation
+
+        :returns: A dictionary containing a status and payload reported by the target device
+        :rtype: dict
 
         :raises: :class:`IoTHubClientError` if not using an IoT Edge Module
         :raises: :class:`IoTHubClientError` if the direct method response cannot be parsed
@@ -152,9 +157,9 @@ class IoTHubHTTPClient:
                 logger.debug(
                     "Successfully received response from IoT Edge for direct method invocation"
                 )
-                dm_response_json = await response.json()
+                dm_result = cast(DirectMethodResult, await response.json())
 
-        return dm_response_json
+        return dm_result
 
     async def get_storage_info_for_blob(self, *, blob_name: str) -> StorageInfo:
         """Request information for uploading blob file via the Azure Storage SDK
