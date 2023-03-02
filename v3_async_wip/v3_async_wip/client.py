@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 import abc
-import io
 import logging
 import os
 import ssl
@@ -510,20 +509,10 @@ class IoTHubModuleClient(IoTHubClient):
         except KeyError as e:
             raise IoTEdgeEnvironmentError("Could not retrieve Edge environment variables") from e
 
-        # Read the certificate to pass it on as a string
-        # TODO: is there a better way?
-        try:
-            with io.open(ca_cert_filepath, mode="r") as ca_cert_file:
-                server_verification_cert = ca_cert_file.read()
-        except FileNotFoundError as e:
-            raise IoTEdgeEnvironmentError("Could not open the certificate file") from e
-        except OSError as e:
-            raise IoTEdgeEnvironmentError("Invalid CA certificate file") from e
-
-        # Set up Edge SSL context by loading the cert
+        # Set up Edge SSL context by loading the cert file
         ssl_context = _default_ssl_context()
         # TODO: verify that it's okay to load this cert after already loading default certs
-        ssl_context.load_verify_locations(cadata=server_verification_cert)
+        ssl_context.load_verify_locations(cafile=ca_cert_filepath)
 
         # Since we have a connection string, just use the connection string factory
         # TODO: do we need to manually indicate this is Edge Module?
