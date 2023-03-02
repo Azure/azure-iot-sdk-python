@@ -31,7 +31,6 @@ _valid_keys = [
 ]
 
 # TODO: does this module need revision for V3?
-# TODO: add unittest for __contains__ method
 
 
 class ConnectionString(object):

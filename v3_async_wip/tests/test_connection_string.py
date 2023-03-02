@@ -117,6 +117,18 @@ class TestConnectionString(object):
             )
             cs["SharedAccessSignature"]
 
+    @pytest.mark.it(
+        "Supports the 'in' operator for validating if a key is contained in the ConnectionString"
+    )
+    def test_item_in_string(self):
+        cs = ConnectionString(
+            "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
+        )
+        assert "SharedAccessKey" in cs
+        assert "SharedAccessKeyName" in cs
+        assert "HostName" in cs
+        assert "FakeKeyNotInTheString" not in cs
+
 
 @pytest.mark.describe("ConnectionString - .get()")
 class TestConnectionStringGet(object):
