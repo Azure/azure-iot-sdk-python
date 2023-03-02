@@ -22,7 +22,6 @@ from . import signing_mechanism as sm
 logger = logging.getLogger(__name__)
 
 # TODO: finalize documentation
-# TODO: note the removal of sastoken_ttl and connection_retry_interval in the porting guide
 
 
 class IoTHubClient(abc.ABC):
@@ -63,12 +62,10 @@ class IoTHubClient(abc.ABC):
     async def send_message(self) -> None:
         pass
 
-    # TODO: document name change
     @abc.abstractmethod
     async def send_direct_method_response(self) -> None:
         pass
 
-    # TODO: document name change
     @abc.abstractmethod
     async def send_twin_reported_properties_patch(self) -> None:
         pass
