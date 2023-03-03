@@ -41,7 +41,7 @@ currently only supporting the MQTT protocol so it only requires to supply the co
     from azure.iot.device import Message
 
     client = IoTHubDeviceClient.create_from_connection_string(connection_string)
-    await device_client.connect()
+    await client.connect()
 ```
 
 ### x.509 authentication
@@ -75,7 +75,7 @@ key file with the optional pass phrase if necessary.
         pass_phrase=os.getenv("X509_PASS_PHRASE")
     )
     client = IoTHubDeviceClient.create_from_x509_certificate(hostname=hostname, device_id=device_id, x509=x509)
-    await device_client.connect()
+    await client.connect()
 ```
 
 ## Sending Telemetry to IoTHub
