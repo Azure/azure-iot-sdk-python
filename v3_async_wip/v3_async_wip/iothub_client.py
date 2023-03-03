@@ -4,16 +4,17 @@
 # license information.
 # --------------------------------------------------------------------------
 import abc
+import asyncio
 import logging
 import os
 import ssl
 from typing import Optional, cast
-from .custom_typing import FunctionOrCoroutine, Twin
-from .iothub_http_client import IoTHubHTTPClient
-from .iothub_mqtt_client import IoTHubMQTTClient
+from .custom_typing import FunctionOrCoroutine
 from .iot_exceptions import IoTEdgeEnvironmentError
 from . import config, edge_hsm
 from . import connection_string as cs
+from . import iothub_http_client as http
+from . import iothub_mqtt_client as mqtt
 from . import sastoken as st
 from . import signing_mechanism as sm
 
@@ -29,14 +30,46 @@ class IoTHubClient(abc.ABC):
     """
 
     def __init__(self, client_config: config.IoTHubClientConfig) -> None:
-        """ "Initializer for a generic IoTHubClient.
+        """Initializer for a generic IoTHubClient.
         Do not directly use as the end user, use a factory method instead.
 
         :param client_config: The IoTHubClientConfig object
         :type client_config: :class:`IoTHubClientConfig`
         """
-        self._mqtt_client = IoTHubMQTTClient(client_config)
-        self._http_client = IoTHubHTTPClient(client_config)
+        # Internal clients
+        self._mqtt_client = mqtt.IoTHubMQTTClient(client_config)
+        self._http_client = http.IoTHubHTTPClient(client_config)
+
+        # Keep a reference to the SAS Token Provider so it can be shut down later
+        self._sastoken_provider = client_config.sastoken_provider
+
+    async def shutdown(self) -> None:
+        """Shut down the client
+
+        Call only when completely done with the client for graceful exit.
+
+        Cannot be cancelled - if you try, the client will still fully shut down as much as
+        possible (although the CancelledError will still be raised)
+        """
+        cached_cancel: Optional[asyncio.CancelledError] = None
+        try:
+            await self._mqtt_client.shutdown()
+        except asyncio.CancelledError as e:
+            cached_cancel = e
+
+        try:
+            await self._http_client.shutdown()
+        except asyncio.CancelledError as e:
+            cached_cancel = e
+
+        if self._sastoken_provider:
+            try:
+                await self._sastoken_provider.shutdown()
+            except asyncio.CancelledError as e:
+                cached_cancel = e
+
+        if cached_cancel:
+            raise cached_cancel
 
     # ~~~~~ Abstract declarations ~~~~~
     # NOTE: rigid typechecking doesn't like when the signature changes in the child class
@@ -45,41 +78,38 @@ class IoTHubClient(abc.ABC):
     # dropping abstract definitions altogether if their use is too inconsistent, or at least
     # paring them back to only the crucial ones (connect, shutdown)
 
-    @abc.abstractmethod
-    async def shutdown(self) -> None:
-        pass
+    # @abc.abstractmethod
+    # async def connect(self) -> None:
+    #     raise NotImplementedError
 
-    @abc.abstractmethod
-    async def connect(self) -> None:
-        pass
+    # @abc.abstractmethod
+    # async def disconnect(self) -> None:
+    #     raise NotImplementedError
 
-    @abc.abstractmethod
-    async def disconnect(self) -> None:
-        pass
+    # @abc.abstractmethod
+    # async def send_message(self) -> None:
+    #     raise NotImplementedError
 
-    @abc.abstractmethod
-    async def send_message(self) -> None:
-        pass
+    # @abc.abstractmethod
+    # async def send_direct_method_response(self) -> None:
+    #     raise NotImplementedError
 
-    @abc.abstractmethod
-    async def send_direct_method_response(self) -> None:
-        pass
+    # @abc.abstractmethod
+    # async def send_twin_reported_properties_patch(self) -> None:
+    #     raise NotImplementedError
 
-    @abc.abstractmethod
-    async def send_twin_reported_properties_patch(self) -> None:
-        pass
-
-    @abc.abstractmethod
-    async def get_twin(self) -> Twin:
-        pass
+    # @abc.abstractmethod
+    # async def get_twin(self) -> Twin:
+    #     raise NotImplementedError
 
     # ~~~~~~ Shared implementations ~~~~~
 
     @classmethod
     async def _shared_client_create(
         cls,
+        *,
         device_id: str,
-        module_id: Optional[str],
+        module_id: Optional[str] = None,
         hostname: str,
         ssl_context: Optional[ssl.SSLContext] = None,
         symmetric_key: Optional[str] = None,
