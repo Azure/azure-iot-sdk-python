@@ -171,7 +171,10 @@ class IoTHubClient(abc.ABC):
         # If the Gateway Hostname exists, use it instead of the Hostname
         hostname = cs_obj.get(cs.GATEWAY_HOST_NAME, cs_obj[cs.HOST_NAME])
 
-        signing_mechanism = sm.SymmetricKeySigningMechanism(cs_obj[cs.SHARED_ACCESS_KEY])
+        if cs.SHARED_ACCESS_KEY in cs_obj:
+            signing_mechanism = sm.SymmetricKeySigningMechanism(cs_obj[cs.SHARED_ACCESS_KEY])
+        else:
+            signing_mechanism = None
 
         return await cls._internal_factory(
             device_id=cs_obj[cs.DEVICE_ID],

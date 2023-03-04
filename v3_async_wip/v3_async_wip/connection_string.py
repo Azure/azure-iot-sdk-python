@@ -98,7 +98,7 @@ def _validate_keys(d):
     device_id = d.get(DEVICE_ID)
     x509 = d.get(X509)
 
-    if shared_access_key and x509:
+    if shared_access_key and x509 and x509.lower() == "true":
         raise ValueError("Invalid Connection String - Mixed authentication scheme")
 
     # This logic could be expanded to return the category of ConnectionString

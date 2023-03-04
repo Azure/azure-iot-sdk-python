@@ -11,6 +11,7 @@ from dev_utils import custom_mock
 from pytest_lazyfixture import lazy_fixture
 from v3_async_wip.iothub_client import IoTHubDeviceClient, IoTHubModuleClient
 from v3_async_wip import config, iothub_client
+from v3_async_wip import connection_string as cs
 from v3_async_wip import iothub_mqtt_client as mqtt
 from v3_async_wip import iothub_http_client as http
 from v3_async_wip import sastoken as st
@@ -19,12 +20,10 @@ from v3_async_wip import signing_mechanism as sm
 FAKE_DEVICE_ID = "fake_device_id"
 FAKE_MODULE_ID = "fake_module_id"
 FAKE_HOSTNAME = "fake.hostname"
+FAKE_GATEWAY_HOSTNAME = "fake.gateway.hostname"
 FAKE_URI = "fake/resource/location"
 FAKE_SYMMETRIC_KEY = "Zm9vYmFy"
 FAKE_SIGNATURE = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
-
-# TODO: Why are these create tests so slow?
-# It's not due to the shutdown method. Auth?
 
 
 # NOTE: HELPFUL INFORMATION ABOUT NAVIGATING THIS FILE
@@ -71,12 +70,7 @@ def mock_sastoken_provider(mocker):
 #     mocker.patch.object(st, "ExternalSasTokenGenerator", spec=st.ExternalSasTokenGenerator)
 #     mocker.patch.object(sm, "SymmetricKeySigningMechanism", spec=sm.SymmetricKeySigningMechanism)
 
-
-@pytest.fixture
-def connection_string():
-    return
-
-
+# TODO: are both these ssl fixtures really necessary?
 @pytest.fixture
 def custom_ssl_context():
     # NOTE: It doesn't matter how the SSLContext is configured for the tests that use this fixture,
@@ -101,8 +95,8 @@ def optional_ssl_context(request, custom_ssl_context):
 # Parameters for arguments to the .create() method of clients. Represent different types of
 # authentication. Use this parametrization whenever possible on .create() tests.
 # NOTE: Do NOT combine this with the SSL fixtures above. This parametrization contains
-# it where necessary, as not all entries can be combined with SSL.
-auth_configurations = [
+# ssl contexts where necessary
+create_auth_params = [
     # Provide args in form 'symmetric_key, sastoken_fn, ssl_context'
     pytest.param(FAKE_SYMMETRIC_KEY, None, None, id="Symmetric Key SAS Auth + Default SSLContext"),
     pytest.param(
@@ -125,15 +119,19 @@ auth_configurations = [
     ),
     pytest.param(None, None, lazy_fixture("custom_ssl_context"), id="Custom SSLContext Auth"),
 ]
-
-# Similar to the above, but only SAS related configurations, and no variable SSLContext.
-# Use this when testing SAS-specific functionality.
-# If SSLContext is needed (it usually is) use the SAS fixtures above in tandem with these.
-sas_auth_configurations = [
-    # Provides args in the form 'symmetric_key, 'sastoken_fn'
-    pytest.param(FAKE_SYMMETRIC_KEY, None, id="Symmetric Key SAS Auth"),
-    pytest.param(None, sastoken_generator_fn, id="User-Provided SAS Token Auth"),
+# Just the parameters where SAS auth is used
+create_auth_params_sas = [param for param in create_auth_params if "SAS" in param.id]
+# Just the parameters where a Symmetric Key auth is used
+create_auth_params_sk = [param for param in create_auth_params if param.values[0] is not None]
+# Just the parameters where SAS callback auth is used
+create_auth_params_token_cb = [param for param in create_auth_params if param.values[1] is not None]
+# Just the parameters where a custom SSLContext is provided
+create_auth_params_custom_ssl = [
+    param for param in create_auth_params if param.values[2] is not None
 ]
+# Just the parameters where a custom SSLContext is NOT provided
+create_auth_params_default_ssl = [param for param in create_auth_params if param.values[2] is None]
+
 
 # Covers all option kwargs shared across client factory methods
 factory_kwargs = [
@@ -236,6 +234,7 @@ class SharedClientShutdownTests:
 
         assert client._http_client.shutdown.await_count == 1
 
+    # TODO: finish this
     @pytest.mark.it("Shuts down SasTokenProvider (if present)")
     async def test_sastoken_provider_shutdown(self, client):
         pass
@@ -277,7 +276,7 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
     @pytest.mark.it(
         "Returns a new IoTHubDeviceClient instance, created with the use of a new IoTHubClientConfig object"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params)
     async def test_instantiation(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_config_cls = mocker.spy(config, "IoTHubClientConfig")
         spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
@@ -307,7 +306,7 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
     @pytest.mark.it(
         "Sets the provided `device_id` on the IoTHubClientConfig used to create the client"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params)
     async def test_device_id(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
 
@@ -328,9 +327,32 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
         await client.shutdown()
 
     @pytest.mark.it(
+        "Does not set any `module_id` on the IoTHubClientConfig used to create the client"
+    )
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params)
+    async def test_module_id(self, mocker, symmetric_key, sastoken_fn, ssl_context):
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+
+        client = await IoTHubDeviceClient.create(
+            device_id=FAKE_DEVICE_ID,
+            hostname=FAKE_HOSTNAME,
+            symmetric_key=symmetric_key,
+            sastoken_fn=sastoken_fn,
+            ssl_context=ssl_context,
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.module_id is None
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
         "Sets the provided `hostname` on the IoTHubClientConfig used to create the client"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params)
     async def test_hostname(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
 
@@ -353,22 +375,25 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
     @pytest.mark.it(
         "Sets the provided `ssl_context` on the IoTHubClientConfig used to create the client, if provided"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn", sas_auth_configurations)
-    async def test_custom_ssl_context(self, mocker, symmetric_key, sastoken_fn, custom_ssl_context):
+    @pytest.mark.parametrize(
+        "symmetric_key, sastoken_fn, ssl_context", create_auth_params_custom_ssl
+    )
+    async def test_custom_ssl_context(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+        assert ssl_context is not None
 
         client = await IoTHubDeviceClient.create(
             device_id=FAKE_DEVICE_ID,
             hostname=FAKE_HOSTNAME,
             symmetric_key=symmetric_key,
             sastoken_fn=sastoken_fn,
-            ssl_context=custom_ssl_context,
+            ssl_context=ssl_context,
         )
 
         assert spy_client_init.call_count == 1
         assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
         config = spy_client_init.call_args[0][1]
-        assert config.ssl_context is custom_ssl_context
+        assert config.ssl_context is ssl_context
 
         # Graceful exit
         await client.shutdown()
@@ -377,10 +402,13 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
     @pytest.mark.it(
         "Sets a default SSLContext on the IoTHubClientConfig used to create the client, if `ssl_context` is not provided"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn", sas_auth_configurations)
-    async def test_default_ssl_context(self, mocker, symmetric_key, sastoken_fn):
+    @pytest.mark.parametrize(
+        "symmetric_key, sastoken_fn, ssl_context", create_auth_params_default_ssl
+    )
+    async def test_default_ssl_context(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
         spy_default_ssl = mocker.spy(iothub_client, "_default_ssl_context")
+        assert ssl_context is None
 
         client = await IoTHubDeviceClient.create(
             device_id=FAKE_DEVICE_ID,
@@ -405,7 +433,8 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
     @pytest.mark.it(
         "Creates a SasTokenProvider that uses symmetric key-based token generation and sets it on the IoTHubClientConfig used to create the client, if `symmetric_key` is provided as a parameter"
     )
-    async def test_sk_auth(self, mocker, optional_ssl_context):
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params_sk)
+    async def test_sk_auth(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
         spy_sk_sm_cls = mocker.spy(sm, "SymmetricKeySigningMechanism")
         spy_st_generator_cls = mocker.spy(st, "InternalSasTokenGenerator")
@@ -413,12 +442,13 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
         expected_token_uri = "{hostname}/devices/{device_id}".format(
             hostname=FAKE_HOSTNAME, device_id=FAKE_DEVICE_ID
         )
+        assert sastoken_fn is None
 
         client = await IoTHubDeviceClient.create(
             device_id=FAKE_DEVICE_ID,
             hostname=FAKE_HOSTNAME,
-            symmetric_key=FAKE_SYMMETRIC_KEY,
-            ssl_context=optional_ssl_context,
+            symmetric_key=symmetric_key,
+            ssl_context=ssl_context,
         )
 
         # SymmetricKeySigningMechanism was created from the symmetric key
@@ -444,16 +474,18 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
     @pytest.mark.it(
         "Creates a SasTokenProvider that uses user callback-based token generation and sets it on the IoTHubClientConfig used to create the client, if `sastoken_fn` is provided as a parameter"
     )
-    async def test_token_callback_auth(self, mocker, optional_ssl_context):
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params_token_cb)
+    async def test_token_callback_auth(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
         spy_st_generator_cls = mocker.spy(st, "ExternalSasTokenGenerator")
         spy_st_provider_create = mocker.spy(st.SasTokenProvider, "create_from_generator")
+        assert symmetric_key is None
 
         client = await IoTHubDeviceClient.create(
             device_id=FAKE_DEVICE_ID,
             hostname=FAKE_HOSTNAME,
-            sastoken_fn=sastoken_generator_fn,
-            ssl_context=optional_ssl_context,
+            sastoken_fn=sastoken_fn,
+            ssl_context=ssl_context,
         )
 
         # ExternalSasTokenGenerator was created from the `sastoken_fn``
@@ -495,7 +527,7 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
     @pytest.mark.it(
         "Sets any provided optional keyword arguments on IoTHubClientConfig used to create the client"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params)
     @pytest.mark.parametrize("kwarg_name, kwarg_value", factory_kwargs)
     async def test_kwargs(
         self, mocker, symmetric_key, sastoken_fn, ssl_context, kwarg_name, kwarg_value
@@ -534,36 +566,39 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
     @pytest.mark.it(
         "Raises ValueError if both `symmetric_key` and `sastoken_fn` are provided as parameters"
     )
-    async def test_conflicting_auth(self):
+    async def test_conflicting_auth(self, optional_ssl_context):
         with pytest.raises(ValueError):
             await IoTHubDeviceClient.create(
                 device_id=FAKE_DEVICE_ID,
                 hostname=FAKE_HOSTNAME,
                 symmetric_key=FAKE_SYMMETRIC_KEY,
                 sastoken_fn=sastoken_generator_fn,
+                ssl_context=optional_ssl_context,
             )
 
     @pytest.mark.it(
         "Allows any exceptions raised when creating a SymmetricKeySigningMechanism to propagate"
     )
     @pytest.mark.parametrize("exception", sk_sm_create_exceptions)
-    async def test_sksm_raises(self, mocker, optional_ssl_context, exception):
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params_sk)
+    async def test_sksm_raises(self, mocker, symmetric_key, sastoken_fn, ssl_context, exception):
         mocker.patch.object(sm, "SymmetricKeySigningMechanism", side_effect=exception)
+        assert sastoken_fn is None
 
         with pytest.raises(type(exception)) as e_info:
             await IoTHubDeviceClient.create(
                 device_id=FAKE_DEVICE_ID,
                 hostname=FAKE_HOSTNAME,
-                symmetric_key=FAKE_SYMMETRIC_KEY,
-                ssl_context=optional_ssl_context,
+                symmetric_key=symmetric_key,
+                ssl_context=ssl_context,
             )
         assert e_info.value is exception
 
     @pytest.mark.it("Allows any exceptions raised when creating a SasTokenProvider to propagate")
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn", sas_auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params_sas)
     @pytest.mark.parametrize("exception", sastoken_provider_create_exceptions)
     async def test_sastoken_provider_raises(
-        self, mocker, symmetric_key, sastoken_fn, optional_ssl_context, exception
+        self, mocker, symmetric_key, sastoken_fn, ssl_context, exception
     ):
         mocker.patch.object(st.SasTokenProvider, "create_from_generator", side_effect=exception)
 
@@ -573,14 +608,14 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
                 hostname=FAKE_HOSTNAME,
                 symmetric_key=symmetric_key,
                 sastoken_fn=sastoken_fn,
-                ssl_context=optional_ssl_context,
+                ssl_context=ssl_context,
             )
         assert e_info.value is exception
 
     @pytest.mark.it("Can be cancelled while waiting for SasTokenProvider creation")
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn", sas_auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params_sas)
     async def test_cancel_during_sastoken_provider_creation(
-        self, mocker, symmetric_key, sastoken_fn, optional_ssl_context
+        self, mocker, symmetric_key, sastoken_fn, ssl_context
     ):
         mocker.patch.object(
             st.SasTokenProvider, "create_from_generator", custom_mock.HangingAsyncMock()
@@ -591,7 +626,7 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
             hostname=FAKE_HOSTNAME,
             symmetric_key=symmetric_key,
             sastoken_fn=sastoken_fn,
-            ssl_context=optional_ssl_context,
+            ssl_context=ssl_context,
         )
         t = asyncio.create_task(coro)
 
@@ -605,15 +640,455 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
             await t
 
 
-# @pytest.mark.describe("IoTHubDeviceClient - .create_from_connection_string()")
-# class TestIoTHubDeviceClientCreateFromConnectionString(IoTHubDeviceClientTestConfig):
-#     @pytest.fixture
-#     def connection_string(self):
-#         return "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key}".format(
-#             hostname=FAKE_HOSTNAME, device_id=FAKE_DEVICE_ID, shared_access_key=FAKE_SYMMETRIC_KEY
-#         )
+@pytest.mark.describe("IoTHubDeviceClient - .create_from_connection_string()")
+class TestIoTHubDeviceClientCreateFromConnectionString(IoTHubDeviceClientTestConfig):
 
-#     @pytest.mark.it("Returns a new IoTHubDeviceClient instance, created with the use of a new IoTHubClientConfig object")
+    factory_params = [
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_key=FAKE_SYMMETRIC_KEY,
+            ),
+            None,
+            id="Standard Connection String w/ SharedAccessKey + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_key=FAKE_SYMMETRIC_KEY,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Standard Connection String w/ SharedAccessKey + Custom SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_key=FAKE_SYMMETRIC_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            None,
+            id="Edge Connection String w/ SharedAccessKey + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_key=FAKE_SYMMETRIC_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Edge Connection String w/ SharedAccessKey + Custom SSLContext",
+        ),
+        # NOTE: X509 certs imply use of custom SSLContext
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};x509=true".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Standard Connection String w/ X509",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};GatewayHostName={gateway_hostname};x509=true".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Edge Connection String w/ X509",
+        ),
+    ]
+    # Just the parameters for using standard connection strings
+    factory_params_no_gateway = [
+        param for param in factory_params if cs.GATEWAY_HOST_NAME not in param.values[0]
+    ]
+    # Just the parameters for using connection strings with a GatewayHostName
+    factory_params_gateway = [
+        param for param in factory_params if cs.GATEWAY_HOST_NAME in param.values[0]
+    ]
+    # Just the parameters where a custom SSLContext is provided
+    factory_params_custom_ssl = [param for param in factory_params if param.values[1] is not None]
+    # Just the parameters where a custom SSLContext is NOT provided
+    factory_params_default_ssl = [param for param in factory_params if param.values[1] is None]
+    # Just the parameters for using SharedAccessKeys
+    factory_params_sak = [
+        param for param in factory_params if cs.SHARED_ACCESS_KEY in param.values[0]
+    ]
+    # Just the parameters for NOT using SharedAccessKeys
+    factory_params_no_sak = [
+        param for param in factory_params if cs.SHARED_ACCESS_KEY not in param.values[0]
+    ]
+
+    @pytest.mark.it(
+        "Returns a new IoTHubDeviceClient instance, created with the use of a new IoTHubClientConfig object"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
+    async def test_instantiation(self, mocker, connection_string, ssl_context):
+        spy_config_cls = mocker.spy(config, "IoTHubClientConfig")
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+        assert spy_config_cls.call_count == 0
+        assert spy_client_init.call_count == 0
+
+        client = await IoTHubDeviceClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_config_cls.call_count == 1
+        assert spy_client_init.call_count == 1
+        # NOTE: Normally passing through self or cls isn't necessary in a mock call, but
+        # it seems that when mocking the __init__ it is. This is actually good though, as it
+        # allows us to match the specific object reference which otherwise is very dicey when
+        # mocking constructors/initializers
+        assert spy_client_init.call_args == mocker.call(client, spy_config_cls.spy_return)
+        assert isinstance(client, IoTHubDeviceClient)
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the `DeviceId` from the connection string as the `device_id` on the IoTHubClientConfig used to create the client"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
+    async def test_device_id(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+
+        client = await IoTHubDeviceClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.device_id == cs_obj[cs.DEVICE_ID]
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not set any `module_id` on the IoTHubClientConfig used to create the client"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
+    async def test_module_id(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+
+        client = await IoTHubDeviceClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.module_id is None
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the `HostName` from the connection string as the `hostname` on the IoTHubClientConfig, if no `GatewayHostName` is present in the connection string"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_no_gateway)
+    async def test_hostname_cs_has_no_gateway(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+        assert cs.GATEWAY_HOST_NAME not in cs_obj
+
+        client = await IoTHubDeviceClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.hostname == cs_obj[cs.HOST_NAME]
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the `HostName` from the connection string as the `hostname` on the IoTHubClientConfig used to create the client, if no `GatewayHostName` is present in the connection string"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_gateway)
+    async def test_hostname_cs_has_gateway(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+        assert cs.GATEWAY_HOST_NAME in cs_obj
+        assert cs_obj[cs.GATEWAY_HOST_NAME] != cs_obj[cs.HOST_NAME]
+
+        client = await IoTHubDeviceClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.hostname == cs_obj[cs.GATEWAY_HOST_NAME]
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the provided `ssl_context` on the IoTHubClientConfig used to create the client, if provided"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_custom_ssl)
+    async def test_custom_ssl_context(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+        assert ssl_context is not None
+
+        client = await IoTHubDeviceClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.ssl_context is ssl_context
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets a default SSLContext as the `ssl_context` on the IoTHubClientConfig used to create the client, if `ssl_context` is not provided"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_default_ssl)
+    async def test_default_ssl_context(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+        spy_default_ssl = mocker.spy(iothub_client, "_default_ssl_context")
+        assert ssl_context is None
+
+        client = await IoTHubDeviceClient.create_from_connection_string(connection_string)
+
+        assert spy_default_ssl.call_count == 1
+        assert spy_default_ssl.call_args == mocker.call()
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.ssl_context is spy_default_ssl.spy_return
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Creates a SasTokenProvider that uses symmetric key-based token generation and sets it on the IoTHubClientConfig used to create the client, if `SharedAccessKey` is present in the connection string"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_sak)
+    async def test_sk_auth(self, mocker, connection_string, ssl_context):
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+        assert cs.SHARED_ACCESS_KEY in cs_obj
+        # Mock
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+        spy_sk_sm_cls = mocker.spy(sm, "SymmetricKeySigningMechanism")
+        spy_st_generator_cls = mocker.spy(st, "InternalSasTokenGenerator")
+        spy_st_provider_create = mocker.spy(st.SasTokenProvider, "create_from_generator")
+        expected_token_uri = "{hostname}/devices/{device_id}".format(
+            hostname=cs_obj.get(cs.GATEWAY_HOST_NAME, default=cs_obj[cs.HOST_NAME]),
+            device_id=cs_obj[cs.DEVICE_ID],
+        )
+
+        client = await IoTHubDeviceClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        # SymmetricKeySigningMechanism was created from the SharedAccessKey
+        assert spy_sk_sm_cls.call_count == 1
+        assert spy_sk_sm_cls.call_args == mocker.call(cs_obj[cs.SHARED_ACCESS_KEY])
+        # InternalSasTokenGenerator was created from the SymmetricKeySigningMechanism and expected URI
+        assert spy_st_generator_cls.call_count == 1
+        assert spy_st_generator_cls.call_args == mocker.call(
+            signing_mechanism=spy_sk_sm_cls.spy_return, uri=expected_token_uri
+        )
+        # SasTokenProvider was created from the InternalSasTokenGenerator
+        assert spy_st_provider_create.call_count == 1
+        assert spy_st_provider_create.call_args == mocker.call(spy_st_generator_cls.spy_return)
+        # The SasTokenProvider was set on the IoTHubClientConfig that was used to instantiate the client
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.sastoken_provider is spy_st_provider_create.spy_return
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not set any SasTokenProvider on the IoTHubClientConfig used to create the client if no `SharedAccessKey` is present in the connection string"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_no_sak)
+    async def test_non_sas_auth(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+        assert cs.SHARED_ACCESS_KEY not in cs_obj
+
+        client = await IoTHubDeviceClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        # No SasTokenProvider was set on the IoTHubClientConfig that was used to instantiate the client
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.sastoken_provider is None
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets any provided optional keyword arguments on IoTHubClientConfig used to create the client"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
+    @pytest.mark.parametrize("kwarg_name, kwarg_value", factory_kwargs)
+    async def test_kwargs(self, mocker, connection_string, ssl_context, kwarg_name, kwarg_value):
+        spy_client_init = mocker.spy(IoTHubDeviceClient, "__init__")
+
+        kwargs = {kwarg_name: kwarg_value}
+
+        client = await IoTHubDeviceClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context, **kwargs
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert getattr(config, kwarg_name) == kwarg_value
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it("Raises ValueError if a `ModuleId` is present in the connection string")
+    async def test_module_id_in_string(self, optional_ssl_context):
+        # NOTE: There could be many strings containing a ModuleId, but I'm not going to try them
+        # all to avoid confounds with other errors, I'll just use a standard module string that
+        # uses a SharedAccessKey
+        connection_string = "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key}".format(
+            hostname=FAKE_HOSTNAME,
+            device_id=FAKE_DEVICE_ID,
+            module_id=FAKE_MODULE_ID,
+            shared_access_key=FAKE_SYMMETRIC_KEY,
+        )
+        with pytest.raises(ValueError):
+            await IoTHubDeviceClient.create_from_connection_string(
+                connection_string, ssl_context=optional_ssl_context
+            )
+
+    @pytest.mark.it(
+        "Raises ValueError if `x509=true` is present in the connection string, but no `ssl_context` is provided"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_no_sak)
+    async def test_x509_with_no_ssl(self, connection_string, ssl_context):
+        # Ignore the ssl_context provided by the parametrization
+        with pytest.raises(ValueError):
+            await IoTHubDeviceClient.create_from_connection_string(connection_string)
+
+    @pytest.mark.it(
+        "Does not raise a ValueError if `x509=false` is present in the connection string and no `ssl_context` is provided"
+    )
+    async def test_x509_equals_false(self):
+        # NOTE: This is a weird test in that if you aren't using X509 certs, there shouldn't be
+        # an `x509` field in your connection string in the first place. But, semantically, it feels
+        # as though this test ought to exist to validate that we are checking the value of the
+        # field, not just the key name.
+        # NOTE: Because we're in the land of undefined behavior here, on account of this scenario
+        # not being supposed to happen, I'm arbitrarily deciding we're testing this with a string
+        # containing a SharedAccessKey and no GatewayHostName for simplicity.
+        connection_string = "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};x509=false".format(
+            hostname=FAKE_HOSTNAME, device_id=FAKE_DEVICE_ID, shared_access_key=FAKE_SYMMETRIC_KEY
+        )
+        client = await IoTHubDeviceClient.create_from_connection_string(connection_string)
+        # If the above invocation didn't raise, the test passed, no assertions required
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it("Allows any exceptions raised when parsing the connection string to propagate")
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(ValueError(), id="ValueError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_cs_parsing_raises(self, mocker, optional_ssl_context, exception):
+        # NOTE: This test covers all invalid connection string scenarios. For more detail, see the
+        # dedicated connection string parsing tests for the `connection_string.py` module - there's
+        # no reason to replicate them all here.
+        # NOTE: For the purposes of this test, it does not matter what this connection string is.
+        # The one provided here is valid, but the mock will cause the parsing to raise anyway.
+        connection_string = (
+            "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_key=FAKE_SYMMETRIC_KEY,
+            )
+        )
+        # Mock cs parsing
+        mocker.patch.object(cs, "ConnectionString", side_effect=exception)
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubDeviceClient.create_from_connection_string(
+                connection_string, ssl_context=optional_ssl_context
+            )
+        assert e_info.value is exception
+
+    @pytest.mark.it(
+        "Allows any exceptions raised when creating a SymmetricKeySigningMechanism to propagate"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_sak)
+    @pytest.mark.parametrize("exception", sk_sm_create_exceptions)
+    async def test_sksm_raises(self, mocker, connection_string, ssl_context, exception):
+        mocker.patch.object(sm, "SymmetricKeySigningMechanism", side_effect=exception)
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubDeviceClient.create_from_connection_string(
+                connection_string,
+                ssl_context=ssl_context,
+            )
+        assert e_info.value is exception
+
+    @pytest.mark.it("Allows any exceptions raised when creating a SasTokenProvider to propagate")
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_sak)
+    @pytest.mark.parametrize("exception", sastoken_provider_create_exceptions)
+    async def test_sastoken_provider_raises(
+        self, mocker, connection_string, ssl_context, exception
+    ):
+        mocker.patch.object(st.SasTokenProvider, "create_from_generator", side_effect=exception)
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubDeviceClient.create_from_connection_string(
+                connection_string,
+                ssl_context=ssl_context,
+            )
+        assert e_info.value is exception
+
+    @pytest.mark.it("Can be cancelled while waiting for SasTokenProvider creation")
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_sak)
+    async def test_cancel_during_sastoken_provider_creation(
+        self, mocker, connection_string, ssl_context
+    ):
+        mocker.patch.object(
+            st.SasTokenProvider, "create_from_generator", custom_mock.HangingAsyncMock()
+        )
+
+        coro = IoTHubDeviceClient.create_from_connection_string(
+            connection_string,
+            ssl_context=ssl_context,
+        )
+        t = asyncio.create_task(coro)
+
+        # Hanging, waiting for SasTokenProvider creation to finish
+        await st.SasTokenProvider.create_from_generator.wait_for_hang()
+        assert not t.done()
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
 
 
 @pytest.mark.describe("IoTHubDeviceClient - .shutdown()")
@@ -658,7 +1133,7 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
         "Returns a new IoTHubModuleClient instance, created with the use of a new IoTHubClientConfig object"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params)
     async def test_instantiation(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_config_cls = mocker.spy(config, "IoTHubClientConfig")
         spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
@@ -689,7 +1164,7 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
         "Sets the provided `device_id` on the IoTHubClientConfig used to create the client"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params)
     async def test_device_id(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
 
@@ -713,7 +1188,7 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
         "Sets the provided `module_id` on the IoTHubClientConfig used to create the client"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params)
     async def test_module_id(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
 
@@ -737,7 +1212,7 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
         "Sets the provided `hostname` on the IoTHubClientConfig used to create the client"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params)
     async def test_hostname(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
 
@@ -761,9 +1236,12 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
         "Sets the provided `ssl_context` on the IoTHubClientConfig used to create the client, if provided"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn", sas_auth_configurations)
-    async def test_custom_ssl_context(self, mocker, symmetric_key, sastoken_fn, custom_ssl_context):
+    @pytest.mark.parametrize(
+        "symmetric_key, sastoken_fn, ssl_context", create_auth_params_custom_ssl
+    )
+    async def test_custom_ssl_context(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        assert ssl_context is not None
 
         client = await IoTHubModuleClient.create(
             device_id=FAKE_DEVICE_ID,
@@ -786,10 +1264,13 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
         "Sets a default SSLContext on the IoTHubClientConfig used to create the client, if `ssl_context` is not provided"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn", sas_auth_configurations)
-    async def test_default_ssl_context(self, mocker, symmetric_key, sastoken_fn):
+    @pytest.mark.parametrize(
+        "symmetric_key, sastoken_fn, ssl_context", create_auth_params_default_ssl
+    )
+    async def test_default_ssl_context(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
         spy_default_ssl = mocker.spy(iothub_client, "_default_ssl_context")
+        assert ssl_context is None
 
         client = await IoTHubModuleClient.create(
             device_id=FAKE_DEVICE_ID,
@@ -815,7 +1296,8 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
         "Creates a SasTokenProvider that uses symmetric key-based token generation and sets it on the IoTHubClientConfig used to create the client, if `symmetric_key` is provided as a parameter"
     )
-    async def test_sk_auth(self, mocker, optional_ssl_context):
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params_sk)
+    async def test_sk_auth(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
         spy_sk_sm_cls = mocker.spy(sm, "SymmetricKeySigningMechanism")
         spy_st_generator_cls = mocker.spy(st, "InternalSasTokenGenerator")
@@ -823,13 +1305,14 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
         expected_token_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
             hostname=FAKE_HOSTNAME, device_id=FAKE_DEVICE_ID, module_id=FAKE_MODULE_ID
         )
+        assert sastoken_fn is None
 
         client = await IoTHubModuleClient.create(
             device_id=FAKE_DEVICE_ID,
             module_id=FAKE_MODULE_ID,
             hostname=FAKE_HOSTNAME,
-            symmetric_key=FAKE_SYMMETRIC_KEY,
-            ssl_context=optional_ssl_context,
+            symmetric_key=symmetric_key,
+            ssl_context=ssl_context,
         )
 
         # SymmetricKeySigningMechanism was created from the symmetric key
@@ -855,17 +1338,19 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
         "Creates a SasTokenProvider that uses user callback-based token generation and sets it on the IoTHubClientConfig used to create the client, if `sastoken_fn` is provided as a parameter"
     )
-    async def test_token_callback_auth(self, mocker, optional_ssl_context):
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params_token_cb)
+    async def test_token_callback_auth(self, mocker, symmetric_key, sastoken_fn, ssl_context):
         spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
         spy_st_generator_cls = mocker.spy(st, "ExternalSasTokenGenerator")
         spy_st_provider_create = mocker.spy(st.SasTokenProvider, "create_from_generator")
+        assert symmetric_key is None
 
         client = await IoTHubModuleClient.create(
             device_id=FAKE_DEVICE_ID,
             module_id=FAKE_MODULE_ID,
             hostname=FAKE_HOSTNAME,
-            sastoken_fn=sastoken_generator_fn,
-            ssl_context=optional_ssl_context,
+            sastoken_fn=sastoken_fn,
+            ssl_context=ssl_context,
         )
 
         # ExternalSasTokenGenerator was created from the `sastoken_fn``
@@ -908,7 +1393,7 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
         "Sets any provided optional keyword arguments on IoTHubClientConfig used to create the client"
     )
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params)
     @pytest.mark.parametrize("kwarg_name, kwarg_value", factory_kwargs)
     async def test_kwargs(
         self, mocker, symmetric_key, sastoken_fn, ssl_context, kwarg_name, kwarg_value
@@ -949,7 +1434,7 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
         "Raises ValueError if both `symmetric_key` and `sastoken_fn` are provided as parameters"
     )
-    async def test_conflicting_auth(self):
+    async def test_conflicting_auth(self, optional_ssl_context):
         with pytest.raises(ValueError):
             await IoTHubModuleClient.create(
                 device_id=FAKE_DEVICE_ID,
@@ -957,30 +1442,33 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
                 hostname=FAKE_HOSTNAME,
                 symmetric_key=FAKE_SYMMETRIC_KEY,
                 sastoken_fn=sastoken_generator_fn,
+                ssl_context=optional_ssl_context,
             )
 
     @pytest.mark.it(
         "Allows any exceptions raised when creating a SymmetricKeySigningMechanism to propagate"
     )
     @pytest.mark.parametrize("exception", sk_sm_create_exceptions)
-    async def test_sksm_raises(self, mocker, optional_ssl_context, exception):
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params_sk)
+    async def test_sksm_raises(self, mocker, symmetric_key, sastoken_fn, ssl_context, exception):
         mocker.patch.object(sm, "SymmetricKeySigningMechanism", side_effect=exception)
+        assert sastoken_fn is None
 
         with pytest.raises(type(exception)) as e_info:
             await IoTHubModuleClient.create(
                 device_id=FAKE_DEVICE_ID,
                 module_id=FAKE_MODULE_ID,
                 hostname=FAKE_HOSTNAME,
-                symmetric_key=FAKE_SYMMETRIC_KEY,
-                ssl_context=optional_ssl_context,
+                symmetric_key=symmetric_key,
+                ssl_context=ssl_context,
             )
         assert e_info.value is exception
 
     @pytest.mark.it("Allows any exceptions raised when creating a SasTokenProvider to propagate")
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn", sas_auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params_sas)
     @pytest.mark.parametrize("exception", sastoken_provider_create_exceptions)
     async def test_sastoken_provider_raises(
-        self, mocker, symmetric_key, sastoken_fn, optional_ssl_context, exception
+        self, mocker, symmetric_key, sastoken_fn, ssl_context, exception
     ):
         mocker.patch.object(st.SasTokenProvider, "create_from_generator", side_effect=exception)
 
@@ -991,14 +1479,14 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
                 hostname=FAKE_HOSTNAME,
                 symmetric_key=symmetric_key,
                 sastoken_fn=sastoken_fn,
-                ssl_context=optional_ssl_context,
+                ssl_context=ssl_context,
             )
         assert e_info.value is exception
 
     @pytest.mark.it("Can be cancelled while waiting for SasTokenProvider creation")
-    @pytest.mark.parametrize("symmetric_key, sastoken_fn", sas_auth_configurations)
+    @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", create_auth_params_sas)
     async def test_cancel_during_sastoken_provider_creation(
-        self, mocker, symmetric_key, sastoken_fn, optional_ssl_context
+        self, mocker, symmetric_key, sastoken_fn, ssl_context
     ):
         mocker.patch.object(
             st.SasTokenProvider, "create_from_generator", custom_mock.HangingAsyncMock()
@@ -1010,7 +1498,470 @@ class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
             hostname=FAKE_HOSTNAME,
             symmetric_key=symmetric_key,
             sastoken_fn=sastoken_fn,
-            ssl_context=optional_ssl_context,
+            ssl_context=ssl_context,
+        )
+        t = asyncio.create_task(coro)
+
+        # Hanging, waiting for SasTokenProvider creation to finish
+        await st.SasTokenProvider.create_from_generator.wait_for_hang()
+        assert not t.done()
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+
+@pytest.mark.describe("IoTHubModuleClient - .create_from_connection_string()")
+class TestIoTHubModuleClientCreateFromConnectionString(IoTHubModuleClientTestConfig):
+
+    factory_params = [
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_key=FAKE_SYMMETRIC_KEY,
+            ),
+            None,
+            id="Standard Connection String w/ SharedAccessKey + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_key=FAKE_SYMMETRIC_KEY,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Standard Connection String w/ SharedAccessKey + Custom SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_key=FAKE_SYMMETRIC_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            None,
+            id="Edge Connection String w/ SharedAccessKey + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_key=FAKE_SYMMETRIC_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Edge Connection String w/ SharedAccessKey + Custom SSLContext",
+        ),
+        # NOTE: X509 certs imply use of custom SSLContext
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};x509=true".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Standard Connection String w/ X509",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};GatewayHostName={gateway_hostname};x509=true".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Edge Connection String w/ X509",
+        ),
+    ]
+    # Just the parameters for using standard connection strings
+    factory_params_no_gateway = [
+        param for param in factory_params if cs.GATEWAY_HOST_NAME not in param.values[0]
+    ]
+    # Just the parameters for using connection strings with a GatewayHostName
+    factory_params_gateway = [
+        param for param in factory_params if cs.GATEWAY_HOST_NAME in param.values[0]
+    ]
+    # Just the parameters where a custom SSLContext is provided
+    factory_params_custom_ssl = [param for param in factory_params if param.values[1] is not None]
+    # Just the parameters where a custom SSLContext is NOT provided
+    factory_params_default_ssl = [param for param in factory_params if param.values[1] is None]
+    # Just the parameters for using SharedAccessKeys
+    factory_params_sak = [
+        param for param in factory_params if cs.SHARED_ACCESS_KEY in param.values[0]
+    ]
+    # Just the parameters for NOT using SharedAccessKeys
+    factory_params_no_sak = [
+        param for param in factory_params if cs.SHARED_ACCESS_KEY not in param.values[0]
+    ]
+
+    @pytest.mark.it(
+        "Returns a new IoTHubModuleClient instance, created with the use of a new IoTHubClientConfig object"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
+    async def test_instantiation(self, mocker, connection_string, ssl_context):
+        spy_config_cls = mocker.spy(config, "IoTHubClientConfig")
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        assert spy_config_cls.call_count == 0
+        assert spy_client_init.call_count == 0
+
+        client = await IoTHubModuleClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_config_cls.call_count == 1
+        assert spy_client_init.call_count == 1
+        # NOTE: Normally passing through self or cls isn't necessary in a mock call, but
+        # it seems that when mocking the __init__ it is. This is actually good though, as it
+        # allows us to match the specific object reference which otherwise is very dicey when
+        # mocking constructors/initializers
+        assert spy_client_init.call_args == mocker.call(client, spy_config_cls.spy_return)
+        assert isinstance(client, IoTHubModuleClient)
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the `DeviceId` from the connection string as the `device_id` on the IoTHubClientConfig used to create the client"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
+    async def test_device_id(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+
+        client = await IoTHubModuleClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.device_id == cs_obj[cs.DEVICE_ID]
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the `ModuleId` from the connection string as the `module_id` on the IoTHubClientConfig used to create the client"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
+    async def test_module_id(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+
+        client = await IoTHubModuleClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.module_id == cs_obj[cs.MODULE_ID]
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the `HostName` from the connection string as the `hostname` on the IoTHubClientConfig, if no `GatewayHostName` is present in the connection string"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_no_gateway)
+    async def test_hostname_cs_has_no_gateway(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+        assert cs.GATEWAY_HOST_NAME not in cs_obj
+
+        client = await IoTHubModuleClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.hostname == cs_obj[cs.HOST_NAME]
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the `HostName` from the connection string as the `hostname` on the IoTHubClientConfig used to create the client, if no `GatewayHostName` is present in the connection string"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_gateway)
+    async def test_hostname_cs_has_gateway(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+        assert cs.GATEWAY_HOST_NAME in cs_obj
+        assert cs_obj[cs.GATEWAY_HOST_NAME] != cs_obj[cs.HOST_NAME]
+
+        client = await IoTHubModuleClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.hostname == cs_obj[cs.GATEWAY_HOST_NAME]
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the provided `ssl_context` on the IoTHubClientConfig used to create the client, if provided"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_custom_ssl)
+    async def test_custom_ssl_context(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        assert ssl_context is not None
+
+        client = await IoTHubModuleClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.ssl_context is ssl_context
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets a default SSLContext as the `ssl_context` on the IoTHubClientConfig used to create the client, if `ssl_context` is not provided"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_default_ssl)
+    async def test_default_ssl_context(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        spy_default_ssl = mocker.spy(iothub_client, "_default_ssl_context")
+        assert ssl_context is None
+
+        client = await IoTHubModuleClient.create_from_connection_string(connection_string)
+
+        assert spy_default_ssl.call_count == 1
+        assert spy_default_ssl.call_args == mocker.call()
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.ssl_context is spy_default_ssl.spy_return
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Creates a SasTokenProvider that uses symmetric key-based token generation and sets it on the IoTHubClientConfig used to create the client, if `SharedAccessKey` is present in the connection string"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_sak)
+    async def test_sk_auth(self, mocker, connection_string, ssl_context):
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+        assert cs.SHARED_ACCESS_KEY in cs_obj
+        # Mock
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        spy_sk_sm_cls = mocker.spy(sm, "SymmetricKeySigningMechanism")
+        spy_st_generator_cls = mocker.spy(st, "InternalSasTokenGenerator")
+        spy_st_provider_create = mocker.spy(st.SasTokenProvider, "create_from_generator")
+        expected_token_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
+            hostname=cs_obj.get(cs.GATEWAY_HOST_NAME, default=cs_obj[cs.HOST_NAME]),
+            device_id=cs_obj[cs.DEVICE_ID],
+            module_id=cs_obj[cs.MODULE_ID],
+        )
+
+        client = await IoTHubModuleClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        # SymmetricKeySigningMechanism was created from the SharedAccessKey
+        assert spy_sk_sm_cls.call_count == 1
+        assert spy_sk_sm_cls.call_args == mocker.call(cs_obj[cs.SHARED_ACCESS_KEY])
+        # InternalSasTokenGenerator was created from the SymmetricKeySigningMechanism and expected URI
+        assert spy_st_generator_cls.call_count == 1
+        assert spy_st_generator_cls.call_args == mocker.call(
+            signing_mechanism=spy_sk_sm_cls.spy_return, uri=expected_token_uri
+        )
+        # SasTokenProvider was created from the InternalSasTokenGenerator
+        assert spy_st_provider_create.call_count == 1
+        assert spy_st_provider_create.call_args == mocker.call(spy_st_generator_cls.spy_return)
+        # The SasTokenProvider was set on the IoTHubClientConfig that was used to instantiate the client
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.sastoken_provider is spy_st_provider_create.spy_return
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not set any SasTokenProvider on the IoTHubClientConfig used to create the client if no `SharedAccessKey` is present in the connection string"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_no_sak)
+    async def test_non_sas_auth(self, mocker, connection_string, ssl_context):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        # Create a ConnectionString object from the connection string to simply value access
+        cs_obj = cs.ConnectionString(connection_string)
+        assert cs.SHARED_ACCESS_KEY not in cs_obj
+
+        client = await IoTHubModuleClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context
+        )
+
+        # No SasTokenProvider was set on the IoTHubClientConfig that was used to instantiate the client
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.sastoken_provider is None
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets any provided optional keyword arguments on IoTHubClientConfig used to create the client"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
+    @pytest.mark.parametrize("kwarg_name, kwarg_value", factory_kwargs)
+    async def test_kwargs(self, mocker, connection_string, ssl_context, kwarg_name, kwarg_value):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+
+        kwargs = {kwarg_name: kwarg_value}
+
+        client = await IoTHubModuleClient.create_from_connection_string(
+            connection_string, ssl_context=ssl_context, **kwargs
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert getattr(config, kwarg_name) == kwarg_value
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it("Raises ValueError if a `ModuleId` is not present in the connection string")
+    async def test_module_id_in_string(self, optional_ssl_context):
+        # NOTE: There could be many strings containing not containing a ModuleId, but I'm not going
+        # to try them all to avoid confounds with other errors, I'll just use a standard device
+        # string that uses a SharedAccessKey
+        connection_string = (
+            "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_key=FAKE_SYMMETRIC_KEY,
+            )
+        )
+        with pytest.raises(ValueError):
+            await IoTHubModuleClient.create_from_connection_string(
+                connection_string, ssl_context=optional_ssl_context
+            )
+
+    @pytest.mark.it(
+        "Raises ValueError if `x509=true` is present in the connection string, but no `ssl_context` is provided"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_no_sak)
+    async def test_x509_with_no_ssl(self, connection_string, ssl_context):
+        # Ignore the ssl_context provided by the parametrization
+        with pytest.raises(ValueError):
+            await IoTHubModuleClient.create_from_connection_string(connection_string)
+
+    @pytest.mark.it(
+        "Does not raise a ValueError if `x509=false` is present in the connection string and no `ssl_context` is provided"
+    )
+    async def test_x509_equals_false(self):
+        # NOTE: This is a weird test in that if you aren't using X509 certs, there shouldn't be
+        # an `x509` field in your connection string in the first place. But, semantically, it feels
+        # as though this test ought to exist to validate that we are checking the value of the
+        # field, not just the key name.
+        # NOTE: Because we're in the land of undefined behavior here, on account of this scenario
+        # not being supposed to happen, I'm arbitrarily deciding we're testing this with a string
+        # containing a SharedAccessKey and no GatewayHostName for simplicity.
+        connection_string = "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};x509=false".format(
+            hostname=FAKE_HOSTNAME,
+            device_id=FAKE_DEVICE_ID,
+            module_id=FAKE_MODULE_ID,
+            shared_access_key=FAKE_SYMMETRIC_KEY,
+        )
+        client = await IoTHubModuleClient.create_from_connection_string(connection_string)
+        # If the above invocation didn't raise, the test passed, no assertions required
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it("Allows any exceptions raised when parsing the connection string to propagate")
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(ValueError(), id="ValueError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_cs_parsing_raises(self, mocker, optional_ssl_context, exception):
+        # NOTE: This test covers all invalid connection string scenarios. For more detail, see the
+        # dedicated connection string parsing tests for the `connection_string.py` module - there's
+        # no reason to replicate them all here.
+        # NOTE: For the purposes of this test, it does not matter what this connection string is.
+        # The one provided here is valid, but the mock will cause the parsing to raise anyway.
+        connection_string = "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key}".format(
+            hostname=FAKE_HOSTNAME,
+            device_id=FAKE_DEVICE_ID,
+            module_id=FAKE_MODULE_ID,
+            shared_access_key=FAKE_SYMMETRIC_KEY,
+        )
+        # Mock cs parsing
+        mocker.patch.object(cs, "ConnectionString", side_effect=exception)
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubModuleClient.create_from_connection_string(
+                connection_string, ssl_context=optional_ssl_context
+            )
+        assert e_info.value is exception
+
+    @pytest.mark.it(
+        "Allows any exceptions raised when creating a SymmetricKeySigningMechanism to propagate"
+    )
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_sak)
+    @pytest.mark.parametrize("exception", sk_sm_create_exceptions)
+    async def test_sksm_raises(self, mocker, connection_string, ssl_context, exception):
+        mocker.patch.object(sm, "SymmetricKeySigningMechanism", side_effect=exception)
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubModuleClient.create_from_connection_string(
+                connection_string,
+                ssl_context=ssl_context,
+            )
+        assert e_info.value is exception
+
+    @pytest.mark.it("Allows any exceptions raised when creating a SasTokenProvider to propagate")
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_sak)
+    @pytest.mark.parametrize("exception", sastoken_provider_create_exceptions)
+    async def test_sastoken_provider_raises(
+        self, mocker, connection_string, ssl_context, exception
+    ):
+        mocker.patch.object(st.SasTokenProvider, "create_from_generator", side_effect=exception)
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubModuleClient.create_from_connection_string(
+                connection_string,
+                ssl_context=ssl_context,
+            )
+        assert e_info.value is exception
+
+    @pytest.mark.it("Can be cancelled while waiting for SasTokenProvider creation")
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_sak)
+    async def test_cancel_during_sastoken_provider_creation(
+        self, mocker, connection_string, ssl_context
+    ):
+        mocker.patch.object(
+            st.SasTokenProvider, "create_from_generator", custom_mock.HangingAsyncMock()
+        )
+
+        coro = IoTHubModuleClient.create_from_connection_string(
+            connection_string,
+            ssl_context=ssl_context,
         )
         t = asyncio.create_task(coro)
 
