@@ -122,6 +122,7 @@ class IoTHubClient(abc.ABC):
         :raises: ValueError if  one of 'ssl_context', 'symmetric_key' or 'sastoken_fn' is not
             provided
         :raises: ValueError if both 'symmetric_key' and 'sastoken_fn' are provided
+        :raises: ValueError if an invalid 'symmetric_key' is provided
         :raises: SasTokenError if there is a failure generating a SAS Token
         """
         # Validate Parameters
@@ -140,7 +141,6 @@ class IoTHubClient(abc.ABC):
         else:
             signing_mechanism = None
 
-        # TODO: is edge valid for this method?
         return await cls._internal_factory(
             device_id=device_id,
             module_id=module_id,
@@ -255,6 +255,7 @@ class IoTHubDeviceClient(IoTHubClient):
         :raises: ValueError if  one of 'ssl_context', 'symmetric_key' or 'sastoken_fn' is not
             provided
         :raises: ValueError if both 'symmetric_key' and 'sastoken_fn' are provided
+        :raises: ValueError if an invalid 'symmetric_key' is provided
         :raises: SasTokenError if there is a failure generating a SAS Token
 
         :return: An IoTHubDeviceClient instance
@@ -369,6 +370,7 @@ class IoTHubModuleClient(IoTHubClient):
         :raises: ValueError if  one of 'ssl_context', 'symmetric_key' or 'sastoken_fn' is not
             provided
         :raises: ValueError if both 'symmetric_key' and 'sastoken_fn' are provided
+        :raises: ValueError if an invalid 'symmetric_key' is provided
         :raises: SasTokenError if there is a failure generating a SAS Token
 
         :return: An IoTHubModuleClient instance
@@ -540,7 +542,7 @@ def _validate_kwargs(exclude=[], **kwargs):
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
     valid_kwargs = [
-        "connection_retry",
+        "auto_reconnect",
         "keep_alive",
         "product_info",
         "proxy_options",

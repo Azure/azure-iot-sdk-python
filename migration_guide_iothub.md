@@ -328,12 +328,13 @@ client = IoTHubDeviceClient.create_from_connection_string(
 
 Some keyword arguments provided at client creation have changed or been removed
 
-| V2                          | V3          | Explanation                                              |
-|-----------------------------|-------------|----------------------------------------------------------|
-| `auto_connect`              | **REMOVED** | Initial manual connection now required                   |
-| `ensure_desired_properties` | **REMOVED** | No more implicit twin updates                            |
-| `sastoken_ttl`              | **REMOVED** | Unnecessary, but open to re-adding if a use case emerges |
-| `connection_retry_interval` | **REMOVED** | Connection retry no longer uses a static interval        |
-| `gateway_hostname`          | **REMOVED** | Supported via `hostname` parameter                       |
-| `server_verification_cert`  | **REMOVED** | Supported via SSL injection                              |
-| `cipher`                    | **REMOVED** | Supported via SSL injection                              |
+| V2                          | V3               | Explanation                                              |
+|-----------------------------|------------------|----------------------------------------------------------|
+| `connection_retry`          | `auto_reconnect` | Improved clarity                                         |
+| `connection_retry_interval` | **REMOVED**      | Automatic reconnect no longer uses a static interval     |
+| `auto_connect`              | **REMOVED**      | Initial manual connection now required                   |
+| `ensure_desired_properties` | **REMOVED**      | No more implicit twin updates                            |
+| `sastoken_ttl`              | **REMOVED**      | Unnecessary, but open to re-adding if a use case emerges |
+| `gateway_hostname`          | **REMOVED**      | Supported via `hostname` parameter                       |
+| `server_verification_cert`  | **REMOVED**      | Supported via SSL injection                              |
+| `cipher`                    | **REMOVED**      | Supported via SSL injection                              |
