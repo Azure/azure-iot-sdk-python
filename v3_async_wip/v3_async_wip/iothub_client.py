@@ -151,6 +151,37 @@ class IoTHubClient(abc.ABC):
             **kwargs,
         )
 
+    # TODO: update cs module tests for x509 to be not case sensitive on true
+    @classmethod
+    async def _shared_client_create_from_connection_string(
+        cls, cs_obj: cs.ConnectionString, ssl_context: Optional[ssl.SSLContext] = None, **kwargs
+    ) -> "IoTHubClient":
+        """Agnostic implementation of .create_from_connection_string() shared between Devices
+        and Modules. Uses a ConnectionString object rather than a string, since the outer
+        client-specific implementation already converted it to validate
+
+        :raises: ValueError if the provided connection string is invalid
+        :raises: SasTokenError if there is a failure generating a SAS Token"""
+        # ssl_context is required if x509 is indicated by the connection string
+        if cs_obj.get(cs.X509, "").lower() == "true" and not ssl_context:
+            raise ValueError(
+                "Connection string indicates X509 certificate authentication, but no ssl_context provided"
+            )
+
+        # If the Gateway Hostname exists, use it instead of the Hostname
+        hostname = cs_obj.get(cs.GATEWAY_HOST_NAME, cs_obj[cs.HOST_NAME])
+
+        signing_mechanism = sm.SymmetricKeySigningMechanism(cs_obj[cs.SHARED_ACCESS_KEY])
+
+        return await cls._internal_factory(
+            device_id=cs_obj[cs.DEVICE_ID],
+            module_id=cs_obj.get(cs.MODULE_ID),
+            hostname=hostname,
+            sas_signing_mechanism=signing_mechanism,
+            ssl_context=ssl_context,
+            **kwargs,
+        )
+
     @classmethod
     async def _internal_factory(
         cls,
@@ -298,22 +329,13 @@ class IoTHubDeviceClient(IoTHubClient):
 
         :return: An IoTHubDeviceClient instance
         """
-        # Validate connection string for Device
+        # Validate connection string is for Device
         cs_obj = cs.ConnectionString(connection_string)
         if cs.MODULE_ID in cs_obj:
             raise ValueError("IoT Hub module connection string provided for IoTHubDeviceClient")
 
-        signing_mechanism = sm.SymmetricKeySigningMechanism(cs_obj[cs.SHARED_ACCESS_KEY])
-
-        # If the Gateway Hostname exists, use it instead of the Hostname
-        hostname = cs_obj.get(cs.GATEWAY_HOST_NAME, cs_obj[cs.HOST_NAME])
-
-        client = await cls._internal_factory(
-            device_id=cs_obj[cs.DEVICE_ID],
-            hostname=hostname,
-            sas_signing_mechanism=signing_mechanism,
-            ssl_context=ssl_context,
-            **kwargs,
+        client = await cls._shared_client_create_from_connection_string(
+            cs_obj, ssl_context, **kwargs
         )
         return cast(IoTHubDeviceClient, client)
 
@@ -407,25 +429,19 @@ class IoTHubModuleClient(IoTHubClient):
         :keyword proxy_options: Configuration structure for sending traffic through a proxy server
         :type: proxy_options: :class:`ProxyOptions`
         :keyword bool websockets: Set to 'True' to use WebSockets over MQTT. Default is 'False'
+
         :raises: ValueError if the provided connection string is invalid
         :raises: SasTokenError if there is a failure generating a SAS Token
 
         :return: An IoTHubModuleClient instance
         """
-        # Validate connection string for Module
+        # Validate connection string is for Module
         cs_obj = cs.ConnectionString(connection_string)
         if cs.MODULE_ID not in cs_obj:
             raise ValueError("IoT Hub device connection string provided for IoTHubModuleClient")
 
-        # If the Gateway Hostname exists, use it instead of the Hostname
-        hostname = cs_obj.get(cs.GATEWAY_HOST_NAME, cs_obj[cs.HOST_NAME])
-
-        client = await cls._internal_factory(
-            device_id=cs_obj[cs.DEVICE_ID],
-            hostname=hostname,
-            symmetric_key=cs_obj[cs.SHARED_ACCESS_KEY],
-            ssl_context=ssl_context,
-            **kwargs,
+        client = await cls._shared_client_create_from_connection_string(
+            cs_obj, ssl_context, **kwargs
         )
         return cast(IoTHubModuleClient, client)
 
@@ -518,6 +534,7 @@ class IoTHubModuleClient(IoTHubClient):
 
         :raises: IoTEdgeEnvironmentError if IoT Edge environment variables are not present or
             cannot be accessed
+        :raises: ValueError if the connection string in the environment is invalid
         :raises: SasTokenError if there is a failure generating a SAS Token
         """
         # Read values from the IoT Edge Simulator environment variables

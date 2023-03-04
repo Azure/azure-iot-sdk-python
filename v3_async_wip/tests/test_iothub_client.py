@@ -73,6 +73,11 @@ def mock_sastoken_provider(mocker):
 
 
 @pytest.fixture
+def connection_string():
+    return
+
+
+@pytest.fixture
 def custom_ssl_context():
     # NOTE: It doesn't matter how the SSLContext is configured for the tests that use this fixture,
     # so it isn't configured at all.
@@ -270,7 +275,7 @@ class TestIoTHubDeviceClientInstantiation(
 @pytest.mark.describe("IoTHubDeviceClient - .create()")
 class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
     @pytest.mark.it(
-        "Returns a new IoTHubDeviceClient instance, created with use of a new IoTHubClientConfig object"
+        "Returns a new IoTHubDeviceClient instance, created with the use of a new IoTHubClientConfig object"
     )
     @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
     async def test_instantiation(self, mocker, symmetric_key, sastoken_fn, ssl_context):
@@ -600,6 +605,17 @@ class TestIoTHubDeviceClientCreate(IoTHubDeviceClientTestConfig):
             await t
 
 
+# @pytest.mark.describe("IoTHubDeviceClient - .create_from_connection_string()")
+# class TestIoTHubDeviceClientCreateFromConnectionString(IoTHubDeviceClientTestConfig):
+#     @pytest.fixture
+#     def connection_string(self):
+#         return "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key}".format(
+#             hostname=FAKE_HOSTNAME, device_id=FAKE_DEVICE_ID, shared_access_key=FAKE_SYMMETRIC_KEY
+#         )
+
+#     @pytest.mark.it("Returns a new IoTHubDeviceClient instance, created with the use of a new IoTHubClientConfig object")
+
+
 @pytest.mark.describe("IoTHubDeviceClient - .shutdown()")
 class TestIoTHubDeviceClientShutdown(SharedClientShutdownTests, IoTHubDeviceClientTestConfig):
     pass
@@ -640,7 +656,7 @@ class TestIoTHubModuleClientInstantiation(
 @pytest.mark.describe("IoTHubModuleClient - .create()")
 class TestIoTHubModuleClientCreate(IoTHubModuleClientTestConfig):
     @pytest.mark.it(
-        "Returns a new IoTHubModuleClient instance, created with use of a new IoTHubClientConfig object"
+        "Returns a new IoTHubModuleClient instance, created with the use of a new IoTHubClientConfig object"
     )
     @pytest.mark.parametrize("symmetric_key, sastoken_fn, ssl_context", auth_configurations)
     async def test_instantiation(self, mocker, symmetric_key, sastoken_fn, ssl_context):

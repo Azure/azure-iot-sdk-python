@@ -265,6 +265,25 @@ client = IoTHubDeviceClient.create(
 )
 ```
 
+Note that SSLContexts can be used with the  `.create_from_connection_string()` factory method as well, so V3 now fully supports X509 connection strings.
+### V3
+```python
+from azure.iot.device import IoTHubDeviceClient
+import ssl
+
+ssl_context = ssl.SSLContext.create_default_context()
+ssl_context.load_cert_chain(
+    certfile="<Your X509 Cert File Path>",
+    keyfile="<Your X509 Key File>",
+    password="<Your X509 Pass Phrase>",
+)
+
+client = IoTHubDeviceClient.create_from_connection_string(
+    "<Your X509 Connection String>",
+    ssl_context=ssl_context,
+)
+```
+
 ## TLS/SSL Customization
 To allow users more flexibility, we have added the ability to inject an `SSLContext` object into the client via the optional `ssl_context` keyword argument to factory methods in order to customize the TLS/SSL encryption and authentication. As a result, some features previously handled via client APIs are now expected to have been directly set on the injected `SSLContext`.
 
