@@ -753,7 +753,6 @@ class TestIoTHubMQTTClientShutdown:
         # correctness, lest we have to repeat all .disconnect() tests here.
         original_disconnect = client.disconnect
         client.disconnect = mocker.AsyncMock(side_effect=exception)
-        client.disconnect.side_effect = exception
         assert not client._keep_credentials_fresh_bg_task.done()
         assert not client._process_twin_responses_bg_task.done()
 
