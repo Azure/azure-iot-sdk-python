@@ -354,7 +354,7 @@ class TestIoTHubHTTPClientInvokeDirectMethod:
     def modify_post_response(self, client):
         fake_method_response = {
             "status": 200,
-            "payload": "fake payload",
+            "payload": {"fake": "payload"},
         }
         mock_response = client._session.post.return_value.__aenter__.return_value
         mock_response.json.return_value = fake_method_response
@@ -363,7 +363,7 @@ class TestIoTHubHTTPClientInvokeDirectMethod:
     def method_params(self):
         return {
             "methodName": "fake method",
-            "payload": "fake payload",
+            "payload": {"fake": "payload"},
             "connectTimeoutInSeconds": 47,
             "responseTimeoutInSeconds": 42,
         }

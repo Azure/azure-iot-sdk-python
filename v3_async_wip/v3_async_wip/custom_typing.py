@@ -39,7 +39,7 @@ class DirectMethodParameters(TypedDict):
 
 class DirectMethodResult(TypedDict):
     status: int
-    payload: str
+    payload: JSONSerializable
 
 
 class StorageInfo(TypedDict):
