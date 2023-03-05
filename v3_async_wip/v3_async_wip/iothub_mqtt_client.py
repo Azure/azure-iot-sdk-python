@@ -44,7 +44,6 @@ class IoTHubMQTTClient:
         self._module_id = client_config.module_id
         self._client_id = _format_client_id(self._device_id, self._module_id)
         self._username = _format_username(
-            # NOTE: Always use the original hostname, even if gateway hostname is set
             hostname=client_config.hostname,
             client_id=self._client_id,
             product_info=client_config.product_info,
@@ -501,17 +500,12 @@ def _create_mqtt_client(
 ) -> mqtt.MQTTClient:
     logger.debug("Creating MQTTClient")
 
+    logger.debug("Using {} as hostname".format(client_config.hostname))
+
     if client_config.module_id:
         logger.debug("Using IoTHub Module. Client ID is {}".format(client_id))
     else:
         logger.debug("Using IoTHub Device. Client ID is {}".format(client_id))
-
-    if client_config.gateway_hostname:
-        logger.debug("Gateway Hostname is present. Using Gateway Hostname as Hostname")
-        hostname = client_config.gateway_hostname
-    else:
-        logger.debug("Gateway Hostname not present. Using Hostname as Hostname")
-        hostname = client_config.hostname
 
     if client_config.websockets:
         logger.debug("Using MQTT over websockets")
@@ -526,7 +520,7 @@ def _create_mqtt_client(
 
     client = mqtt.MQTTClient(
         client_id=client_id,
-        hostname=hostname,
+        hostname=client_config.hostname,
         port=port,
         transport=transport,
         keep_alive=client_config.keep_alive,

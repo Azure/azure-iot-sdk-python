@@ -71,7 +71,6 @@ class ClientConfig:
         *,
         ssl_context: ssl.SSLContext,
         hostname: str,
-        gateway_hostname: Optional[str] = None,
         sastoken_provider: Optional[SasTokenProvider] = None,
         proxy_options: Optional[ProxyOptions] = None,
         keep_alive: int = 60,
@@ -81,7 +80,6 @@ class ClientConfig:
         """Initializer for ClientConfig
 
         :param str hostname: The hostname being connected to
-        :param str gateway_hostname: The gateway hostname optionally being used
         :param sastoken_provider: Object that can provide SasTokens
         :type sastoken_provider: :class:`SasTokenProvider`
         :param proxy_options: Details of proxy configuration
@@ -97,7 +95,6 @@ class ClientConfig:
         """
         # Network
         self.hostname = hostname
-        self.gateway_hostname = gateway_hostname
         self.proxy_options = proxy_options
 
         # Auth
@@ -116,7 +113,6 @@ class IoTHubClientConfig(ClientConfig):
         *,
         device_id: str,
         module_id: Optional[str] = None,
-        is_edge_module: bool = False,
         product_info: str = "",
         **kwargs: Any,
     ) -> None:
@@ -125,14 +121,12 @@ class IoTHubClientConfig(ClientConfig):
 
         :param str device_id: The device identity being used with the IoTHub
         :param str module_id: The module identity being used with the IoTHub
-        :param bool is_edge_module: Boolean indicating whether or not using an Edge Module
         :param str product_info: A custom identification string.
 
         Additional parameters found in the docstring of the parent class
         """
         self.device_id = device_id
         self.module_id = module_id
-        self.is_edge_module = is_edge_module
         self.product_info = product_info
         super().__init__(**kwargs)
 

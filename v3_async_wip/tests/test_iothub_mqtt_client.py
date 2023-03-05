@@ -31,7 +31,6 @@ FAKE_MODULE_ID = "fake_module_id"
 FAKE_DEVICE_CLIENT_ID = "fake_device_id"
 FAKE_MODULE_CLIENT_ID = "fake_device_id/fake_module_id"
 FAKE_HOSTNAME = "fake.hostname"
-FAKE_GATEWAY_HOSTNAME = "fake.gateway.hostname"
 FAKE_SIGNATURE = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
 FAKE_EXPIRY = str(int(time.time()) + 3600)
 FAKE_URI = "fake/resource/location"
@@ -177,13 +176,6 @@ class TestIoTHubMQTTClientInstantiation:
         ],
     )
     @pytest.mark.parametrize(
-        "hostname, gateway_hostname",
-        [
-            pytest.param(FAKE_HOSTNAME, None, id="No Gateway Hostname"),
-            pytest.param(FAKE_HOSTNAME, FAKE_GATEWAY_HOSTNAME, id="Gateway Hostname"),
-        ],
-    )
-    @pytest.mark.parametrize(
         "product_info",
         [
             pytest.param("", id="No Product Info"),
@@ -205,14 +197,10 @@ class TestIoTHubMQTTClientInstantiation:
         device_id,
         module_id,
         client_id,
-        hostname,
-        gateway_hostname,
         product_info,
     ):
         client_config.device_id = device_id
         client_config.module_id = module_id
-        client_config.hostname = hostname
-        client_config.gateway_hostname = gateway_hostname
         client_config.product_info = product_info
 
         ua = user_agent.get_iothub_user_agent()
@@ -226,7 +214,7 @@ class TestIoTHubMQTTClientInstantiation:
         # Determine expected username based on config
         if product_info.startswith(constant.DIGITAL_TWIN_PREFIX):
             expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}&{digital_twin_prefix}={custom_product_info}".format(
-                hostname=hostname,
+                hostname=client_config.hostname,
                 client_id=client_id,
                 api_version=constant.IOTHUB_API_VERSION,
                 user_agent=url_encoded_user_agent,
@@ -235,13 +223,12 @@ class TestIoTHubMQTTClientInstantiation:
             )
         else:
             expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}{custom_product_info}".format(
-                hostname=hostname,
+                hostname=client_config.hostname,
                 client_id=client_id,
                 api_version=constant.IOTHUB_API_VERSION,
                 user_agent=url_encoded_user_agent,
                 custom_product_info=url_encoded_product_info,
             )
-        # NOTE: Regarding the above, no matter if we have a gateway hostname set or not, it is the hostname that is always used.
 
         client = IoTHubMQTTClient(client_config)
         # The expected username was derived
@@ -285,15 +272,6 @@ class TestIoTHubMQTTClientInstantiation:
         ],
     )
     @pytest.mark.parametrize(
-        "hostname, gateway_hostname, expected_hostname",
-        [
-            pytest.param(FAKE_HOSTNAME, None, FAKE_HOSTNAME, id="No Gateway Hostname"),
-            pytest.param(
-                FAKE_HOSTNAME, FAKE_GATEWAY_HOSTNAME, FAKE_GATEWAY_HOSTNAME, id="Gateway Hostname"
-            ),
-        ],
-    )
-    @pytest.mark.parametrize(
         "websockets, expected_transport, expected_port, expected_ws_path",
         [
             pytest.param(True, "websockets", 443, "/$iothub/websocket", id="WebSockets"),
@@ -307,9 +285,6 @@ class TestIoTHubMQTTClientInstantiation:
         device_id,
         module_id,
         expected_client_id,
-        hostname,
-        gateway_hostname,
-        expected_hostname,
         websockets,
         expected_transport,
         expected_port,
@@ -318,8 +293,6 @@ class TestIoTHubMQTTClientInstantiation:
         # Configure the client_config based on params
         client_config.device_id = device_id
         client_config.module_id = module_id
-        client_config.hostname = hostname
-        client_config.gateway_hostname = gateway_hostname
         client_config.websockets = websockets
 
         # Patch the MQTTClient constructor
@@ -333,7 +306,7 @@ class TestIoTHubMQTTClientInstantiation:
         assert mock_constructor.call_count == 1
         assert mock_constructor.call_args == mocker.call(
             client_id=expected_client_id,
-            hostname=expected_hostname,
+            hostname=client_config.hostname,
             port=expected_port,
             transport=expected_transport,
             keep_alive=client_config.keep_alive,
@@ -780,7 +753,6 @@ class TestIoTHubMQTTClientShutdown:
         # correctness, lest we have to repeat all .disconnect() tests here.
         original_disconnect = client.disconnect
         client.disconnect = mocker.AsyncMock(side_effect=exception)
-        client.disconnect.side_effect = exception
         assert not client._keep_credentials_fresh_bg_task.done()
         assert not client._process_twin_responses_bg_task.done()
 
