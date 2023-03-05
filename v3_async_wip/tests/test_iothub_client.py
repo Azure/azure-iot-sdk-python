@@ -4,13 +4,14 @@
 # license information.
 # --------------------------------------------------------------------------
 import asyncio
+import os
 import pytest
 import ssl
 import time
 from dev_utils import custom_mock
 from pytest_lazyfixture import lazy_fixture
 from v3_async_wip.iothub_client import IoTHubDeviceClient, IoTHubModuleClient
-from v3_async_wip import config, iothub_client
+from v3_async_wip import config, edge_hsm, iothub_client, iot_exceptions
 from v3_async_wip import connection_string as cs
 from v3_async_wip import iothub_mqtt_client as mqtt
 from v3_async_wip import iothub_http_client as http
@@ -62,15 +63,6 @@ def mock_sastoken_provider(mocker):
     return mocker.patch.object(st, "SasTokenProvider", spec=st.SasTokenProvider).return_value
 
 
-# # Mock out all auth-related objects to improve test performance
-# @pytest.fixture(autouse=True)
-# def mock_all_auth(mocker):
-#     mocker.patch.object(st, "SasTokenProvider", spec=st.SasTokenProvider)
-#     mocker.patch.object(st, "InternalSasTokenGenerator", spec=st.InternalSasTokenGenerator)
-#     mocker.patch.object(st, "ExternalSasTokenGenerator", spec=st.ExternalSasTokenGenerator)
-#     mocker.patch.object(sm, "SymmetricKeySigningMechanism", spec=sm.SymmetricKeySigningMechanism)
-
-# TODO: are both these ssl fixtures really necessary?
 @pytest.fixture
 def custom_ssl_context():
     # NOTE: It doesn't matter how the SSLContext is configured for the tests that use this fixture,
@@ -88,8 +80,10 @@ def optional_ssl_context(request, custom_ssl_context):
 
 
 # ~~~~~ Parametrizations ~~~~~
-# Define parametrizations that will be used across multiple tests, and that may eventually need
-# to be changed everywhere, e.g. new auth scheme added.
+# Define parametrizations that will be used across multiple test suites, and that may eventually
+# need to be changed everywhere, e.g. new auth scheme added.
+# Note that some parametrizations are also defined within the scope of a single test suite if that
+# is the only unit they are relevant to.
 
 
 # Parameters for arguments to the .create() method of clients. Represent different types of
@@ -234,10 +228,25 @@ class SharedClientShutdownTests:
 
         assert client._http_client.shutdown.await_count == 1
 
-    # TODO: finish this
-    @pytest.mark.it("Shuts down SasTokenProvider (if present)")
-    async def test_sastoken_provider_shutdown(self, client):
-        pass
+    @pytest.mark.it("Shuts down the SasTokenProvider, if present")
+    async def test_sastoken_provider_shutdown(self, mocker, client, mock_sastoken_provider):
+        # Add the mock sastoken provider since it isn't there by default
+        assert client._sastoken_provider is None
+        client._sastoken_provider = mock_sastoken_provider
+        assert mock_sastoken_provider.shutdown.await_count == 0
+
+        await client.shutdown()
+
+        assert mock_sastoken_provider.shutdown.await_count == 1
+        assert mock_sastoken_provider.shutdown.await_args == mocker.call()
+
+    @pytest.mark.it("Handles the case where no SasTokenProvider is present")
+    async def test_no_sastoken_provider(self, mocker, client):
+        assert client._sastoken_provider is None
+
+        await client.shutdown()
+
+        # If no error was raised, this test passes
 
     # TODO: cancel tests
 
@@ -250,8 +259,8 @@ class IoTHubDeviceClientTestConfig:
 
     @pytest.fixture
     async def client(self, custom_ssl_context):
-        # Use a custom_ssl_context for auth for simplicity. Any test using this fixture is not
-        # affected by auth type, so just use the simplest one.
+        # Use a custom_ssl_context for auth for simplicity. Almost any test using this fixture
+        # will not be affected by auth type, so just use the simplest one.
         client_config = config.IoTHubClientConfig(
             device_id=FAKE_DEVICE_ID, hostname=FAKE_HOSTNAME, ssl_context=custom_ssl_context
         )
@@ -853,6 +862,7 @@ class TestIoTHubDeviceClientCreateFromConnectionString(IoTHubDeviceClientTestCon
         # Graceful exit
         await client.shutdown()
 
+    # NOTE: The details of this default SSLContext are covered in the TestDefaultSSLContext suite
     @pytest.mark.it(
         "Sets a default SSLContext as the `ssl_context` on the IoTHubClientConfig used to create the client, if `ssl_context` is not provided"
     )
@@ -1104,8 +1114,8 @@ class IoTHubModuleClientTestConfig:
 
     @pytest.fixture
     async def client(self, custom_ssl_context):
-        # Use a custom_ssl_context for auth for simplicity. Any test using this fixture is not
-        # affected by auth type, so just use the simplest one.
+        # Use a custom_ssl_context for auth for simplicity. Almost any test using this fixture
+        # will not be affected by auth type, so just use the simplest one.
         client_config = config.IoTHubClientConfig(
             device_id=FAKE_DEVICE_ID,
             module_id=FAKE_MODULE_ID,
@@ -1733,6 +1743,7 @@ class TestIoTHubModuleClientCreateFromConnectionString(IoTHubModuleClientTestCon
         # Graceful exit
         await client.shutdown()
 
+    # NOTE: The details of this default SSLContext are covered in the TestDefaultSSLContext suite
     @pytest.mark.it(
         "Sets a default SSLContext as the `ssl_context` on the IoTHubClientConfig used to create the client, if `ssl_context` is not provided"
     )
@@ -1967,6 +1978,538 @@ class TestIoTHubModuleClientCreateFromConnectionString(IoTHubModuleClientTestCon
 
         # Hanging, waiting for SasTokenProvider creation to finish
         await st.SasTokenProvider.create_from_generator.wait_for_hang()
+        assert not t.done()
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+
+@pytest.mark.describe(
+    "IoTHubModuleClient - .create_from_edge_environment() -- Real Edge Environment"
+)
+class TestIoTHubModuleClientCreateFromEdgeEnvironmentRealEdgeEnvironment(
+    IoTHubModuleClientTestConfig
+):
+    @pytest.fixture
+    def edge_environment_variables(self):
+        return {
+            "IOTEDGE_DEVICEID": FAKE_DEVICE_ID,
+            "IOTEDGE_MODULEID": FAKE_MODULE_ID,
+            "IOTEDGE_IOTHUBHOSTNAME": FAKE_HOSTNAME,
+            "IOTEDGE_GATEWAYHOSTNAME": FAKE_GATEWAY_HOSTNAME,
+            "IOTEDGE_APIVERSION": "04-07-3023",
+            "IOTEDGE_MODULEGENERATIONID": "fake_generation_id",
+            "IOTEDGE_WORKLOADURI": "http://fake.workload/uri/",
+            # NOTE: I've included the IOTHUBHOSTNAME environment variable here,
+            # even though it is not actually used in practice by the client.
+            # By including it here, we can demonstrate that it is not used.
+        }
+
+    @pytest.fixture(autouse=True)
+    def mock_environment_variables(self, mocker, edge_environment_variables):
+        """Auto-used fixture that will mock out os.environ to return the variables defined
+        in the fixture above. You shouldn't need to directly interact with this mock, so
+        no value is returned by this fixture, and as a result, you shouldn't ever need to
+        add it as a test parameter. It will just work"""
+        mocker.patch.dict(os.environ, edge_environment_variables, clear=True)
+
+    @pytest.fixture(autouse=True)
+    def mock_ssl_load_verify_locations(self, mocker):
+        """Autouse fixture that will mock SSL cert chain loading so that fake values don't
+        get in the way. You shouldn't need to directly interact with this mock, so no value
+        is returned by this fixture, and as a result, you should'nt ever need to add it as a
+        test parameter. It will just work
+        """
+        mocker.patch.object(ssl.SSLContext, "load_verify_locations")
+
+    @pytest.fixture(autouse=True)
+    def mock_edge_hsm_cls(self, mocker):
+        mock_edge_hsm_cls = mocker.patch.object(edge_hsm, "IoTEdgeHsm", spec=edge_hsm.IoTEdgeHsm)
+        mock_edge_hsm_cls.return_value.sign.return_value = FAKE_SIGNATURE
+        mock_edge_hsm_cls.return_value.get_certificate.return_value = "fake_svc_string"
+        return mock_edge_hsm_cls
+
+    @pytest.mark.it(
+        "Returns a new IoTHubModuleClient instance, created with the use of a new IoTHubClientConfig object"
+    )
+    async def test_instantiation(self, mocker):
+        spy_config_cls = mocker.spy(config, "IoTHubClientConfig")
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        assert spy_config_cls.call_count == 0
+        assert spy_client_init.call_count == 0
+
+        client = await IoTHubModuleClient.create_from_edge_environment()
+
+        assert spy_config_cls.call_count == 1
+        assert spy_client_init.call_count == 1
+        # NOTE: Normally passing through self or cls isn't necessary in a mock call, but
+        # it seems that when mocking the __init__ it is. This is actually good though, as it
+        # allows us to match the specific object reference which otherwise is very dicey when
+        # mocking constructors/initializers
+        assert spy_client_init.call_args == mocker.call(client, spy_config_cls.spy_return)
+        assert isinstance(client, IoTHubModuleClient)
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the IOTEDGE_DEVICEID value from the Edge environment as the `device_id` on the IoTHubClientConfig used to create the client"
+    )
+    async def test_device_id(self, mocker, edge_environment_variables):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+
+        client = await IoTHubModuleClient.create_from_edge_environment()
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.device_id == edge_environment_variables["IOTEDGE_DEVICEID"]
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the IOTEDGE_MODULEID value from the Edge environment as the `module_id` on the IoTHubClientConfig used to create the client"
+    )
+    async def test_module_id(self, mocker, edge_environment_variables):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+
+        client = await IoTHubModuleClient.create_from_edge_environment()
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.module_id == edge_environment_variables["IOTEDGE_MODULEID"]
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets the IOTEDGE_GATEWAYHOSTNAME (and NOT the IOTEDGE_IOTHUBHOSTNAME) value from the Edge environment as the `hostname` on the IoTHubClientConfig used to create the client"
+    )
+    async def test_hostname(self, mocker, edge_environment_variables):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+
+        client = await IoTHubModuleClient.create_from_edge_environment()
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.hostname == edge_environment_variables["IOTEDGE_GATEWAYHOSTNAME"]
+        assert config.hostname != edge_environment_variables["IOTEDGE_IOTHUBHOSTNAME"]
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it("Creates an IoTEdgeHsm using values from the Edge environment")
+    async def test_edge_hsm(self, mocker, edge_environment_variables, mock_edge_hsm_cls):
+        assert mock_edge_hsm_cls.call_count == 0
+
+        client = await IoTHubModuleClient.create_from_edge_environment()
+
+        assert mock_edge_hsm_cls.call_count == 1
+        assert mock_edge_hsm_cls.call_args == mocker.call(
+            module_id=edge_environment_variables["IOTEDGE_MODULEID"],
+            generation_id=edge_environment_variables["IOTEDGE_MODULEGENERATIONID"],
+            workload_uri=edge_environment_variables["IOTEDGE_WORKLOADURI"],
+            api_version=edge_environment_variables["IOTEDGE_APIVERSION"],
+        )
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Creates a SasTokenProvider that uses the IoTEdgeHsm to generate SAS tokens, and sets it as the `sastoken_provider` on the IoTHubClientConfig used to create the client"
+    )
+    async def test_sastoken_provider(self, mocker, edge_environment_variables, mock_edge_hsm_cls):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        spy_st_generator_cls = mocker.spy(st, "InternalSasTokenGenerator")
+        spy_st_provider_create = mocker.spy(st.SasTokenProvider, "create_from_generator")
+        expected_token_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
+            hostname=edge_environment_variables["IOTEDGE_GATEWAYHOSTNAME"],
+            device_id=edge_environment_variables["IOTEDGE_DEVICEID"],
+            module_id=edge_environment_variables["IOTEDGE_MODULEID"],
+        )
+
+        client = await IoTHubModuleClient.create_from_edge_environment()
+
+        # IoTEdgeHsm was created
+        assert mock_edge_hsm_cls.call_count == 1
+        # InternalSasTokenGenerator was created from the IoTEdgeHsm and expected URI
+        assert spy_st_generator_cls.call_count == 1
+        assert spy_st_generator_cls.call_args == mocker.call(
+            signing_mechanism=mock_edge_hsm_cls.return_value, uri=expected_token_uri
+        )
+        # SasTokenProvider was created from the InternalSasTokenGenerator
+        assert spy_st_provider_create.call_count == 1
+        assert spy_st_provider_create.call_args == mocker.call(spy_st_generator_cls.spy_return)
+        # The SasTokenProvider was set on the IoTHubClientConfig that was used to instantiate the client
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert config.sastoken_provider is spy_st_provider_create.spy_return
+
+        # Graceful exit
+        await client.shutdown()
+
+    # NOTE: The details of this default SSLContext are covered in the TestDefaultSSLContext suite
+    @pytest.mark.it(
+        "Modifies a default SSLContext by loading a server verification certificate retrieved from the IoTEdgeHsm and sets it as the `ssl_context` on the IoTHubClientConfig used to create the client"
+    )
+    async def test_ssl_context(self, mocker, mock_edge_hsm_cls):
+        mock_edge_hsm = mock_edge_hsm_cls.return_value
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+        mock_default_ssl = mocker.patch.object(iothub_client, "_default_ssl_context")
+        mock_ssl_context = mock_default_ssl.return_value
+
+        client = await IoTHubModuleClient.create_from_edge_environment()
+
+        assert mock_default_ssl.call_count == 1
+        assert mock_default_ssl.call_args == mocker.call()
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        # SSLContext was set on the Config
+        config = spy_client_init.call_args[0][1]
+        assert config.ssl_context is mock_ssl_context
+        # SSLContext was modified to load the cert returned by the HSM
+        expected_sv_cert = mock_edge_hsm.get_certificate.return_value
+        assert mock_ssl_context.load_verify_locations.call_count == 1
+        assert mock_ssl_context.load_verify_locations.call_args == mocker.call(
+            cadata=expected_sv_cert
+        )
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Sets any provided optional keyword arguments on IoTHubClientConfig used to create the client"
+    )
+    @pytest.mark.parametrize("kwarg_name, kwarg_value", factory_kwargs)
+    async def test_kwargs(self, mocker, kwarg_name, kwarg_value):
+        spy_client_init = mocker.spy(IoTHubModuleClient, "__init__")
+
+        kwargs = {kwarg_name: kwarg_value}
+
+        client = await IoTHubModuleClient.create_from_edge_environment(**kwargs)
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(client, mocker.ANY)
+        config = spy_client_init.call_args[0][1]
+        assert getattr(config, kwarg_name) == kwarg_value
+
+        # Graceful exit
+        await client.shutdown()
+
+    # NOTE: For what happens when the simulator variables ARE present, see the
+    # TestIoTHubModuleClientCreateFromEdgeEnvironmentSimulatedEdgeEnvironment test suite.
+    @pytest.mark.it(
+        "Raises IoTEdgeEnvironmentError if any expected environment variables cannot be found in the Edge environment, and no Edge Simulator variables are present either"
+    )
+    @pytest.mark.parametrize(
+        "missing_variable",
+        [
+            "IOTEDGE_MODULEID",
+            "IOTEDGE_DEVICEID",
+            "IOTEDGE_GATEWAYHOSTNAME",
+            "IOTEDGE_APIVERSION",
+            "IOTEDGE_MODULEGENERATIONID",
+            "IOTEDGE_WORKLOADURI",
+            # NOTE: "IOTEDGE_IOTHUBHOSTNAME" is not listed here, because it is not required
+        ],
+    )
+    async def test_env_missing_vars(self, mocker, edge_environment_variables, missing_variable):
+        # Remove variable from env and re-patch
+        del edge_environment_variables[missing_variable]
+        mocker.patch.dict(os.environ, edge_environment_variables, clear=True)
+        # No simulator variables are in the environment either
+        assert "EdgeHubConnectionString" not in edge_environment_variables
+        assert "EdgeModuleCACertificateFile" not in edge_environment_variables
+
+        with pytest.raises(iot_exceptions.IoTEdgeEnvironmentError):
+            await IoTHubModuleClient.create_from_edge_environment()
+
+    @pytest.mark.it("Allows any exceptions raised while creating the IoTEdgeHsm to propagate")
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(ValueError(), id="ValueError"),
+            pytest.param(TypeError(), id="TypeError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_edge_hsm_instantiation_raises(self, mock_edge_hsm_cls, exception):
+        # NOTE: Why might this raise? Lots of reasons, probably due to corrupted env variables
+        mock_edge_hsm_cls.side_effect = exception
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubModuleClient.create_from_edge_environment()
+        assert e_info.value is exception
+
+    @pytest.mark.it(
+        "Allows any exceptions raised while fetching the server verification cert using the IoTEdgeHsm to propagate"
+    )
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(iot_exceptions.IoTEdgeError(), id="IoTEdgeError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_edge_hsm_get_cert_raises(self, mock_edge_hsm_cls, exception):
+        mock_edge_hsm_cls.return_value.get_certificate.side_effect = exception
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubModuleClient.create_from_edge_environment()
+        assert e_info.value is exception
+
+    @pytest.mark.it(
+        "Allows any exceptions raised while loading the server verification cert to propagate"
+    )
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(ValueError(), id="ValueError"),
+            pytest.param(TypeError(), id="TypeError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_ssl_load_verify_locations_raises(self, mocker, exception):
+        mocker.patch.object(ssl.SSLContext, "load_verify_locations", side_effect=exception)
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubModuleClient.create_from_edge_environment()
+        assert e_info.value is exception
+
+    @pytest.mark.it("Allows any exceptions raised when creating a SasTokenProvider to propagate")
+    @pytest.mark.parametrize("exception", sastoken_provider_create_exceptions)
+    async def test_sastoken_provider_raises(self, mocker, exception):
+        mocker.patch.object(st.SasTokenProvider, "create_from_generator", side_effect=exception)
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubModuleClient.create_from_edge_environment()
+        assert e_info.value is exception
+
+    @pytest.mark.it(
+        "Can be cancelled while waiting for the server verification cert to be retrieved"
+    )
+    async def test_cancel_during_get_certificate(self, mock_edge_hsm_cls):
+        mock_edge_hsm = mock_edge_hsm_cls.return_value
+        mock_edge_hsm.get_certificate = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(IoTHubModuleClient.create_from_edge_environment())
+
+        # Hanging, waiting for certificate retrieval to finish
+        await mock_edge_hsm.get_certificate.wait_for_hang()
+        assert not t.done()
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+    @pytest.mark.it("Can be cancelled while waiting for SasTokenProvider creation")
+    async def test_cancel_during_sastoken_provider_creation(self, mocker):
+        mocker.patch.object(
+            st.SasTokenProvider, "create_from_generator", custom_mock.HangingAsyncMock()
+        )
+
+        t = asyncio.create_task(IoTHubModuleClient.create_from_edge_environment())
+
+        # Hanging, waiting for SasTokenProvider creation to finish
+        await st.SasTokenProvider.create_from_generator.wait_for_hang()
+        assert not t.done()
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+
+@pytest.mark.describe(
+    "IoTHubModuleClient - .create_from_edge_environment() -- Simulated Edge Environment"
+)
+class TestIoTHubModuleClientCreateFromEdgeEnvironmentSimulatedEdgeEnvironment(
+    IoTHubModuleClientTestConfig
+):
+    @pytest.fixture
+    def edge_environment_variables(self):
+        edge_cs = "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+            hostname=FAKE_HOSTNAME,
+            device_id=FAKE_DEVICE_ID,
+            module_id=FAKE_MODULE_ID,
+            shared_access_key=FAKE_SYMMETRIC_KEY,
+            gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+        )
+        return {
+            "EdgeHubConnectionString": edge_cs,
+            "EdgeModuleCACertificateFile": "fake/file/path",
+        }
+
+    @pytest.fixture(autouse=True)
+    def mock_environment_variables(self, mocker, edge_environment_variables):
+        """Auto-used fixture that will mock out os.environ to return the variables defined
+        in the fixture above. You shouldn't need to directly interact with this mock, so
+        no value is returned by this fixture, and as a result, you shouldn't ever need to
+        add it as a test parameter. It will just work"""
+        mocker.patch.dict(os.environ, edge_environment_variables, clear=True)
+
+    @pytest.fixture(autouse=True)
+    def mock_ssl_load_verify_locations(self, mocker):
+        """Autouse fixture that will mock SSL cert chain loading so that fake values don't
+        get in the way. You shouldn't need to directly interact with this mock, so no value
+        is returned by this fixture, and as a result, you should'nt ever need to add it as a
+        test parameter. It will just work
+        """
+        mocker.patch.object(ssl.SSLContext, "load_verify_locations")
+
+    @pytest.mark.it(
+        "Invokes and returns the result of the .create_from_connection_string() factory method, passing a connection string contained in the `EdgeHubConnectionString` environment variable and a default SSLContext"
+    )
+    async def test_invokes_connection_string_factory(self, mocker, edge_environment_variables):
+        spy_create_from_cs = mocker.spy(IoTHubModuleClient, "create_from_connection_string")
+        mock_default_ssl = mocker.patch.object(iothub_client, "_default_ssl_context")
+
+        client = await IoTHubModuleClient.create_from_edge_environment()
+
+        assert spy_create_from_cs.await_count == 1
+        assert spy_create_from_cs.await_args == mocker.call(
+            edge_environment_variables["EdgeHubConnectionString"],
+            ssl_context=mock_default_ssl.return_value,
+        )
+        assert client is spy_create_from_cs.spy_return
+        assert isinstance(client, IoTHubModuleClient)
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Modifies the default SSLContext by loading a server verification certificate from the filepath contained in the `EdgeModuleCACertificate` environment variable"
+    )
+    async def test_ssl_context(self, mocker, edge_environment_variables):
+        spy_create_from_cs = mocker.spy(IoTHubModuleClient, "create_from_connection_string")
+        mock_default_ssl = mocker.patch.object(iothub_client, "_default_ssl_context")
+        mock_ssl_context = mock_default_ssl.return_value
+
+        client = await IoTHubModuleClient.create_from_edge_environment()
+
+        assert mock_default_ssl.call_count == 1
+        assert mock_default_ssl.call_args == mocker.call()
+        # SSLContext was modified to the load the certfile in the environment variable
+        assert mock_ssl_context.load_verify_locations.call_count == 1
+        assert mock_ssl_context.load_verify_locations.call_args == mocker.call(
+            cafile=edge_environment_variables["EdgeModuleCACertificateFile"]
+        )
+        # SSLContext was the one passed to the .create_from_connection_string() factory method
+        assert spy_create_from_cs.await_count == 1
+        assert spy_create_from_cs.await_args == mocker.call(
+            mocker.ANY, ssl_context=mock_ssl_context
+        )
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Passes any provided optional keyword arguments to the .create_from_connection_string() factory method"
+    )
+    @pytest.mark.parametrize("kwarg_name, kwarg_value", factory_kwargs)
+    async def test_kwargs(self, mocker, kwarg_name, kwarg_value):
+        spy_create_from_cs = mocker.spy(IoTHubModuleClient, "create_from_connection_string")
+        kwargs = {kwarg_name: kwarg_value}
+
+        client = await IoTHubModuleClient.create_from_edge_environment(**kwargs)
+
+        assert spy_create_from_cs.await_count == 1
+        assert spy_create_from_cs.await_args == mocker.call(
+            mocker.ANY, ssl_context=mocker.ANY, **kwargs
+        )
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not invoke .create_from_connection_string() at all if real Edge environment variables are found"
+    )
+    async def test_real_env_variables_found(self, mocker):
+        spy_create_from_cs = mocker.spy(IoTHubModuleClient, "create_from_connection_string")
+        # Mock Edge HSM from the Real Edge path, since it's where we're going to go
+        mock_edge_hsm_cls = mocker.patch.object(edge_hsm, "IoTEdgeHsm", spec=edge_hsm.IoTEdgeHsm)
+        mock_edge_hsm_cls.return_value.sign.return_value = FAKE_SIGNATURE
+        mock_edge_hsm_cls.return_value.get_certificate.return_value = "fake_svc_string"
+        # Add the Real Edge env vars to our environment
+        real_env_vars = {
+            "IOTEDGE_DEVICEID": FAKE_DEVICE_ID,
+            "IOTEDGE_MODULEID": FAKE_MODULE_ID,
+            "IOTEDGE_IOTHUBHOSTNAME": FAKE_HOSTNAME,
+            "IOTEDGE_GATEWAYHOSTNAME": FAKE_GATEWAY_HOSTNAME,
+            "IOTEDGE_APIVERSION": "04-07-3023",
+            "IOTEDGE_MODULEGENERATIONID": "fake_generation_id",
+            "IOTEDGE_WORKLOADURI": "http://fake.workload/uri/",
+        }
+        mocker.patch.dict(os.environ, real_env_vars, clear=False)
+        # The Simulator variables are also here
+        assert "EdgeHubConnectionString" in os.environ
+        assert "EdgeModuleCACertificateFile" in os.environ
+
+        client = await IoTHubModuleClient.create_from_edge_environment()
+
+        # But we did not follow the Simulator path due to real variables existing
+        assert spy_create_from_cs.await_count == 0
+        # Instead we followed the Real Edge path
+        assert mock_edge_hsm_cls.call_count == 1
+        # NOTE: I could show all the mocks and values that get invoked here, but there's a whole
+        # test suite dedicated to those so no point in replicating it here.
+
+        # Graceful exit
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Raises IoTEdgeEnvironmentError if any expected environment variables cannot be found in the Edge environment"
+    )
+    @pytest.mark.parametrize(
+        "missing_variable", ["EdgeHubConnectionString", "EdgeModuleCACertificateFile"]
+    )
+    async def test_env_missing_vars(self, mocker, edge_environment_variables, missing_variable):
+        # Remove variable from env and re-patch
+        del edge_environment_variables[missing_variable]
+        mocker.patch.dict(os.environ, edge_environment_variables, clear=True)
+
+        with pytest.raises(iot_exceptions.IoTEdgeEnvironmentError):
+            await IoTHubModuleClient.create_from_edge_environment()
+
+    @pytest.mark.it(
+        "Allows any exceptions raised by the .create_from_connection_string() factory method to propagate"
+    )
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(ValueError(), id="ValueError"),
+            pytest.param(st.SasTokenError(), id="SasTokenError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_create_from_connection_string_raises(self, mocker, exception):
+        mocker.patch.object(
+            IoTHubModuleClient, "create_from_connection_string", side_effect=exception
+        )
+
+        with pytest.raises(type(exception)) as e_info:
+            await IoTHubModuleClient.create_from_edge_environment()
+        assert e_info.value is exception
+
+    @pytest.mark.it(
+        "Can be cancelled while waiting for the client to be created from the connection string"
+    )
+    async def test_cancelled_during_create_from_connection_string(self, mocker):
+        mocker.patch.object(
+            IoTHubModuleClient, "create_from_connection_string", custom_mock.HangingAsyncMock()
+        )
+
+        t = asyncio.create_task(IoTHubModuleClient.create_from_edge_environment())
+
+        # Hanging, waiting for client instantiation via connection string
+        await IoTHubModuleClient.create_from_connection_string.wait_for_hang()
         assert not t.done()
 
         # Cancel

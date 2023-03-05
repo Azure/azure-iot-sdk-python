@@ -69,7 +69,7 @@ class TestConnectionString(object):
                 id="Duplicate key",
             ),
             pytest.param(
-                "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=mykeyname;x509=True",
+                "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=mykeyname;x509=true",
                 id="Mixed authentication scheme",
             ),
         ],

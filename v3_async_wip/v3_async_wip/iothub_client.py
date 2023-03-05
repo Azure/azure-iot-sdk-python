@@ -4,11 +4,10 @@
 # license information.
 # --------------------------------------------------------------------------
 import abc
-import asyncio
 import logging
 import os
 import ssl
-from typing import Optional, cast
+from typing import Optional, Union, cast
 from .custom_typing import FunctionOrCoroutine
 from .iot_exceptions import IoTEdgeEnvironmentError
 from . import config, edge_hsm
@@ -51,25 +50,46 @@ class IoTHubClient(abc.ABC):
         Cannot be cancelled - if you try, the client will still fully shut down as much as
         possible (although the CancelledError will still be raised)
         """
-        cached_cancel: Optional[asyncio.CancelledError] = None
+        cached_exception: Optional[Union[Exception, BaseException]] = None
+        logger.debug("Beginning IoTHubClient shutdown procedure")
         try:
+            logger.debug("Shutting down IoTHubMQTTClient...")
             await self._mqtt_client.shutdown()
-        except asyncio.CancelledError as e:
-            cached_cancel = e
+            logger.debug("IoTHubMQTTClient shutdown complete")
+        except (Exception, BaseException) as e:
+            logger.warning(
+                "Unexpected error during shutdown of IoTHubMQTTClient suppressed - still completing the rest of shutdown procedure"
+            )
+            cached_exception = e
 
         try:
+            logger.debug("Shutting down IoTHubHTTPClient...")
             await self._http_client.shutdown()
-        except asyncio.CancelledError as e:
-            cached_cancel = e
-
+            logger.debug("IoTHubHTTPClient shutdown complete")
+        except (Exception, BaseException) as e:
+            logger.warning(
+                "Unexpected error during shutdown of IoTHubHTTPClient suppressed - still completing the rest of shutdown procedure"
+            )
+            cached_exception = e
         if self._sastoken_provider:
             try:
+                logger.debug("Shutting down SasTokenProvider...")
                 await self._sastoken_provider.shutdown()
-            except asyncio.CancelledError as e:
-                cached_cancel = e
+                logger.debug("SasTokenProvider shutdown complete")
+            except (Exception, BaseException) as e:
+                logger.warning(
+                    "Unexpected error during shutdown of SasTokenProvider suppressed - still completing the rest of shutdown procedure"
+                )
+                cached_exception = e
 
-        if cached_cancel:
-            raise cached_cancel
+        logger.debug("IoTHubClient shutdown procedure complete")
+        if cached_exception:
+            # NOTE: In the case of multiple failures, only the last one gets raised.
+            # Not much way around it, and besides, this is all an extreme edge case anyway.
+            logger.warning(
+                "Raising previously suppressed error now that shutdown procedure is complete"
+            )
+            raise cached_exception
 
     # ~~~~~ Abstract declarations ~~~~~
     # NOTE: rigid typechecking doesn't like when the signature changes in the child class
@@ -151,7 +171,6 @@ class IoTHubClient(abc.ABC):
             **kwargs,
         )
 
-    # TODO: update cs module tests for x509 to be not case sensitive on true
     @classmethod
     async def _shared_client_create_from_connection_string(
         cls, cs_obj: cs.ConnectionString, ssl_context: Optional[ssl.SSLContext] = None, **kwargs
@@ -448,6 +467,7 @@ class IoTHubModuleClient(IoTHubClient):
         )
         return cast(IoTHubModuleClient, client)
 
+    @classmethod
     async def create_from_edge_environment(cls, **kwargs) -> "IoTHubModuleClient":
         """Instantiate an IoTHubModuleClient using information from an IoT Edge environment
 
@@ -469,6 +489,9 @@ class IoTHubModuleClient(IoTHubClient):
             cannot be accessed
         :raises: IoTEdgeError if there is a failure with the IoT Edge
         :raises: SasTokenError if there is a failure generating a SAS Token
+        :raises: ValueError if IoT Edge environment variable values are invalid
+        :raises: TypeError if IoT Edge environment variable values are of the wrong format
+
 
         :return: An IoTHubModuleClient instance
         """
@@ -485,6 +508,7 @@ class IoTHubModuleClient(IoTHubClient):
                 # Raise the original error if the IoT Edge simulator variables also cannot be found
                 raise original_exception
 
+    @classmethod
     async def _create_from_real_edge_environment(cls, **kwargs) -> "IoTHubModuleClient":
         """Instantiate an IoTHubModuleClient from values stored in environment variables
         in a IoT Edge deployment environment.
@@ -493,6 +517,8 @@ class IoTHubModuleClient(IoTHubClient):
             cannot be accessed
         :raises: IoTEdgeError if there is a failure communicating with IoT Edge
         :raises: SasTokenError if there is a failure generating a SAS Token
+        :raises: ValueError if IoT Edge environment variables values are invalid
+        :raises: TypeError if IoT Edge environment variable values are of the wrong format
         """
         # Read values from the IoT Edge environment variables
         try:
@@ -514,10 +540,9 @@ class IoTHubModuleClient(IoTHubClient):
             api_version=api_version,
         )
 
-        # Set up Edge SSL context by loading the cert
+        # Set up Edge SSL context by loading the cert data
         server_verification_cert = await hsm.get_certificate()
         ssl_context = _default_ssl_context()
-        # TODO: verify that it's okay to load this cert after already loading default certs
         ssl_context.load_verify_locations(cadata=server_verification_cert)
 
         # Send to the internal factory
@@ -531,6 +556,7 @@ class IoTHubModuleClient(IoTHubClient):
         )
         return cast(IoTHubModuleClient, client)
 
+    @classmethod
     async def _create_from_simulated_edge_environment(cls, **kwargs) -> "IoTHubModuleClient":
         """Instantiate an IoTHubModuleClient from values stored in environment variables
         in a simulated IoT Edge environment
@@ -549,7 +575,6 @@ class IoTHubModuleClient(IoTHubClient):
 
         # Set up Edge SSL context by loading the cert file
         ssl_context = _default_ssl_context()
-        # TODO: verify that it's okay to load this cert after already loading default certs
         ssl_context.load_verify_locations(cafile=ca_cert_filepath)
 
         # Since we have a connection string, just use the connection string factory
