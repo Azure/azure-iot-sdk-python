@@ -387,11 +387,10 @@ class Application(object):
     async def main(self):
         await self.initiate()
 
-        self.provisioning_host = "global.azure-devices-provisioning.net"
-        self.id_scope = "0ne0096ABE5"
-        self.registration_id = "testfailover"
-        self.symmetric_key = "xQ2KY/uqXwGXQpM4qoRv3/bwaghSX0WSotbPx8TnLHV0NBFjyzxLoUbKFwjdm256JewoINaFukbhDlsBHBEECw=="
-
+        self.provisioning_host = os.getenv("PROVISIONING_HOST")
+        self.id_scope = os.getenv("PROVISIONING_IDSCOPE")
+        self.registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
+        self.symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
         self.log_error_and_print(
             "asyncio debug is set to {}".format(os.getenv("PYTHONASYNCIODEBUG"))
         )
