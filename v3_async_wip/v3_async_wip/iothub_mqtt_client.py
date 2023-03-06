@@ -72,26 +72,25 @@ class IoTHubMQTTClient:
         # Create generators for receive topics delivering data used externally
         # (Implicitly adding filters for these topics as well)
         # TODO: add apis for these
-        self.incoming_input_messages: Optional[AsyncGenerator[Message, None]] = None
-        self.incoming_c2d_messages: Optional[AsyncGenerator[Message, None]] = None
-        self.incoming_direct_method_requests: AsyncGenerator[DirectMethodRequest, None]
-        self.incoming_twin_patches: AsyncGenerator[TwinPatch, None]
+        self._incoming_input_messages: Optional[AsyncGenerator[Message, None]] = None
+        self._incoming_c2d_messages: Optional[AsyncGenerator[Message, None]] = None
+        self._incoming_direct_method_requests: AsyncGenerator[DirectMethodRequest, None]
+        self._incoming_twin_patches: AsyncGenerator[TwinPatch, None]
         if self._module_id:
-            self.incoming_input_messages = self._create_incoming_data_generator(
+            self._incoming_input_messages = self._create_incoming_data_generator(
                 topic=mqtt_topic.get_input_topic_for_subscribe(self._device_id, self._module_id),
                 transform_fn=_create_iothub_message_from_mqtt_message,
             )
         else:
-            # TODO: this is device only, right?
-            self.incoming_c2d_messages = self._create_incoming_data_generator(
+            self._incoming_c2d_messages = self._create_incoming_data_generator(
                 topic=mqtt_topic.get_c2d_topic_for_subscribe(self._device_id),
                 transform_fn=_create_iothub_message_from_mqtt_message,
             )
-        self.incoming_direct_method_requests = self._create_incoming_data_generator(
+        self._incoming_direct_method_requests = self._create_incoming_data_generator(
             topic=mqtt_topic.get_direct_method_request_topic_for_subscribe(),
             transform_fn=_create_direct_method_request_from_mqtt_message,
         )
-        self.incoming_twin_patches = self._create_incoming_data_generator(
+        self._incoming_twin_patches = self._create_incoming_data_generator(
             topic=mqtt_topic.get_twin_patch_topic_for_subscribe(),
             transform_fn=_create_twin_patch_from_mqtt_message,
         )
@@ -525,6 +524,30 @@ class IoTHubMQTTClient:
         topic = mqtt_topic.get_twin_patch_topic_for_subscribe()
         await self._mqtt_client.unsubscribe(topic)
         logger.debug("Twin patch receive disabled")
+
+    def get_incoming_c2d_message_generator(self) -> AsyncGenerator[Message, None]:
+        """Get a generator that yields incoming C2D Messages"""
+        if not self._incoming_c2d_messages:
+            raise IoTHubClientError("C2D Messages not available for Module")
+        else:
+            return self._incoming_c2d_messages
+
+    def get_incoming_input_message_generator(self) -> AsyncGenerator[Message, None]:
+        """Get a generator that yields incoming input Messages"""
+        if not self._incoming_input_messages:
+            raise IoTHubClientError("Input Messages not available for Device")
+        else:
+            return self._incoming_input_messages
+
+    def get_incoming_direct_method_request_generator(
+        self,
+    ) -> AsyncGenerator[DirectMethodRequest, None]:
+        """Get a generator that yields incoming DirectMethodRequests"""
+        return self._incoming_direct_method_requests
+
+    def get_incoming_twin_patch_generator(self) -> AsyncGenerator[TwinPatch, None]:
+        """Get a generator that yields incoming TwinPatches"""
+        return self._incoming_twin_patches
 
 
 def _format_client_id(device_id: str, module_id: Optional[str] = None) -> str:
