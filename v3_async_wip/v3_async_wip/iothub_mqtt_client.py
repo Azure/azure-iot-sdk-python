@@ -65,6 +65,7 @@ class IoTHubMQTTClient:
         self._mqtt_client.set_credentials(self._username, password)
 
         # Add filters for receive topics delivering data used internally
+        # TODO: can this be moved to the process twin responses task perhaps?
         twin_response_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
         self._mqtt_client.add_incoming_message_filter(twin_response_topic)
 
@@ -80,11 +81,12 @@ class IoTHubMQTTClient:
                 topic=mqtt_topic.get_input_topic_for_subscribe(self._device_id, self._module_id),
                 transform_fn=_create_iothub_message_from_mqtt_message,
             )
-        # TODO: this is device only, right?
-        self.incoming_c2d_messages = self._create_incoming_data_generator(
-            topic=mqtt_topic.get_c2d_topic_for_subscribe(self._device_id),
-            transform_fn=_create_iothub_message_from_mqtt_message,
-        )
+        else:
+            # TODO: this is device only, right?
+            self.incoming_c2d_messages = self._create_incoming_data_generator(
+                topic=mqtt_topic.get_c2d_topic_for_subscribe(self._device_id),
+                transform_fn=_create_iothub_message_from_mqtt_message,
+            )
         self.incoming_direct_method_requests = self._create_incoming_data_generator(
             topic=mqtt_topic.get_direct_method_request_topic_for_subscribe(),
             transform_fn=_create_direct_method_request_from_mqtt_message,

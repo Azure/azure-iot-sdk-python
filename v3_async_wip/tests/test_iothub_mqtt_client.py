@@ -374,18 +374,13 @@ class TestIoTHubMQTTClientInstantiation:
 
         await client.shutdown()
 
-    @pytest.mark.it("Adds incoming message filter on the MQTTClient for C2D messages")
-    @pytest.mark.parametrize(
-        "device_id, module_id",
-        [
-            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
-            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
-        ],
+    @pytest.mark.it(
+        "Adds incoming message filter on the MQTTClient for C2D messages, if using a Device Configuration"
     )
-    async def test_c2d_filter(self, mocker, client_config, device_id, module_id):
-        client_config.device_id = device_id
-        client_config.module_id = module_id
-        expected_topic = mqtt_topic.get_c2d_topic_for_subscribe(device_id)
+    async def test_c2d_filter(self, mocker, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = None
+        expected_topic = mqtt_topic.get_c2d_topic_for_subscribe(FAKE_DEVICE_ID)
 
         mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
         client = IoTHubMQTTClient(client_config)
@@ -395,6 +390,65 @@ class TestIoTHubMQTTClientInstantiation:
             mocker.call(expected_topic)
             in client._mqtt_client.add_incoming_message_filter.call_args_list
         )
+
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not add incoming message filter on the MQTTClient for C2D messages, if using a Module Configuration"
+    )
+    async def test_c2d_message_filter_device(self, mocker, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = FAKE_MODULE_ID
+
+        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
+        client = IoTHubMQTTClient(client_config)
+
+        # NOTE: It's kind of weird to try and show a method wasn't called with an argument, when
+        # what that argument would even be can't be created without a module ID in the first place.
+        # What we do here is check every topic that a filter is added for to ensure none of them
+        # contain the word "input", which an input message topic would uniquely have
+        for call in client._mqtt_client.add_incoming_message_filter.call_args_list:
+            topic = call[0][0]
+            assert "devicebound" not in topic
+
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Adds incoming message filter on the MQTTClient for input messages, if using a Module Configuration"
+    )
+    async def test_input_message_filter_module(self, mocker, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = FAKE_MODULE_ID
+        expected_topic = mqtt_topic.get_input_topic_for_subscribe(FAKE_DEVICE_ID, FAKE_MODULE_ID)
+
+        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
+        client = IoTHubMQTTClient(client_config)
+
+        # NOTE: Multiple filters are added, but not all are covered in this test
+        assert (
+            mocker.call(expected_topic)
+            in client._mqtt_client.add_incoming_message_filter.call_args_list
+        )
+
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not add incoming message filter on the MQTTClient for input messages, if using a Device Configuration"
+    )
+    async def test_input_message_filter_device(self, mocker, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = None
+
+        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
+        client = IoTHubMQTTClient(client_config)
+
+        # NOTE: It's kind of weird to try and show a method wasn't called with an argument, when
+        # what that argument would even be can't be created without a module ID in the first place.
+        # What we do here is check every topic that a filter is added for to ensure none of them
+        # contain the word "input", which an input message topic would uniquely have
+        for call in client._mqtt_client.add_incoming_message_filter.call_args_list:
+            topic = call[0][0]
+            assert "inputs" not in topic
 
         await client.shutdown()
 
@@ -470,58 +524,49 @@ class TestIoTHubMQTTClientInstantiation:
 
         await client.shutdown()
 
-    @pytest.mark.it(
-        "Adds incoming message filter on the MQTTClient for input messages, if using a Module Configuration"
-    )
-    async def test_input_message_filter_module(self, mocker, client_config):
-        client_config.device_id = FAKE_DEVICE_ID
-        client_config.module_id = FAKE_MODULE_ID
-        expected_topic = mqtt_topic.get_input_topic_for_subscribe(FAKE_DEVICE_ID, FAKE_MODULE_ID)
-
-        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
-        client = IoTHubMQTTClient(client_config)
-
-        # NOTE: Multiple filters are added, but not all are covered in this test
-        assert (
-            mocker.call(expected_topic)
-            in client._mqtt_client.add_incoming_message_filter.call_args_list
-        )
-
-        await client.shutdown()
-
-    @pytest.mark.it(
-        "Does not add incoming message filter on the MQTTClient for input messages, if using a Device Configuration"
-    )
-    async def test_input_message_filter_device(self, mocker, client_config):
-        client_config.device_id = FAKE_DEVICE_ID
-
-        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
-        client = IoTHubMQTTClient(client_config)
-
-        # NOTE: It's kind of weird to try and show a method wasn't called with an argument, when
-        # what that argument would even be can't be created without a module ID in the first place.
-        # What we do here is check every topic that a filter is added for to ensure none of them
-        # contain the word "input", which an input message topic would uniquely have
-        for call in client._mqtt_client.add_incoming_message_filter.call_args_list:
-            topic = call[0][0]
-            assert "inputs" not in topic
-
-        await client.shutdown()
-
     # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingC2DMessages)
-    @pytest.mark.it("Creates and stores an incoming C2D message generator as an attribute")
-    @pytest.mark.parametrize(
-        "device_id, module_id",
-        [
-            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
-            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
-        ],
+    @pytest.mark.it(
+        "Creates and stores an incoming C2D message generator as an attribute, if using a Device Configuration"
     )
-    async def test_c2d_generator(self, client_config, device_id, module_id):
-        client_config.device_id = device_id
-        client_config.module_id = module_id
+    async def test_c2d_message_generator_device(self, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = None
         client = IoTHubMQTTClient(client_config)
         assert isinstance(client.incoming_c2d_messages, typing.AsyncGenerator)
+
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not create an incoming C2D message generator, if using a Module Configuration"
+    )
+    async def test_c2d_message_generator_module(self, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = FAKE_MODULE_ID
+        client = IoTHubMQTTClient(client_config)
+        assert client.incoming_c2d_messages is None
+
+        await client.shutdown()
+
+    # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingInputMessages)
+    @pytest.mark.it(
+        "Creates and stores an incoming input message generator as an attribute, if using a Module Configuration"
+    )
+    async def test_input_message_generator_module(self, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = FAKE_MODULE_ID
+        client = IoTHubMQTTClient(client_config)
+        assert isinstance(client.incoming_input_messages, typing.AsyncGenerator)
+
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not create an incoming input message generator, if using a Device Configuration"
+    )
+    async def test_input_message_generator_device(self, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = None
+        client = IoTHubMQTTClient(client_config)
+        assert client.incoming_input_messages is None
 
         await client.shutdown()
 
@@ -558,29 +603,6 @@ class TestIoTHubMQTTClientInstantiation:
         client_config.module_id = module_id
         client = IoTHubMQTTClient(client_config)
         assert isinstance(client.incoming_twin_patches, typing.AsyncGenerator)
-
-        await client.shutdown()
-
-    # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingInputMessages)
-    @pytest.mark.it(
-        "Creates and stores an incoming input message generator as an attribute, if using a Module Configuration"
-    )
-    async def test_input_message_generator_module(self, client_config):
-        client_config.device_id = FAKE_DEVICE_ID
-        client_config.module_id = FAKE_MODULE_ID
-        client = IoTHubMQTTClient(client_config)
-        assert isinstance(client.incoming_input_messages, typing.AsyncGenerator)
-
-        await client.shutdown()
-
-    @pytest.mark.it(
-        "Does not create an incoming input message generator, if using a Device Configuration"
-    )
-    async def test_input_message_generator_device(self, client_config):
-        client_config.device_id = FAKE_DEVICE_ID
-        client_config.module_id = None
-        client = IoTHubMQTTClient(client_config)
-        assert client.incoming_input_messages is None
 
         await client.shutdown()
 
@@ -2058,6 +2080,13 @@ class TestIoTHubMQTTClientDisableTwinPatchReceive(IoTHubMQTTClientDisableReceive
 
 @pytest.mark.describe("IoTHubMQTTClient - .incoming_c2d_messages")
 class TestIoTHubMQTTClientIncomingC2DMessages:
+    @pytest.fixture(autouse=True)
+    def modify_client_config(self, client_config):
+        # C2D Messages only work for Device configurations
+        # NOTE: This has to be changed on the config, not the client,
+        # because it affects client initialization
+        client_config.module_id = None
+
     @pytest.mark.it(
         "Yields a Message whenever the MQTTClient receives an MQTTMessage on the incoming C2D message topic"
     )
@@ -2477,7 +2506,7 @@ class TestIoTHubMQTTClientIncomingInputMessages:
         assert msg.content_encoding == "utf-8"
 
 
-@pytest.mark.describe("IoTHubMQTTClient - .incoming_direct_s")
+@pytest.mark.describe("IoTHubMQTTClient - .incoming_direct_method_requests")
 class TestIoTHubMQTTClientIncomingDirectMethodRequests:
     @pytest.mark.it(
         "Yields a DirectMethodRequest whenever the MQTTClient receives an MQTTMessage on the incoming direct method request topic"
