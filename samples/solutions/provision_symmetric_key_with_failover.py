@@ -8,7 +8,7 @@ import asyncio
 from azure.iot.device.iothub.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
 
-# from azure.iot.device import Message
+from azure.iot.device import Message
 import logging.handlers
 import glob
 import os
@@ -29,7 +29,7 @@ LOG_ROTATION_INTERVAL = 3600
 # How many logs to keep before recycling
 LOG_BACKUP_COUNT = 6
 # Directory for storing log files
-LOG_DIRECTORY = "./logs/dpsfailover_5_no_queue/hub-delete"
+LOG_DIRECTORY = "./logs/dpsfailover_6_no_queue/hub-delete"
 messages_to_send = 10
 
 # logger = logging.getLogger()
@@ -137,6 +137,7 @@ class Application(object):
             )
 
     async def handle_on_connection_state_change(self):
+        global main_event_loop
         self.log_info_and_print(
             "handle_on_connection_state_change fired. Connected status : {}".format(
                 self.iothub_client.connected
@@ -211,22 +212,22 @@ class Application(object):
             if self.exit_app_event.is_set():
                 return
 
-    # async def enqueue_message(self):
-    #     message_id = 0
-    #     while True:
-    #
-    #         message_id += 1
-    #         msg = Message("current wind speed ")
-    #         msg.message_id = message_id
-    #         msg.content_type = "application/json"
-    #         self.log_info_and_print("Created a message with id {}...".format(message_id))
-    #         self.message_queue.put_nowait(msg)
-    #         await asyncio.sleep(TELEMETRY_INTERVAL)
-    #         if self.exit_app_event.is_set():
-    #             return
+    async def enqueue_message(self):
+        message_id = 0
+        while True:
+
+            message_id += 1
+            msg = Message("current wind speed ")
+            msg.message_id = message_id
+            msg.content_type = "application/json"
+            self.log_info_and_print("Created a message with id {}...".format(message_id))
+            self.message_queue.put_nowait(msg)
+            await asyncio.sleep(TELEMETRY_INTERVAL)
+            if self.exit_app_event.is_set():
+                return
 
     async def wait_for_connect_and_send_telemetry(self):
-        id = 1
+        # id = 1
         while True:
             if not self.iothub_client:
                 # Time to check if device has been provisioned
@@ -238,45 +239,45 @@ class Application(object):
             elif not self.iothub_client.connected:
                 self.log_info_and_print("IoTHub client is existent. But waiting for connection ...")
                 await self.connected_event.wait()
-            else:
-                self.log_info_and_print("sending message with id {}....".format(id))
-                # await asyncio.sleep(TELEMETRY_INTERVAL)
-                await self.iothub_client.send_message("message number {}".format(id))
-                id += 1
-                self.log_info_and_print("sent message.....")
-                self.log_info_and_print("sleeping for {} secs...".format(TELEMETRY_INTERVAL))
-                await asyncio.sleep(TELEMETRY_INTERVAL)
             # else:
-            #     self.log_info_and_print("Retrieving an item from the queue...")
-            #     done, pending = await asyncio.wait(
-            #         [
-            #             self.message_queue.get(),
-            #             self.exit_app_event.wait(),
-            #         ],
-            #         return_when=asyncio.FIRST_COMPLETED,
-            #     )
-            #     await asyncio.gather(*done)
-            #     [x.cancel() for x in pending]
-            #     if self.exit_app_event.is_set():
-            #         self.log_info_and_print("Exiting while waiting for an item")
-            #         return
-            #     # msg = await self.message_queue.get()
-            #     msg = None
-            #     for task in done:
-            #         msg = task.result()
-            #
-            #     try:
-            #         self.log_info_and_print('Retrieved "{}"'.format(msg))
-            #         self.log_info_and_print("sending message...")
-            #         await self.iothub_client.send_message(msg)
-            #         self.log_info_and_print("sent message")
-            #         self.message_queue.task_done()
-            #         await asyncio.sleep(TELEMETRY_INTERVAL)
-            #     except Exception as e:
-            #         self.log_error_and_print(
-            #             "Caught exception while trying to send message: {}".format(get_type_name(e))
-            #         )
-            #         self.message_queue.put_nowait(msg)
+            #     self.log_info_and_print("sending message with id {}....".format(id))
+            #     # await asyncio.sleep(TELEMETRY_INTERVAL)
+            #     await self.iothub_client.send_message("message number {}".format(id))
+            #     id += 1
+            #     self.log_info_and_print("sent message.....")
+            #     self.log_info_and_print("sleeping for {} secs...".format(TELEMETRY_INTERVAL))
+            #     await asyncio.sleep(TELEMETRY_INTERVAL)
+            else:
+                self.log_info_and_print("Retrieving an item from the queue...")
+                done, pending = await asyncio.wait(
+                    [
+                        self.message_queue.get(),
+                        self.exit_app_event.wait(),
+                    ],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                await asyncio.gather(*done)
+                [x.cancel() for x in pending]
+                if self.exit_app_event.is_set():
+                    self.log_info_and_print("Exiting while waiting for an item")
+                    return
+                # msg = await self.message_queue.get()
+                msg = None
+                for task in done:
+                    msg = task.result()
+
+                try:
+                    self.log_info_and_print('Retrieved "{}"'.format(msg))
+                    self.log_info_and_print("sending message...")
+                    await self.iothub_client.send_message(msg)
+                    self.log_info_and_print("sent message")
+                    self.message_queue.task_done()
+                    await asyncio.sleep(TELEMETRY_INTERVAL)
+                except Exception as e:
+                    self.log_error_and_print(
+                        "Caught exception while trying to send message: {}".format(get_type_name(e))
+                    )
+                    self.message_queue.put_nowait(msg)
             if self.exit_app_event.is_set():
                 return
 
@@ -386,10 +387,10 @@ class Application(object):
     async def main(self):
         await self.initiate()
 
-        self.provisioning_host = os.getenv("PROVISIONING_HOST")
-        self.id_scope = os.getenv("PROVISIONING_IDSCOPE")
-        self.registration_id = os.getenv("PROVISIONING_REGISTRATION_ID_PAYLOAD")
-        self.symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY_PAYLOAD")
+        self.provisioning_host = "global.azure-devices-provisioning.net"
+        self.id_scope = "0ne0096ABE5"
+        self.registration_id = "testfailover"
+        self.symmetric_key = "xQ2KY/uqXwGXQpM4qoRv3/bwaghSX0WSotbPx8TnLHV0NBFjyzxLoUbKFwjdm256JewoINaFukbhDlsBHBEECw=="
 
         self.log_error_and_print(
             "asyncio debug is set to {}".format(os.getenv("PYTHONASYNCIODEBUG"))
@@ -400,7 +401,7 @@ class Application(object):
         tasks = [
             asyncio.create_task(self.register_loop()),
             asyncio.create_task(self.wait_for_connect_and_send_telemetry()),
-            # asyncio.create_task(self.enqueue_message()),
+            asyncio.create_task(self.enqueue_message()),
             asyncio.create_task(self.if_disconnected_then_connect_with_retry()),
         ]
 

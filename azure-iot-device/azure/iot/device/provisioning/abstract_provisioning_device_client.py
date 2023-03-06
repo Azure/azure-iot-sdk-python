@@ -10,10 +10,18 @@ Device Provisioning Service.
 
 import abc
 import logging
+
+import openssl_engine
+
 from azure.iot.device.provisioning import pipeline
 
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common import auth, handle_exceptions
+
+# from OpenSSL import SSL
+from OpenSSL.SSL import Context as OpenSSLContext, TLS_CLIENT_METHOD
+import openssl_engine as engine
+import ssl as what_we_use_now_ssl
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +230,27 @@ class AbstractProvisioningDeviceClient(abc.ABC):
         mqtt_provisioning_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
         return cls(mqtt_provisioning_pipeline)
+
+    @classmethod
+    def create_from_ssl_context(cls):
+        # Currently this is how we load a client certificate on the SSL Context
+        current_ssl_context = what_we_use_now_ssl.SSLContext(
+            protocol=what_we_use_now_ssl.PROTOCOL_TLS_CLIENT
+        )
+        current_ssl_context.load_cert_chain("certificate_file" "key_file" "pass_phrase")
+
+        my_ssl_context = OpenSSLContext(TLS_CLIENT_METHOD)
+        # This needs to be the tpm2-tss-engine dll
+        with engine.SSLEngine.load_by_id("capi") as capi:
+            engine.set_client_cert_engine(my_ssl_context, capi)
+        # my_ssl_context.
+        # I can generate keys using the openssl command
+        # RSA key pair thats been encrypted by TPM
+        # tpm2tss-genkey -a rsa rsa.tss
+        # I can generate signed certificate using command below
+        # $ openssl req -new -x509 -engine tpm2tss -key rsa.tss  -keyform engine -out rsa.crt
+        # I am guessing there must be similar method to generate CSR
+        # I have to use this signed certificate, where am i giving CSR ?
 
     @abc.abstractmethod
     def shutdown(self):
