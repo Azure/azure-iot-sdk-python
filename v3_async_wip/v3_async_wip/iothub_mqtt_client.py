@@ -119,7 +119,7 @@ class IoTHubMQTTClient:
                     yield transform_fn(mqtt_message)
                 except Exception as e:
                     # TODO: background exception logging improvements (e.g. stacktrace)
-                    logger.warning("Failure transforming MQTTMessage: {}".format(e))
+                    logger.error("Failure transforming MQTTMessage: {}".format(e))
                     logger.warning("Dropping MQTTMessage that could not be transformed")
 
         return generator()
@@ -140,22 +140,34 @@ class IoTHubMQTTClient:
         twin_responses = self._mqtt_client.get_incoming_message_generator(twin_response_topic)
 
         async for mqtt_message in twin_responses:
-            request_id = mqtt_topic.extract_request_id_from_twin_response_topic(mqtt_message.topic)
-            status_code = int(
-                mqtt_topic.extract_status_code_from_twin_response_topic(mqtt_message.topic)
-            )
-            # NOTE: We don't know what the content of the body is until we match the rid, so don't
-            # do more than just decode it here - leave interpreting the string to the coroutine
-            # waiting for the response.
-            response_body = mqtt_message.payload.decode("utf-8")
-            logger.debug("Twin response received (rid: {})".format(request_id))
-            response = rr.Response(request_id=request_id, status=status_code, body=response_body)
+            try:
+                request_id = mqtt_topic.extract_request_id_from_twin_response_topic(
+                    mqtt_message.topic
+                )
+                status_code = int(
+                    mqtt_topic.extract_status_code_from_twin_response_topic(mqtt_message.topic)
+                )
+                # NOTE: We don't know what the content of the body is until we match the rid, so don't
+                # do more than just decode it here - leave interpreting the string to the coroutine
+                # waiting for the response.
+                response_body = mqtt_message.payload.decode("utf-8")
+                logger.debug("Twin response received (rid: {})".format(request_id))
+                response = rr.Response(
+                    request_id=request_id, status=status_code, body=response_body
+                )
+            except Exception:
+                logger.error("Failure retrieving data ")
+                # TODO:
             try:
                 await self._request_ledger.match_response(response)
             except KeyError:
                 # NOTE: This should only happen in edge cases involving cancellation of
                 # in-flight operations
-                logger.warning("Twin response (rid: {}) does not match any request")
+                logger.warning(
+                    "Twin response (rid: {}) does not match any request".format(request_id)
+                )
+            else:
+                logger.error("Unexpected error matching Twin response (rid: {})".format(request_id))
 
     async def _keep_credentials_fresh(self) -> None:
         """Run indefinitely, updating MQTT credentials when new SAS Token is available"""
