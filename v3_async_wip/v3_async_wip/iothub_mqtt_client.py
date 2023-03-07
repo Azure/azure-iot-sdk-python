@@ -23,11 +23,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RECONNECT_INTERVAL: int = 10
 
-# TODO: add exceptions to docstring
-# TODO: background exceptions how
-# TODO: non-background exceptions
-# TODO: error handling in generators
-
 _T = TypeVar("_T")
 
 
@@ -71,7 +66,6 @@ class IoTHubMQTTClient:
 
         # Create generators for receive topics delivering data used externally
         # (Implicitly adding filters for these topics as well)
-        # TODO: add apis for these
         self._incoming_input_messages: Optional[AsyncGenerator[Message, None]] = None
         self._incoming_c2d_messages: Optional[AsyncGenerator[Message, None]] = None
         self._incoming_direct_method_requests: AsyncGenerator[DirectMethodRequest, None]
@@ -124,8 +118,6 @@ class IoTHubMQTTClient:
                 try:
                     yield transform_fn(mqtt_message)
                 except Exception as e:
-                    # TODO: add tests to show error handling here
-                    # TODO: don't forget json loading can fail if improper decoding occurs
                     # TODO: background exception logging improvements (e.g. stacktrace)
                     logger.warning("Failure transforming MQTTMessage: {}".format(e))
                     logger.warning("Dropping MQTTMessage that could not be transformed")
@@ -140,7 +132,7 @@ class IoTHubMQTTClient:
         self._twin_responses_enabled = True
         logger.debug("Twin responses receive enabled")
 
-    # TODO: add background exception handling
+    # TODO: add background exception handling + tests
     async def _process_twin_responses(self) -> None:
         """Run indefinitely, matching twin responses with request ID"""
         logger.debug("Starting the 'process_twin_responses' background task")
@@ -525,28 +517,32 @@ class IoTHubMQTTClient:
         await self._mqtt_client.unsubscribe(topic)
         logger.debug("Twin patch receive disabled")
 
-    def get_incoming_c2d_message_generator(self) -> AsyncGenerator[Message, None]:
-        """Get a generator that yields incoming C2D Messages"""
+    @property
+    def incoming_c2d_messages(self) -> AsyncGenerator[Message, None]:
+        """Generator that yields incoming C2D Messages"""
         if not self._incoming_c2d_messages:
             raise IoTHubClientError("C2D Messages not available for Module")
         else:
             return self._incoming_c2d_messages
 
-    def get_incoming_input_message_generator(self) -> AsyncGenerator[Message, None]:
-        """Get a generator that yields incoming input Messages"""
+    @property
+    def incoming_input_messages(self) -> AsyncGenerator[Message, None]:
+        """Generator that yields incoming input Messages"""
         if not self._incoming_input_messages:
             raise IoTHubClientError("Input Messages not available for Device")
         else:
             return self._incoming_input_messages
 
-    def get_incoming_direct_method_request_generator(
+    @property
+    def incoming_direct_method_requests(
         self,
     ) -> AsyncGenerator[DirectMethodRequest, None]:
-        """Get a generator that yields incoming DirectMethodRequests"""
+        """Generator that yields incoming DirectMethodRequests"""
         return self._incoming_direct_method_requests
 
-    def get_incoming_twin_patch_generator(self) -> AsyncGenerator[TwinPatch, None]:
-        """Get a generator that yields incoming TwinPatches"""
+    @property
+    def incoming_twin_patches(self) -> AsyncGenerator[TwinPatch, None]:
+        """Generator that yields incoming TwinPatches"""
         return self._incoming_twin_patches
 
 
@@ -640,6 +636,7 @@ def _create_iothub_message_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> 
 def _create_direct_method_request_from_mqtt_message(
     mqtt_message: mqtt.MQTTMessage,
 ) -> DirectMethodRequest:
+    """Given an MQTTMessage, create and return a DirectMethodRequest"""
     request_id = mqtt_topic.extract_request_id_from_direct_method_request_topic(mqtt_message.topic)
     method_name = mqtt_topic.extract_name_from_direct_method_request_topic(mqtt_message.topic)
     payload = json.loads(mqtt_message.payload.decode("utf-8"))
@@ -647,4 +644,5 @@ def _create_direct_method_request_from_mqtt_message(
 
 
 def _create_twin_patch_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> TwinPatch:
+    """Given an MQTTMessage, create and return a TwinPatch"""
     return json.loads(mqtt_message.payload.decode("utf-8"))
