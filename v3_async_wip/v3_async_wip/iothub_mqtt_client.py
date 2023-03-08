@@ -132,7 +132,7 @@ class IoTHubMQTTClient:
         self._twin_responses_enabled = True
         logger.debug("Twin responses receive enabled")
 
-    # TODO: add background exception handling + tests
+    # TODO: special error handling for cancel due to 3.7 not being base exception
     async def _process_twin_responses(self) -> None:
         """Run indefinitely, matching twin responses with request ID"""
         logger.debug("Starting the 'process_twin_responses' background task")
@@ -155,9 +155,17 @@ class IoTHubMQTTClient:
                 response = rr.Response(
                     request_id=request_id, status=status_code, body=response_body
                 )
-            except Exception:
-                logger.error("Failure retrieving data ")
-                # TODO:
+            except Exception as e:
+                logger.error(
+                    "Unexpected error ({}) while translating Twin response. Dropping.".format(e)
+                )
+                # NOTE: In this situation the operation waiting for the response that we failed to
+                # receive will hang. This isn't the end of the world, since it can be cancelled,
+                # but if we really wanted to smooth this out, we could cancel the pending operation
+                # based on the request id (assuming getting the request id is not what failed).
+                # But for now, that's probably overkill, especially since this path ideally should
+                # never happen, because we would like to assume IoTHub isn't sending malformed data
+                continue
             try:
                 await self._request_ledger.match_response(response)
             except KeyError:
@@ -166,19 +174,34 @@ class IoTHubMQTTClient:
                 logger.warning(
                     "Twin response (rid: {}) does not match any request".format(request_id)
                 )
-            else:
-                logger.error("Unexpected error matching Twin response (rid: {})".format(request_id))
+            except Exception as e:
+                logger.error(
+                    "Unexpected error ({}) while matching Twin response (rid: {}). Dropping response".format(
+                        e, request_id
+                    )
+                )
 
     async def _keep_credentials_fresh(self) -> None:
         """Run indefinitely, updating MQTT credentials when new SAS Token is available"""
         logger.debug("Starting the 'keep_credentials_fresh' background task")
         while True:
             if self._sastoken_provider:
-                logger.debug("Waiting for new SAS Token to become available")
-                new_sastoken = await self._sastoken_provider.wait_for_new_sastoken()
-                logger.debug("New SAS Token available, updating MQTTClient credentials")
-                self._mqtt_client.set_credentials(self._username, str(new_sastoken))
-                # TODO: should we reconnect here? Or just wait for drop?
+                try:
+                    logger.debug("Waiting for new SAS Token to become available")
+                    new_sastoken = await self._sastoken_provider.wait_for_new_sastoken()
+                    logger.debug("New SAS Token available, updating MQTTClient credentials")
+                    self._mqtt_client.set_credentials(self._username, str(new_sastoken))
+                    # TODO: should we reconnect here? Or just wait for drop?
+                except asyncio.CancelledError:
+                    # NOTE: In Python 3.7 this isn't a BaseException, so we must catch and re-raise
+                    raise
+                except Exception as e:
+                    logger.error(
+                        "Unexpected exception ({}) while keeping credentials fresh. Ignoring".format(
+                            e
+                        )
+                    )
+                    continue
             else:
                 # NOTE: This should never execute, it's mostly just here to keep the
                 # type checker happy
