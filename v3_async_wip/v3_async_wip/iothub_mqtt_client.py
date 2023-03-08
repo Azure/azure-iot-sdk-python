@@ -132,7 +132,6 @@ class IoTHubMQTTClient:
         self._twin_responses_enabled = True
         logger.debug("Twin responses receive enabled")
 
-    # TODO: special error handling for cancel due to 3.7 not being base exception
     async def _process_twin_responses(self) -> None:
         """Run indefinitely, matching twin responses with request ID"""
         logger.debug("Starting the 'process_twin_responses' background task")
@@ -168,6 +167,9 @@ class IoTHubMQTTClient:
                 continue
             try:
                 await self._request_ledger.match_response(response)
+            except asyncio.CancelledError:
+                # NOTE: In Python 3.7 this isn't a BaseException, so we must catch and re-raise
+                raise
             except KeyError:
                 # NOTE: This should only happen in edge cases involving cancellation of
                 # in-flight operations

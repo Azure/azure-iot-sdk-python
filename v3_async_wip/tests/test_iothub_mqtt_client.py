@@ -2768,17 +2768,26 @@ class TestIoTHubMQTTClientIncomingTwinPatches:
         assert patch == json.loads(mqtt_msg2.payload.decode("utf-8"))
 
 
-# TODO: To reflect the complexity of background tasks, these tests need to be adjusted
-# to be about the background task itself, not a reaction to an event. This is probably the
-# end of any "OCCURRENCE" tests in the client layer
-@pytest.mark.describe("IoTHubMQTTClient - OCCURRENCE: Twin Response Received")
-class TestIoTHubMQTTClientIncomingTwinResponse:
-    # NOTE: This test suite exists for simplicity - twin responses are used in both
-    # .get_twin() and .send_twin_patch(), and rather than testing this functionality twice
-    # it has been isolated out to test here. This also makes mocking behavior for the tests of
-    # the aforementioned methods much simpler.
+@pytest.mark.describe("IoTHubMQTTClient - BG TASK: ._process_twin_responses")
+class TestIoTHubMQTTClientProcessTwinResponses:
+    response_payloads = [
+        pytest.param('{"json": "in", "a": {"string": "format"}}', id="Get Twin Response"),
+        pytest.param(" ", id="Twin Patch Response"),
+    ]
+
+    @pytest.fixture(autouse=True)
+    def modify_client(self, client):
+        # Delete the ._process_twin_responses_bg_task Task, since we will want
+        # to re-instantiate the coroutine task to directly test it.
+        # NOTE: Yes, this is a strange thing to do, but necessary for proper coverage.
+        # The creation of the task was already tested in the instantiation test suite,
+        # here we are trying to test the CONTENTS of the task, and the best way to do that
+        # is to start over from scratch. And having another copy of the task running in
+        # the background is just a confound.
+        client._process_twin_responses_bg_task.cancel()
+
     @pytest.mark.it(
-        "Creates a Response containing the request id and status code from the topic, as well as the utf-8 decoded payload of the MQTTMessage, whenever the MQTTClient receives an MQTTMessage on the twin response topic"
+        "Creates a Response containing the request id and status code from the topic, as well as the utf-8 decoded payload of the MQTTMessage, when the MQTTClient receives an MQTTMessage on the twin response topic"
     )
     @pytest.mark.parametrize(
         "status",
@@ -2789,59 +2798,105 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
             pytest.param(500, id="Status Code: 500"),
         ],
     )
-    async def test_response(self, mocker, client, status):
+    @pytest.mark.parametrize("payload_str", response_payloads)
+    async def test_response(self, mocker, client, status, payload_str):
         # Mocks
         mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
         spy_response_factory = mocker.spy(rr, "Response")
-        # MQTTMessages
+        # Set up MQTTMessages
         generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
-        rid1 = "some rid"
-        msg1_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(status, rid1)
-        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=msg1_topic.encode("utf-8"))
-        # Empty payload used in twin patch responses
-        mqtt_msg1.payload = " ".encode("utf-8")
-        rid2 = "some other rid"
-        msg2_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(status, rid2)
-        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=msg2_topic.encode("utf-8"))
-        # JSON payload used in get twin responses
-        mqtt_msg2.payload = '{"json": "in", "a": {"string": "format"}}'.encode("utf-8")
-        # No responses have been created yet
-        assert spy_response_factory.call_count == 0
-        # Load the MQTTMessages into the MQTTClient's filtered message queue
-        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
-        await asyncio.sleep(0.1)
-        assert spy_response_factory.call_count == 1
-        resp1 = spy_response_factory.spy_return
-        assert resp1.request_id == rid1
-        assert resp1.status == status
-        assert resp1.body == mqtt_msg1.payload.decode("utf-8")
-        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
-        await asyncio.sleep(0.1)
-        assert spy_response_factory.call_count == 2
-        resp2 = spy_response_factory.spy_return
-        assert resp2.request_id == rid2
-        assert resp2.status == status
-        assert resp2.body == mqtt_msg2.payload.decode("utf-8")
+        rid = "some rid"
+        msg_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(status, rid)
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=msg_topic.encode("utf-8"))
+        mqtt_msg.payload = payload_str.encode("utf-8")
 
-    @pytest.mark.it("Matches the newly created Response on the RequestLedger")
-    async def test_match(self, mocker, client):
-        mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
-        spy_response_factory = mocker.spy(rr, "Response")
-        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
-        topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, "some rid")
-        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=topic.encode("utf-8"))
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+        await asyncio.sleep(0.1)
+
+        # No Responses have been created yet
         assert spy_response_factory.call_count == 0
-        assert mock_ledger.match_response.call_count == 0
+
         # Load the MQTTMessage into the MQTTClient's filtered message queue
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg)
         await asyncio.sleep(0.1)
+
+        # Response was created
+        assert spy_response_factory.call_count == 1
+        resp1 = spy_response_factory.spy_return
+        assert resp1.request_id == rid
+        assert resp1.status == status
+        assert resp1.body == payload_str
+
+        t.cancel()
+
+    @pytest.mark.it("Matches the newly created Response on the RequestLedger")
+    @pytest.mark.parametrize("payload_str", response_payloads)
+    async def test_match(self, mocker, client, payload_str):
+        # Mock
+        mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
+        spy_response_factory = mocker.spy(rr, "Response")
+        # Set up MQTTMessage
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, "some rid")
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=topic.encode("utf-8"))
+        mqtt_msg.payload = payload_str.encode("utf-8")
+
+        # No Responses have been created yet
+        assert spy_response_factory.call_count == 0
+        assert mock_ledger.match_response.call_count == 0
+
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+        await asyncio.sleep(0.1)
+
+        # Load the MQTTMessage into the MQTTClient's filtered message queue
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg)
+        await asyncio.sleep(0.1)
+
+        # Response was created
         assert spy_response_factory.call_count == 1
         resp1 = spy_response_factory.spy_return
         assert mock_ledger.match_response.call_count == 1
         assert mock_ledger.match_response.call_args == mocker.call(resp1)
 
+        t.cancel()
+
+    @pytest.mark.it("Indefinitely repeats")
+    async def test_repeat(self, mocker, client):
+        mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
+        spy_response_factory = mocker.spy(rr, "Response")
+        assert spy_response_factory.call_count == 0
+        assert mock_ledger.match_response.call_count == 0
+
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, "some rid")
+
+        t = asyncio.create_task(client._process_twin_responses())
+        await asyncio.sleep(0.1)
+
+        # Test that behavior repeats up to 10 times. No way to really prove infinite
+        i = 0
+        assert mock_ledger.match_response.call_count == 0
+        while i < 10:
+            i += 1
+            mqtt_msg = mqtt.MQTTMessage(mid=1, topic=topic.encode("utf-8"))
+            # Switch between Get Twin and Twin Patch responses
+            if i % 2 == 0:
+                mqtt_msg.payload = " ".encode("utf-8")
+            else:
+                mqtt_msg.payload = '{"json": "in", "a": {"string": "format"}}'.encode("utf-8")
+            # Load the MQTTMessage into the MQTTClient's filtered message queue
+            await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg)
+            await asyncio.sleep(0.1)
+            # Response was created
+            assert spy_response_factory.call_count == i
+
+        assert not t.done()
+        t.cancel()
+
     @pytest.mark.it(
-        "Suppresses any exceptions raised while extracting the request id from the MQTTMessage, dropping the MQTTMessage and continuing"
+        "Suppresses any unexpected exceptions raised while extracting the request id from the MQTTMessage, dropping the MQTTMessage and continuing"
     )
     async def test_request_id_extraction_fails(self, mocker, client, arbitrary_exception):
         # Inject failure
@@ -2868,12 +2923,16 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         # Spy on the Response object
         spy_response_factory = mocker.spy(rr, "Response")
 
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+
         # Load the first MQTTMessage
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
         await asyncio.sleep(0.1)
 
         # No Response was created due to the injected failure (but failure was suppressed)
         assert spy_response_factory.call_count == 0
+        mqtt_topic.extract_request_id_from_twin_response_topic.call_count == 1
 
         # Un-inject the failure
         mqtt_topic.extract_request_id_from_twin_response_topic = original_fn
@@ -2882,16 +2941,19 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
         await asyncio.sleep(0.1)
 
-        # This time a Response was created, demonstrating that the previous failure did not
-        # crash the task
+        # This time a Response was created, demonstrating that the task is still functional
         assert spy_response_factory.call_count == 1
         resp2 = spy_response_factory.spy_return
         assert resp2.request_id == rid2
         assert resp2.status == 200
         assert resp2.body == mqtt_msg2.payload.decode("utf-8")
 
+        assert not t.done()
+
+        t.cancel()
+
     @pytest.mark.it(
-        "Suppresses any exceptions raised while extracting the status code from the MQTTMessage, dropping the MQTTMessage and continuing"
+        "Suppresses any unexpected exceptions raised while extracting the status code from the MQTTMessage, dropping the MQTTMessage and continuing"
     )
     async def test_status_code_extraction_fails(self, mocker, client, arbitrary_exception):
         # Inject failure
@@ -2918,12 +2980,16 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         # Spy on the Response object
         spy_response_factory = mocker.spy(rr, "Response")
 
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+
         # Load the first MQTTMessage
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
         await asyncio.sleep(0.1)
 
         # No Response was created due to the injected failure (but failure was suppressed)
         assert spy_response_factory.call_count == 0
+        mqtt_topic.extract_status_code_from_twin_response_topic.call_count == 1
 
         # Un-inject the failure
         mqtt_topic.extract_status_code_from_twin_response_topic = original_fn
@@ -2940,8 +3006,12 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         assert resp2.status == 200
         assert resp2.body == mqtt_msg2.payload.decode("utf-8")
 
+        assert not t.done()
+
+        t.cancel()
+
     @pytest.mark.it(
-        "Suppresses any exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
+        "Suppresses any unexpected exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
     )
     async def test_payload_decode_fails(self, mocker, client, arbitrary_exception):
         # Create two messages that are the same other than the request id
@@ -2961,7 +3031,11 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         spy_response_factory = mocker.spy(rr, "Response")
 
         # Inject failure into the first MQTTMessage's payload
-        mqtt_msg1.payload = mocker.MagicMock().decode.side_effect = arbitrary_exception
+        mqtt_msg1.payload = mocker.MagicMock()
+        mqtt_msg1.payload.decode.side_effect = arbitrary_exception
+
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
 
         # Load the first MQTTMessage
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
@@ -2969,6 +3043,7 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
 
         # No Response was created due to the injected failure (but failure was suppressed)
         assert spy_response_factory.call_count == 0
+        assert mqtt_msg1.payload.decode.call_count == 1
 
         # Load the second MQTTMessage
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
@@ -2982,8 +3057,12 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         assert resp2.status == 200
         assert resp2.body == mqtt_msg2.payload.decode("utf-8")
 
+        assert not t.done()
+
+        t.cancel()
+
     @pytest.mark.it(
-        "Suppresses any exceptions raised instantiating the Response object from the MQTTMessage values, dropping the MQTTMessage and continuing"
+        "Suppresses any unexpected exceptions raised instantiating the Response object from the MQTTMessage values, dropping the MQTTMessage and continuing"
     )
     async def test_response_instantiation_fails(self, mocker, client, arbitrary_exception):
         # Inject failure
@@ -3006,12 +3085,16 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         # Mock the ledger so we can see if it is used
         mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
 
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+
         # Load the first MQTTMessage
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
         await asyncio.sleep(0.1)
 
         # No Response matched to the injected failure (but failure was suppressed)
         assert mock_ledger.match_response.call_count == 0
+        assert rr.Response.call_count == 1
 
         # Un-inject the failure
         rr.Response = original_cls
@@ -3027,6 +3110,10 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         assert resp.request_id == rid2
         assert resp.status == 200
         assert resp.body == mqtt_msg2.payload.decode("utf-8")
+
+        assert not t.done()
+
+        t.cancel()
 
     @pytest.mark.it(
         "Suppresses any exceptions raised while matching the Response, dropping the MQTTMessage and continuing"
@@ -3057,6 +3144,9 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         # Inject failure into the response match
         mock_ledger.match_response.side_effect = exception
 
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+
         # Load the first MQTTMessage
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
         await asyncio.sleep(0.1)
@@ -3079,6 +3169,41 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
         assert resp2.status == 200
         assert resp2.body == mqtt_msg2.payload.decode("utf-8")
 
+        assert not t.done()
+
+        t.cancel()
+
+    @pytest.mark.skip(reason="Currently can't figure out how to mock a generator correctly")
+    @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
+    async def test_cancelled_while_waiting_for_message(self):
+        pass
+
+    @pytest.mark.it("Can be cancelled while matching Response")
+    async def test_cancelled_while_matching_response(self, mocker, client):
+        mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
+        mock_ledger.match_response = custom_mock.HangingAsyncMock()
+
+        # Set up MQTTMessage
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, "some rid")
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=topic.encode("utf-8"))
+        mqtt_msg.payload = " ".encode("utf-8")
+
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+        await asyncio.sleep(0.1)
+
+        # Load the MQTTMessage into the MQTTClient's filtered message queue
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg)
+
+        # Matching response is hanging
+        await mock_ledger.match_response.wait_for_hang()
+
+        # Task can be cancelled
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
 
 @pytest.mark.describe("IoTHubMQTTClient - BG TASK: ._keep_credentials_fresh()")
 class TestIoTHubMQTTClientKeepCredentialsFresh:
@@ -3090,7 +3215,7 @@ class TestIoTHubMQTTClientKeepCredentialsFresh:
         client_config.sastoken_provider = mock_sastoken_provider
 
     @pytest.fixture(autouse=True)
-    def modify_client(self, mocker, modify_client_config, client):
+    def modify_client(self, modify_client_config, client):
         # Delete the ._keep_credentials_fresh_bg_task Task, since we will want
         # to re-instantiate the coroutine task to directly test it.
         # NOTE: Yes, this is a strange thing to do, but necessary for proper coverage.
