@@ -11,8 +11,7 @@ import urllib.parse
 from typing import Callable, Optional, Union, AsyncGenerator, TypeVar
 from .custom_typing import TwinPatch, Twin
 from .iot_exceptions import IoTHubError, IoTHubClientError
-from .models import Message, DirectMethodResponse, DirectMethodRequest
-from . import config, constant, user_agent
+from . import config, constant, user_agent, models
 from . import request_response as rr
 from . import mqtt_client as mqtt
 from . import mqtt_topic_iothub as mqtt_topic
@@ -66,9 +65,9 @@ class IoTHubMQTTClient:
 
         # Create generators for receive topics delivering data used externally
         # (Implicitly adding filters for these topics as well)
-        self._incoming_input_messages: Optional[AsyncGenerator[Message, None]] = None
-        self._incoming_c2d_messages: Optional[AsyncGenerator[Message, None]] = None
-        self._incoming_direct_method_requests: AsyncGenerator[DirectMethodRequest, None]
+        self._incoming_input_messages: Optional[AsyncGenerator[models.Message, None]] = None
+        self._incoming_c2d_messages: Optional[AsyncGenerator[models.Message, None]] = None
+        self._incoming_direct_method_requests: AsyncGenerator[models.DirectMethodRequest, None]
         self._incoming_twin_patches: AsyncGenerator[TwinPatch, None]
         if self._module_id:
             self._incoming_input_messages = self._create_incoming_data_generator(
@@ -265,7 +264,7 @@ class IoTHubMQTTClient:
         await self._mqtt_client.disconnect()
         logger.debug("Disconnect succeeded")
 
-    async def send_message(self, message: Message) -> None:
+    async def send_message(self, message: models.Message) -> None:
         """Send a telemetry message to IoTHub.
 
         :param message: The Message to be sent
@@ -294,7 +293,9 @@ class IoTHubMQTTClient:
         await self._mqtt_client.publish(topic, byte_payload)
         logger.debug("Sending telemetry message succeeded")
 
-    async def send_direct_method_response(self, method_response: DirectMethodResponse) -> None:
+    async def send_direct_method_response(
+        self, method_response: models.DirectMethodResponse
+    ) -> None:
         """Send a direct method response to IoTHub.
 
         :param method_response: The DirectMethodResponse to be sent
@@ -555,7 +556,7 @@ class IoTHubMQTTClient:
         logger.debug("Twin patch receive disabled")
 
     @property
-    def incoming_c2d_messages(self) -> AsyncGenerator[Message, None]:
+    def incoming_c2d_messages(self) -> AsyncGenerator[models.Message, None]:
         """Generator that yields incoming C2D Messages"""
         if not self._incoming_c2d_messages:
             raise IoTHubClientError("C2D Messages not available for Module")
@@ -563,7 +564,7 @@ class IoTHubMQTTClient:
             return self._incoming_c2d_messages
 
     @property
-    def incoming_input_messages(self) -> AsyncGenerator[Message, None]:
+    def incoming_input_messages(self) -> AsyncGenerator[models.Message, None]:
         """Generator that yields incoming input Messages"""
         if not self._incoming_input_messages:
             raise IoTHubClientError("Input Messages not available for Device")
@@ -573,7 +574,7 @@ class IoTHubMQTTClient:
     @property
     def incoming_direct_method_requests(
         self,
-    ) -> AsyncGenerator[DirectMethodRequest, None]:
+    ) -> AsyncGenerator[models.DirectMethodRequest, None]:
         """Generator that yields incoming DirectMethodRequests"""
         return self._incoming_direct_method_requests
 
@@ -658,7 +659,7 @@ def _format_username(hostname: str, client_id: str, product_info: str) -> str:
     return username
 
 
-def _create_iothub_message_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> Message:
+def _create_iothub_message_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> models.Message:
     """Given an MQTTMessage, create and return a Message"""
     properties = mqtt_topic.extract_properties_from_message_topic(mqtt_message.topic)
     # Decode the payload based on content encoding in the topic. If not present, use utf-8
@@ -667,17 +668,17 @@ def _create_iothub_message_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> 
     payload = mqtt_message.payload.decode(content_encoding)
     if content_type == "application/json":
         payload = json.loads(payload)
-    return Message.create_from_properties_dict(payload=payload, properties=properties)
+    return models.Message.create_from_properties_dict(payload=payload, properties=properties)
 
 
 def _create_direct_method_request_from_mqtt_message(
     mqtt_message: mqtt.MQTTMessage,
-) -> DirectMethodRequest:
+) -> models.DirectMethodRequest:
     """Given an MQTTMessage, create and return a DirectMethodRequest"""
     request_id = mqtt_topic.extract_request_id_from_direct_method_request_topic(mqtt_message.topic)
     method_name = mqtt_topic.extract_name_from_direct_method_request_topic(mqtt_message.topic)
     payload = json.loads(mqtt_message.payload.decode("utf-8"))
-    return DirectMethodRequest(request_id=request_id, name=method_name, payload=payload)
+    return models.DirectMethodRequest(request_id=request_id, name=method_name, payload=payload)
 
 
 def _create_twin_patch_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> TwinPatch:

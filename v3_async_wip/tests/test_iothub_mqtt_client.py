@@ -2314,26 +2314,152 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
         assert msg.content_encoding == "utf-8"
 
     @pytest.mark.it(
-        "Suppresses any exceptions that are raised while creating the Message, dropping the MQTTMessage, and continuing"
+        "Suppresses any unexpected exceptions raised while extracting the message properties from the MQTTMessage, dropping the MQTTMessage and continuing"
     )
-    async def test_exception_suppression(self, mocker, client, arbitrary_exception):
-        # NOTE: There are a lot of potential points of failure here, and even more possible errors.
-        # As a matter of practicality, we'll inject an arbitrary failure into byte decoding.
+    async def test_property_extraction_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
         sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
         receive_topic = sub_topic.rstrip("#")
-        # Send two messages, but the first one's payload is mocked to raise
+        # MQTTMessage1
+        payload1 = "Message #1"
         mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
-        mqtt_msg1.payload = mocker.MagicMock().decode.side_effect = arbitrary_exception
-        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=receive_topic.encode("utf-8"))
-        mqtt_msg2.payload = "some payload".encode("utf-8")
+        mqtt_msg1.payload = payload1.encode("utf-8")
+        # MQTTMessage2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
 
+        # Inject failure in first extraction only
+        original_fn = mqtt_topic.extract_properties_from_message_topic
+        mock_extract = mocker.patch.object(mqtt_topic, "extract_properties_from_message_topic")
+
+        def fail_once(*args, **kwargs):
+            mock_extract.side_effect = original_fn
+            raise arbitrary_exception
+
+        mock_extract.side_effect = fail_once
+
+        # Load the MQTTMessages
         await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
         await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
 
-        # We get a DirectMethodRequest derived from the second MQTTMessage instead of the first
-        # (because the first caused failure and was suppressed)
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
         msg = await client.incoming_c2d_messages.__anext__()
-        assert msg.payload == mqtt_msg2.payload.decode("utf-8")
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_extract.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_payload_decode_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
+        receive_topic = sub_topic.rstrip("#")
+        # MQTTMessage 1 (No payload due to mock below)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        # MQTTMessage 2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
+
+        # Inject failure to decode in first MQTTMessage only
+        mqtt_msg1.payload = mocker.MagicMock()
+        mqtt_msg1.payload.decode.side_effect = arbitrary_exception
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_c2d_messages.__anext__()
+        assert msg.payload == payload2
+        assert mqtt_msg1.payload.decode.call_count == 1
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while converting the payload from the MQTTMessage to JSON, dropping the MQTTMessage and continuing"
+    )
+    async def test_json_loads_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#"),
+            system_properties={"$.ct": "application/json"},
+            custom_properties={},
+        )
+        # MQTTMessage1
+        payload1 = {"some": "json"}
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload1).encode("utf-8")
+        # MQTTMessage2
+        payload2 = {"some_other": "json"}
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload2).encode("utf-8")
+
+        # Inject failure in the first json conversion only
+        original_loads = json.loads
+        mock_loads = mocker.patch.object(json, "loads")
+
+        def fail_once(*args, **kwargs):
+            mock_loads.side_effect = original_loads
+            raise arbitrary_exception
+
+        mock_loads.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_c2d_messages.__anext__()
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_loads.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while instantiating the Message object from the MQTTMessage values, dropping the MQTTMessage and continuing"
+    )
+    async def test_message_instantiation_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
+        receive_topic = sub_topic.rstrip("#")
+        # MQTTMessage1
+        payload1 = "Message #1"
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg1.payload = payload1.encode("utf-8")
+        # MQTTMessage2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
+
+        # Inject failure in first extraction only
+        original_factory = models.Message.create_from_properties_dict
+        mock_factory = mocker.patch.object(models.Message, "create_from_properties_dict")
+
+        def fail_once(*args, **kwargs):
+            mock_factory.side_effect = original_factory
+            raise arbitrary_exception
+
+        mock_factory.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_c2d_messages.__anext__()
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_factory.call_count == 2
+
+    @pytest.mark.skip(reason="Currently can't figure out how to mock a generator correctly")
+    @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
+    async def test_cancelled_while_waiting_for_message(self):
+        pass
 
 
 @pytest.mark.describe("IoTHubMQTTClient - PROPERTY: .incoming_input_messages")
@@ -2572,26 +2698,152 @@ class TestIoTHubMQTTClientIncomingInputMessages:
         assert msg.content_encoding == "utf-8"
 
     @pytest.mark.it(
-        "Suppresses any exceptions that are raised while creating the Message, dropping the MQTTMessage, and continuing"
+        "Suppresses any unexpected exceptions raised while extracting the message properties from the MQTTMessage, dropping the MQTTMessage and continuing"
     )
-    async def test_exception_suppression(self, mocker, client, arbitrary_exception):
-        # NOTE: There are a lot of potential points of failure here, and even more possible errors.
-        # As a matter of practicality, we'll inject an arbitrary failure into byte decoding.
+    async def test_property_extraction_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
         sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
-        receive_topic = sub_topic.rstrip("#")
-        # Send two messages, but the first one's payload is mocked to raise
+        receive_topic = sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/"
+        # MQTTMessage1
+        payload1 = "Message #1"
         mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
-        mqtt_msg1.payload = mocker.MagicMock().decode.side_effect = arbitrary_exception
-        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=receive_topic.encode("utf-8"))
-        mqtt_msg2.payload = "some payload".encode("utf-8")
+        mqtt_msg1.payload = payload1.encode("utf-8")
+        # MQTTMessage2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
 
+        # Inject failure in first extraction only
+        original_fn = mqtt_topic.extract_properties_from_message_topic
+        mock_extract = mocker.patch.object(mqtt_topic, "extract_properties_from_message_topic")
+
+        def fail_once(*args, **kwargs):
+            mock_extract.side_effect = original_fn
+            raise arbitrary_exception
+
+        mock_extract.side_effect = fail_once
+
+        # Load the MQTTMessages
         await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
         await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
 
-        # We get a Message derived from the second MQTTMessage instead of the first
-        # (because the first caused failure and was suppressed)
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
         msg = await client.incoming_input_messages.__anext__()
-        assert msg.payload == mqtt_msg2.payload.decode("utf-8")
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_extract.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_payload_decode_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/"
+        # MQTTMessage 1 (No payload due to mock below)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        # MQTTMessage 2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
+
+        # Inject failure to decode in first MQTTMessage only
+        mqtt_msg1.payload = mocker.MagicMock()
+        mqtt_msg1.payload.decode.side_effect = arbitrary_exception
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload == payload2
+        assert mqtt_msg1.payload.decode.call_count == 1
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while converting the payload from the MQTTMessage to JSON, dropping the MQTTMessage and continuing"
+    )
+    async def test_json_loads_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/",
+            system_properties={"$.ct": "application/json"},
+            custom_properties={},
+        )
+        # MQTTMessage1
+        payload1 = {"some": "json"}
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload1).encode("utf-8")
+        # MQTTMessage2
+        payload2 = {"some_other": "json"}
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload2).encode("utf-8")
+
+        # Inject failure in the first json conversion only
+        original_loads = json.loads
+        mock_loads = mocker.patch.object(json, "loads")
+
+        def fail_once(*args, **kwargs):
+            mock_loads.side_effect = original_loads
+            raise arbitrary_exception
+
+        mock_loads.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_loads.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while instantiating the Message object from the MQTTMessage values, dropping the MQTTMessage and continuing"
+    )
+    async def test_message_instantiation_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/"
+        # MQTTMessage1
+        payload1 = "Message #1"
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg1.payload = payload1.encode("utf-8")
+        # MQTTMessage2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
+
+        # Inject failure in first extraction only
+        original_factory = models.Message.create_from_properties_dict
+        mock_factory = mocker.patch.object(models.Message, "create_from_properties_dict")
+
+        def fail_once(*args, **kwargs):
+            mock_factory.side_effect = original_factory
+            raise arbitrary_exception
+
+        mock_factory.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_factory.call_count == 2
+
+    @pytest.mark.skip(reason="Currently can't figure out how to mock a generator correctly")
+    @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
+    async def test_cancelled_while_waiting_for_message(self):
+        pass
 
 
 @pytest.mark.describe("IoTHubMQTTClient - PROPERTY: .incoming_direct_method_requests")
@@ -2670,30 +2922,201 @@ class TestIoTHubMQTTClientIncomingDirectMethodRequests:
         assert mreq.payload == expected_payload
 
     @pytest.mark.it(
-        "Suppresses any exceptions that are raised while creating the DirectMethodRequest, dropping the MQTTMessage, and continuing"
+        "Suppresses any unexpected exceptions raised while extracting the request id from the MQTTMessage, dropping the MQTTMessage and continuing"
     )
-    async def test_exception_suppression(self, mocker, client, arbitrary_exception):
-        # NOTE: There are a lot of potential points of failure here, and even more possible errors.
-        # As a matter of practicality, we'll inject an arbitrary failure into byte decoding.
+    async def test_request_id_extraction_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
         generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
-        mreq_name = "some_method"
-        mreq_id = "12"
-        mreq_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name, mreq_id)
-        # Send two messages, but the first one's payload is mocked to raise
-        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic.encode("utf-8"))
-        mqtt_msg1.payload = mocker.MagicMock().decode.side_effect = arbitrary_exception
-        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=mreq_topic.encode("utf-8"))
-        mqtt_msg2.payload = '{"json": "in", "a": {"string": "format"}}'.encode("utf-8")
+        payload = {"json": "derived", "from": {"byte": "payload"}}
+        # MQTTMessage 1
+        mreq_name1 = "some_method"
+        mreq_topic1 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name1, 1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic1.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload).encode("utf-8")
+        # MQTTMessage 2
+        mreq_name2 = "some_other_method"
+        mreq_topic2 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name2, 2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=mreq_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload).encode("utf-8")
 
+        # Inject failure into the first extraction only
+        original_fn = mqtt_topic.extract_request_id_from_direct_method_request_topic
+        mock_extract = mocker.patch.object(
+            mqtt_topic, "extract_request_id_from_direct_method_request_topic"
+        )
+
+        def fail_once(*args, **kwargs):
+            mock_extract.side_effect = original_fn
+            raise arbitrary_exception
+
+        mock_extract.side_effect = fail_once
+
+        # Load the MQTTMessages
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
 
-        # We get a DirectMethodRequest derived from the second MQTTMessage instead of the first
-        # (because the first caused failure and was suppressed)
+        # The DirectMethodResponse is derived from the second MQTTMessage instead of the first,
+        # because the first failed, the error was suppressed, and the MQTTMessage discarded
         mreq = await client.incoming_direct_method_requests.__anext__()
-        assert mreq.name == mreq_name
-        assert mreq.request_id == mreq_id
-        assert mreq.payload == json.loads(mqtt_msg2.payload.decode("utf-8"))
+        assert mreq.name == mreq_name2
+        assert mreq_name2 != mreq_name1
+        assert mock_extract.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while extracting the method name from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_method_name_extraction_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
+        payload = {"json": "derived", "from": {"byte": "payload"}}
+        # MQTTMessage 1
+        mreq_name1 = "some_method"
+        mreq_topic1 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name1, 1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic1.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload).encode("utf-8")
+        # MQTTMessage 2
+        mreq_name2 = "some_other_method"
+        mreq_topic2 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name2, 2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=mreq_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload).encode("utf-8")
+
+        # Inject failure into the first extraction only
+        original_fn = mqtt_topic.extract_name_from_direct_method_request_topic
+        mock_extract = mocker.patch.object(
+            mqtt_topic, "extract_name_from_direct_method_request_topic"
+        )
+
+        def fail_once(*args, **kwargs):
+            mock_extract.side_effect = original_fn
+            raise arbitrary_exception
+
+        mock_extract.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The DirectMethodResponse is derived from the second MQTTMessage instead of the first,
+        # because the first failed, the error was suppressed, and the MQTTMessage discarded
+        mreq = await client.incoming_direct_method_requests.__anext__()
+        assert mreq.name == mreq_name2
+        assert mreq_name2 != mreq_name1
+        assert mock_extract.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_payload_decode_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
+        # MQTTMessage 1 (No payload due to mock below)
+        mreq_name1 = "some_method"
+        mreq_topic1 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name1, 1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic1.encode("utf-8"))
+        # MQTTMessage 2
+        mreq_name2 = "some_other_method"
+        mreq_topic2 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name2, 2)
+        payload2 = {"json": "derived", "from": {"byte": "payload"}}
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=mreq_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload2).encode("utf-8")
+
+        # Inject failure to the first MQTTMessage only
+        mqtt_msg1.payload = mocker.MagicMock()
+        mqtt_msg1.payload.decode.side_effect = arbitrary_exception
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The DirectMethodResponse is derived from the second MQTTMessage instead of the first,
+        # because the first failed, the error was suppressed, and the MQTTMessage discarded
+        mreq = await client.incoming_direct_method_requests.__anext__()
+        assert mreq.name == mreq_name2
+        assert mreq_name2 != mreq_name1
+        assert mqtt_msg1.payload.decode.call_count == 1
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while converting the payload from the MQTTMessage to JSON, dropping the MQTTMessage and continuing"
+    )
+    async def test_json_loads_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
+        payload = {"json": "derived", "from": {"byte": "payload"}}
+        # MQTTMessage 1
+        mreq_name1 = "some_method"
+        mreq_topic1 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name1, 1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic1.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload).encode("utf-8")
+        # MQTTMessage 2
+        mreq_name2 = "some_other_method"
+        mreq_topic2 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name2, 2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=mreq_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload).encode("utf-8")
+
+        # Inject failure to the first json conversion only
+        original_loads = json.loads
+        mock_loads = mocker.patch.object(json, "loads")
+
+        def fail_once(*args, **kwargs):
+            mock_loads.side_effect = original_loads
+            raise arbitrary_exception
+
+        mock_loads.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The DirectMethodResponse is derived from the second MQTTMessage instead of the first,
+        # because the first failed, the error was suppressed, and the MQTTMessage discarded
+        mreq = await client.incoming_direct_method_requests.__anext__()
+        assert mreq.name == mreq_name2
+        assert mreq_name2 != mreq_name1
+        assert mock_loads.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while instantiating the DirectMethodRequest object from the MQTTMessage values, dropping the MQTTMessage and continuing"
+    )
+    async def test_request_instantiation_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
+        payload = {"json": "derived", "from": {"byte": "payload"}}
+        # MQTTMessage 1
+        mreq_name1 = "some_method"
+        mreq_topic1 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name1, 1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic1.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload).encode("utf-8")
+        # MQTTMessage 2
+        mreq_name2 = "some_other_method"
+        mreq_topic2 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name2, 2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=mreq_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload).encode("utf-8")
+
+        # Inject failure into the first instantiation only
+        original_cls = models.DirectMethodRequest
+        mock_cls = mocker.patch.object(models, "DirectMethodRequest")
+
+        def fail_once(*args, **kwargs):
+            mock_cls.side_effect = original_cls
+            raise arbitrary_exception
+
+        mock_cls.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The DirectMethodResponse is derived from the second MQTTMessage instead of the first,
+        # because the first failed, the error was suppressed, and the MQTTMessage discarded
+        mreq = await client.incoming_direct_method_requests.__anext__()
+        assert mreq.name == mreq_name2
+        assert mreq_name2 != mreq_name1
+        assert mock_cls.call_count == 2
+
+    @pytest.mark.skip(reason="Currently can't figure out how to mock a generator correctly")
+    @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
+    async def test_cancelled_while_waiting_for_message(self):
+        pass
 
 
 @pytest.mark.describe("IoTHubMQTTClient - PROPERTY: .incoming_twin_patches")
@@ -2746,26 +3169,76 @@ class TestIoTHubMQTTClientIncomingTwinPatches:
         assert patch == expected_json
 
     @pytest.mark.it(
-        "Suppresses any exceptions that are raised while creating the JSON-formatted dictionary, dropping the MQTTMessage, and continuing"
+        "Suppresses any unexpected exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
     )
-    async def test_exception_suppression(self, mocker, client, arbitrary_exception):
-        # NOTE: There are a lot of potential points of failure here, and even more possible errors.
-        # As a matter of practicality, we'll inject an arbitrary failure into byte decoding.
+    async def test_payload_decode_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
         generic_topic = mqtt_topic.get_twin_patch_topic_for_subscribe()
-        patch_topic = generic_topic.rstrip("#") + "?$version=1"
-        # Send two messages, but the first one's payload is mocked to raise
-        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=patch_topic.encode("utf-8"))
-        mqtt_msg1.payload = mocker.MagicMock().decode.side_effect = arbitrary_exception
-        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=patch_topic.encode("utf-8"))
-        mqtt_msg2.payload = '{"json": "in", "a": {"string": "format"}}'.encode("utf-8")
+        # MQTTMessage 1 (no payload due to mock below)
+        patch_topic1 = generic_topic.rstrip("#") + "?$version=1"
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=patch_topic1.encode("utf-8"))
+        # MQTTMessage 2
+        patch_topic2 = generic_topic.rstrip("#") + "?$version=2"
+        payload2 = {"property1": "value1", "property2": "value2", "$version": 2}
+        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=patch_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload2).encode("utf-8")
 
+        # Inject failure to the first MQTTMessage only
+        mqtt_msg1.payload = mocker.MagicMock()
+        mqtt_msg1.payload.decode.side_effect = arbitrary_exception
+
+        # Load the MQTTMessages
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
 
-        # We get a Message derived from the second MQTTMessage instead of the first
-        # (because the first caused failure and was suppressed)
+        # The twin patch is derived from the second message instead of the first, because the first
+        # failed, the error was suppressed, and the message discarded
         patch = await client.incoming_twin_patches.__anext__()
-        assert patch == json.loads(mqtt_msg2.payload.decode("utf-8"))
+        assert patch == payload2
+        assert mqtt_msg1.payload.decode.call_count == 1
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while converting the payload from the MQTTMessage to JSON, dropping the MQTTMessage and continuing"
+    )
+    async def test_json_loads_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_twin_patch_topic_for_subscribe()
+        # MQTTMessage 1
+        patch_topic1 = generic_topic.rstrip("#") + "?$version=1"
+        payload1 = {"property1": "value1", "property2": "value2", "$version": 1}
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=patch_topic1.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload1).encode("utf-8")
+        # MQTTMessage 2
+        patch_topic2 = generic_topic.rstrip("#") + "?$version=2"
+        payload2 = {"property1": "value1", "property2": "value2", "$version": 2}
+        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=patch_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload2).encode("utf-8")
+
+        # Inject failure to the first json conversion only
+        original_loads = json.loads
+        mock_loads = mocker.patch.object(json, "loads")
+
+        def fail_once(*args, **kwargs):
+            mock_loads.side_effect = original_loads
+            raise arbitrary_exception
+
+        mock_loads.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The twin patch is derived from the second message instead of the first, because the first
+        # failed, the error was suppressed, and the message discarded
+        patch = await client.incoming_twin_patches.__anext__()
+        assert patch == payload2
+        assert payload1 != payload2
+        assert mock_loads.call_count == 2
+
+    @pytest.mark.skip(reason="Currently can't figure out how to mock a generator correctly")
+    @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
+    async def test_cancelled_while_waiting_for_message(self):
+        pass
 
 
 @pytest.mark.describe("IoTHubMQTTClient - BG TASK: ._process_twin_responses")
