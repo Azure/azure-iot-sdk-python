@@ -116,6 +116,11 @@ class IoTHubMQTTClient:
             async for mqtt_message in incoming_mqtt_messages:
                 try:
                     yield transform_fn(mqtt_message)
+                except asyncio.CancelledError:
+                    # NOTE: In Python 3.7 this isn't a BaseException, so we must catch and re-raise
+                    # NOTE: This shouldn't ever happen since none of the transform_fns should be
+                    # doing async invocations, but can't hurt to have this for future-proofing.
+                    raise
                 except Exception as e:
                     # TODO: background exception logging improvements (e.g. stacktrace)
                     logger.error("Failure transforming MQTTMessage: {}".format(e))
