@@ -58,7 +58,9 @@ class IoTHubClient(abc.ABC):
             operations.append(asyncio.shield(self._sastoken_provider.shutdown()))
         results = await asyncio.gather(*operations, return_exceptions=True)
         for result in results:
-            if isinstance(result, Exception):
+            # NOTE: Need to specifically exclude asyncio.CancelledError because it is not a
+            # BaseException in Python 3.7
+            if isinstance(result, Exception) and not isinstance(result, asyncio.CancelledError):
                 raise result
 
     # ~~~~~ Abstract declarations ~~~~~

@@ -164,7 +164,9 @@ class IoTHubMQTTClient:
             *cancelled_tasks, asyncio.shield(self.disconnect()), return_exceptions=True
         )
         for result in results:
-            if isinstance(result, Exception):
+            # NOTE: Need to specifically exclude asyncio.CancelledError because it is not a
+            # BaseException in Python 3.7
+            if isinstance(result, Exception) and not isinstance(result, asyncio.CancelledError):
                 raise result
 
     async def connect(self) -> None:
