@@ -706,13 +706,17 @@ class TestIoTHubMQTTClientShutdown:
         # NOTE: rather than mocking the MQTTClient, we just mock the .disconnect() method of the
         # IoTHubMQTTClient instead, since it's been fully tested elsewhere, and we assume
         # correctness, lest we have to repeat all .disconnect() tests here.
+        original_disconnect = client.disconnect
         client.disconnect = mocker.AsyncMock()
-        assert client.disconnect.await_count == 0
+        try:
+            assert client.disconnect.await_count == 0
 
-        await client.shutdown()
+            await client.shutdown()
 
-        assert client.disconnect.await_count == 1
-        assert client.disconnect.await_args == mocker.call()
+            assert client.disconnect.await_count == 1
+            assert client.disconnect.await_args == mocker.call()
+        finally:
+            client.disconnect = original_disconnect
 
     @pytest.mark.it("Cancels the 'process_twin_responses' background task")
     async def test_process_twin_responses_bg_task(self, client):
@@ -753,21 +757,22 @@ class TestIoTHubMQTTClientShutdown:
         # correctness, lest we have to repeat all .disconnect() tests here.
         original_disconnect = client.disconnect
         client.disconnect = mocker.AsyncMock(side_effect=exception)
-        assert not client._keep_credentials_fresh_bg_task.done()
-        assert not client._process_twin_responses_bg_task.done()
+        try:
+            assert not client._keep_credentials_fresh_bg_task.done()
+            assert not client._process_twin_responses_bg_task.done()
 
-        with pytest.raises(type(exception)) as e_info:
-            await client.shutdown()
-        assert e_info.value is exception
+            with pytest.raises(type(exception)) as e_info:
+                await client.shutdown()
+            assert e_info.value is exception
 
-        # Background tasks were also cancelled despite the exception
-        assert client._keep_credentials_fresh_bg_task.done()
-        assert client._keep_credentials_fresh_bg_task.cancelled()
-        assert client._process_twin_responses_bg_task.done()
-        assert client._process_twin_responses_bg_task.cancelled()
-
-        # Unset the mock so that tests can clean up
-        client.disconnect = original_disconnect
+            # Background tasks were also cancelled despite the exception
+            assert client._keep_credentials_fresh_bg_task.done()
+            assert client._keep_credentials_fresh_bg_task.cancelled()
+            assert client._process_twin_responses_bg_task.done()
+            assert client._process_twin_responses_bg_task.cancelled()
+        finally:
+            # Unset the mock so that tests can clean up
+            client.disconnect = original_disconnect
 
     @pytest.mark.it(
         "Can be cancelled while waiting for the MQTTClient disconnect to finish, but it won't stop background task cancellation"
@@ -778,30 +783,29 @@ class TestIoTHubMQTTClientShutdown:
         # correctness, lest we have to repeat all .disconnect() tests here.
         original_disconnect = client.disconnect
         client.disconnect = custom_mock.HangingAsyncMock()
+        try:
+            t = asyncio.create_task(client.shutdown())
 
-        t = asyncio.create_task(client.shutdown())
+            # Hanging, waiting for disconnect to finish
+            await client.disconnect.wait_for_hang()
+            assert not t.done()
 
-        # Hanging, waiting for disconnect to finish
-        await client.disconnect.wait_for_hang()
-        assert not t.done()
-        # Background tasks have not been cancelled
-        assert not client._keep_credentials_fresh_bg_task.done()
-        assert not client._process_twin_responses_bg_task.done()
+            # Cancel
+            t.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await t
+            # Due to cancellation, the tasks we want to assert are done may need a moment
+            # to finish, since we aren't waiting on them to exit
+            await asyncio.sleep(0.1)
 
-        # Cancel
-        t.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await t
-
-        # Unset the mock so that tests can clean up.
-        # And do it now so that test assertion failure doesn't hang
-        client.disconnect = original_disconnect
-
-        # And yet the background tasks still were cancelled anyway
-        assert client._keep_credentials_fresh_bg_task.done()
-        assert client._keep_credentials_fresh_bg_task.cancelled()
-        assert client._process_twin_responses_bg_task.done()
-        assert client._process_twin_responses_bg_task.cancelled()
+            # And yet the background tasks still were cancelled anyway
+            assert client._keep_credentials_fresh_bg_task.done()
+            assert client._keep_credentials_fresh_bg_task.cancelled()
+            assert client._process_twin_responses_bg_task.done()
+            assert client._process_twin_responses_bg_task.cancelled()
+        finally:
+            # Unset the mock so that tests can clean up.
+            client.disconnect = original_disconnect
 
     @pytest.mark.it(
         "Can be cancelled while waiting for the background tasks to finish cancellation, but it won't stop the background task cancellation"
@@ -809,39 +813,37 @@ class TestIoTHubMQTTClientShutdown:
     async def test_cancel_gather(self, mocker, client):
         original_gather = asyncio.gather
         asyncio.gather = custom_mock.HangingAsyncMock()
-
         spy_twin_response_bg_task_cancel = mocker.spy(
             client._process_twin_responses_bg_task, "cancel"
         )
         spy_credentials_bg_task_cancel = mocker.spy(
             client._keep_credentials_fresh_bg_task, "cancel"
         )
+        try:
+            t = asyncio.create_task(client.shutdown())
 
-        t = asyncio.create_task(client.shutdown())
+            # Hanging waiting for gather to return (indicating tasks are all done cancellation)
+            await asyncio.gather.wait_for_hang()
+            assert not t.done()
+            # Background tests may or may not have completed cancellation yet, hard to test accurately.
+            # But their cancellation HAS been requested.
+            assert spy_twin_response_bg_task_cancel.call_count == 1
+            assert spy_credentials_bg_task_cancel.call_count == 1
 
-        # Hanging waiting for gather to return (indicating tasks are all done cancellation)
-        await asyncio.gather.wait_for_hang()
-        assert not t.done()
-        # Background tests may or may not have completed cancellation yet, hard to test accurately.
-        # But their cancellation HAS been requested.
-        assert spy_twin_response_bg_task_cancel.call_count == 1
-        assert spy_credentials_bg_task_cancel.call_count == 1
+            # Cancel
+            t.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await t
 
-        # Cancel
-        t.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await t
-
-        # Unset the mock so that tests can clean up.
-        # And do it now so that test assertion failure doesn't hang
-        asyncio.gather = original_gather
-
-        # Tasks will be cancelled very soon (if they aren't already)
-        await asyncio.sleep(0.1)
-        assert client._keep_credentials_fresh_bg_task.done()
-        assert client._keep_credentials_fresh_bg_task.cancelled()
-        assert client._process_twin_responses_bg_task.done()
-        assert client._process_twin_responses_bg_task.cancelled()
+            # Tasks will be cancelled very soon (if they aren't already)
+            await asyncio.sleep(0.1)
+            assert client._keep_credentials_fresh_bg_task.done()
+            assert client._keep_credentials_fresh_bg_task.cancelled()
+            assert client._process_twin_responses_bg_task.done()
+            assert client._process_twin_responses_bg_task.cancelled()
+        finally:
+            # Unset the mock so that tests can clean up.
+            asyncio.gather = original_gather
 
 
 @pytest.mark.describe("IoTHubMQTTClient - .connect()")
@@ -895,31 +897,31 @@ class TestIoTHubMQTTClientDisconnect:
     @pytest.mark.parametrize("exception", mqtt_disconnect_exceptions)
     async def test_mqtt_exception(self, client, exception):
         client._mqtt_client.disconnect.side_effect = exception
-
-        with pytest.raises(type(exception)) as e_info:
-            await client.disconnect()
-        assert e_info.value is exception
-
-        # Unset the side effect for cleanup (since shutdown uses disconnect)
-        client._mqtt_client.disconnect.side_effect = None
+        try:
+            with pytest.raises(type(exception)) as e_info:
+                await client.disconnect()
+            assert e_info.value is exception
+        finally:
+            # Unset the side effect for cleanup (since shutdown uses disconnect)
+            client._mqtt_client.disconnect.side_effect = None
 
     @pytest.mark.it("Can be cancelled while waiting for the MQTTClient disconnect to finish")
     async def test_cancel(self, mocker, client):
         client._mqtt_client.disconnect = custom_mock.HangingAsyncMock()
+        try:
+            t = asyncio.create_task(client.disconnect())
 
-        t = asyncio.create_task(client.disconnect())
+            # Hanging, waiting for MQTT disconnect to finish
+            await client._mqtt_client.disconnect.wait_for_hang()
+            assert not t.done()
 
-        # Hanging, waiting for MQTT disconnect to finish
-        await client._mqtt_client.disconnect.wait_for_hang()
-        assert not t.done()
-
-        # Cancel
-        t.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await t
-
-        # Unset the HangingMock for clean (since shutdown uses disconnect)
-        client._mqtt_client.disconnect = mocker.AsyncMock()
+            # Cancel
+            t.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await t
+        finally:
+            # Unset the HangingMock for clean (since shutdown uses disconnect)
+            client._mqtt_client.disconnect = mocker.AsyncMock()
 
 
 @pytest.mark.describe("IoTHubMQTTClient - .send_message()")

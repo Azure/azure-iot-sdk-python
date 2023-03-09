@@ -267,20 +267,20 @@ class SharedClientShutdownTests:
 
         # MQTT shutdown will raise
         client._mqtt_client.shutdown.side_effect = arbitrary_exception
+        try:
+            # MQTT shutdown error propagates
+            with pytest.raises(type(arbitrary_exception)) as e_info:
+                await client.shutdown()
+            assert e_info.value is arbitrary_exception
 
-        # MQTT shutdown error propagates
-        with pytest.raises(type(arbitrary_exception)) as e_info:
-            await client.shutdown()
-        assert e_info.value is arbitrary_exception
-
-        # But the whole shutdown protocol was executed
-        assert client._mqtt_client.shutdown.await_count == 1
-        assert client._http_client.shutdown.await_count == 1
-        if sastoken_provider:
-            assert client._sastoken_provider.shutdown.await_count == 1
-
-        # Unset the the MQTT shutdown failure so teardown doesn't crash
-        client._mqtt_client.shutdown.side_effect = None
+            # But the whole shutdown protocol was executed
+            assert client._mqtt_client.shutdown.await_count == 1
+            assert client._http_client.shutdown.await_count == 1
+            if sastoken_provider:
+                assert client._sastoken_provider.shutdown.await_count == 1
+        finally:
+            # Unset the the MQTT shutdown failure so teardown doesn't crash
+            client._mqtt_client.shutdown.side_effect = None
 
     @pytest.mark.it(
         "Allows any exception raised during IoTHubHTTPClient shutdown to propagate, but only after completing the rest of the shutdown procedure"
@@ -302,19 +302,20 @@ class SharedClientShutdownTests:
         # HTTP shutdown will raise
         client._http_client.shutdown.side_effect = arbitrary_exception
 
-        # HTTP shutdown error propagates
-        with pytest.raises(type(arbitrary_exception)) as e_info:
-            await client.shutdown()
-        assert e_info.value is arbitrary_exception
+        try:
+            # HTTP shutdown error propagates
+            with pytest.raises(type(arbitrary_exception)) as e_info:
+                await client.shutdown()
+            assert e_info.value is arbitrary_exception
 
-        # But the whole shutdown protocol was executed
-        assert client._mqtt_client.shutdown.await_count == 1
-        assert client._http_client.shutdown.await_count == 1
-        if sastoken_provider:
-            assert client._sastoken_provider.shutdown.await_count == 1
-
-        # Unset the the HTTP shutdown failure so teardown doesn't crash
-        client._http_client.shutdown.side_effect = None
+            # But the whole shutdown protocol was executed
+            assert client._mqtt_client.shutdown.await_count == 1
+            assert client._http_client.shutdown.await_count == 1
+            if sastoken_provider:
+                assert client._sastoken_provider.shutdown.await_count == 1
+        finally:
+            # Unset the the HTTP shutdown failure so teardown doesn't crash
+            client._http_client.shutdown.side_effect = None
 
     @pytest.mark.it(
         "Allows any exception raised during SasTokenProvider shutdown to propagate, but only after completing the rest of the shutdown procedure"
@@ -330,18 +331,19 @@ class SharedClientShutdownTests:
         # SasTokenProvider shutdown will raise
         client._sastoken_provider.shutdown.side_effect = arbitrary_exception
 
-        # SasTokenProvider shutdown error propagates
-        with pytest.raises(type(arbitrary_exception)) as e_info:
-            await client.shutdown()
-        assert e_info.value is arbitrary_exception
+        try:
+            # SasTokenProvider shutdown error propagates
+            with pytest.raises(type(arbitrary_exception)) as e_info:
+                await client.shutdown()
+            assert e_info.value is arbitrary_exception
 
-        # But the whole shutdown protocol was executed
-        assert client._mqtt_client.shutdown.await_count == 1
-        assert client._http_client.shutdown.await_count == 1
-        assert client._sastoken_provider.shutdown.await_count == 1
-
-        # Unset the the SasTokenProvider shutdown failure so teardown doesn't crash
-        client._sastoken_provider.shutdown.side_effect = None
+            # But the whole shutdown protocol was executed
+            assert client._mqtt_client.shutdown.await_count == 1
+            assert client._http_client.shutdown.await_count == 1
+            assert client._sastoken_provider.shutdown.await_count == 1
+        finally:
+            # Unset the the SasTokenProvider shutdown failure so teardown doesn't crash
+            client._sastoken_provider.shutdown.side_effect = None
 
     @pytest.mark.it(
         "Can be cancelled during IoTHubMQTTClient shutdown, but shutdown procedure will still complete"
@@ -364,30 +366,31 @@ class SharedClientShutdownTests:
         original_shutdown = client._mqtt_client.shutdown
         client._mqtt_client.shutdown = custom_mock.HangingAsyncMock()
 
-        # Attempt to shutdown will hang
-        t = asyncio.create_task(client.shutdown())
-        await client._mqtt_client.shutdown.wait_for_hang()
-        assert not t.done()
+        try:
+            # Attempt to shutdown will hang
+            t = asyncio.create_task(client.shutdown())
+            await client._mqtt_client.shutdown.wait_for_hang()
+            assert not t.done()
 
-        # Shutdown protocol is incomplete
-        assert client._mqtt_client.shutdown.await_count == 1
-        assert client._http_client.shutdown.await_count == 0
-        if sastoken_provider:
-            assert client._sastoken_provider.shutdown.await_count == 0
+            # Shutdown can be cancelled
+            t.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await t
 
-        # Shutdown can be cancelled
-        t.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await t
+            # But the whole shutdown protocol was still executed
+            assert client._mqtt_client.shutdown.await_count == 1
+            assert client._http_client.shutdown.await_count == 1
+            if sastoken_provider:
+                assert client._sastoken_provider.shutdown.await_count == 1
 
-        # But the whole shutdown protocol was still executed
-        assert client._mqtt_client.shutdown.await_count == 1
-        assert client._http_client.shutdown.await_count == 1
-        if sastoken_provider:
-            assert client._sastoken_provider.shutdown.await_count == 1
+            # TODO: This test doesn't actually prove that the shutdowns of the various
+            # components actually complete. Fix that, if we decide to ship this client.
 
-        # Unset the the MQTT shutdown hang so teardown doesn't hang
-        client._mqtt_client.shutdown = original_shutdown
+        finally:
+            # Since this task was protected from cancellation, we have to manually stop the hang
+            client._mqtt_client.shutdown.stop_hanging()
+            # Unset the the MQTT shutdown hang so teardown doesn't hang
+            client._mqtt_client.shutdown = original_shutdown
 
     @pytest.mark.it(
         "Can be cancelled during IoTHubHTTPClient shutdown, but shutdown procedure will still complete"
@@ -410,31 +413,31 @@ class SharedClientShutdownTests:
         original_shutdown = client._http_client.shutdown
         client._http_client.shutdown = custom_mock.HangingAsyncMock()
 
-        # Attempt to shutdown will hang
-        t = asyncio.create_task(client.shutdown())
-        await client._http_client.shutdown.wait_for_hang()
-        assert not t.done()
+        try:
+            # Attempt to shutdown will hang
+            t = asyncio.create_task(client.shutdown())
+            await client._http_client.shutdown.wait_for_hang()
+            assert not t.done()
 
-        # Shutdown protocol is incomplete
-        # (unless sastoken provider isn't there, in which case, I guess it is complete)
-        assert client._mqtt_client.shutdown.await_count == 1
-        assert client._http_client.shutdown.await_count == 1
-        if sastoken_provider:
-            assert client._sastoken_provider.shutdown.await_count == 0
+            # Shutdown can be cancelled
+            t.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await t
 
-        # Shutdown can be cancelled
-        t.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await t
+            # But the whole shutdown protocol was still executed
+            assert client._mqtt_client.shutdown.await_count == 1
+            assert client._http_client.shutdown.await_count == 1
+            if sastoken_provider:
+                assert client._sastoken_provider.shutdown.await_count == 1
 
-        # But the whole shutdown protocol was still executed
-        assert client._mqtt_client.shutdown.await_count == 1
-        assert client._http_client.shutdown.await_count == 1
-        if sastoken_provider:
-            assert client._sastoken_provider.shutdown.await_count == 1
+            # TODO: This test doesn't actually prove that the shutdowns of the various
+            # components actually complete. Fix that, if we decide to ship this client.
 
-        # Unset the the HTTP shutdown hang so teardown doesn't hang
-        client._http_client.shutdown = original_shutdown
+        finally:
+            # Since this task was protected from cancellation, we have to manually stop the hang
+            client._http_client.shutdown.stop_hanging()
+            # Unset the the HTTP shutdown hang so teardown doesn't hang
+            client._http_client.shutdown = original_shutdown
 
     @pytest.mark.it(
         "Can be cancelled during SasTokenProvider shutdown, but shutdown procedure will still complete"
@@ -449,30 +452,30 @@ class SharedClientShutdownTests:
         original_shutdown = client._sastoken_provider.shutdown
         client._sastoken_provider.shutdown = custom_mock.HangingAsyncMock()
 
-        # Attempt to shutdown will hang
-        t = asyncio.create_task(client.shutdown())
-        await client._sastoken_provider.shutdown.wait_for_hang()
-        assert not t.done()
+        try:
+            # Attempt to shutdown will hang
+            t = asyncio.create_task(client.shutdown())
+            await client._sastoken_provider.shutdown.wait_for_hang()
+            assert not t.done()
 
-        # Shutdown protocol is incomplete
-        # (okay, no it's not, it's definitely done, but I'm keeping this test structure the same
-        # so it can easily be expanded in the future)
-        assert client._mqtt_client.shutdown.await_count == 1
-        assert client._http_client.shutdown.await_count == 1
-        assert client._sastoken_provider.shutdown.await_count == 1
+            # Shutdown can be cancelled
+            t.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await t
 
-        # Shutdown can be cancelled
-        t.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await t
+            # But the whole shutdown protocol was still executed
+            assert client._mqtt_client.shutdown.await_count == 1
+            assert client._http_client.shutdown.await_count == 1
+            assert client._sastoken_provider.shutdown.await_count == 1
 
-        # But the whole shutdown protocol was still executed
-        assert client._mqtt_client.shutdown.await_count == 1
-        assert client._http_client.shutdown.await_count == 1
-        assert client._sastoken_provider.shutdown.await_count == 1
+            # TODO: This test doesn't actually prove that the shutdowns of the various
+            # components actually complete. Fix that, if we decide to ship this client.
 
-        # Unset the the HTTP shutdown hang so teardown doesn't hang
-        client._sastoken_provider.shutdown = original_shutdown
+        finally:
+            # Since this task was protected from cancellation, we have to manually stop the hang
+            client._sastoken_provider.shutdown.stop_hanging()
+            # Unset the the HTTP shutdown hang so teardown doesn't hang
+            client._sastoken_provider.shutdown = original_shutdown
 
 
 # ~~~~~ IoTHubDeviceClient Tests ~~~~~

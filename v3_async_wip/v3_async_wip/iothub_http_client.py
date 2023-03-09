@@ -86,7 +86,7 @@ class IoTHubHTTPClient:
 
         Invoke only when complete finished with the client for graceful exit.
         """
-        await self._session.close()
+        await asyncio.shield(self._session.close())
         # Wait 250ms for the underlying SSL connections to close
         # See: https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
         await asyncio.sleep(0.25)
