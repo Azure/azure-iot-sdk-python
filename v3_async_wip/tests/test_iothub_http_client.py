@@ -303,43 +303,44 @@ class TestIoTHubHTTPClientShutdown:
         retval = await client.shutdown()
         assert retval is None
 
+    # TODO: Need to show shielding, but the mocking is difficult. Revisit.
     @pytest.mark.it("Can be cancelled while waiting for the aiohttp ClientSession to close")
     async def test_cancel_during_close(self, client):
         original_close = client._session.close
         client._session.close = custom_mock.HangingAsyncMock()
+        try:
+            t = asyncio.create_task(client.shutdown())
 
-        t = asyncio.create_task(client.shutdown())
+            # Hanging, waiting for close to finish
+            await client._session.close.wait_for_hang()
+            assert not t.done()
 
-        # Hanging, waiting for close to finish
-        await client._session.close.wait_for_hang()
-        assert not t.done()
-
-        # Cancel
-        t.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await t
-
-        # Restore original close so cleanup works correctly
-        client._session.close = original_close
+            # Cancel
+            t.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await t
+        finally:
+            # Restore original close so cleanup works correctly
+            client._session.close = original_close
 
     @pytest.mark.it("Can be cancelled while waiting for SSL cleanup")
     async def test_cancel_during_wait(self, client):
         original_sleep = asyncio.sleep
         asyncio.sleep = custom_mock.HangingAsyncMock()
+        try:
+            t = asyncio.create_task(client.shutdown())
 
-        t = asyncio.create_task(client.shutdown())
+            # Hanging, waiting for sleep to finish
+            await asyncio.sleep.wait_for_hang()
+            assert not t.done()
 
-        # Hanging, waiting for sleep to finish
-        await asyncio.sleep.wait_for_hang()
-        assert not t.done()
-
-        # Cancel
-        t.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await t
-
-        # Restore original sleep to... everything... works correctly
-        asyncio.sleep = original_sleep
+            # Cancel
+            t.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await t
+        finally:
+            # Restore original sleep to... everything... works correctly
+            asyncio.sleep = original_sleep
 
 
 @pytest.mark.describe("IoTHubHTTPClient - .invoke_direct_method()")
