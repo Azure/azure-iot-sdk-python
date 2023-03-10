@@ -8,7 +8,7 @@ import asyncio
 import json
 import logging
 import urllib.parse
-from typing import Callable, Optional, Union, AsyncGenerator, TypeVar
+from typing import Callable, Optional, AsyncGenerator, TypeVar
 from .custom_typing import TwinPatch, Twin
 from .iot_exceptions import IoTHubError, IoTHubClientError
 from . import config, constant, user_agent, models
