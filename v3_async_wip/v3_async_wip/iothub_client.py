@@ -4,10 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 import abc
+import asyncio
 import logging
 import os
 import ssl
-from typing import Optional, Union, cast
+from typing import Optional, cast
 from .custom_typing import FunctionOrCoroutine
 from .iot_exceptions import IoTEdgeEnvironmentError
 from . import config, edge_hsm
@@ -50,46 +51,17 @@ class IoTHubClient(abc.ABC):
         Cannot be cancelled - if you try, the client will still fully shut down as much as
         possible (although the CancelledError will still be raised)
         """
-        cached_exception: Optional[Union[Exception, BaseException]] = None
-        logger.debug("Beginning IoTHubClient shutdown procedure")
-        try:
-            logger.debug("Shutting down IoTHubMQTTClient...")
-            await self._mqtt_client.shutdown()
-            logger.debug("IoTHubMQTTClient shutdown complete")
-        except (Exception, BaseException) as e:
-            logger.warning(
-                "Unexpected error during shutdown of IoTHubMQTTClient suppressed - still completing the rest of shutdown procedure"
-            )
-            cached_exception = e
-
-        try:
-            logger.debug("Shutting down IoTHubHTTPClient...")
-            await self._http_client.shutdown()
-            logger.debug("IoTHubHTTPClient shutdown complete")
-        except (Exception, BaseException) as e:
-            logger.warning(
-                "Unexpected error during shutdown of IoTHubHTTPClient suppressed - still completing the rest of shutdown procedure"
-            )
-            cached_exception = e
+        operations = []
+        operations.append(asyncio.shield(self._mqtt_client.shutdown()))
+        operations.append(asyncio.shield(self._http_client.shutdown()))
         if self._sastoken_provider:
-            try:
-                logger.debug("Shutting down SasTokenProvider...")
-                await self._sastoken_provider.shutdown()
-                logger.debug("SasTokenProvider shutdown complete")
-            except (Exception, BaseException) as e:
-                logger.warning(
-                    "Unexpected error during shutdown of SasTokenProvider suppressed - still completing the rest of shutdown procedure"
-                )
-                cached_exception = e
-
-        logger.debug("IoTHubClient shutdown procedure complete")
-        if cached_exception:
-            # NOTE: In the case of multiple failures, only the last one gets raised.
-            # Not much way around it, and besides, this is all an extreme edge case anyway.
-            logger.warning(
-                "Raising previously suppressed error now that shutdown procedure is complete"
-            )
-            raise cached_exception
+            operations.append(asyncio.shield(self._sastoken_provider.shutdown()))
+        results = await asyncio.gather(*operations, return_exceptions=True)
+        for result in results:
+            # NOTE: Need to specifically exclude asyncio.CancelledError because it is not a
+            # BaseException in Python 3.7
+            if isinstance(result, Exception) and not isinstance(result, asyncio.CancelledError):
+                raise result
 
     # ~~~~~ Abstract declarations ~~~~~
     # NOTE: rigid typechecking doesn't like when the signature changes in the child class

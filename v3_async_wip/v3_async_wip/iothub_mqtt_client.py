@@ -8,11 +8,10 @@ import asyncio
 import json
 import logging
 import urllib.parse
-from typing import Optional, Union, AsyncGenerator
+from typing import Callable, Optional, AsyncGenerator, TypeVar
 from .custom_typing import TwinPatch, Twin
 from .iot_exceptions import IoTHubError, IoTHubClientError
-from .models import Message, DirectMethodResponse, DirectMethodRequest
-from . import config, constant, user_agent
+from . import config, constant, user_agent, models
 from . import request_response as rr
 from . import mqtt_client as mqtt
 from . import mqtt_topic_iothub as mqtt_topic
@@ -23,10 +22,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RECONNECT_INTERVAL: int = 10
 
-# TODO: add exceptions to docstring
-# TODO: background exceptions how
-# TODO: non-background exceptions
-# TODO: error handling in generators
+_T = TypeVar("_T")
 
 
 class IoTHubMQTTClient:
@@ -62,19 +58,34 @@ class IoTHubMQTTClient:
             password = None
         self._mqtt_client.set_credentials(self._username, password)
 
-        # Create incoming IoTHub data generators
-        # TODO: expose these via method to make the device/module split cleaner
-        self.incoming_c2d_messages: AsyncGenerator[Message, None] = _create_c2d_message_generator(
-            self._device_id, self._mqtt_client
+        # Add filters for receive topics delivering data used internally
+        # TODO: can this be moved to the process twin responses task perhaps?
+        twin_response_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        self._mqtt_client.add_incoming_message_filter(twin_response_topic)
+
+        # Create generators for receive topics delivering data used externally
+        # (Implicitly adding filters for these topics as well)
+        self._incoming_input_messages: Optional[AsyncGenerator[models.Message, None]] = None
+        self._incoming_c2d_messages: Optional[AsyncGenerator[models.Message, None]] = None
+        self._incoming_direct_method_requests: AsyncGenerator[models.DirectMethodRequest, None]
+        self._incoming_twin_patches: AsyncGenerator[TwinPatch, None]
+        if self._module_id:
+            self._incoming_input_messages = self._create_incoming_data_generator(
+                topic=mqtt_topic.get_input_topic_for_subscribe(self._device_id, self._module_id),
+                transform_fn=_create_iothub_message_from_mqtt_message,
+            )
+        else:
+            self._incoming_c2d_messages = self._create_incoming_data_generator(
+                topic=mqtt_topic.get_c2d_topic_for_subscribe(self._device_id),
+                transform_fn=_create_iothub_message_from_mqtt_message,
+            )
+        self._incoming_direct_method_requests = self._create_incoming_data_generator(
+            topic=mqtt_topic.get_direct_method_request_topic_for_subscribe(),
+            transform_fn=_create_direct_method_request_from_mqtt_message,
         )
-        self.incoming_input_messages: Optional[
-            AsyncGenerator[Message, None]
-        ] = _create_input_message_generator(self._device_id, self._module_id, self._mqtt_client)
-        self.incoming_direct_method_requests: AsyncGenerator[
-            DirectMethodRequest, None
-        ] = _create_direct_method_request_generator(self._mqtt_client)
-        self.incoming_twin_patches: AsyncGenerator[TwinPatch, None] = _create_twin_patch_generator(
-            self._mqtt_client
+        self._incoming_twin_patches = self._create_incoming_data_generator(
+            topic=mqtt_topic.get_twin_patch_topic_for_subscribe(),
+            transform_fn=_create_twin_patch_from_mqtt_message,
         )
 
         # Internal request/response infrastructure
@@ -93,6 +104,30 @@ class IoTHubMQTTClient:
         else:
             self._keep_credentials_fresh_bg_task = None
 
+    def _create_incoming_data_generator(
+        self, topic: str, transform_fn: Callable[[mqtt.MQTTMessage], _T]
+    ) -> AsyncGenerator[_T, None]:
+        """Return a generator for incoming MQTT data on a given topic, yielding a transformation
+        of that data via the given transform function"""
+        self._mqtt_client.add_incoming_message_filter(topic)
+        incoming_mqtt_messages = self._mqtt_client.get_incoming_message_generator(topic)
+
+        async def generator() -> AsyncGenerator[_T, None]:
+            async for mqtt_message in incoming_mqtt_messages:
+                try:
+                    yield transform_fn(mqtt_message)
+                except asyncio.CancelledError:
+                    # NOTE: In Python 3.7 this isn't a BaseException, so we must catch and re-raise
+                    # NOTE: This shouldn't ever happen since none of the transform_fns should be
+                    # doing async invocations, but can't hurt to have this for future-proofing.
+                    raise
+                except Exception as e:
+                    # TODO: background exception logging improvements (e.g. stacktrace)
+                    logger.error("Failure transforming MQTTMessage: {}".format(e))
+                    logger.warning("Dropping MQTTMessage that could not be transformed")
+
+        return generator()
+
     async def _enable_twin_responses(self) -> None:
         """Enable receiving of twin responses (for twin requests, or twin patches) from IoTHub"""
         logger.debug("Enabling receive of twin responses...")
@@ -101,7 +136,6 @@ class IoTHubMQTTClient:
         self._twin_responses_enabled = True
         logger.debug("Twin responses receive enabled")
 
-    # TODO: add background exception handling
     async def _process_twin_responses(self) -> None:
         """Run indefinitely, matching twin responses with request ID"""
         logger.debug("Starting the 'process_twin_responses' background task")
@@ -109,33 +143,71 @@ class IoTHubMQTTClient:
         twin_responses = self._mqtt_client.get_incoming_message_generator(twin_response_topic)
 
         async for mqtt_message in twin_responses:
-            request_id = mqtt_topic.extract_request_id_from_twin_response_topic(mqtt_message.topic)
-            status_code = int(
-                mqtt_topic.extract_status_code_from_twin_response_topic(mqtt_message.topic)
-            )
-            # NOTE: We don't know what the content of the body is until we match the rid, so don't
-            # do more than just decode it here - leave interpreting the string to the coroutine
-            # waiting for the response.
-            response_body = mqtt_message.payload.decode("utf-8")
-            logger.debug("Twin response received (rid: {})".format(request_id))
-            response = rr.Response(request_id=request_id, status=status_code, body=response_body)
+            try:
+                request_id = mqtt_topic.extract_request_id_from_twin_response_topic(
+                    mqtt_message.topic
+                )
+                status_code = int(
+                    mqtt_topic.extract_status_code_from_twin_response_topic(mqtt_message.topic)
+                )
+                # NOTE: We don't know what the content of the body is until we match the rid, so don't
+                # do more than just decode it here - leave interpreting the string to the coroutine
+                # waiting for the response.
+                response_body = mqtt_message.payload.decode("utf-8")
+                logger.debug("Twin response received (rid: {})".format(request_id))
+                response = rr.Response(
+                    request_id=request_id, status=status_code, body=response_body
+                )
+            except Exception as e:
+                logger.error(
+                    "Unexpected error ({}) while translating Twin response. Dropping.".format(e)
+                )
+                # NOTE: In this situation the operation waiting for the response that we failed to
+                # receive will hang. This isn't the end of the world, since it can be cancelled,
+                # but if we really wanted to smooth this out, we could cancel the pending operation
+                # based on the request id (assuming getting the request id is not what failed).
+                # But for now, that's probably overkill, especially since this path ideally should
+                # never happen, because we would like to assume IoTHub isn't sending malformed data
+                continue
             try:
                 await self._request_ledger.match_response(response)
+            except asyncio.CancelledError:
+                # NOTE: In Python 3.7 this isn't a BaseException, so we must catch and re-raise
+                raise
             except KeyError:
                 # NOTE: This should only happen in edge cases involving cancellation of
                 # in-flight operations
-                logger.warning("Twin response (rid: {}) does not match any request")
+                logger.warning(
+                    "Twin response (rid: {}) does not match any request".format(request_id)
+                )
+            except Exception as e:
+                logger.error(
+                    "Unexpected error ({}) while matching Twin response (rid: {}). Dropping response".format(
+                        e, request_id
+                    )
+                )
 
     async def _keep_credentials_fresh(self) -> None:
         """Run indefinitely, updating MQTT credentials when new SAS Token is available"""
         logger.debug("Starting the 'keep_credentials_fresh' background task")
         while True:
             if self._sastoken_provider:
-                logger.debug("Waiting for new SAS Token to become available")
-                new_sastoken = await self._sastoken_provider.wait_for_new_sastoken()
-                logger.debug("New SAS Token available, updating MQTTClient credentials")
-                self._mqtt_client.set_credentials(self._username, str(new_sastoken))
-                # TODO: should we reconnect here? Or just wait for drop?
+                try:
+                    logger.debug("Waiting for new SAS Token to become available")
+                    new_sastoken = await self._sastoken_provider.wait_for_new_sastoken()
+                    logger.debug("New SAS Token available, updating MQTTClient credentials")
+                    self._mqtt_client.set_credentials(self._username, str(new_sastoken))
+                    # TODO: should we reconnect here? Or just wait for drop?
+                except asyncio.CancelledError:
+                    # NOTE: In Python 3.7 this isn't a BaseException, so we must catch and re-raise
+                    raise
+                except Exception as e:
+                    logger.error(
+                        "Unexpected exception ({}) while keeping credentials fresh. Ignoring".format(
+                            e
+                        )
+                    )
+                    continue
             else:
                 # NOTE: This should never execute, it's mostly just here to keep the
                 # type checker happy
@@ -149,19 +221,6 @@ class IoTHubMQTTClient:
         Cannot be cancelled - if you try, the client will still fully shut down as much as
         possible.
         """
-        # NOTE: .disconnect() really shouldn't fail, but if it does, we temporarily suppress
-        # the exception so we can still do as much cleanup as possible.
-        cached_exception: Optional[Union[Exception, asyncio.CancelledError]] = None
-        logger.debug("Attempting disconnect in shutdown")
-        try:
-            await self.disconnect()
-        except asyncio.CancelledError as e:
-            logger.warning("Cancellation during shutdown. Still attempting to clean up.")
-            cached_exception = e
-        except Exception as e:
-            logger.warning("Unexpected error disconnecting. Continuing shutdown procedure")
-            cached_exception = e
-
         cancelled_tasks = []
 
         logger.debug("Cancelling 'process_twin_responses' background task")
@@ -173,14 +232,14 @@ class IoTHubMQTTClient:
             self._keep_credentials_fresh_bg_task.cancel()
             cancelled_tasks.append(self._keep_credentials_fresh_bg_task)
 
-        # Wait for the cancellation to complete before returning
-        # NOTE: If cancelled while awaiting here, all tasks in gather will still be cancelled
-        # because the cancellations have already been issued.
-        # NOTE: Also, cancelling a gather implicitly cancels all the tasks that are gathered anyway
-        await asyncio.gather(*cancelled_tasks, return_exceptions=True)
-
-        if cached_exception:
-            raise cached_exception
+        results = await asyncio.gather(
+            *cancelled_tasks, asyncio.shield(self.disconnect()), return_exceptions=True
+        )
+        for result in results:
+            # NOTE: Need to specifically exclude asyncio.CancelledError because it is not a
+            # BaseException in Python 3.7
+            if isinstance(result, Exception) and not isinstance(result, asyncio.CancelledError):
+                raise result
 
     async def connect(self) -> None:
         """Connect to IoTHub
@@ -197,7 +256,7 @@ class IoTHubMQTTClient:
         await self._mqtt_client.disconnect()
         logger.debug("Disconnect succeeded")
 
-    async def send_message(self, message: Message) -> None:
+    async def send_message(self, message: models.Message) -> None:
         """Send a telemetry message to IoTHub.
 
         :param message: The Message to be sent
@@ -226,7 +285,9 @@ class IoTHubMQTTClient:
         await self._mqtt_client.publish(topic, byte_payload)
         logger.debug("Sending telemetry message succeeded")
 
-    async def send_direct_method_response(self, method_response: DirectMethodResponse) -> None:
+    async def send_direct_method_response(
+        self, method_response: models.DirectMethodResponse
+    ) -> None:
         """Send a direct method response to IoTHub.
 
         :param method_response: The DirectMethodResponse to be sent
@@ -486,6 +547,34 @@ class IoTHubMQTTClient:
         await self._mqtt_client.unsubscribe(topic)
         logger.debug("Twin patch receive disabled")
 
+    @property
+    def incoming_c2d_messages(self) -> AsyncGenerator[models.Message, None]:
+        """Generator that yields incoming C2D Messages"""
+        if not self._incoming_c2d_messages:
+            raise IoTHubClientError("C2D Messages not available for Module")
+        else:
+            return self._incoming_c2d_messages
+
+    @property
+    def incoming_input_messages(self) -> AsyncGenerator[models.Message, None]:
+        """Generator that yields incoming input Messages"""
+        if not self._incoming_input_messages:
+            raise IoTHubClientError("Input Messages not available for Device")
+        else:
+            return self._incoming_input_messages
+
+    @property
+    def incoming_direct_method_requests(
+        self,
+    ) -> AsyncGenerator[models.DirectMethodRequest, None]:
+        """Generator that yields incoming DirectMethodRequests"""
+        return self._incoming_direct_method_requests
+
+    @property
+    def incoming_twin_patches(self) -> AsyncGenerator[TwinPatch, None]:
+        """Generator that yields incoming TwinPatches"""
+        return self._incoming_twin_patches
+
 
 def _format_client_id(device_id: str, module_id: Optional[str] = None) -> str:
     if module_id:
@@ -531,23 +620,6 @@ def _create_mqtt_client(
         proxy_options=client_config.proxy_options,
     )
 
-    # Add topic filters for receive
-    # IoTHub Receives
-    c2d_msg_topic = mqtt_topic.get_c2d_topic_for_subscribe(client_config.device_id)
-    client.add_incoming_message_filter(c2d_msg_topic)
-    if client_config.module_id:
-        input_msg_topic = mqtt_topic.get_input_topic_for_subscribe(
-            client_config.device_id, client_config.module_id
-        )
-        client.add_incoming_message_filter(input_msg_topic)
-    method_request_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
-    client.add_incoming_message_filter(method_request_topic)
-    twin_patch_topic = mqtt_topic.get_twin_patch_topic_for_subscribe()
-    client.add_incoming_message_filter(twin_patch_topic)
-    # Operation Responses
-    twin_response_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
-    client.add_incoming_message_filter(twin_response_topic)
-
     return client
 
 
@@ -579,86 +651,7 @@ def _format_username(hostname: str, client_id: str, product_info: str) -> str:
     return username
 
 
-# TODO: error handling on extraction, decoding, json loading
-# TODO; don't forget json loading can fail if improper decoding occurs
-def _create_c2d_message_generator(
-    device_id: str, mqtt_client: mqtt.MQTTClient
-) -> AsyncGenerator[Message, None]:
-    c2d_msg_topic = mqtt_topic.get_c2d_topic_for_subscribe(device_id)
-    mqtt_msg_generator = mqtt_client.get_incoming_message_generator(c2d_msg_topic)
-
-    async def c2d_message_generator(
-        incoming_mqtt_messages: AsyncGenerator[mqtt.MQTTMessage, None]
-    ) -> AsyncGenerator[Message, None]:
-        async for mqtt_message in incoming_mqtt_messages:
-            c2d_message = _create_hub_message_from_mqtt_message(mqtt_message)
-            yield c2d_message
-
-    return c2d_message_generator(mqtt_msg_generator)
-
-
-def _create_input_message_generator(
-    device_id: str, module_id: Optional[str], mqtt_client: mqtt.MQTTClient
-) -> Optional[AsyncGenerator[Message, None]]:
-    # TODO: this logic probably ought to be elsewhere?
-    if module_id is None:
-        # Can't create a input message generator without a module id
-        return None
-
-    input_msg_topic = mqtt_topic.get_input_topic_for_subscribe(device_id, module_id)
-    mqtt_msg_generator = mqtt_client.get_incoming_message_generator(input_msg_topic)
-
-    async def input_message_generator(
-        incoming_mqtt_messages: AsyncGenerator[mqtt.MQTTMessage, None]
-    ) -> AsyncGenerator[Message, None]:
-        async for mqtt_message in incoming_mqtt_messages:
-            input_message = _create_hub_message_from_mqtt_message(mqtt_message)
-            yield input_message
-
-    return input_message_generator(mqtt_msg_generator)
-
-
-def _create_direct_method_request_generator(
-    mqtt_client: mqtt.MQTTClient,
-) -> AsyncGenerator[DirectMethodRequest, None]:
-    method_request_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
-    mqtt_msg_generator = mqtt_client.get_incoming_message_generator(method_request_topic)
-
-    async def direct_method_request_generator(
-        incoming_mqtt_messages: AsyncGenerator[mqtt.MQTTMessage, None]
-    ) -> AsyncGenerator[DirectMethodRequest, None]:
-        async for mqtt_message in incoming_mqtt_messages:
-            # TODO: should request_id be an int in this context?
-            request_id = mqtt_topic.extract_request_id_from_direct_method_request_topic(
-                mqtt_message.topic
-            )
-            method_name = mqtt_topic.extract_name_from_direct_method_request_topic(
-                mqtt_message.topic
-            )
-            payload = json.loads(mqtt_message.payload.decode("utf-8"))
-            method_request = DirectMethodRequest(
-                request_id=request_id, name=method_name, payload=payload
-            )
-            yield method_request
-
-    return direct_method_request_generator(mqtt_msg_generator)
-
-
-def _create_twin_patch_generator(mqtt_client: mqtt.MQTTClient) -> AsyncGenerator[TwinPatch, None]:
-    twin_patch_topic = mqtt_topic.get_twin_patch_topic_for_subscribe()
-    mqtt_msg_generator = mqtt_client.get_incoming_message_generator(twin_patch_topic)
-
-    async def twin_patch_generator(
-        incoming_mqtt_messages: AsyncGenerator[mqtt.MQTTMessage, None]
-    ) -> AsyncGenerator[TwinPatch, None]:
-        async for mqtt_message in incoming_mqtt_messages:
-            patch = json.loads(mqtt_message.payload.decode("utf-8"))
-            yield patch
-
-    return twin_patch_generator(mqtt_msg_generator)
-
-
-def _create_hub_message_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> Message:
+def _create_iothub_message_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> models.Message:
     """Given an MQTTMessage, create and return a Message"""
     properties = mqtt_topic.extract_properties_from_message_topic(mqtt_message.topic)
     # Decode the payload based on content encoding in the topic. If not present, use utf-8
@@ -667,4 +660,19 @@ def _create_hub_message_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> Mes
     payload = mqtt_message.payload.decode(content_encoding)
     if content_type == "application/json":
         payload = json.loads(payload)
-    return Message.create_from_properties_dict(payload=payload, properties=properties)
+    return models.Message.create_from_properties_dict(payload=payload, properties=properties)
+
+
+def _create_direct_method_request_from_mqtt_message(
+    mqtt_message: mqtt.MQTTMessage,
+) -> models.DirectMethodRequest:
+    """Given an MQTTMessage, create and return a DirectMethodRequest"""
+    request_id = mqtt_topic.extract_request_id_from_direct_method_request_topic(mqtt_message.topic)
+    method_name = mqtt_topic.extract_name_from_direct_method_request_topic(mqtt_message.topic)
+    payload = json.loads(mqtt_message.payload.decode("utf-8"))
+    return models.DirectMethodRequest(request_id=request_id, name=method_name, payload=payload)
+
+
+def _create_twin_patch_from_mqtt_message(mqtt_message: mqtt.MQTTMessage) -> TwinPatch:
+    """Given an MQTTMessage, create and return a TwinPatch"""
+    return json.loads(mqtt_message.payload.decode("utf-8"))
