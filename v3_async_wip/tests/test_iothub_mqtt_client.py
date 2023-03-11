@@ -374,18 +374,13 @@ class TestIoTHubMQTTClientInstantiation:
 
         await client.shutdown()
 
-    @pytest.mark.it("Adds incoming message filter on the MQTTClient for C2D messages")
-    @pytest.mark.parametrize(
-        "device_id, module_id",
-        [
-            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
-            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
-        ],
+    @pytest.mark.it(
+        "Adds incoming message filter on the MQTTClient for C2D messages, if using a Device Configuration"
     )
-    async def test_c2d_filter(self, mocker, client_config, device_id, module_id):
-        client_config.device_id = device_id
-        client_config.module_id = module_id
-        expected_topic = mqtt_topic.get_c2d_topic_for_subscribe(device_id)
+    async def test_c2d_filter(self, mocker, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = None
+        expected_topic = mqtt_topic.get_c2d_topic_for_subscribe(FAKE_DEVICE_ID)
 
         mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
         client = IoTHubMQTTClient(client_config)
@@ -395,6 +390,65 @@ class TestIoTHubMQTTClientInstantiation:
             mocker.call(expected_topic)
             in client._mqtt_client.add_incoming_message_filter.call_args_list
         )
+
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not add incoming message filter on the MQTTClient for C2D messages, if using a Module Configuration"
+    )
+    async def test_c2d_message_filter_device(self, mocker, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = FAKE_MODULE_ID
+
+        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
+        client = IoTHubMQTTClient(client_config)
+
+        # NOTE: It's kind of weird to try and show a method wasn't called with an argument, when
+        # what that argument would even be can't be created without a module ID in the first place.
+        # What we do here is check every topic that a filter is added for to ensure none of them
+        # contain the word "input", which an input message topic would uniquely have
+        for call in client._mqtt_client.add_incoming_message_filter.call_args_list:
+            topic = call[0][0]
+            assert "devicebound" not in topic
+
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Adds incoming message filter on the MQTTClient for input messages, if using a Module Configuration"
+    )
+    async def test_input_message_filter_module(self, mocker, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = FAKE_MODULE_ID
+        expected_topic = mqtt_topic.get_input_topic_for_subscribe(FAKE_DEVICE_ID, FAKE_MODULE_ID)
+
+        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
+        client = IoTHubMQTTClient(client_config)
+
+        # NOTE: Multiple filters are added, but not all are covered in this test
+        assert (
+            mocker.call(expected_topic)
+            in client._mqtt_client.add_incoming_message_filter.call_args_list
+        )
+
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not add incoming message filter on the MQTTClient for input messages, if using a Device Configuration"
+    )
+    async def test_input_message_filter_device(self, mocker, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = None
+
+        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
+        client = IoTHubMQTTClient(client_config)
+
+        # NOTE: It's kind of weird to try and show a method wasn't called with an argument, when
+        # what that argument would even be can't be created without a module ID in the first place.
+        # What we do here is check every topic that a filter is added for to ensure none of them
+        # contain the word "input", which an input message topic would uniquely have
+        for call in client._mqtt_client.add_incoming_message_filter.call_args_list:
+            topic = call[0][0]
+            assert "inputs" not in topic
 
         await client.shutdown()
 
@@ -470,58 +524,50 @@ class TestIoTHubMQTTClientInstantiation:
 
         await client.shutdown()
 
+    # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingC2DMessages)
     @pytest.mark.it(
-        "Adds incoming message filter on the MQTTClient for input messages, if using a Module Configuration"
+        "Provides an incoming C2D message generator as a read-only property, if using a Device Configuration"
     )
-    async def test_input_message_filter_module(self, mocker, client_config):
+    async def test_incoming_c2d_messages_device(self, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = None
+        client = IoTHubMQTTClient(client_config)
+        assert client.incoming_c2d_messages
+        assert isinstance(client._incoming_c2d_messages, typing.AsyncGenerator)
+
+        await client.shutdown()
+
+    @pytest.mark.it(
+        "Does not create an incoming C2D message generator, if using a Module Configuration"
+    )
+    async def test_c2d_message_generator_module(self, client_config):
         client_config.device_id = FAKE_DEVICE_ID
         client_config.module_id = FAKE_MODULE_ID
-        expected_topic = mqtt_topic.get_input_topic_for_subscribe(FAKE_DEVICE_ID, FAKE_MODULE_ID)
-
-        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
         client = IoTHubMQTTClient(client_config)
+        assert client._incoming_c2d_messages is None
 
-        # NOTE: Multiple filters are added, but not all are covered in this test
-        assert (
-            mocker.call(expected_topic)
-            in client._mqtt_client.add_incoming_message_filter.call_args_list
-        )
+        await client.shutdown()
+
+    # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingInputMessages)
+    @pytest.mark.it(
+        "Creates and stores an incoming input message generator as an attribute, if using a Module Configuration"
+    )
+    async def test_input_message_generator_module(self, client_config):
+        client_config.device_id = FAKE_DEVICE_ID
+        client_config.module_id = FAKE_MODULE_ID
+        client = IoTHubMQTTClient(client_config)
+        assert isinstance(client._incoming_input_messages, typing.AsyncGenerator)
 
         await client.shutdown()
 
     @pytest.mark.it(
-        "Does not add incoming message filter on the MQTTClient for input messages, if using a Device Configuration"
+        "Does not create an incoming input message generator, if using a Device Configuration"
     )
-    async def test_input_message_filter_device(self, mocker, client_config):
+    async def test_input_message_generator_device(self, client_config):
         client_config.device_id = FAKE_DEVICE_ID
-
-        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
+        client_config.module_id = None
         client = IoTHubMQTTClient(client_config)
-
-        # NOTE: It's kind of weird to try and show a method wasn't called with an argument, when
-        # what that argument would even be can't be created without a module ID in the first place.
-        # What we do here is check every topic that a filter is added for to ensure none of them
-        # contain the word "input", which an input message topic would uniquely have
-        for call in client._mqtt_client.add_incoming_message_filter.call_args_list:
-            topic = call[0][0]
-            assert "inputs" not in topic
-
-        await client.shutdown()
-
-    # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingC2DMessages)
-    @pytest.mark.it("Creates and stores an incoming C2D message generator as an attribute")
-    @pytest.mark.parametrize(
-        "device_id, module_id",
-        [
-            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
-            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
-        ],
-    )
-    async def test_c2d_generator(self, client_config, device_id, module_id):
-        client_config.device_id = device_id
-        client_config.module_id = module_id
-        client = IoTHubMQTTClient(client_config)
-        assert isinstance(client.incoming_c2d_messages, typing.AsyncGenerator)
+        assert client._incoming_input_messages is None
 
         await client.shutdown()
 
@@ -540,7 +586,7 @@ class TestIoTHubMQTTClientInstantiation:
         client_config.device_id = device_id
         client_config.module_id = module_id
         client = IoTHubMQTTClient(client_config)
-        assert isinstance(client.incoming_direct_method_requests, typing.AsyncGenerator)
+        assert isinstance(client._incoming_direct_method_requests, typing.AsyncGenerator)
 
         await client.shutdown()
 
@@ -557,30 +603,7 @@ class TestIoTHubMQTTClientInstantiation:
         client_config.device_id = device_id
         client_config.module_id = module_id
         client = IoTHubMQTTClient(client_config)
-        assert isinstance(client.incoming_twin_patches, typing.AsyncGenerator)
-
-        await client.shutdown()
-
-    # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingInputMessages)
-    @pytest.mark.it(
-        "Creates and stores an incoming input message generator as an attribute, if using a Module Configuration"
-    )
-    async def test_input_message_generator_module(self, client_config):
-        client_config.device_id = FAKE_DEVICE_ID
-        client_config.module_id = FAKE_MODULE_ID
-        client = IoTHubMQTTClient(client_config)
-        assert isinstance(client.incoming_input_messages, typing.AsyncGenerator)
-
-        await client.shutdown()
-
-    @pytest.mark.it(
-        "Does not create an incoming input message generator, if using a Device Configuration"
-    )
-    async def test_input_message_generator_device(self, client_config):
-        client_config.device_id = FAKE_DEVICE_ID
-        client_config.module_id = None
-        client = IoTHubMQTTClient(client_config)
-        assert client.incoming_input_messages is None
+        assert isinstance(client._incoming_twin_patches, typing.AsyncGenerator)
 
         await client.shutdown()
 
@@ -642,8 +665,7 @@ class TestIoTHubMQTTClientInstantiation:
 
         await client.shutdown()
 
-    # NOTE: For testing the functionality of this task, see the corresponding test suite (???)
-    # TODO: add this test suite
+    # NOTE: For testing the functionality of this task, see the corresponding test suite (TestIoTHubMQTTClientKeepCredentialsFresh)
     @pytest.mark.it(
         "Begins running the ._keep_credentials_fresh() coroutine method as a background task, storing it as an attribute, if using SAS authentication"
     )
@@ -655,20 +677,22 @@ class TestIoTHubMQTTClientInstantiation:
         ],
     )
     async def test_keep_credentials_fresh_bg_task(
-        self, client_config, device_id, module_id, mock_sastoken_provider
+        self, mocker, client_config, device_id, module_id, mock_sastoken_provider
     ):
         client_config.device_id = device_id
         client_config.module_id = module_id
         client_config.sastoken_provider = mock_sastoken_provider
+
         client = IoTHubMQTTClient(client_config)
 
+        # A task was created
         assert isinstance(client._keep_credentials_fresh_bg_task, asyncio.Task)
         assert not client._keep_credentials_fresh_bg_task.done()
         if sys.version_info > (3, 8):
             # NOTE: There isn't a way to validate the contents of a task until 3.8
             # as far as I can tell.
-            task_coro = client._keep_credentials_fresh_bg_task.get_coro()
-            assert task_coro.__qualname__ == "IoTHubMQTTClient._keep_credentials_fresh"
+            task_coro_obj = client._keep_credentials_fresh_bg_task.get_coro()
+            assert task_coro_obj.__qualname__ == "IoTHubMQTTClient._keep_credentials_fresh"
 
         await client.shutdown()
 
@@ -2058,8 +2082,36 @@ class TestIoTHubMQTTClientDisableTwinPatchReceive(IoTHubMQTTClientDisableReceive
         return mqtt_topic.get_twin_patch_topic_for_subscribe()
 
 
-@pytest.mark.describe("IoTHubMQTTClient - .incoming_c2d_messages")
+@pytest.mark.describe("IoTHubMQTTClient - PROPERTY: .incoming_c2d_messages")
 class TestIoTHubMQTTClientIncomingC2DMessages:
+    @pytest.fixture(autouse=True)
+    def modify_client_config(self, client_config):
+        # C2D Messages only work for Device configurations
+        # NOTE: This has to be changed on the config, not the client,
+        # because it affects client initialization
+        client_config.module_id = None
+
+    @pytest.mark.it(
+        "Is an AsyncGenerator maintained as a read-only property, if using a Device Configuration"
+    )
+    def test_property_device(self, client):
+        assert client._device_id is not None
+        assert client._module_id is None
+        assert isinstance(client.incoming_c2d_messages, typing.AsyncGenerator)
+        with pytest.raises(AttributeError):
+            client.incoming_c2d_messages = 12
+
+    @pytest.mark.it("Raises IoTHubClientError when accessed, if not using Device Configuration")
+    async def test_property_module(self, client_config):
+        # Need to modify config and re-instantiate the client here because generators are created
+        # at instantiation time
+        client_config.module_id = FAKE_MODULE_ID
+        client = IoTHubMQTTClient(client_config)
+        with pytest.raises(IoTHubClientError):
+            client.incoming_c2d_messages
+
+        await client.shutdown()
+
     @pytest.mark.it(
         "Yields a Message whenever the MQTTClient receives an MQTTMessage on the incoming C2D message topic"
     )
@@ -2263,8 +2315,156 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
         assert msg.content_type == "text/plain"
         assert msg.content_encoding == "utf-8"
 
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while extracting the message properties from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_property_extraction_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
+        receive_topic = sub_topic.rstrip("#")
+        # MQTTMessage1
+        payload1 = "Message #1"
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg1.payload = payload1.encode("utf-8")
+        # MQTTMessage2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
 
-@pytest.mark.describe("IoTHubMQTTClient - .incoming_input_messages")
+        # Inject failure in first extraction only
+        original_fn = mqtt_topic.extract_properties_from_message_topic
+        mock_extract = mocker.patch.object(mqtt_topic, "extract_properties_from_message_topic")
+
+        def fail_once(*args, **kwargs):
+            mock_extract.side_effect = original_fn
+            raise arbitrary_exception
+
+        mock_extract.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_c2d_messages.__anext__()
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_extract.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_payload_decode_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
+        receive_topic = sub_topic.rstrip("#")
+        # MQTTMessage 1 (No payload due to mock below)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        # MQTTMessage 2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
+
+        # Inject failure to decode in first MQTTMessage only
+        mqtt_msg1.payload = mocker.MagicMock()
+        mqtt_msg1.payload.decode.side_effect = arbitrary_exception
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_c2d_messages.__anext__()
+        assert msg.payload == payload2
+        assert mqtt_msg1.payload.decode.call_count == 1
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while converting the payload from the MQTTMessage to JSON, dropping the MQTTMessage and continuing"
+    )
+    async def test_json_loads_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#"),
+            system_properties={"$.ct": "application/json"},
+            custom_properties={},
+        )
+        # MQTTMessage1
+        payload1 = {"some": "json"}
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload1).encode("utf-8")
+        # MQTTMessage2
+        payload2 = {"some_other": "json"}
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload2).encode("utf-8")
+
+        # Inject failure in the first json conversion only
+        original_loads = json.loads
+        mock_loads = mocker.patch.object(json, "loads")
+
+        def fail_once(*args, **kwargs):
+            mock_loads.side_effect = original_loads
+            raise arbitrary_exception
+
+        mock_loads.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_c2d_messages.__anext__()
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_loads.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while instantiating the Message object from the MQTTMessage values, dropping the MQTTMessage and continuing"
+    )
+    async def test_message_instantiation_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_c2d_topic_for_subscribe(client._device_id)
+        receive_topic = sub_topic.rstrip("#")
+        # MQTTMessage1
+        payload1 = "Message #1"
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg1.payload = payload1.encode("utf-8")
+        # MQTTMessage2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
+
+        # Inject failure in first extraction only
+        original_factory = models.Message.create_from_properties_dict
+        mock_factory = mocker.patch.object(models.Message, "create_from_properties_dict")
+
+        def fail_once(*args, **kwargs):
+            mock_factory.side_effect = original_factory
+            raise arbitrary_exception
+
+        mock_factory.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_c2d_messages.__anext__()
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_factory.call_count == 2
+
+    @pytest.mark.skip(reason="Currently can't figure out how to mock a generator correctly")
+    @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
+    async def test_cancelled_while_waiting_for_message(self):
+        pass
+
+
+@pytest.mark.describe("IoTHubMQTTClient - PROPERTY: .incoming_input_messages")
 class TestIoTHubMQTTClientIncomingInputMessages:
     @pytest.fixture(autouse=True)
     def modify_client_config(self, client_config):
@@ -2272,6 +2472,27 @@ class TestIoTHubMQTTClientIncomingInputMessages:
         # NOTE: This has to be changed on the config, not the client,
         # because it affects client initialization
         client_config.module_id = FAKE_MODULE_ID
+
+    @pytest.mark.it(
+        "Is an AsyncGenerator maintained as a read-only property, if using a Module Configuration"
+    )
+    def test_property_module(self, client):
+        assert client._device_id is not None
+        assert client._module_id is not None
+        assert isinstance(client.incoming_input_messages, typing.AsyncGenerator)
+        with pytest.raises(AttributeError):
+            client.incoming_input_messages = 12
+
+    @pytest.mark.it("Raises IoTHubClientError when accessed, if not using a Module Configuration")
+    async def test_property_device(self, client_config):
+        # Need to modify config and re-instantiate the client here because generators are created
+        # at instantiation time
+        client_config.module_id = None
+        client = IoTHubMQTTClient(client_config)
+        with pytest.raises(IoTHubClientError):
+            client.incoming_input_messages
+
+        await client.shutdown()
 
     @pytest.mark.it(
         "Yields a Message whenever the MQTTClient receives an MQTTMessage on the incoming Input message topic"
@@ -2478,9 +2699,163 @@ class TestIoTHubMQTTClientIncomingInputMessages:
         assert msg.content_type == "text/plain"
         assert msg.content_encoding == "utf-8"
 
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while extracting the message properties from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_property_extraction_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/"
+        # MQTTMessage1
+        payload1 = "Message #1"
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg1.payload = payload1.encode("utf-8")
+        # MQTTMessage2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
 
-@pytest.mark.describe("IoTHubMQTTClient - .incoming_direct_s")
+        # Inject failure in first extraction only
+        original_fn = mqtt_topic.extract_properties_from_message_topic
+        mock_extract = mocker.patch.object(mqtt_topic, "extract_properties_from_message_topic")
+
+        def fail_once(*args, **kwargs):
+            mock_extract.side_effect = original_fn
+            raise arbitrary_exception
+
+        mock_extract.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_extract.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_payload_decode_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/"
+        # MQTTMessage 1 (No payload due to mock below)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        # MQTTMessage 2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
+
+        # Inject failure to decode in first MQTTMessage only
+        mqtt_msg1.payload = mocker.MagicMock()
+        mqtt_msg1.payload.decode.side_effect = arbitrary_exception
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload == payload2
+        assert mqtt_msg1.payload.decode.call_count == 1
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while converting the payload from the MQTTMessage to JSON, dropping the MQTTMessage and continuing"
+    )
+    async def test_json_loads_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = mqtt_topic.insert_message_properties_in_topic(
+            topic=sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/",
+            system_properties={"$.ct": "application/json"},
+            custom_properties={},
+        )
+        # MQTTMessage1
+        payload1 = {"some": "json"}
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload1).encode("utf-8")
+        # MQTTMessage2
+        payload2 = {"some_other": "json"}
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload2).encode("utf-8")
+
+        # Inject failure in the first json conversion only
+        original_loads = json.loads
+        mock_loads = mocker.patch.object(json, "loads")
+
+        def fail_once(*args, **kwargs):
+            mock_loads.side_effect = original_loads
+            raise arbitrary_exception
+
+        mock_loads.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_loads.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while instantiating the Message object from the MQTTMessage values, dropping the MQTTMessage and continuing"
+    )
+    async def test_message_instantiation_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        sub_topic = mqtt_topic.get_input_topic_for_subscribe(client._device_id, client._module_id)
+        receive_topic = sub_topic.rstrip("#") + FAKE_INPUT_NAME + "/"
+        # MQTTMessage1
+        payload1 = "Message #1"
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg1.payload = payload1.encode("utf-8")
+        # MQTTMessage2
+        payload2 = "Message #2"
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=receive_topic.encode("utf-8"))
+        mqtt_msg2.payload = payload2.encode("utf-8")
+
+        # Inject failure in first extraction only
+        original_factory = models.Message.create_from_properties_dict
+        mock_factory = mocker.patch.object(models.Message, "create_from_properties_dict")
+
+        def fail_once(*args, **kwargs):
+            mock_factory.side_effect = original_factory
+            raise arbitrary_exception
+
+        mock_factory.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[sub_topic].put(mqtt_msg2)
+
+        # The Message is derived from the second MQTTMessage instead of the first because the
+        # first failed, the error was suppressed, and the MQTTMessage discarded
+        msg = await client.incoming_input_messages.__anext__()
+        assert msg.payload == payload2
+        assert payload2 != payload1
+        assert mock_factory.call_count == 2
+
+    @pytest.mark.skip(reason="Currently can't figure out how to mock a generator correctly")
+    @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
+    async def test_cancelled_while_waiting_for_message(self):
+        pass
+
+
+@pytest.mark.describe("IoTHubMQTTClient - PROPERTY: .incoming_direct_method_requests")
 class TestIoTHubMQTTClientIncomingDirectMethodRequests:
+    @pytest.mark.it("Is an AsyncGenerator maintained as a read-only property")
+    def test_property(self, client):
+        assert isinstance(client.incoming_direct_method_requests, typing.AsyncGenerator)
+        with pytest.raises(AttributeError):
+            client.incoming_direct_method_requests = 12
+
     @pytest.mark.it(
         "Yields a DirectMethodRequest whenever the MQTTClient receives an MQTTMessage on the incoming direct method request topic"
     )
@@ -2548,9 +2923,212 @@ class TestIoTHubMQTTClientIncomingDirectMethodRequests:
 
         assert mreq.payload == expected_payload
 
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while extracting the request id from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_request_id_extraction_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
+        payload = {"json": "derived", "from": {"byte": "payload"}}
+        # MQTTMessage 1
+        mreq_name1 = "some_method"
+        mreq_topic1 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name1, 1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic1.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload).encode("utf-8")
+        # MQTTMessage 2
+        mreq_name2 = "some_other_method"
+        mreq_topic2 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name2, 2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=mreq_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload).encode("utf-8")
 
-@pytest.mark.describe("IoTHubMQTTClient - .incoming_twin_patches")
+        # Inject failure into the first extraction only
+        original_fn = mqtt_topic.extract_request_id_from_direct_method_request_topic
+        mock_extract = mocker.patch.object(
+            mqtt_topic, "extract_request_id_from_direct_method_request_topic"
+        )
+
+        def fail_once(*args, **kwargs):
+            mock_extract.side_effect = original_fn
+            raise arbitrary_exception
+
+        mock_extract.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The DirectMethodResponse is derived from the second MQTTMessage instead of the first,
+        # because the first failed, the error was suppressed, and the MQTTMessage discarded
+        mreq = await client.incoming_direct_method_requests.__anext__()
+        assert mreq.name == mreq_name2
+        assert mreq_name2 != mreq_name1
+        assert mock_extract.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while extracting the method name from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_method_name_extraction_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
+        payload = {"json": "derived", "from": {"byte": "payload"}}
+        # MQTTMessage 1
+        mreq_name1 = "some_method"
+        mreq_topic1 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name1, 1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic1.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload).encode("utf-8")
+        # MQTTMessage 2
+        mreq_name2 = "some_other_method"
+        mreq_topic2 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name2, 2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=mreq_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload).encode("utf-8")
+
+        # Inject failure into the first extraction only
+        original_fn = mqtt_topic.extract_name_from_direct_method_request_topic
+        mock_extract = mocker.patch.object(
+            mqtt_topic, "extract_name_from_direct_method_request_topic"
+        )
+
+        def fail_once(*args, **kwargs):
+            mock_extract.side_effect = original_fn
+            raise arbitrary_exception
+
+        mock_extract.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The DirectMethodResponse is derived from the second MQTTMessage instead of the first,
+        # because the first failed, the error was suppressed, and the MQTTMessage discarded
+        mreq = await client.incoming_direct_method_requests.__anext__()
+        assert mreq.name == mreq_name2
+        assert mreq_name2 != mreq_name1
+        assert mock_extract.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_payload_decode_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
+        # MQTTMessage 1 (No payload due to mock below)
+        mreq_name1 = "some_method"
+        mreq_topic1 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name1, 1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic1.encode("utf-8"))
+        # MQTTMessage 2
+        mreq_name2 = "some_other_method"
+        mreq_topic2 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name2, 2)
+        payload2 = {"json": "derived", "from": {"byte": "payload"}}
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=mreq_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload2).encode("utf-8")
+
+        # Inject failure to the first MQTTMessage only
+        mqtt_msg1.payload = mocker.MagicMock()
+        mqtt_msg1.payload.decode.side_effect = arbitrary_exception
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The DirectMethodResponse is derived from the second MQTTMessage instead of the first,
+        # because the first failed, the error was suppressed, and the MQTTMessage discarded
+        mreq = await client.incoming_direct_method_requests.__anext__()
+        assert mreq.name == mreq_name2
+        assert mreq_name2 != mreq_name1
+        assert mqtt_msg1.payload.decode.call_count == 1
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while converting the payload from the MQTTMessage to JSON, dropping the MQTTMessage and continuing"
+    )
+    async def test_json_loads_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
+        payload = {"json": "derived", "from": {"byte": "payload"}}
+        # MQTTMessage 1
+        mreq_name1 = "some_method"
+        mreq_topic1 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name1, 1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic1.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload).encode("utf-8")
+        # MQTTMessage 2
+        mreq_name2 = "some_other_method"
+        mreq_topic2 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name2, 2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=mreq_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload).encode("utf-8")
+
+        # Inject failure to the first json conversion only
+        original_loads = json.loads
+        mock_loads = mocker.patch.object(json, "loads")
+
+        def fail_once(*args, **kwargs):
+            mock_loads.side_effect = original_loads
+            raise arbitrary_exception
+
+        mock_loads.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The DirectMethodResponse is derived from the second MQTTMessage instead of the first,
+        # because the first failed, the error was suppressed, and the MQTTMessage discarded
+        mreq = await client.incoming_direct_method_requests.__anext__()
+        assert mreq.name == mreq_name2
+        assert mreq_name2 != mreq_name1
+        assert mock_loads.call_count == 2
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while instantiating the DirectMethodRequest object from the MQTTMessage values, dropping the MQTTMessage and continuing"
+    )
+    async def test_request_instantiation_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_direct_method_request_topic_for_subscribe()
+        payload = {"json": "derived", "from": {"byte": "payload"}}
+        # MQTTMessage 1
+        mreq_name1 = "some_method"
+        mreq_topic1 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name1, 1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=mreq_topic1.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload).encode("utf-8")
+        # MQTTMessage 2
+        mreq_name2 = "some_other_method"
+        mreq_topic2 = generic_topic.rstrip("#") + "{}/?$rid={}".format(mreq_name2, 2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=mreq_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload).encode("utf-8")
+
+        # Inject failure into the first instantiation only
+        original_cls = models.DirectMethodRequest
+        mock_cls = mocker.patch.object(models, "DirectMethodRequest")
+
+        def fail_once(*args, **kwargs):
+            mock_cls.side_effect = original_cls
+            raise arbitrary_exception
+
+        mock_cls.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The DirectMethodResponse is derived from the second MQTTMessage instead of the first,
+        # because the first failed, the error was suppressed, and the MQTTMessage discarded
+        mreq = await client.incoming_direct_method_requests.__anext__()
+        assert mreq.name == mreq_name2
+        assert mreq_name2 != mreq_name1
+        assert mock_cls.call_count == 2
+
+    @pytest.mark.skip(reason="Currently can't figure out how to mock a generator correctly")
+    @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
+    async def test_cancelled_while_waiting_for_message(self):
+        pass
+
+
+@pytest.mark.describe("IoTHubMQTTClient - PROPERTY: .incoming_twin_patches")
 class TestIoTHubMQTTClientIncomingTwinPatches:
+    @pytest.mark.it("Is an AsyncGenerator maintained as a read-only property")
+    def test_property(self, client):
+        assert isinstance(client.incoming_twin_patches, typing.AsyncGenerator)
+        with pytest.raises(AttributeError):
+            client.incoming_twin_patches = 12
+
     @pytest.mark.it(
         "Yields a JSON-formatted dictionary whenever the MQTTClient receives an MQTTMessage on the incoming twin patch topic"
     )
@@ -2592,18 +3170,99 @@ class TestIoTHubMQTTClientIncomingTwinPatches:
         patch = await client.incoming_twin_patches.__anext__()
         assert patch == expected_json
 
-
-# TODO: To reflect the complexity of background tasks, these tests need to be adjusted
-# to be about the background task itself, not a reaction to an event. This is probably the
-# end of any "OCCURRENCE" tests in the client layer
-@pytest.mark.describe("IoTHubMQTTClient - OCCURRENCE: Twin Response Received")
-class TestIoTHubMQTTClientIncomingTwinResponse:
-    # NOTE: This test suite exists for simplicity - twin responses are used in both
-    # .get_twin() and .send_twin_patch(), and rather than testing this functionality twice
-    # it has been isolated out to test here. This also makes mocking behavior for the tests of
-    # the aforementioned methods much simpler.
     @pytest.mark.it(
-        "Creates a Response containing the request id and status code from the topic, as well as the utf-8 decoded payload of the MQTTMessage, whenever the MQTTClient receives an MQTTMessage on the twin response topic"
+        "Suppresses any unexpected exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_payload_decode_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_twin_patch_topic_for_subscribe()
+        # MQTTMessage 1 (no payload due to mock below)
+        patch_topic1 = generic_topic.rstrip("#") + "?$version=1"
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=patch_topic1.encode("utf-8"))
+        # MQTTMessage 2
+        patch_topic2 = generic_topic.rstrip("#") + "?$version=2"
+        payload2 = {"property1": "value1", "property2": "value2", "$version": 2}
+        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=patch_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload2).encode("utf-8")
+
+        # Inject failure to the first MQTTMessage only
+        mqtt_msg1.payload = mocker.MagicMock()
+        mqtt_msg1.payload.decode.side_effect = arbitrary_exception
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The twin patch is derived from the second message instead of the first, because the first
+        # failed, the error was suppressed, and the message discarded
+        patch = await client.incoming_twin_patches.__anext__()
+        assert patch == payload2
+        assert mqtt_msg1.payload.decode.call_count == 1
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while converting the payload from the MQTTMessage to JSON, dropping the MQTTMessage and continuing"
+    )
+    async def test_json_loads_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages
+        generic_topic = mqtt_topic.get_twin_patch_topic_for_subscribe()
+        # MQTTMessage 1
+        patch_topic1 = generic_topic.rstrip("#") + "?$version=1"
+        payload1 = {"property1": "value1", "property2": "value2", "$version": 1}
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=patch_topic1.encode("utf-8"))
+        mqtt_msg1.payload = json.dumps(payload1).encode("utf-8")
+        # MQTTMessage 2
+        patch_topic2 = generic_topic.rstrip("#") + "?$version=2"
+        payload2 = {"property1": "value1", "property2": "value2", "$version": 2}
+        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=patch_topic2.encode("utf-8"))
+        mqtt_msg2.payload = json.dumps(payload2).encode("utf-8")
+
+        # Inject failure to the first json conversion only
+        original_loads = json.loads
+        mock_loads = mocker.patch.object(json, "loads")
+
+        def fail_once(*args, **kwargs):
+            mock_loads.side_effect = original_loads
+            raise arbitrary_exception
+
+        mock_loads.side_effect = fail_once
+
+        # Load the MQTTMessages
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+
+        # The twin patch is derived from the second message instead of the first, because the first
+        # failed, the error was suppressed, and the message discarded
+        patch = await client.incoming_twin_patches.__anext__()
+        assert patch == payload2
+        assert payload1 != payload2
+        assert mock_loads.call_count == 2
+
+    @pytest.mark.skip(reason="Currently can't figure out how to mock a generator correctly")
+    @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
+    async def test_cancelled_while_waiting_for_message(self):
+        pass
+
+
+@pytest.mark.describe("IoTHubMQTTClient - BG TASK: ._process_twin_responses")
+class TestIoTHubMQTTClientProcessTwinResponses:
+    response_payloads = [
+        pytest.param('{"json": "in", "a": {"string": "format"}}', id="Get Twin Response"),
+        pytest.param(" ", id="Twin Patch Response"),
+    ]
+
+    @pytest.fixture(autouse=True)
+    def modify_client(self, client):
+        # Delete the ._process_twin_responses_bg_task Task, since we will want
+        # to re-instantiate the coroutine task to directly test it.
+        # NOTE: Yes, this is a strange thing to do, but necessary for proper coverage.
+        # The creation of the task was already tested in the instantiation test suite,
+        # here we are trying to test the CONTENTS of the task, and the best way to do that
+        # is to start over from scratch. And having another copy of the task running in
+        # the background is just a confound.
+        client._process_twin_responses_bg_task.cancel()
+
+    @pytest.mark.it(
+        "Creates a Response containing the request id and status code from the topic, as well as the utf-8 decoded payload of the MQTTMessage, when the MQTTClient receives an MQTTMessage on the twin response topic"
     )
     @pytest.mark.parametrize(
         "status",
@@ -2614,63 +3273,415 @@ class TestIoTHubMQTTClientIncomingTwinResponse:
             pytest.param(500, id="Status Code: 500"),
         ],
     )
-    async def test_response(self, mocker, client, status):
+    @pytest.mark.parametrize("payload_str", response_payloads)
+    async def test_response(self, mocker, client, status, payload_str):
         # Mocks
         mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
         spy_response_factory = mocker.spy(rr, "Response")
-        # MQTTMessages
+        # Set up MQTTMessages
         generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
-        rid1 = "some rid"
-        msg1_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(status, rid1)
-        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=msg1_topic.encode("utf-8"))
-        # Empty payload used in twin patch responses
-        mqtt_msg1.payload = " ".encode("utf-8")
-        rid2 = "some other rid"
-        msg2_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(status, rid2)
-        mqtt_msg2 = mqtt.MQTTMessage(mid=2, topic=msg2_topic.encode("utf-8"))
-        # JSON payload used in get twin responses
-        mqtt_msg2.payload = '{"json": "in", "a": {"string": "format"}}'.encode("utf-8")
-        # No responses have been created yet
-        assert spy_response_factory.call_count == 0
-        # Load the MQTTMessages into the MQTTClient's filtered message queue
-        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
-        await asyncio.sleep(0.1)
-        assert spy_response_factory.call_count == 1
-        resp1 = spy_response_factory.spy_return
-        assert resp1.request_id == rid1
-        assert resp1.status == status
-        assert resp1.body == mqtt_msg1.payload.decode("utf-8")
-        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
-        await asyncio.sleep(0.1)
-        assert spy_response_factory.call_count == 2
-        resp2 = spy_response_factory.spy_return
-        assert resp2.request_id == rid2
-        assert resp2.status == status
-        assert resp2.body == mqtt_msg2.payload.decode("utf-8")
+        rid = "some rid"
+        msg_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(status, rid)
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=msg_topic.encode("utf-8"))
+        mqtt_msg.payload = payload_str.encode("utf-8")
 
-    @pytest.mark.it("Matches the newly created Response on the RequestLedger")
-    async def test_match(self, mocker, client):
-        mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
-        spy_response_factory = mocker.spy(rr, "Response")
-        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
-        topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, "some rid")
-        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=topic.encode("utf-8"))
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+        await asyncio.sleep(0.1)
+
+        # No Responses have been created yet
         assert spy_response_factory.call_count == 0
-        assert mock_ledger.match_response.call_count == 0
+
         # Load the MQTTMessage into the MQTTClient's filtered message queue
         await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg)
         await asyncio.sleep(0.1)
+
+        # Response was created
+        assert spy_response_factory.call_count == 1
+        resp1 = spy_response_factory.spy_return
+        assert resp1.request_id == rid
+        assert resp1.status == status
+        assert resp1.body == payload_str
+
+        t.cancel()
+
+    @pytest.mark.it("Matches the newly created Response on the RequestLedger")
+    @pytest.mark.parametrize("payload_str", response_payloads)
+    async def test_match(self, mocker, client, payload_str):
+        # Mock
+        mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
+        spy_response_factory = mocker.spy(rr, "Response")
+        # Set up MQTTMessage
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, "some rid")
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=topic.encode("utf-8"))
+        mqtt_msg.payload = payload_str.encode("utf-8")
+
+        # No Responses have been created yet
+        assert spy_response_factory.call_count == 0
+        assert mock_ledger.match_response.call_count == 0
+
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+        await asyncio.sleep(0.1)
+
+        # Load the MQTTMessage into the MQTTClient's filtered message queue
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg)
+        await asyncio.sleep(0.1)
+
+        # Response was created
         assert spy_response_factory.call_count == 1
         resp1 = spy_response_factory.spy_return
         assert mock_ledger.match_response.call_count == 1
         assert mock_ledger.match_response.call_args == mocker.call(resp1)
 
+        t.cancel()
 
-# TODO: To reflect the complexity of background tasks, these tests need to be adjusted
-# to be about the background task itself, not a reaction to an event. This is probably the
-# end of any "OCCURRENCE" tests in the client layer
-@pytest.mark.describe("IoTHubMQTTClient - OCCURRENCE: SasTokenProvider Updates SasToken")
-class TestIoTHubMQTTClientSasTokenUpdate:
+    @pytest.mark.it("Indefinitely repeats")
+    async def test_repeat(self, mocker, client):
+        mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
+        spy_response_factory = mocker.spy(rr, "Response")
+        assert spy_response_factory.call_count == 0
+        assert mock_ledger.match_response.call_count == 0
+
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, "some rid")
+
+        t = asyncio.create_task(client._process_twin_responses())
+        await asyncio.sleep(0.1)
+
+        # Test that behavior repeats up to 10 times. No way to really prove infinite
+        i = 0
+        assert mock_ledger.match_response.call_count == 0
+        while i < 10:
+            i += 1
+            mqtt_msg = mqtt.MQTTMessage(mid=1, topic=topic.encode("utf-8"))
+            # Switch between Get Twin and Twin Patch responses
+            if i % 2 == 0:
+                mqtt_msg.payload = " ".encode("utf-8")
+            else:
+                mqtt_msg.payload = '{"json": "in", "a": {"string": "format"}}'.encode("utf-8")
+            # Load the MQTTMessage into the MQTTClient's filtered message queue
+            await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg)
+            await asyncio.sleep(0.1)
+            # Response was created
+            assert spy_response_factory.call_count == i
+
+        assert not t.done()
+        t.cancel()
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while extracting the request id from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_request_id_extraction_fails(self, mocker, client, arbitrary_exception):
+        # Inject failure
+        original_fn = mqtt_topic.extract_request_id_from_twin_response_topic
+        mocker.patch.object(
+            mqtt_topic,
+            "extract_request_id_from_twin_response_topic",
+            side_effect=arbitrary_exception,
+        )
+
+        # Create two messages that are the same other than the request id
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        # Response #1
+        rid1 = "rid1"
+        msg1_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, rid1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=msg1_topic.encode("utf-8"))
+        mqtt_msg1.payload = " ".encode("utf-8")
+        # Response #2
+        rid2 = "rid2"
+        msg2_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, rid2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=msg2_topic.encode("utf-8"))
+        mqtt_msg2.payload = " ".encode("utf-8")
+
+        # Spy on the Response object
+        spy_response_factory = mocker.spy(rr, "Response")
+
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+
+        # Load the first MQTTMessage
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await asyncio.sleep(0.1)
+
+        # No Response was created due to the injected failure (but failure was suppressed)
+        assert spy_response_factory.call_count == 0
+        mqtt_topic.extract_request_id_from_twin_response_topic.call_count == 1
+
+        # Un-inject the failure
+        mqtt_topic.extract_request_id_from_twin_response_topic = original_fn
+
+        # Load the second MQTTMessage
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+        await asyncio.sleep(0.1)
+
+        # This time a Response was created, demonstrating that the task is still functional
+        assert spy_response_factory.call_count == 1
+        resp2 = spy_response_factory.spy_return
+        assert resp2.request_id == rid2
+        assert resp2.status == 200
+        assert resp2.body == mqtt_msg2.payload.decode("utf-8")
+
+        assert not t.done()
+
+        t.cancel()
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while extracting the status code from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_status_code_extraction_fails(self, mocker, client, arbitrary_exception):
+        # Inject failure
+        original_fn = mqtt_topic.extract_status_code_from_twin_response_topic
+        mocker.patch.object(
+            mqtt_topic,
+            "extract_status_code_from_twin_response_topic",
+            side_effect=arbitrary_exception,
+        )
+
+        # Create two messages that are the same other than the request id
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        # Response #1
+        rid1 = "rid1"
+        msg1_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, rid1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=msg1_topic.encode("utf-8"))
+        mqtt_msg1.payload = " ".encode("utf-8")
+        # Response #2
+        rid2 = "rid2"
+        msg2_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, rid2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=msg2_topic.encode("utf-8"))
+        mqtt_msg2.payload = " ".encode("utf-8")
+
+        # Spy on the Response object
+        spy_response_factory = mocker.spy(rr, "Response")
+
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+
+        # Load the first MQTTMessage
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await asyncio.sleep(0.1)
+
+        # No Response was created due to the injected failure (but failure was suppressed)
+        assert spy_response_factory.call_count == 0
+        mqtt_topic.extract_status_code_from_twin_response_topic.call_count == 1
+
+        # Un-inject the failure
+        mqtt_topic.extract_status_code_from_twin_response_topic = original_fn
+
+        # Load the second MQTTMessage
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+        await asyncio.sleep(0.1)
+
+        # This time a Response was created, demonstrating that the previous failure did not
+        # crash the task
+        assert spy_response_factory.call_count == 1
+        resp2 = spy_response_factory.spy_return
+        assert resp2.request_id == rid2
+        assert resp2.status == 200
+        assert resp2.body == mqtt_msg2.payload.decode("utf-8")
+
+        assert not t.done()
+
+        t.cancel()
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised while decoding the payload from the MQTTMessage, dropping the MQTTMessage and continuing"
+    )
+    async def test_payload_decode_fails(self, mocker, client, arbitrary_exception):
+        # Create two messages that are the same other than the request id
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        # Response #1
+        rid1 = "rid1"
+        msg1_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, rid1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=msg1_topic.encode("utf-8"))
+        mqtt_msg1.payload = " ".encode("utf-8")
+        # Response #2
+        rid2 = "rid2"
+        msg2_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, rid2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=msg2_topic.encode("utf-8"))
+        mqtt_msg2.payload = " ".encode("utf-8")
+
+        # Spy on the Response object
+        spy_response_factory = mocker.spy(rr, "Response")
+
+        # Inject failure into the first MQTTMessage's payload
+        mqtt_msg1.payload = mocker.MagicMock()
+        mqtt_msg1.payload.decode.side_effect = arbitrary_exception
+
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+
+        # Load the first MQTTMessage
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await asyncio.sleep(0.1)
+
+        # No Response was created due to the injected failure (but failure was suppressed)
+        assert spy_response_factory.call_count == 0
+        assert mqtt_msg1.payload.decode.call_count == 1
+
+        # Load the second MQTTMessage
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+        await asyncio.sleep(0.1)
+
+        # This time a Response was created, demonstrating that the previous failure did not
+        # crash the task
+        assert spy_response_factory.call_count == 1
+        resp2 = spy_response_factory.spy_return
+        assert resp2.request_id == rid2
+        assert resp2.status == 200
+        assert resp2.body == mqtt_msg2.payload.decode("utf-8")
+
+        assert not t.done()
+
+        t.cancel()
+
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised instantiating the Response object from the MQTTMessage values, dropping the MQTTMessage and continuing"
+    )
+    async def test_response_instantiation_fails(self, mocker, client, arbitrary_exception):
+        # Inject failure
+        original_cls = rr.Response
+        mocker.patch.object(rr, "Response", side_effect=arbitrary_exception)
+
+        # Create two messages that are the same other than the request id
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        # Response #1
+        rid1 = "rid1"
+        msg1_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, rid1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=msg1_topic.encode("utf-8"))
+        mqtt_msg1.payload = " ".encode("utf-8")
+        # Response #2
+        rid2 = "rid2"
+        msg2_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, rid2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=msg2_topic.encode("utf-8"))
+        mqtt_msg2.payload = " ".encode("utf-8")
+
+        # Mock the ledger so we can see if it is used
+        mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
+
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+
+        # Load the first MQTTMessage
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await asyncio.sleep(0.1)
+
+        # No Response matched to the injected failure (but failure was suppressed)
+        assert mock_ledger.match_response.call_count == 0
+        assert rr.Response.call_count == 1
+
+        # Un-inject the failure
+        rr.Response = original_cls
+
+        # Load the second MQTTMessage
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+        await asyncio.sleep(0.1)
+
+        # This time a Response was created and matched, demonstrating that the previous
+        # failure did not crash the task
+        assert mock_ledger.match_response.call_count == 1
+        resp = mock_ledger.match_response.call_args[0][0]
+        assert resp.request_id == rid2
+        assert resp.status == 200
+        assert resp.body == mqtt_msg2.payload.decode("utf-8")
+
+        assert not t.done()
+
+        t.cancel()
+
+    @pytest.mark.it(
+        "Suppresses any exceptions raised while matching the Response, dropping the MQTTMessage and continuing"
+    )
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(KeyError(), id="KeyError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_response_match_fails(self, mocker, client, exception):
+        mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
+
+        # Create two messages that are the same other than the request id
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        # Response #1
+        rid1 = "rid1"
+        msg1_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, rid1)
+        mqtt_msg1 = mqtt.MQTTMessage(mid=1, topic=msg1_topic.encode("utf-8"))
+        mqtt_msg1.payload = " ".encode("utf-8")
+        # Response #2
+        rid2 = "rid2"
+        msg2_topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, rid2)
+        mqtt_msg2 = mqtt.MQTTMessage(mid=1, topic=msg2_topic.encode("utf-8"))
+        mqtt_msg2.payload = " ".encode("utf-8")
+
+        # Inject failure into the response match
+        mock_ledger.match_response.side_effect = exception
+
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+
+        # Load the first MQTTMessage
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg1)
+        await asyncio.sleep(0.1)
+
+        # Attempt to match response ocurred (and thus, failed, due to mock)
+        assert mock_ledger.match_response.call_count == 1
+
+        # Un-inject the failure
+        mock_ledger.match_response.side_effect = None
+
+        # Load the second MQTTMessage
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg2)
+        await asyncio.sleep(0.1)
+
+        # Another response match ocurred, demonstrating that the previous failure did not
+        # crash the task
+        assert mock_ledger.match_response.call_count == 2
+        resp2 = mock_ledger.match_response.call_args[0][0]
+        assert resp2.request_id == rid2
+        assert resp2.status == 200
+        assert resp2.body == mqtt_msg2.payload.decode("utf-8")
+
+        assert not t.done()
+
+        t.cancel()
+
+    @pytest.mark.skip(reason="Currently can't figure out how to mock a generator correctly")
+    @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
+    async def test_cancelled_while_waiting_for_message(self):
+        pass
+
+    @pytest.mark.it("Can be cancelled while matching Response")
+    async def test_cancelled_while_matching_response(self, mocker, client):
+        mock_ledger = mocker.patch.object(client, "_request_ledger", spec=rr.RequestLedger)
+        mock_ledger.match_response = custom_mock.HangingAsyncMock()
+
+        # Set up MQTTMessage
+        generic_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
+        topic = generic_topic.rstrip("#") + "{}/?$rid={}".format(200, "some rid")
+        mqtt_msg = mqtt.MQTTMessage(mid=1, topic=topic.encode("utf-8"))
+        mqtt_msg.payload = " ".encode("utf-8")
+
+        # Start task
+        t = asyncio.create_task(client._process_twin_responses())
+        await asyncio.sleep(0.1)
+
+        # Load the MQTTMessage into the MQTTClient's filtered message queue
+        await client._mqtt_client._incoming_filtered_messages[generic_topic].put(mqtt_msg)
+
+        # Matching response is hanging
+        await mock_ledger.match_response.wait_for_hang()
+
+        # Task can be cancelled
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+
+@pytest.mark.describe("IoTHubMQTTClient - BG TASK: ._keep_credentials_fresh()")
+class TestIoTHubMQTTClientKeepCredentialsFresh:
     @pytest.fixture(autouse=True)
     def modify_client_config(self, client_config, mock_sastoken_provider):
         # Need to use a client with SAS token auth
@@ -2678,14 +3689,49 @@ class TestIoTHubMQTTClientSasTokenUpdate:
         # because it affects client initialization
         client_config.sastoken_provider = mock_sastoken_provider
 
+    @pytest.fixture(autouse=True)
+    def modify_client(self, modify_client_config, client):
+        # Delete the ._keep_credentials_fresh_bg_task Task, since we will want
+        # to re-instantiate the coroutine task to directly test it.
+        # NOTE: Yes, this is a strange thing to do, but necessary for proper coverage.
+        # The creation of the task was already tested in the instantiation test suite,
+        # here we are trying to test the CONTENTS of the task, and the best way to do that
+        # is to start over from scratch. And having another copy of the task running in
+        # the background is just a confound.
+        # NOTE: `modify_client_config` needs to be a parameter here to ensure that it is
+        # triggered before the client is instantiated.
+
+        client._keep_credentials_fresh_bg_task.cancel()
+        client._keep_credentials_fresh_bg_task = None
+        # Reset the mocks that may have been invoked by the original task that was deleted
+        client._sastoken_provider.wait_for_new_sastoken.reset_mock()
+        client._mqtt_client.set_credentials.reset_mock()
+
+    @pytest.mark.it("Awaits the availability of a new SasToken from the client's SasTokenProvider")
+    async def test_waits_for_token(self, mocker, client):
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
+
+        t = asyncio.create_task(client._keep_credentials_fresh())
+        await client._sastoken_provider.wait_for_new_sastoken.wait_for_hang()
+
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 1
+        assert client._sastoken_provider.wait_for_new_sastoken.await_args == mocker.call()
+
+        t.cancel()
+
     @pytest.mark.it(
         "Updates the MQTTClient's credentials, using the stored username as the username, and the string-converted new SasToken as the password"
     )
     async def test_updates_credentials(self, mocker, client):
-        # Client is waiting on a new SasToken
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 1
-        assert client._sastoken_provider.wait_for_new_sastoken.is_hanging()
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
         assert client._mqtt_client.set_credentials.call_count == 0
+
+        t = asyncio.create_task(client._keep_credentials_fresh())
+        await client._sastoken_provider.wait_for_new_sastoken.wait_for_hang()
+
+        # Waiting for new SasToken
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 1
+        assert client._sastoken_provider.wait_for_new_sastoken.await_args == mocker.call()
 
         # Trigger new SasToken arrival
         client._sastoken_provider.wait_for_new_sastoken.stop_hanging()
@@ -2699,23 +3745,118 @@ class TestIoTHubMQTTClientSasTokenUpdate:
             client._username, str(new_sastoken)
         )
 
-        # Client is now waiting on a new SasToken again
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 2
-        assert client._sastoken_provider.wait_for_new_sastoken.is_hanging()
-        assert client._mqtt_client.set_credentials.call_count == 1
+        t.cancel()
 
-        # Trigger new SasToken arrival again
-        client._sastoken_provider.wait_for_new_sastoken.stop_hanging()
-        new_sastoken = client._sastoken_provider.wait_for_new_sastoken.return_value
-        assert isinstance(new_sastoken, st.SasToken)
+    @pytest.mark.it("Indefinitely repeats")
+    async def test_repeat(self, mocker, client):
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
+        assert client._mqtt_client.set_credentials.call_count == 0
+
+        t = asyncio.create_task(client._keep_credentials_fresh())
+
+        # Test that behavior repeats up to 10 times. No way to really prove infinite.
+        i = 0
+        while i < 10:
+            i += 1
+            # Waiting for token
+            await client._sastoken_provider.wait_for_new_sastoken.wait_for_hang()
+            assert client._sastoken_provider.wait_for_new_sastoken.await_count == i
+            # Continue
+            client._sastoken_provider.wait_for_new_sastoken.stop_hanging()
+            await asyncio.sleep(0.1)
+            # Setting credentials
+            assert client._mqtt_client.set_credentials.call_count == i
+            new_sastoken = client._sastoken_provider.wait_for_new_sastoken.return_value
+            assert client._mqtt_client.set_credentials.call_args == mocker.call(
+                client._username, str(new_sastoken)
+            )
+
+        assert not t.done()
+        t.cancel()
+
+    @pytest.mark.it("Suppresses any unexpected exceptions raised from awaiting a new SasToken")
+    async def test_waiting_for_token_raises(self, client, arbitrary_exception):
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
+        assert client._mqtt_client.set_credentials.call_count == 0
+
+        # Inject failure into waiting for token, but only for the next invocation
+        original_se = client._sastoken_provider.wait_for_new_sastoken.side_effect
+
+        async def new_side_effect():
+            client._sastoken_provider.wait_for_new_sastoken.side_effect = original_se
+            raise arbitrary_exception
+
+        client._sastoken_provider.wait_for_new_sastoken.side_effect = new_side_effect
+
+        # Start task
+        t = asyncio.create_task(client._keep_credentials_fresh())
         await asyncio.sleep(0.1)
 
-        # Credentials are updated again
-        assert client._mqtt_client.set_credentials.call_count == 2
-        assert client._mqtt_client.set_credentials.call_args == mocker.call(
-            client._username, str(new_sastoken)
-        )
+        # The mock that raises was invoked, but the task is still running.
+        # NOTE: Because the error was suppressed, the loop continued, and it was invoked
+        # a second time, which didn't fail because the failure injection was only for the
+        # first invocation. Due to returning to it's original side effect, the mock should
+        # be hanging now
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 2
+        assert client._sastoken_provider.wait_for_new_sastoken.is_hanging()
+        # .set_credentials() has not been called at all yet because the first loop iteration
+        # raised while waiting, and the second is now hanging on the wait
+        assert client._mqtt_client.set_credentials.call_count == 0
+        # The task is still running, because the exception did not propagate
+        assert not t.done()
 
-        # And so it continues forever and ever
+        t.cancel()
 
-        await client.shutdown()
+    @pytest.mark.it(
+        "Suppresses any unexpected exceptions raised from setting new MQTTClient credentials"
+    )
+    async def test_set_credentials_raises(self, client, arbitrary_exception):
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
+        assert client._mqtt_client.set_credentials.call_count == 0
+
+        # Make .set_credentials() fail
+        client._mqtt_client.set_credentials.side_effect = arbitrary_exception
+
+        # Start task
+        t = asyncio.create_task(client._keep_credentials_fresh())
+
+        # Hanging, waiting for new SasToken. Stop hang to continue.
+        await client._sastoken_provider.wait_for_new_sastoken.wait_for_hang()
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 1
+        assert client._mqtt_client.set_credentials.call_count == 0
+        client._sastoken_provider.wait_for_new_sastoken.stop_hanging()
+        await asyncio.sleep(0.1)
+
+        # Setting credentials, which has been mocked to raise, was invoked, but the task
+        # is still running because the error was suppressed
+        assert client._mqtt_client.set_credentials.call_count == 1
+        assert not t.done()
+
+        t.cancel()
+
+    @pytest.mark.it("Can be cancelled while awaiting a new SasToken")
+    async def test_cancelled_while_waiting_for_token(self, client):
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
+
+        # Start task
+        t = asyncio.create_task(client._keep_credentials_fresh())
+
+        # Hanging, waiting for new SasToken.
+        await client._sastoken_provider.wait_for_new_sastoken.wait_for_hang()
+        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 1
+
+        # Task can be cancelled
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+    @pytest.mark.it("Exits immediately if there is no SasTokenProvider set on the client")
+    async def test_no_provider(self, client):
+        assert client._mqtt_client.set_credentials.call_count == 0
+        client._sastoken_provider = None
+
+        t = asyncio.create_task(client._keep_credentials_fresh())
+        await asyncio.sleep(0.1)
+
+        assert t.done()
+        assert client._mqtt_client.set_credentials.call_count == 0
