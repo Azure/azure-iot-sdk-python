@@ -50,16 +50,9 @@ class IoTHubMQTTClient:
 
         # MQTT Configuration
         self._mqtt_client = _create_mqtt_client(self._client_id, client_config)
-        if self._sastoken_provider:
-            logger.debug("Using SASToken as password")
-            password = str(self._sastoken_provider.get_current_sastoken())
-        else:
-            logger.debug("No password used")
-            password = None
-        self._mqtt_client.set_credentials(self._username, password)
+        # NOTE: credentials are set upon `.start()`
 
         # Add filters for receive topics delivering data used internally
-        # TODO: can this be moved to the process twin responses task perhaps?
         twin_response_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
         self._mqtt_client.add_incoming_message_filter(twin_response_topic)
 
@@ -92,17 +85,9 @@ class IoTHubMQTTClient:
         self._request_ledger = rr.RequestLedger()
         self._twin_responses_enabled = False
 
-        # Background Tasks
-        self._process_twin_responses_bg_task: asyncio.Task[None] = asyncio.create_task(
-            self._process_twin_responses()
-        )
-        self._keep_credentials_fresh_bg_task: Optional[asyncio.Task[None]]
-        if self._sastoken_provider:
-            self._keep_credentials_fresh_bg_task = asyncio.create_task(
-                self._keep_credentials_fresh()
-            )
-        else:
-            self._keep_credentials_fresh_bg_task = None
+        # Background Tasks (Will be set upon `.start()`)
+        self._process_twin_responses_bg_task: Optional[asyncio.Task[None]] = None
+        self._keep_credentials_fresh_bg_task: Optional[asyncio.Task[None]] = None
 
     def _create_incoming_data_generator(
         self, topic: str, transform_fn: Callable[[mqtt.MQTTMessage], _T]
@@ -214,23 +199,52 @@ class IoTHubMQTTClient:
                 logger.error("No SasTokenProvider. Cannot update credentials")
                 break
 
-    async def shutdown(self) -> None:
-        """Shut down the client.
+    async def start(self) -> None:
+        """Start up the client.
 
-        Invoke only when completely finished with the client for graceful exit.
-        Cannot be cancelled - if you try, the client will still fully shut down as much as
-        possible.
+        - Must be invoked before any other methods.
+        - If already started, will not (meaningfully) do anything.
+        """
+        # Set credentials
+        if self._sastoken_provider:
+            logger.debug("Using SASToken as password")
+            password = str(self._sastoken_provider.get_current_sastoken())
+        else:
+            logger.debug("No password used")
+            password = None
+        self._mqtt_client.set_credentials(self._username, password)
+        # Start background tasks
+        if self._sastoken_provider and not self._keep_credentials_fresh_bg_task:
+            self._keep_credentials_fresh_bg_task = asyncio.create_task(
+                self._keep_credentials_fresh()
+            )
+        if not self._process_twin_responses_bg_task:
+            self._process_twin_responses_bg_task = asyncio.create_task(
+                self._process_twin_responses()
+            )
+
+    async def stop(self) -> None:
+        """Stop the client.
+
+        - Must be invoked when done with the client for graceful exit.
+        - If already stopped, will not do anything.
+        - Cannot be cancelled - if you try, the client will still fully shut down as much as
+            possible, although CancelledError will still be raised.
         """
         cancelled_tasks = []
+        logger.debug("Stopping IoTHubMQTTClient...")
 
-        logger.debug("Cancelling 'process_twin_responses' background task")
-        self._process_twin_responses_bg_task.cancel()
-        cancelled_tasks.append(self._process_twin_responses_bg_task)
+        if self._process_twin_responses_bg_task:
+            logger.debug("Cancelling 'process_twin_responses' background task")
+            self._process_twin_responses_bg_task.cancel()
+            cancelled_tasks.append(self._process_twin_responses_bg_task)
+            self._process_twin_responses_bg_task = None
 
         if self._keep_credentials_fresh_bg_task:
             logger.debug("Cancelling 'keep_credentials_fresh' background task")
             self._keep_credentials_fresh_bg_task.cancel()
             cancelled_tasks.append(self._keep_credentials_fresh_bg_task)
+            self._keep_credentials_fresh_bg_task = None
 
         results = await asyncio.gather(
             *cancelled_tasks, asyncio.shield(self.disconnect()), return_exceptions=True
@@ -246,6 +260,7 @@ class IoTHubMQTTClient:
 
         :raises: MQTTConnectionFailedError if there is a failure connecting
         """
+        # Connect
         logger.debug("Connecting to IoTHub...")
         await self._mqtt_client.connect()
         logger.debug("Connect succeeded")

@@ -10,7 +10,7 @@ import asyncio
 import logging
 import time
 import urllib.parse
-from typing import Dict, List, Awaitable, Callable, cast
+from typing import Dict, List, Optional, Awaitable, Callable, cast
 from .custom_typing import FunctionOrCoroutine
 from .signing_mechanism import SigningMechanism
 
@@ -64,6 +64,7 @@ class SasTokenGenerator(abc.ABC):
         pass
 
 
+# TODO: SigningMechanismSasTokenGenerator?
 class InternalSasTokenGenerator(SasTokenGenerator):
     def __init__(self, signing_mechanism: SigningMechanism, uri: str, ttl: int = 3600) -> None:
         """An object that can generate SasTokens using provided values
@@ -130,9 +131,8 @@ class ExternalSasTokenGenerator(SasTokenGenerator):
 
 
 class SasTokenProvider:
-    def __init__(self, initial_token: SasToken, generator: SasTokenGenerator) -> None:
+    def __init__(self, generator: SasTokenGenerator) -> None:
         """Object responsible for providing a valid SasToken.
-        Instantiate using a factory method instead of directly.
 
         :param generator: A SasTokenGenerator to generate SasTokens with
         :type generator: SasTokenGenerator
@@ -145,55 +145,69 @@ class SasTokenProvider:
         # problem with the generator_fn, so a factory coroutine method has been implemented.
         self._event_loop = asyncio.get_running_loop()
         self._generator = generator
-        self._sastoken = initial_token
         self._token_update_margin = DEFAULT_TOKEN_UPDATE_MARGIN
         self._new_sastoken_available = asyncio.Condition()
-        self._keep_token_fresh_task = asyncio.create_task(self._keep_token_fresh())
+
+        # Will be set upon `.start()`
+        self._current_token: Optional[SasToken] = None
+        self._keep_token_fresh_bg_task: Optional[asyncio.Task[None]] = None
 
     async def _keep_token_fresh(self):
         """Runs indefinitely and will generate a SasToken when the current one gets close to
         expiration (based on the update margin)
         """
-        generate_time = self._sastoken.expiry_time - self._token_update_margin
+        generate_time = self._current_token.expiry_time - self._token_update_margin
         while True:
             await _wait_until(generate_time)
             try:
                 logger.debug("Updating SAS Token...")
-                self._sastoken = await self._generator.generate_sastoken()
+                self._current_token = await self._generator.generate_sastoken()
                 logger.debug("SAS Token update succeeded")
-                generate_time = self._sastoken.expiry_time - self._token_update_margin
+                # TODO: validate that this is a valid token?
+                generate_time = self._current_token.expiry_time - self._token_update_margin
                 async with self._new_sastoken_available:
                     self._new_sastoken_available.notify_all()
             except Exception:
                 logger.error("SAS Token renewal failed. Trying again in 10 seconds")
                 generate_time = time.time() + 10
 
-    @classmethod
-    async def create_from_generator(cls, generator: SasTokenGenerator) -> "SasTokenProvider":
-        """Create an instance of the SasTokenProvider that will rely on an external source
-        to generate new tokens via a callback function/coroutine.
+    async def start(self):
+        """Begin running the SasTokenProvider, ensuring that the current token is always valid"""
+        if not self._keep_token_fresh_bg_task:
+            logger.debug("Starting SasTokenProvider")
+            initial_token = await self._generator.generate_sastoken()
+            if initial_token.expiry_time < time.time():
+                raise SasTokenError("Newly generated SAS Token has already expired")
+            self._current_token = initial_token
+            async with self._new_sastoken_available:
+                self._new_sastoken_available.notify_all()
+            self._keep_token_fresh_bg_task = asyncio.create_task(self._keep_token_fresh())
+        else:
+            logger.debug("SasTokenProvider already running, no need to start")
 
-        :param generator: A SasTokenGenerator to generate SasTokens with
-        :type generator: SasTokenGenerator
-        :raises: SasTokenError if an initial SasToken cannot be generated
-        :raises: SasTokenError if the initial SasToken generated is invalid
+    async def stop(self):
+        """Stop running the SasTokenProvider, clearing the current token.
+        Does nothing if already stopped.
         """
-        initial_token = await generator.generate_sastoken()
-        if initial_token.expiry_time < time.time():
-            raise SasTokenError("Newly generated SAS Token has already expired")
-        return cls(initial_token, generator)
-
-    async def shutdown(self) -> None:
-        """Shut down the SasToken provider, and free any resources.
-        No further updates to the current SAS Token will be made
-        """
-        self._keep_token_fresh_task.cancel()
-        # Wait for cancellation to complete
-        await asyncio.gather(self._keep_token_fresh_task, return_exceptions=True)
+        # Cancel and wait for cancellation to complete
+        if self._keep_token_fresh_bg_task:
+            logger.debug("Stopping SasTokenProvider")
+            self._keep_token_fresh_bg_task.cancel()
+            await asyncio.gather(self._keep_token_fresh_bg_task, return_exceptions=True)
+            self._keep_token_fresh_bg_task = None
+            # NOTE: There is an argument to be made that this value shouldn't be cleared,
+            # as the SasTokenProvider may be started again while it remains valid, but for
+            # now, we clear it for simplicity.
+            self._current_token = None
+        else:
+            logger.debug("SasTokenProvider was not running, no need to stop")
 
     def get_current_sastoken(self) -> SasToken:
         """Return the current SasToken"""
-        return self._sastoken
+        if self._current_token:
+            return self._current_token
+        else:
+            raise RuntimeError("SasTokenProvider is not running")
 
     async def wait_for_new_sastoken(self) -> SasToken:
         """Waits for a new SasToken to become available, and return it"""
