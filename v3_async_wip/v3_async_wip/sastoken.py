@@ -173,17 +173,22 @@ class SasTokenProvider:
 
     async def start(self):
         """Begin running the SasTokenProvider, ensuring that the current token is always valid"""
-        logger.debug("Starting SasTokenProvider")
-        initial_token = await self._generator.generate_sastoken()
-        if initial_token.expiry_time < time.time():
-            raise SasTokenError("Newly generated SAS Token has already expired")
-        self._current_token = initial_token
-        async with self._new_sastoken_available:
-            self._new_sastoken_available.notify_all()
-        self._keep_token_fresh_bg_task = asyncio.create_task(self._keep_token_fresh())
+        if not self._keep_token_fresh_bg_task:
+            logger.debug("Starting SasTokenProvider")
+            initial_token = await self._generator.generate_sastoken()
+            if initial_token.expiry_time < time.time():
+                raise SasTokenError("Newly generated SAS Token has already expired")
+            self._current_token = initial_token
+            async with self._new_sastoken_available:
+                self._new_sastoken_available.notify_all()
+            self._keep_token_fresh_bg_task = asyncio.create_task(self._keep_token_fresh())
+        else:
+            logger.debug("SasTokenProvider already running, no need to start")
 
     async def stop(self):
-        """Stop running the SasTokenProvider, clearing the current token"""
+        """Stop running the SasTokenProvider, clearing the current token.
+        Does nothing if already stopped.
+        """
         # Cancel and wait for cancellation to complete
         if self._keep_token_fresh_bg_task:
             logger.debug("Stopping SasTokenProvider")
