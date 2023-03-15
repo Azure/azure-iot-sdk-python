@@ -203,7 +203,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 method_received = MethodRequest(
                     request_id=request_id,
                     name=method_name,
-                    payload=json.loads(event.payload.decode("utf-8")),
+                    payload=json.loads(event.payload.decode("utf-8") or 'null'),
                 )
                 self.send_event_up(pipeline_events_iothub.MethodRequestEvent(method_received))
 
@@ -219,7 +219,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             elif mqtt_topic_iothub.is_twin_desired_property_patch_topic(topic):
                 self.send_event_up(
                     pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
-                        patch=json.loads(event.payload.decode("utf-8"))
+                        patch=json.loads(event.payload.decode("utf-8") or 'null')
                     )
                 )
 

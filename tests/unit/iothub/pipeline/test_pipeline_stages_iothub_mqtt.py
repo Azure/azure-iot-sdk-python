@@ -892,7 +892,7 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
         assert new_event.method_request.name == method_name
         assert new_event.method_request.request_id == rid
         # This is expanded on in in the next test
-        assert new_event.method_request.payload == json.loads(event.payload.decode("utf-8"))
+        assert new_event.method_request.payload == json.loads(event.payload.decode("utf-8") or 'null')
 
     @pytest.mark.it(
         "Derives the MethodRequestEvent's payload by converting the original event's payload from bytes into a JSON object"
@@ -904,6 +904,7 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
             pytest.param(b'"payload"', "payload", id="String JSON"),
             pytest.param(b"1234", 1234, id="Int JSON"),
             pytest.param(b"null", None, id="None JSON"),
+            pytest.param(b"", None, id="Empty JSON"),
         ],
     )
     def test_json_payload(self, event, stage, original_payload, derived_payload):
@@ -975,6 +976,7 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
             pytest.param(b'"payload"', "payload", id="String JSON"),
             pytest.param(b"1234", 1234, id="Int JSON"),
             pytest.param(b"null", None, id="None JSON"),
+            pytest.param(b"", None, id="Empty JSON"),
         ],
     )
     def test_twin_patch_event(self, event, stage, original_payload, derived_payload):
