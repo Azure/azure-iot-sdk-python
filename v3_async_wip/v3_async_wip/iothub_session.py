@@ -164,7 +164,8 @@ class IoTHubSession:
         """
         await self._mqtt_client.send_direct_method_response(method_response)
 
-    async def send_twin_patch(self, twin_patch: custom_typing.TwinPatch) -> None:
+    # TODO: param name
+    async def update_reported_properties(self, twin_patch: custom_typing.TwinPatch) -> None:
         """Update the reported properties of the Twin
 
         :param dict patch: JSON object containing the updates to the Twin reported properties
@@ -208,12 +209,11 @@ class IoTHubSession:
         finally:
             await self._mqtt_client.disable_direct_method_request_receive()
 
-    # TODO: Clarify naming
     @contextlib.asynccontextmanager
-    async def twin_patches(
+    async def desired_property_updates(
         self,
     ) -> AsyncGenerator[AsyncGenerator[custom_typing.TwinPatch, None], None]:
-        """Returns an async generator of incoming twin desired properties patches"""
+        """Returns an async generator of incoming twin desired property patches"""
         await self._mqtt_client.enable_twin_patch_receive()
         try:
             yield self._mqtt_client.incoming_twin_patches
