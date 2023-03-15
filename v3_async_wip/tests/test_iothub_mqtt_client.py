@@ -116,15 +116,14 @@ async def client(mocker, client_config):
     # Also mock the set credentials method since we test that
     client._mqtt_client.set_credentials = mocker.MagicMock()
 
-    yield client
-    await client.shutdown()
+    # NOTE: No need to invoke .start() here, at least, not yet.
+    return client
 
 
 @pytest.mark.describe("IoTHubMQTTClient -- Instantiation")
 class TestIoTHubMQTTClientInstantiation:
     # NOTE: As the instantiation is the unit under test here, we shouldn't use the client fixture.
-    # This means that you must do graceful exit by shutting down the client at the end of all tests
-    # and you may need to do a manual mock of the underlying MQTTClient where appropriate.
+    # This means you may need to do a manual mock of the underlying MQTTClient where appropriate.
 
     @pytest.mark.it(
         "Stores the `device_id` and `module_id` values from the IoTHubClientConfig as attributes"
@@ -143,7 +142,6 @@ class TestIoTHubMQTTClientInstantiation:
         client = IoTHubMQTTClient(client_config)
         assert client._device_id == client_config.device_id
         assert client._module_id == client_config.module_id
-        await client.shutdown()
 
     @pytest.mark.it(
         "Derives the `client_id` from the `device_id` and `module_id` and stores it as an attribute"
@@ -163,7 +161,6 @@ class TestIoTHubMQTTClientInstantiation:
 
         client = IoTHubMQTTClient(client_config)
         assert client._client_id == expected_client_id
-        await client.shutdown()
 
     @pytest.mark.it("Derives the `username` and stores the result as an attribute")
     @pytest.mark.parametrize(
@@ -233,7 +230,6 @@ class TestIoTHubMQTTClientInstantiation:
         client = IoTHubMQTTClient(client_config)
         # The expected username was derived
         assert client._username == expected_username
-        await client.shutdown()
 
     @pytest.mark.it("Stores the `sastoken_provider` from the IoTHubClientConfig as an attribute")
     @pytest.mark.parametrize(
@@ -257,7 +253,6 @@ class TestIoTHubMQTTClientInstantiation:
 
         client = IoTHubMQTTClient(client_config)
         assert client._sastoken_provider is sastoken_provider
-        await client.shutdown()
 
     @pytest.mark.it(
         "Creates an MQTTClient instance based on the configuration of IoTHubClientConfig and stores it as an attribute"
@@ -316,63 +311,7 @@ class TestIoTHubMQTTClientInstantiation:
             websockets_path=expected_ws_path,
             proxy_options=client_config.proxy_options,
         )
-
-        # Graceful exit
-        await client.shutdown()
-
-    @pytest.mark.it(
-        "Uses the derived `username` as the username, with no password as the credentials for the newly created MQTTClient instance when not using SAS authentication"
-    )
-    @pytest.mark.parametrize(
-        "device_id, module_id",
-        [
-            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
-            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
-        ],
-    )
-    async def test_mqtt_client_credentials_no_sas(
-        self, mocker, client_config, device_id, module_id
-    ):
-        client_config.device_id = device_id
-        client_config.module_id = module_id
-        assert client_config.sastoken_provider is None
-
-        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
-        client = IoTHubMQTTClient(client_config)
-        expected_username = client._username
-        expected_password = None
-        assert client._mqtt_client.set_credentials.call_count == 1
-        assert client._mqtt_client.set_credentials.call_args(expected_username, expected_password)
-
-        await client.shutdown()
-
-    @pytest.mark.it(
-        "Uses the derived `username` as the username and the string-converted current SasToken from the SasTokenProvider as the password when setting credentials for the newly created MQTTClient instance when using SAS authentication"
-    )
-    @pytest.mark.parametrize(
-        "device_id, module_id",
-        [
-            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
-            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
-        ],
-    )
-    async def test_mqtt_client_credentials_with_sas(
-        self, mocker, client_config, device_id, module_id, mock_sastoken_provider
-    ):
-        client_config.device_id = device_id
-        client_config.module_id = module_id
-        client_config.sastoken_provider = mock_sastoken_provider
-
-        fake_sastoken = mock_sastoken_provider.get_current_sastoken.return_value
-
-        mocker.patch.object(mqtt, "MQTTClient", spec=mqtt.MQTTClient)
-        client = IoTHubMQTTClient(client_config)
-        expected_username = client._username
-        expected_password = str(fake_sastoken)
-        assert client._mqtt_client.set_credentials.call_count == 1
-        assert client._mqtt_client.set_credentials.call_args(expected_username, expected_password)
-
-        await client.shutdown()
+        assert client._mqtt_client is mock_constructor.return_value
 
     @pytest.mark.it(
         "Adds incoming message filter on the MQTTClient for C2D messages, if using a Device Configuration"
@@ -390,8 +329,6 @@ class TestIoTHubMQTTClientInstantiation:
             mocker.call(expected_topic)
             in client._mqtt_client.add_incoming_message_filter.call_args_list
         )
-
-        await client.shutdown()
 
     @pytest.mark.it(
         "Does not add incoming message filter on the MQTTClient for C2D messages, if using a Module Configuration"
@@ -411,8 +348,6 @@ class TestIoTHubMQTTClientInstantiation:
             topic = call[0][0]
             assert "devicebound" not in topic
 
-        await client.shutdown()
-
     @pytest.mark.it(
         "Adds incoming message filter on the MQTTClient for input messages, if using a Module Configuration"
     )
@@ -429,8 +364,6 @@ class TestIoTHubMQTTClientInstantiation:
             mocker.call(expected_topic)
             in client._mqtt_client.add_incoming_message_filter.call_args_list
         )
-
-        await client.shutdown()
 
     @pytest.mark.it(
         "Does not add incoming message filter on the MQTTClient for input messages, if using a Device Configuration"
@@ -449,8 +382,6 @@ class TestIoTHubMQTTClientInstantiation:
         for call in client._mqtt_client.add_incoming_message_filter.call_args_list:
             topic = call[0][0]
             assert "inputs" not in topic
-
-        await client.shutdown()
 
     @pytest.mark.it("Adds incoming message filter on the MQTTClient for direct method requests")
     @pytest.mark.parametrize(
@@ -474,8 +405,6 @@ class TestIoTHubMQTTClientInstantiation:
             in client._mqtt_client.add_incoming_message_filter.call_args_list
         )
 
-        await client.shutdown()
-
     @pytest.mark.it("Adds incoming message filter on the MQTTClient for twin patches")
     @pytest.mark.parametrize(
         "device_id, module_id",
@@ -497,8 +426,6 @@ class TestIoTHubMQTTClientInstantiation:
             mocker.call(expected_topic)
             in client._mqtt_client.add_incoming_message_filter.call_args_list
         )
-
-        await client.shutdown()
 
     @pytest.mark.it("Adds incoming message filter on the MQTTClient for twin responses")
     @pytest.mark.parametrize(
@@ -522,8 +449,6 @@ class TestIoTHubMQTTClientInstantiation:
             in client._mqtt_client.add_incoming_message_filter.call_args_list
         )
 
-        await client.shutdown()
-
     # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingC2DMessages)
     @pytest.mark.it(
         "Provides an incoming C2D message generator as a read-only property, if using a Device Configuration"
@@ -535,8 +460,6 @@ class TestIoTHubMQTTClientInstantiation:
         assert client.incoming_c2d_messages
         assert isinstance(client._incoming_c2d_messages, typing.AsyncGenerator)
 
-        await client.shutdown()
-
     @pytest.mark.it(
         "Does not create an incoming C2D message generator, if using a Module Configuration"
     )
@@ -545,8 +468,6 @@ class TestIoTHubMQTTClientInstantiation:
         client_config.module_id = FAKE_MODULE_ID
         client = IoTHubMQTTClient(client_config)
         assert client._incoming_c2d_messages is None
-
-        await client.shutdown()
 
     # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingInputMessages)
     @pytest.mark.it(
@@ -558,8 +479,6 @@ class TestIoTHubMQTTClientInstantiation:
         client = IoTHubMQTTClient(client_config)
         assert isinstance(client._incoming_input_messages, typing.AsyncGenerator)
 
-        await client.shutdown()
-
     @pytest.mark.it(
         "Does not create an incoming input message generator, if using a Device Configuration"
     )
@@ -568,8 +487,6 @@ class TestIoTHubMQTTClientInstantiation:
         client_config.module_id = None
         client = IoTHubMQTTClient(client_config)
         assert client._incoming_input_messages is None
-
-        await client.shutdown()
 
     # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingDirectDirectMethodRequests)
     @pytest.mark.it(
@@ -588,8 +505,6 @@ class TestIoTHubMQTTClientInstantiation:
         client = IoTHubMQTTClient(client_config)
         assert isinstance(client._incoming_direct_method_requests, typing.AsyncGenerator)
 
-        await client.shutdown()
-
     # NOTE: For testing the functionality of this generator, see the corresponding test suite (TestIoTHubMQTTClientIncomingTwinPatches)
     @pytest.mark.it("Creates and stores an incoming twin patch generator as an attribute")
     @pytest.mark.parametrize(
@@ -605,8 +520,6 @@ class TestIoTHubMQTTClientInstantiation:
         client = IoTHubMQTTClient(client_config)
         assert isinstance(client._incoming_twin_patches, typing.AsyncGenerator)
 
-        await client.shutdown()
-
     @pytest.mark.it("Creates an empty RequestLedger")
     @pytest.mark.parametrize(
         "device_id, module_id",
@@ -621,7 +534,6 @@ class TestIoTHubMQTTClientInstantiation:
         client = IoTHubMQTTClient(client_config)
         assert isinstance(client._request_ledger, rr.RequestLedger)
         assert len(client._request_ledger) == 0
-        await client.shutdown()
 
     @pytest.mark.it("Sets the twin_responses_enabled flag to False")
     @pytest.mark.parametrize(
@@ -637,12 +549,7 @@ class TestIoTHubMQTTClientInstantiation:
         client = IoTHubMQTTClient(client_config)
         assert client._twin_responses_enabled is False
 
-        await client.shutdown()
-
-    # NOTE: For testing the functionality of this task, see the corresponding test suite (TestIoTHubMQTTClientIncomingTwinResponse)
-    @pytest.mark.it(
-        "Begins running the ._process_twin_responses() coroutine method as a background task, storing it as an attribute"
-    )
+    @pytest.mark.it("Sets background task attributes to None")
     @pytest.mark.parametrize(
         "device_id, module_id",
         [
@@ -650,10 +557,54 @@ class TestIoTHubMQTTClientInstantiation:
             pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
         ],
     )
-    async def test_process_twin_responses_bg_task(self, client_config, device_id, module_id):
+    async def test_bg_tasks(self, client_config, device_id, module_id):
         client_config.device_id = device_id
         client_config.module_id = module_id
         client = IoTHubMQTTClient(client_config)
+        assert client._process_twin_responses_bg_task is None
+        assert client._keep_credentials_fresh_bg_task is None
+
+
+@pytest.mark.describe("IoTHubMQTTClient - .start()")
+class TestIoTHubMQTTClientStart:
+    @pytest.mark.it(
+        "Sets the credentials on the MQTTClient, using the stored `username` as the username and no password, when not using SAS authentication"
+    )
+    async def test_mqtt_client_credentials_no_sas(self, mocker, client):
+        assert client._sastoken_provider is None
+        assert client._mqtt_client.set_credentials.call_count == 0
+
+        await client.start()
+
+        assert client._mqtt_client.set_credentials.call_count == 1
+        assert client._mqtt_client.set_credentials.call_args == mocker.call(client._username, None)
+
+        # Cleanup
+        await client.stop()
+
+    @pytest.mark.it(
+        "Sets the credentials on the MQTTClient, using the stored `username` as the username and the string-converted current SasToken from the SasTokenProvider as the password, when using SAS authentication"
+    )
+    async def test_mqtt_client_credentials_with_sas(self, mocker, client, mock_sastoken_provider):
+        client._sastoken_provider = mock_sastoken_provider
+        fake_sastoken = mock_sastoken_provider.get_current_sastoken.return_value
+        assert client._mqtt_client.set_credentials.call_count == 0
+
+        await client.start()
+
+        assert client._mqtt_client.set_credentials.call_count == 1
+        assert client._mqtt_client.set_credentials.call_args(client._username, str(fake_sastoken))
+
+        await client.stop()
+
+    # NOTE: For testing the functionality of this task, see the corresponding test suite (TestIoTHubMQTTClientIncomingTwinResponse)
+    @pytest.mark.it(
+        "Begins running the ._process_twin_responses() coroutine method as a background task, storing it as an attribute"
+    )
+    async def test_process_twin_responses_bg_task(self, client):
+        assert client._process_twin_responses_bg_task is None
+
+        await client.start()
 
         assert isinstance(client._process_twin_responses_bg_task, asyncio.Task)
         assert not client._process_twin_responses_bg_task.done()
@@ -663,27 +614,18 @@ class TestIoTHubMQTTClientInstantiation:
             task_coro = client._process_twin_responses_bg_task.get_coro()
             assert task_coro.__qualname__ == "IoTHubMQTTClient._process_twin_responses"
 
-        await client.shutdown()
+        # Cleanup
+        await client.stop()
 
     # NOTE: For testing the functionality of this task, see the corresponding test suite (TestIoTHubMQTTClientKeepCredentialsFresh)
     @pytest.mark.it(
         "Begins running the ._keep_credentials_fresh() coroutine method as a background task, storing it as an attribute, if using SAS authentication"
     )
-    @pytest.mark.parametrize(
-        "device_id, module_id",
-        [
-            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
-            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
-        ],
-    )
-    async def test_keep_credentials_fresh_bg_task(
-        self, mocker, client_config, device_id, module_id, mock_sastoken_provider
-    ):
-        client_config.device_id = device_id
-        client_config.module_id = module_id
-        client_config.sastoken_provider = mock_sastoken_provider
+    async def test_keep_credentials_fresh_bg_task(self, client, mock_sastoken_provider):
+        client._sastoken_provider = mock_sastoken_provider
+        assert client._keep_credentials_fresh_bg_task is None
 
-        client = IoTHubMQTTClient(client_config)
+        await client.start()
 
         # A task was created
         assert isinstance(client._keep_credentials_fresh_bg_task, asyncio.Task)
@@ -694,36 +636,31 @@ class TestIoTHubMQTTClientInstantiation:
             task_coro_obj = client._keep_credentials_fresh_bg_task.get_coro()
             assert task_coro_obj.__qualname__ == "IoTHubMQTTClient._keep_credentials_fresh"
 
-        await client.shutdown()
+        # Cleanup
+        await client.stop()
 
     @pytest.mark.it(
         "Does not begin running the ._keep_credentials_fresh() coroutine method as a background task if not using SAS authentication"
     )
-    @pytest.mark.parametrize(
-        "device_id, module_id",
-        [
-            pytest.param(FAKE_DEVICE_ID, None, id="Device Configuration"),
-            pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
-        ],
-    )
-    async def test_keep_credentials_fresh_bg_task_no_sas(self, client_config, device_id, module_id):
-        client_config.device_id = device_id
-        client_config.module_id = module_id
-        assert client_config.sastoken_provider is None
-        client = IoTHubMQTTClient(client_config)
+    async def test_keep_credentials_fresh_bg_task_no_sas(self, client):
+        assert client._sastoken_provider is None
+        assert client._keep_credentials_fresh_bg_task is None
+
+        await client.start()
 
         assert client._keep_credentials_fresh_bg_task is None
 
-        await client.shutdown()
+        # Cleanup
+        await client.stop()
 
 
-@pytest.mark.describe("IoTHubMQTTClient - .shutdown()")
-class TestIoTHubMQTTClientShutdown:
+@pytest.mark.describe("IoTHubMQTTClient - .stop()")
+class TestIoTHubMQTTClientStop:
     @pytest.fixture(autouse=True)
-    def modify_client_config(self, client_config, mock_sastoken_provider):
-        # NOTE: This has to be changed on the config, not the client,
-        # because it affects client initialization
-        client_config.sastoken_provider = mock_sastoken_provider
+    async def modify_client(self, client, mock_sastoken_provider):
+        client._sastoken_provider = mock_sastoken_provider
+        # Need to start the client so we can stop it.
+        await client.start()
 
     @pytest.mark.it("Disconnects the MQTTClient")
     async def test_disconnect(self, mocker, client):
@@ -735,40 +672,60 @@ class TestIoTHubMQTTClientShutdown:
         try:
             assert client.disconnect.await_count == 0
 
-            await client.shutdown()
+            await client.stop()
 
             assert client.disconnect.await_count == 1
             assert client.disconnect.await_args == mocker.call()
         finally:
             client.disconnect = original_disconnect
 
-    @pytest.mark.it("Cancels the 'process_twin_responses' background task")
+    @pytest.mark.it(
+        "Cancels the 'process_twin_responses' background task and removes it, if it exists"
+    )
     async def test_process_twin_responses_bg_task(self, client):
         assert isinstance(client._process_twin_responses_bg_task, asyncio.Task)
-        assert not client._process_twin_responses_bg_task.done()
+        t = client._process_twin_responses_bg_task
+        assert not t.done()
 
-        await client.shutdown()
+        await client.stop()
 
-        assert client._process_twin_responses_bg_task.done()
-        assert client._process_twin_responses_bg_task.cancelled()
+        assert t.done()
+        assert t.cancelled()
+        assert client._process_twin_responses_bg_task is None
 
-    @pytest.mark.it("Cancels the 'keep_credentials_fresh' background task, if it exists")
+    # NOTE: Currently this is an invalid scenario. This shouldn't happen, but test it anyway.
+    @pytest.mark.it("Handles the case where no 'process_twin_responses' background task exists")
+    async def test_process_twin_responses_bg_task_no_exist(self, client):
+        # The task is already running, so cancel and remove it
+        assert isinstance(client._process_twin_responses_bg_task, asyncio.Task)
+        client._process_twin_responses_bg_task.cancel()
+        client._process_twin_responses_bg_task = None
+
+        await client.stop()
+        # No AttributeError means success!
+
+    @pytest.mark.it(
+        "Cancels the 'keep_credentials_fresh' background task and removes it, if it exists"
+    )
     async def test_keep_credentials_fresh_bg_task_exists(self, client):
         assert isinstance(client._keep_credentials_fresh_bg_task, asyncio.Task)
-        assert not client._keep_credentials_fresh_bg_task.done()
+        t = client._keep_credentials_fresh_bg_task
+        assert not t.done()
 
-        await client.shutdown()
+        await client.stop()
 
-        assert client._keep_credentials_fresh_bg_task.done()
-        assert client._keep_credentials_fresh_bg_task.cancelled()
+        assert t.done()
+        assert t.cancelled()
+        assert client._keep_credentials_fresh_bg_task is None
 
     @pytest.mark.it("Handles the case where no 'keep_credentials_fresh' background task exists")
-    async def test_keep_credentials_fresh_bg_task_no_exist(self, client, client_config):
-        # NOTE: in this test we don't want to have the SAS bg task, so override the modified fixture
-        client_config.sastoken_provider = None
-        client = IoTHubMQTTClient(client_config)
-        assert client._keep_credentials_fresh_bg_task is None
-        await client.shutdown()
+    async def test_keep_credentials_fresh_bg_task_no_exist(self, client):
+        # The task is already running, so cancel and remove it
+        assert isinstance(client._keep_credentials_fresh_bg_task, asyncio.Task)
+        client._keep_credentials_fresh_bg_task.cancel()
+        client._keep_credentials_fresh_bg_task = None
+
+        await client.stop()
         # No AttributeError means success!
 
     @pytest.mark.it(
@@ -782,22 +739,28 @@ class TestIoTHubMQTTClientShutdown:
         original_disconnect = client.disconnect
         client.disconnect = mocker.AsyncMock(side_effect=exception)
         try:
-            assert not client._keep_credentials_fresh_bg_task.done()
-            assert not client._process_twin_responses_bg_task.done()
+            keep_credentials_fresh_bg_task = client._keep_credentials_fresh_bg_task
+            process_twin_responses_bg_task = client._process_twin_responses_bg_task
+            assert not keep_credentials_fresh_bg_task.done()
+            assert not process_twin_responses_bg_task.done()
 
             with pytest.raises(type(exception)) as e_info:
-                await client.shutdown()
+                await client.stop()
             assert e_info.value is exception
 
             # Background tasks were also cancelled despite the exception
-            assert client._keep_credentials_fresh_bg_task.done()
-            assert client._keep_credentials_fresh_bg_task.cancelled()
-            assert client._process_twin_responses_bg_task.done()
-            assert client._process_twin_responses_bg_task.cancelled()
+            assert keep_credentials_fresh_bg_task.done()
+            assert keep_credentials_fresh_bg_task.cancelled()
+            assert process_twin_responses_bg_task.done()
+            assert process_twin_responses_bg_task.cancelled()
+            # And they were unset too
+            assert client._keep_credentials_fresh_bg_task is None
+            assert client._process_twin_responses_bg_task is None
         finally:
             # Unset the mock so that tests can clean up
             client.disconnect = original_disconnect
 
+    # TODO: when run by itself, this test leaves a task unresolved. Not sure why. Not too important.
     @pytest.mark.it(
         "Can be cancelled while waiting for the MQTTClient disconnect to finish, but it won't stop background task cancellation"
     )
@@ -808,7 +771,12 @@ class TestIoTHubMQTTClientShutdown:
         original_disconnect = client.disconnect
         client.disconnect = custom_mock.HangingAsyncMock()
         try:
-            t = asyncio.create_task(client.shutdown())
+            keep_credentials_fresh_bg_task = client._keep_credentials_fresh_bg_task
+            process_twin_responses_bg_task = client._process_twin_responses_bg_task
+            assert not keep_credentials_fresh_bg_task.done()
+            assert not process_twin_responses_bg_task.done()
+
+            t = asyncio.create_task(client.stop())
 
             # Hanging, waiting for disconnect to finish
             await client.disconnect.wait_for_hang()
@@ -823,10 +791,13 @@ class TestIoTHubMQTTClientShutdown:
             await asyncio.sleep(0.1)
 
             # And yet the background tasks still were cancelled anyway
-            assert client._keep_credentials_fresh_bg_task.done()
-            assert client._keep_credentials_fresh_bg_task.cancelled()
-            assert client._process_twin_responses_bg_task.done()
-            assert client._process_twin_responses_bg_task.cancelled()
+            assert keep_credentials_fresh_bg_task.done()
+            assert keep_credentials_fresh_bg_task.cancelled()
+            assert process_twin_responses_bg_task.done()
+            assert process_twin_responses_bg_task.cancelled()
+            # And they were unset too
+            assert client._keep_credentials_fresh_bg_task is None
+            assert client._process_twin_responses_bg_task is None
         finally:
             # Unset the mock so that tests can clean up.
             client.disconnect = original_disconnect
@@ -844,7 +815,12 @@ class TestIoTHubMQTTClientShutdown:
             client._keep_credentials_fresh_bg_task, "cancel"
         )
         try:
-            t = asyncio.create_task(client.shutdown())
+            keep_credentials_fresh_bg_task = client._keep_credentials_fresh_bg_task
+            process_twin_responses_bg_task = client._process_twin_responses_bg_task
+            assert not keep_credentials_fresh_bg_task.done()
+            assert not process_twin_responses_bg_task.done()
+
+            t = asyncio.create_task(client.stop())
 
             # Hanging waiting for gather to return (indicating tasks are all done cancellation)
             await asyncio.gather.wait_for_hang()
@@ -861,10 +837,13 @@ class TestIoTHubMQTTClientShutdown:
 
             # Tasks will be cancelled very soon (if they aren't already)
             await asyncio.sleep(0.1)
-            assert client._keep_credentials_fresh_bg_task.done()
-            assert client._keep_credentials_fresh_bg_task.cancelled()
-            assert client._process_twin_responses_bg_task.done()
-            assert client._process_twin_responses_bg_task.cancelled()
+            assert keep_credentials_fresh_bg_task.done()
+            assert keep_credentials_fresh_bg_task.cancelled()
+            assert process_twin_responses_bg_task.done()
+            assert process_twin_responses_bg_task.cancelled()
+            # And they were unset too
+            assert client._keep_credentials_fresh_bg_task is None
+            assert client._process_twin_responses_bg_task is None
         finally:
             # Unset the mock so that tests can clean up.
             asyncio.gather = original_gather
@@ -2110,8 +2089,6 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
         with pytest.raises(IoTHubClientError):
             client.incoming_c2d_messages
 
-        await client.shutdown()
-
     @pytest.mark.it(
         "Yields a Message whenever the MQTTClient receives an MQTTMessage on the incoming C2D message topic"
     )
@@ -2491,8 +2468,6 @@ class TestIoTHubMQTTClientIncomingInputMessages:
         client = IoTHubMQTTClient(client_config)
         with pytest.raises(IoTHubClientError):
             client.incoming_input_messages
-
-        await client.shutdown()
 
     @pytest.mark.it(
         "Yields a Message whenever the MQTTClient receives an MQTTMessage on the incoming Input message topic"
@@ -3250,17 +3225,6 @@ class TestIoTHubMQTTClientProcessTwinResponses:
         pytest.param(" ", id="Twin Patch Response"),
     ]
 
-    @pytest.fixture(autouse=True)
-    def modify_client(self, client):
-        # Delete the ._process_twin_responses_bg_task Task, since we will want
-        # to re-instantiate the coroutine task to directly test it.
-        # NOTE: Yes, this is a strange thing to do, but necessary for proper coverage.
-        # The creation of the task was already tested in the instantiation test suite,
-        # here we are trying to test the CONTENTS of the task, and the best way to do that
-        # is to start over from scratch. And having another copy of the task running in
-        # the background is just a confound.
-        client._process_twin_responses_bg_task.cancel()
-
     @pytest.mark.it(
         "Creates a Response containing the request id and status code from the topic, as well as the utf-8 decoded payload of the MQTTMessage, when the MQTTClient receives an MQTTMessage on the twin response topic"
     )
@@ -3683,29 +3647,9 @@ class TestIoTHubMQTTClientProcessTwinResponses:
 @pytest.mark.describe("IoTHubMQTTClient - BG TASK: ._keep_credentials_fresh()")
 class TestIoTHubMQTTClientKeepCredentialsFresh:
     @pytest.fixture(autouse=True)
-    def modify_client_config(self, client_config, mock_sastoken_provider):
-        # Need to use a client with SAS token auth
-        # NOTE: This has to be changed on the config, not the client,
-        # because it affects client initialization
-        client_config.sastoken_provider = mock_sastoken_provider
-
-    @pytest.fixture(autouse=True)
-    def modify_client(self, modify_client_config, client):
-        # Delete the ._keep_credentials_fresh_bg_task Task, since we will want
-        # to re-instantiate the coroutine task to directly test it.
-        # NOTE: Yes, this is a strange thing to do, but necessary for proper coverage.
-        # The creation of the task was already tested in the instantiation test suite,
-        # here we are trying to test the CONTENTS of the task, and the best way to do that
-        # is to start over from scratch. And having another copy of the task running in
-        # the background is just a confound.
-        # NOTE: `modify_client_config` needs to be a parameter here to ensure that it is
-        # triggered before the client is instantiated.
-
-        client._keep_credentials_fresh_bg_task.cancel()
-        client._keep_credentials_fresh_bg_task = None
-        # Reset the mocks that may have been invoked by the original task that was deleted
-        client._sastoken_provider.wait_for_new_sastoken.reset_mock()
-        client._mqtt_client.set_credentials.reset_mock()
+    def modify_client(self, client, mock_sastoken_provider):
+        """Add a SasTokenProvider since it is necessary for this task"""
+        client._sastoken_provider = mock_sastoken_provider
 
     @pytest.mark.it("Awaits the availability of a new SasToken from the client's SasTokenProvider")
     async def test_waits_for_token(self, mocker, client):

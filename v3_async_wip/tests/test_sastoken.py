@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*- # TODO: do we need this?
 # -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
@@ -29,8 +28,6 @@ FAKE_URI = "some/resource/location"
 FAKE_SIGNED_DATA = "8NJRMT83CcplGrAGaUVIUM/md5914KpWVNngSVoF9/M="
 FAKE_SIGNED_DATA2 = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
 FAKE_CURRENT_TIME = 10000000000.0  # We living in 2286!
-# TODO: make this a float
-# TODO: should we mock out time.time to always return a fake time?
 
 
 def token_parser(token_str):
@@ -89,15 +86,15 @@ def sastoken_generator(request, mocker, mock_signing_mechanism, sastoken_str):
     return generator
 
 
-# TODO: adjust mocks so that initial token is not the same as generated token
 @pytest.fixture
 async def sastoken_provider(sastoken_generator):
-    provider = await SasTokenProvider.create_from_generator(sastoken_generator)
+    provider = SasTokenProvider(sastoken_generator)
+    await provider.start()
     # Creating from the generator invokes a call on the generator, so reset the spy mock
     # so it doesn't throw off any testing logic
     provider._generator.generate_sastoken.reset_mock()
     yield provider
-    await provider.shutdown()
+    await provider.stop()
 
 
 @pytest.mark.describe("SasToken")
@@ -332,60 +329,54 @@ class TestExternalSasTokenGeneratorGenerateSasToken:
 @pytest.mark.describe("SasTokenProvider -- Instantiation")
 class TestSasTokenProviderInstantiation:
     @pytest.mark.it("Stores the provided SasTokenGenerator")
-    async def test_generator_fn(self, sastoken, sastoken_generator):
-        provider = SasTokenProvider(initial_token=sastoken, generator=sastoken_generator)
+    async def test_generator_fn(self, sastoken_generator):
+        provider = SasTokenProvider(sastoken_generator)
         assert provider._generator is sastoken_generator
-        await provider.shutdown()
-
-    @pytest.mark.it("Sets the provided initial_token as the current SasToken")
-    async def test_initial_token(self, sastoken, sastoken_generator):
-        provider = SasTokenProvider(initial_token=sastoken, generator=sastoken_generator)
-        assert provider._sastoken is sastoken
-        await provider.shutdown()
 
     @pytest.mark.it("Sets the token update margin to the DEFAULT_TOKEN_UPDATE_MARGIN")
     async def test_token_update_margin(self, sastoken, sastoken_generator):
-        provider = SasTokenProvider(initial_token=sastoken, generator=sastoken_generator)
+        provider = SasTokenProvider(sastoken_generator)
         assert provider._token_update_margin == DEFAULT_TOKEN_UPDATE_MARGIN
-        await provider.shutdown()
 
-    # NOTE: The contents of this coroutine are tested in a separate test suite below.
-    # See TestSasTokenProviderKeepTokenFresh for more.
-    @pytest.mark.it("Begins running the ._keep_token_fresh() coroutine method, storing the task")
-    async def test_keep_token_fresh_running(self, sastoken, sastoken_generator):
-        provider = SasTokenProvider(initial_token=sastoken, generator=sastoken_generator)
-        assert isinstance(provider._keep_token_fresh_task, asyncio.Task)
-        assert not provider._keep_token_fresh_task.done()
-        if sys.version_info >= (3, 8):
-            # NOTE: There isn't a way to validate the contents of a task until 3.8
-            # as far as I can tell.
-            task_coro = provider._keep_token_fresh_task.get_coro()
-            assert task_coro.__qualname__ == "SasTokenProvider._keep_token_fresh"
-        await provider.shutdown()
+    @pytest.mark.it("Sets the current token to None")
+    async def test_current_token(self, sastoken_generator):
+        provider = SasTokenProvider(sastoken_generator)
+        assert provider._current_token is None
+
+    @pytest.mark.it("Sets the 'keep token fresh' background task attribute to None")
+    async def test_background_task(self, sastoken_generator):
+        provider = SasTokenProvider(sastoken_generator)
+        assert provider._keep_token_fresh_bg_task is None
 
 
-@pytest.mark.describe("SasTokenProvider - .create_from_generator()")
-class TestSasTokenProviderCreateFromGenerator:
-    @pytest.mark.it("Returns a SasTokenProvider instance")
-    async def test_instantiates(self, sastoken_generator):
-        provider = await SasTokenProvider.create_from_generator(sastoken_generator)
-        assert isinstance(provider, SasTokenProvider)
-        await provider.shutdown()
-
+@pytest.mark.describe("SasTokenProvider - .start()")
+class TestSasTokenProviderStart:
     @pytest.mark.it(
-        "Generates a new SasToken using the provided SasTokenGenerator to use as the SasTokenProvider's initial sastoken"
+        "Generates a new SasToken using the stored SasTokenGenerator and sets it as the current token"
     )
-    async def test_generates_initial_token(self, mocker, sastoken_generator):
+    async def test_generates_current_token(self, mocker, sastoken_generator):
+        provider = SasTokenProvider(sastoken_generator)
         assert sastoken_generator.generate_sastoken.await_count == 0
 
-        provider = await SasTokenProvider.create_from_generator(sastoken_generator)
+        await provider.start()
 
         assert sastoken_generator.generate_sastoken.await_count == 1
         assert sastoken_generator.generate_sastoken.await_args == mocker.call()
-        assert isinstance(provider._sastoken, SasToken)
-        assert provider._sastoken == sastoken_generator.generate_sastoken.spy_return
+        assert isinstance(provider._current_token, SasToken)
+        assert provider._current_token == sastoken_generator.generate_sastoken.spy_return
 
-        await provider.shutdown()
+        # Cleanup
+        await provider.stop()
+
+    @pytest.mark.it("Sends notification of new token availability")
+    async def test_notify(self, mocker, sastoken_generator):
+        provider = SasTokenProvider(sastoken_generator)
+        notification_spy = mocker.spy(provider._new_sastoken_available, "notify_all")
+        assert notification_spy.call_count == 0
+
+        await provider.start()
+
+        assert notification_spy.call_count == 1
 
     @pytest.mark.it("Allows any exception raised while trying to generate a SasToken to propagate")
     @pytest.mark.parametrize(
@@ -397,9 +388,10 @@ class TestSasTokenProviderCreateFromGenerator:
     )
     async def test_generation_raises(self, sastoken_generator, exception):
         sastoken_generator.generate_sastoken.side_effect = exception
+        provider = SasTokenProvider(sastoken_generator)
 
         with pytest.raises(type(exception)) as e_info:
-            await SasTokenProvider.create_from_generator(sastoken_generator)
+            await provider.start()
         assert e_info.value is exception
 
     @pytest.mark.it("Raises a SasTokenError if the generated SAS Token string has already expired")
@@ -411,36 +403,77 @@ class TestSasTokenProviderCreateFromGenerator:
         )
         sastoken_generator.generate_sastoken = mocker.AsyncMock()
         sastoken_generator.generate_sastoken.return_value = SasToken(expired_token_str)
+        provider = SasTokenProvider(sastoken_generator)
 
         with pytest.raises(SasTokenError):
-            await SasTokenProvider.create_from_generator(sastoken_generator)
+            await provider.start()
+
+    # NOTE: The contents of this coroutine are tested in a separate test suite below.
+    # See TestSasTokenProviderKeepTokenFresh for more.
+    @pytest.mark.it("Begins running the ._keep_token_fresh() coroutine method, storing the task")
+    async def test_keep_token_fresh_running(self, sastoken_generator):
+        provider = SasTokenProvider(sastoken_generator)
+        assert provider._keep_token_fresh_bg_task is None
+
+        await provider.start()
+
+        assert isinstance(provider._keep_token_fresh_bg_task, asyncio.Task)
+        assert not provider._keep_token_fresh_bg_task.done()
+        if sys.version_info >= (3, 8):
+            # NOTE: There isn't a way to validate the contents of a task until 3.8
+            # as far as I can tell.
+            task_coro = provider._keep_token_fresh_task.get_coro()
+            assert task_coro.__qualname__ == "SasTokenProvider._keep_token_fresh"
+
+        # Cleanup
+        await provider.stop()
 
 
-@pytest.mark.describe("SasTokenProvider - .shutdown()")
+@pytest.mark.describe("SasTokenProvider - .stop()")
 class TestSasTokenProviderShutdown:
-    @pytest.mark.it("Cancels the stored ._keep_token_fresh() task")
+    @pytest.mark.it("Cancels the stored ._keep_token_fresh() task and removes it, if it exists")
     async def test_cancels_keep_token_fresh(self, sastoken_provider):
-        assert isinstance(sastoken_provider._keep_token_fresh_task, asyncio.Task)
-        assert not sastoken_provider._keep_token_fresh_task.done()
-        await sastoken_provider.shutdown()
-        assert sastoken_provider._keep_token_fresh_task.done()
-        assert sastoken_provider._keep_token_fresh_task.cancelled()
+        t = sastoken_provider._keep_token_fresh_bg_task
+        assert isinstance(t, asyncio.Task)
+        assert not t.done()
+
+        await sastoken_provider.stop()
+
+        assert t.done()
+        assert t.cancelled()
+        assert sastoken_provider._keep_token_fresh_bg_task is None
+
+    @pytest.mark.it("Sets the current token back to None")
+    async def test_current_token(self, sastoken_provider):
+        assert sastoken_provider._current_token is not None
+
+        await sastoken_provider.stop()
+
+        assert sastoken_provider._current_token is None
 
 
 @pytest.mark.describe("SasTokenProvider - .get_current_sastoken()")
 class TestSasTokenGetCurrentSasToken:
-    @pytest.mark.it("Returns the current SasToken object")
+    @pytest.mark.it("Returns the current SasToken object, if running")
     def test_returns_current_token(self, sastoken_provider):
+        assert sastoken_provider._keep_token_fresh_bg_task is not None
         current_token = sastoken_provider.get_current_sastoken()
-        assert current_token is sastoken_provider._sastoken
+        assert current_token is sastoken_provider._current_token
         new_token_str = TOKEN_FORMAT.format(
             resource=urllib.parse.quote(FAKE_URI, safe=""),
             signature=urllib.parse.quote(FAKE_SIGNED_DATA, safe=""),
             expiry=int(time.time()) + 3600,
         )
         new_token = SasToken(new_token_str)
-        sastoken_provider._sastoken = new_token
+        sastoken_provider._current_token = new_token
         assert sastoken_provider.get_current_sastoken() is new_token
+
+    @pytest.mark.it("Raises RuntimeError if not running (i.e. not started)")
+    async def test_not_running(self, sastoken_generator):
+        provider = SasTokenProvider(sastoken_generator)
+        assert provider._keep_token_fresh_bg_task is None
+        with pytest.raises(RuntimeError):
+            provider.get_current_sastoken()
 
 
 @pytest.mark.describe("SasTokenProvider - .wait_for_new_sastoken()")
@@ -462,7 +495,7 @@ class TestSasTokenWaitForNewSasToken:
         )
         token2 = SasToken(token_str_2)
 
-        sastoken_provider._sastoken = token1
+        sastoken_provider._current_token = token1
         assert sastoken_provider.get_current_sastoken() is token1
 
         # Waiting for new token, but one is not yet available
@@ -471,7 +504,7 @@ class TestSasTokenWaitForNewSasToken:
         assert not task.done()
 
         # Update the token, but without notification, the waiting task still does not return
-        sastoken_provider._sastoken = token2
+        sastoken_provider._current_token = token2
         await asyncio.sleep(0.1)
         assert not task.done()
 
@@ -488,7 +521,7 @@ class TestSasTokenWaitForNewSasToken:
 
 # NOTE: This test suite assumes the correct implementation of ._wait_until() for critical
 # requirements. Find it tested in a separate suite below (TestWaitUntil)
-@pytest.mark.describe("SasTokenProvider -- Keep Token Fresh Task")
+@pytest.mark.describe("SasTokenProvider - BG TASK: ._keep_token_fresh")
 class TestSasTokenProviderKeepTokenFresh:
     @pytest.fixture(autouse=True)
     def spy_time(self, mocker):

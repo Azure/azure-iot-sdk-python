@@ -52,10 +52,10 @@ class IoTHubClient(abc.ABC):
         possible (although the CancelledError will still be raised)
         """
         operations = []
-        operations.append(asyncio.shield(self._mqtt_client.shutdown()))
+        operations.append(asyncio.shield(self._mqtt_client.stop()))
         operations.append(asyncio.shield(self._http_client.shutdown()))
         if self._sastoken_provider:
-            operations.append(asyncio.shield(self._sastoken_provider.shutdown()))
+            operations.append(asyncio.shield(self._sastoken_provider.stop()))
         results = await asyncio.gather(*operations, return_exceptions=True)
         for result in results:
             # NOTE: Need to specifically exclude asyncio.CancelledError because it is not a
@@ -203,12 +203,14 @@ class IoTHubClient(abc.ABC):
                 signing_mechanism=sas_signing_mechanism,
                 uri=uri,
             )
-            sastoken_provider = await st.SasTokenProvider.create_from_generator(sastoken_generator)
+            sastoken_provider = st.SasTokenProvider(sastoken_generator)
+            await sastoken_provider.start()
 
         # External SAS Generation
         elif sastoken_fn:
             sastoken_generator = st.ExternalSasTokenGenerator(sastoken_fn)
-            sastoken_provider = await st.SasTokenProvider.create_from_generator(sastoken_generator)
+            sastoken_provider = st.SasTokenProvider(sastoken_generator)
+            await sastoken_provider.start()
 
         # No SAS Auth
         else:
