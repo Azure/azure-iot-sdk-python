@@ -6,7 +6,7 @@
 import asyncio
 import contextlib
 import ssl
-from typing import Optional, Union
+from typing import Optional, Union, AsyncGenerator
 
 # from v3_async_wip import signing_mechanism as sm
 # from v3_async_wip import connection_string as cs
@@ -136,22 +136,61 @@ class IoTHubSession:
     #         sas_auth=provider,
     #     )
 
-    async def send_message(self, message: Union[str, models.Message]):
+    async def send_message(self, message: Union[str, models.Message]) -> None:
+        """Send a telemetry or input message to its destination
+
+        :param message: Message to send. If not a Message object, will be used as the payload of
+            a new Message object.
+        :type message: str or :class:`Message`
+
+        :raises: MQTTError if there is an error sending the Message
+        :raises: ValueError if the size of the Message payload is too large
+        """
         if not isinstance(message, models.Message):
             message = models.Message(message)
         await self._mqtt_client.send_message(message)
 
-    async def send_direct_method_response(self, method_response: models.DirectMethodResponse):
+    async def send_direct_method_response(
+        self, method_response: models.DirectMethodResponse
+    ) -> None:
+        """Send a response to a direct method request
+
+        :param method_response: The response object containing information regarding the result of
+            the direct method invocation
+        :type method_response: :class:`DirectMethodResponse`
+
+        :raises: MQTTError if there is an error sending the DirectMethodResponse
+        :raises: ValueError if the size of the DirectMethodResponse payload is too large
+        """
         await self._mqtt_client.send_direct_method_response(method_response)
 
-    async def send_twin_patch(self, twin_patch: custom_typing.TwinPatch):
+    async def send_twin_patch(self, twin_patch: custom_typing.TwinPatch) -> None:
+        """Update the reported properties of the Twin
+
+        :param dict patch: JSON object containing the updates to the Twin reported properties
+
+        :raises: MQTTError if there is an error sending the twin patch
+        :raises: ValueError if the size of the the twin patch is too large
+        :raises: CancelledError if enabling twin responses is cancelled by network failure      # TODO: what should the behavior be here?
+        """
         await self._mqtt_client.send_twin_patch(twin_patch)
 
-    async def get_twin(self):
-        await self._mqtt_client.get_twin()
+    async def get_twin(self) -> custom_typing.Twin:
+        """Retrieve the full Twin data
 
+        :returns: Twin as a JSON object
+        :rtype: dict
+
+        :raises: IoTHubError if a error response is received from IoTHub
+        :raises: MQTTError if there is an error sending the twin request
+        :raises: CancelledError if enabling twin responses is cancelled by network failure
+        """
+        return await self._mqtt_client.get_twin()
+
+    # TODO: make this support input messages for modules
     @contextlib.asynccontextmanager
-    async def messages(self):
+    async def messages(self) -> AsyncGenerator[AsyncGenerator[models.Message, None], None]:
+        """Returns an async generator of incoming C2D or input messages"""
         await self._mqtt_client.enable_c2d_message_receive()
         try:
             yield self._mqtt_client.incoming_c2d_messages
@@ -159,7 +198,10 @@ class IoTHubSession:
             await self._mqtt_client.disable_c2d_message_receive()
 
     @contextlib.asynccontextmanager
-    async def direct_method_requests(self):
+    async def direct_method_requests(
+        self,
+    ) -> AsyncGenerator[AsyncGenerator[models.DirectMethodRequest, None], None]:
+        """Returns an async generator of incoming direct method requests"""
         await self._mqtt_client.enable_direct_method_request_receive()
         try:
             yield self._mqtt_client.incoming_direct_method_requests
@@ -168,7 +210,10 @@ class IoTHubSession:
 
     # TODO: Clarify naming
     @contextlib.asynccontextmanager
-    async def twin_patches(self):
+    async def twin_patches(
+        self,
+    ) -> AsyncGenerator[AsyncGenerator[custom_typing.TwinPatch, None], None]:
+        """Returns an async generator of incoming twin desired properties patches"""
         await self._mqtt_client.enable_twin_patch_receive()
         try:
             yield self._mqtt_client.incoming_twin_patches
@@ -176,7 +221,7 @@ class IoTHubSession:
             await self._mqtt_client.disable_twin_patch_receive()
 
 
-def _validate_kwargs(exclude=[], **kwargs):
+def _validate_kwargs(exclude=[], **kwargs) -> None:
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
     valid_kwargs = [
