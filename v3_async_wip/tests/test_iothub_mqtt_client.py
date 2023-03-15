@@ -653,6 +653,43 @@ class TestIoTHubMQTTClientStart:
         # Cleanup
         await client.stop()
 
+    @pytest.mark.it(
+        "Does not alter any background tasks if already started, but does reset the credentials with the same values"
+    )
+    @pytest.mark.parametrize(
+        "sastoken_provider",
+        [
+            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SAS Auth"),
+            pytest.param(None, id="No SAS auth"),
+        ],
+    )
+    async def test_already_started(self, client, sastoken_provider):
+        client._sastoken_provider = sastoken_provider
+        assert client._mqtt_client.set_credentials.call_count == 0
+
+        # Start
+        await client.start()
+
+        # Current tasks
+        current_keep_credentials_fresh_task = client._keep_credentials_fresh_bg_task
+        current_process_twin_responses_task = client._process_twin_responses_bg_task
+        # Credentials set
+        assert client._mqtt_client.set_credentials.call_count == 1
+        credential_args = client._mqtt_client.set_credentials.call_args
+
+        # Start again
+        await client.start()
+
+        # Tasks unchanged
+        assert client._keep_credentials_fresh_bg_task is current_keep_credentials_fresh_task
+        assert client._process_twin_responses_bg_task is current_process_twin_responses_task
+        # Credentials set again (the same values as before)
+        assert client._mqtt_client.set_credentials.call_count == 2
+        assert client._mqtt_client.set_credentials.call_args == credential_args
+
+        # Cleanup
+        await client.stop()
+
 
 @pytest.mark.describe("IoTHubMQTTClient - .stop()")
 class TestIoTHubMQTTClientStop:
@@ -758,6 +795,31 @@ class TestIoTHubMQTTClientStop:
             assert client._process_twin_responses_bg_task is None
         finally:
             # Unset the mock so that tests can clean up
+            client.disconnect = original_disconnect
+
+    # TODO: when run by itself, this test leaves a task unresolved. Not sure why. Not too important.
+    @pytest.mark.it(
+        "Does not alter any background tasks if already stopped, but does disconnect again"
+    )
+    async def test_already_stopped(self, mocker, client):
+        original_disconnect = client.disconnect
+        client.disconnect = mocker.AsyncMock()
+        try:
+            assert client.disconnect.await_count == 0
+
+            # Stop
+            await client.stop()
+            assert client._keep_credentials_fresh_bg_task is None
+            assert client._process_twin_responses_bg_task is None
+            assert client.disconnect.await_count == 1
+
+            # Stop again
+            await client.stop()
+            assert client._keep_credentials_fresh_bg_task is None
+            assert client._process_twin_responses_bg_task is None
+            assert client.disconnect.await_count == 2
+
+        finally:
             client.disconnect = original_disconnect
 
     # TODO: when run by itself, this test leaves a task unresolved. Not sure why. Not too important.

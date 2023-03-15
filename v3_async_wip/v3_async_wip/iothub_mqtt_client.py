@@ -200,7 +200,11 @@ class IoTHubMQTTClient:
                 break
 
     async def start(self) -> None:
-        """Start up the client. Must be called before any other methods."""
+        """Start up the client.
+
+        - Must be invoked before any other methods.
+        - If already started, will not (meaningfully) do anything.
+        """
         # Set credentials
         if self._sastoken_provider:
             logger.debug("Using SASToken as password")
@@ -220,10 +224,12 @@ class IoTHubMQTTClient:
             )
 
     async def stop(self) -> None:
-        """Stop the client. Invoke when done with the client for graceful exit.
+        """Stop the client.
 
-        Cannot be cancelled - if you try, the client will still fully shut down as much as
-        possible.
+        - Must be invoked when done with the client for graceful exit.
+        - If already stopped, will not do anything.
+        - Cannot be cancelled - if you try, the client will still fully shut down as much as
+            possible, although CancelledError will still be raised.
         """
         cancelled_tasks = []
         logger.debug("Stopping IoTHubMQTTClient...")

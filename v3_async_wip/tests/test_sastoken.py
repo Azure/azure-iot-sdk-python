@@ -428,6 +428,27 @@ class TestSasTokenProviderStart:
         # Cleanup
         await provider.stop()
 
+    @pytest.mark.it("Does nothing if already started")
+    async def test_already_started(self, sastoken_generator):
+        provider = SasTokenProvider(sastoken_generator)
+
+        # Start
+        await provider.start()
+
+        # Expected state
+        assert isinstance(provider._keep_token_fresh_bg_task, asyncio.Task)
+        assert not provider._keep_token_fresh_bg_task.done()
+        current_keep_token_fresh_bg_task = provider._keep_token_fresh_bg_task
+        assert sastoken_generator.generate_sastoken.await_count == 1
+
+        # Start again
+        await provider.start()
+
+        # No changes
+        assert provider._keep_token_fresh_bg_task is current_keep_token_fresh_bg_task
+        assert not provider._keep_token_fresh_bg_task.done()
+        assert sastoken_generator.generate_sastoken.await_count == 1
+
 
 @pytest.mark.describe("SasTokenProvider - .stop()")
 class TestSasTokenProviderShutdown:
@@ -449,6 +470,28 @@ class TestSasTokenProviderShutdown:
 
         await sastoken_provider.stop()
 
+        assert sastoken_provider._current_token is None
+
+    @pytest.mark.it("Does nothing if already stopped")
+    async def test_already_stopped(self, sastoken_provider):
+        # Currently running
+        t = sastoken_provider._keep_token_fresh_bg_task
+        assert not t.done()
+
+        # Stop
+        await sastoken_provider.stop()
+
+        # Expected state
+        assert t.done()
+        assert t.cancelled()
+        assert sastoken_provider._keep_token_fresh_bg_task is None
+        assert sastoken_provider._current_token is None
+
+        # Stop again
+        await sastoken_provider.stop()
+
+        # No changes
+        assert sastoken_provider._keep_token_fresh_bg_task is None
         assert sastoken_provider._current_token is None
 
 
