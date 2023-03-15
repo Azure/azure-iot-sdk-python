@@ -210,7 +210,7 @@ class Application(object):
             if not self.iothub_client:
                 # Time to check if device has been provisioned
                 self.log_info_and_print(
-                    "IoTHub client is still nonexistent for telemetry. "
+                    "IoTHub client is not assigned. Telemetry operation failed. "
                     "Will check after {} secs...".format(SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION)
                 )
                 await asyncio.sleep(SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION)
@@ -245,7 +245,7 @@ class Application(object):
                 return
             if not self.iothub_client or self.iothub_assignment_fail_event.is_set():
                 self.log_info_and_print(
-                    "IoTHub client is still nonexistent or re-provisioning is needed for establishing connection."
+                    "IoTHub client is invalid, re-provisioning is required to proceed."
                     "Will check after {} secs...".format(SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION)
                 )
                 await asyncio.sleep(SLEEP_TIME_BETWEEN_CHECKING_REGISTRATION)
