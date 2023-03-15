@@ -9,7 +9,7 @@ import mock
 
 class HangingAsyncMock(mock.AsyncMock):
     """Use this mock to hang on a awaitable coroutine.
-    Useful for testing task cancellation.
+    Useful for testing task cancellation, or blocking an infinite loop.
     """
 
     def __init__(self, *args, **kwargs):
@@ -37,3 +37,8 @@ class HangingAsyncMock(mock.AsyncMock):
             self._is_hanging.clear()
         else:
             raise RuntimeError("Not hanging")
+
+    def reset_mock(self):
+        self._is_hanging.clear()
+        self._stop_hanging.clear()
+        super().reset_mock()
