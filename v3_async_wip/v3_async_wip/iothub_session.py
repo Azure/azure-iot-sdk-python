@@ -39,8 +39,7 @@ class IoTHubSession:
         :param sastoken_fn: A function or coroutine function that takes no arguments and returns
             a SAS token string when invoked
 
-        :raises: ValueError if  one of 'ssl_context', 'symmetric_key' or 'sastoken_fn' is not
-            provided
+        :raises: ValueError if none of 'ssl_context', 'symmetric_key' or 'sastoken_fn' are provided
         :raises: ValueError if both 'symmetric_key' and 'sastoken_fn' are provided
         :raises: ValueError if an invalid 'symmetric_key' is provided
         """
@@ -71,6 +70,7 @@ class IoTHubSession:
             module_id=module_id,
             sastoken_provider=self._sastoken_provider,
             ssl_context=ssl_context,
+            auto_reconnect=False,  # No reconnect for now
         )
         self._mqtt_client = IoTHubMQTTClient(cfg)
 
@@ -164,8 +164,7 @@ class IoTHubSession:
         """
         await self._mqtt_client.send_direct_method_response(method_response)
 
-    # TODO: param name
-    async def update_reported_properties(self, twin_patch: custom_typing.TwinPatch) -> None:
+    async def update_reported_properties(self, patch: custom_typing.TwinPatch) -> None:
         """Update the reported properties of the Twin
 
         :param dict patch: JSON object containing the updates to the Twin reported properties
@@ -174,7 +173,7 @@ class IoTHubSession:
         :raises: ValueError if the size of the the twin patch is too large
         :raises: CancelledError if enabling twin responses is cancelled by network failure      # TODO: what should the behavior be here?
         """
-        await self._mqtt_client.send_twin_patch(twin_patch)
+        await self._mqtt_client.send_twin_patch(patch)
 
     async def get_twin(self) -> custom_typing.Twin:
         """Retrieve the full Twin data
@@ -188,10 +187,10 @@ class IoTHubSession:
         """
         return await self._mqtt_client.get_twin()
 
-    # TODO: make this support input messages for modules
+    # TODO: does this need to support input messages? Pending discussion re: Edge
     @contextlib.asynccontextmanager
     async def messages(self) -> AsyncGenerator[AsyncGenerator[models.Message, None], None]:
-        """Returns an async generator of incoming C2D or input messages"""
+        """Returns an async generator of incoming C2D messages"""
         await self._mqtt_client.enable_c2d_message_receive()
         try:
             yield self._mqtt_client.incoming_c2d_messages
