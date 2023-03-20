@@ -12,7 +12,7 @@ from v3_async_wip import signing_mechanism as sm
 from v3_async_wip import connection_string as cs
 from v3_async_wip import sastoken as st
 from v3_async_wip import config, models, custom_typing
-from v3_async_wip.iothub_mqtt_client import IoTHubMQTTClient
+from v3_async_wip import iothub_mqtt_client as mqtt
 
 
 class IoTHubSession:
@@ -59,7 +59,7 @@ class IoTHubSession:
         # NOTE: Need to keep a reference to the SasTokenProvider so we can stop it during cleanup
         self._sastoken_provider: Optional[st.SasTokenProvider]
         if shared_access_key:
-            uri = _form_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
+            uri = _format_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
             signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
             generator = st.InternalSasTokenGenerator(signing_mechanism=signing_mechanism, uri=uri)
             self._sastoken_provider = st.SasTokenProvider(generator)
@@ -69,6 +69,10 @@ class IoTHubSession:
         else:
             self._sastoken_provider = None
 
+        # Create a default SSLContext if not provided
+        if not ssl_context:
+            ssl_context = _default_ssl_context()
+
         # Instantiate the MQTTClient
         cfg = config.IoTHubClientConfig(
             hostname=hostname,
@@ -77,8 +81,9 @@ class IoTHubSession:
             sastoken_provider=self._sastoken_provider,
             ssl_context=ssl_context,
             auto_reconnect=False,  # No reconnect for now
+            **kwargs,
         )
-        self._mqtt_client = IoTHubMQTTClient(cfg)
+        self._mqtt_client = mqtt.IoTHubMQTTClient(cfg)
 
     async def __aenter__(self) -> "IoTHubSession":
         # First, if using SAS auth, start up the provider
@@ -130,12 +135,24 @@ class IoTHubSession:
         :raises: ValueError if the provided connection string is invalid
         """
         cs_obj = cs.ConnectionString(connection_string)
+        if cs_obj.get(cs.X509, "").lower() == "true" and ssl_context is None:
+            raise ValueError(
+                "Connection string indicates X509 certificate authentication, but no ssl_context provided"
+            )
+        if cs.GATEWAY_HOST_NAME in cs_obj:
+            hostname = cs_obj[cs.GATEWAY_HOST_NAME]
+        else:
+            hostname = cs_obj[cs.HOST_NAME]
         return cls(
-            hostname=cs_obj[cs.HOST_NAME],
+            hostname=hostname,
             device_id=cs_obj[cs.DEVICE_ID],
             module_id=cs_obj.get(cs.MODULE_ID),
+            shared_access_key=cs_obj.get(cs.SHARED_ACCESS_KEY),
+            ssl_context=ssl_context,
+            **kwargs,
         )
 
+    # TODO: should "output" be an optional argument here?
     async def send_message(self, message: Union[str, models.Message]) -> None:
         """Send a telemetry or input message to its destination
 
@@ -238,7 +255,7 @@ def _validate_kwargs(exclude=[], **kwargs) -> None:
             raise TypeError("Unsupported keyword argument: '{}'".format(kwarg))
 
 
-def _form_sas_uri(hostname: str, device_id: str, module_id: Optional[str]) -> str:
+def _format_sas_uri(hostname: str, device_id: str, module_id: Optional[str]) -> str:
     """Format the SAS URI for using IoT Hub"""
     if module_id:
         return "{hostname}/devices/{device_id}/modules/{module_id}".format(
@@ -246,3 +263,12 @@ def _form_sas_uri(hostname: str, device_id: str, module_id: Optional[str]) -> st
         )
     else:
         return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
+
+
+def _default_ssl_context() -> ssl.SSLContext:
+    """Return a default SSLContext"""
+    ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context.verify_mode = ssl.CERT_REQUIRED
+    ssl_context.check_hostname = True
+    ssl_context.load_default_certs()
+    return ssl_context
