@@ -8,8 +8,8 @@ import contextlib
 import ssl
 from typing import Optional, Union, AsyncGenerator
 
-# from v3_async_wip import signing_mechanism as sm
-# from v3_async_wip import connection_string as cs
+from v3_async_wip import signing_mechanism as sm
+from v3_async_wip import connection_string as cs
 from v3_async_wip import sastoken as st
 from v3_async_wip import config, models, custom_typing
 from v3_async_wip.iothub_mqtt_client import IoTHubMQTTClient
@@ -54,12 +54,18 @@ class IoTHubSession:
                 "Missing authentication - must provide one of 'shared_access_key', 'sastoken_fn' or 'ssl_context'"
             )
 
-        # Need to keep a reference to the SasTokenProvider so we can stop it during cleanup
+        # Set up SAS auth (if using)
+        generator: Optional[st.SasTokenGenerator]
+        # NOTE: Need to keep a reference to the SasTokenProvider so we can stop it during cleanup
         self._sastoken_provider: Optional[st.SasTokenProvider]
-        if shared_access_key or sastoken_fn:
-            self._sastoken_provider = _create_sastoken_provider(
-                shared_access_key=shared_access_key, sastoken_fn=sastoken_fn
-            )
+        if shared_access_key:
+            uri = _form_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
+            signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
+            generator = st.InternalSasTokenGenerator(signing_mechanism=signing_mechanism, uri=uri)
+            self._sastoken_provider = st.SasTokenProvider(generator)
+        elif sastoken_fn:
+            generator = st.ExternalSasTokenGenerator(sastoken_fn)
+            self._sastoken_provider = st.SasTokenProvider(generator)
         else:
             self._sastoken_provider = None
 
@@ -101,40 +107,34 @@ class IoTHubSession:
         if self._sastoken_provider:
             await self._sastoken_provider.stop()
 
-    # @classmethod
-    # def from_connection_string(
-    #     cls, connection_string: str, ssl_context: Optional[ssl.SSLContext] = None, **kwargs
-    # ) -> "IoTHubSession":
-    #     """Instantiate an IoTHubSession using an IoT Hub device or module connection string
+    @classmethod
+    def from_connection_string(
+        cls, connection_string: str, ssl_context: Optional[ssl.SSLContext] = None, **kwargs
+    ) -> "IoTHubSession":
+        """Instantiate an IoTHubSession using an IoT Hub device or module connection string
 
-    #     :param str connection_string: The IoT Hub device connection string
-    #     :param ssl_context: Custom SSL context to be used by the client
-    #         If not provided, a default one will be used
-    #     :type ssl_context: :class:`ssl.SSLContext`
+        :param str connection_string: The IoT Hub device connection string
+        :param ssl_context: Custom SSL context to be used by the client
+            If not provided, a default one will be used
+        :type ssl_context: :class:`ssl.SSLContext`
 
-    #     :keyword int keep_alive: Maximum period in seconds between MQTT communications. If no
-    #         communications are exchanged for this period, a ping exchange will occur.
-    #         Default is 60 seconds
-    #     :keyword str product_info: Arbitrary product information which will be included in the
-    #         User-Agent string
-    #     :keyword proxy_options: Configuration structure for sending traffic through a proxy server
-    #     :type: proxy_options: :class:`ProxyOptions`
-    #     :keyword bool websockets: Set to 'True' to use WebSockets over MQTT. Default is 'False'
+        :keyword int keep_alive: Maximum period in seconds between MQTT communications. If no
+            communications are exchanged for this period, a ping exchange will occur.
+            Default is 60 seconds
+        :keyword str product_info: Arbitrary product information which will be included in the
+            User-Agent string
+        :keyword proxy_options: Configuration structure for sending traffic through a proxy server
+        :type: proxy_options: :class:`ProxyOptions`
+        :keyword bool websockets: Set to 'True' to use WebSockets over MQTT. Default is 'False'
 
-    #     :raises: ValueError if the provided connection string is invalid
-    #     """
-    #     cs_obj = cs.ConnectionString(connection_string)
-    #     signing_mechanism = sm.SymmetricKeySigningMechanism(cs_obj[cs.SHARED_ACCESS_KEY])
-    #     uri = "{hostname}/devices/{device_id}".format(
-    #         hostname=cs_obj[cs.HOST_NAME], device_id=cs_obj[cs.DEVICE_ID]
-    #     )
-    #     generator = st.InternalSasTokenGenerator(signing_mechanism=signing_mechanism, uri=uri)
-    #     provider = st.SasTokenProvider(generator)
-    #     return cls(
-    #         hostname=cs_obj[cs.HOST_NAME],
-    #         device_id=cs_obj[cs.DEVICE_ID],
-    #         sas_auth=provider,
-    #     )
+        :raises: ValueError if the provided connection string is invalid
+        """
+        cs_obj = cs.ConnectionString(connection_string)
+        return cls(
+            hostname=cs_obj[cs.HOST_NAME],
+            device_id=cs_obj[cs.DEVICE_ID],
+            module_id=cs_obj.get(cs.MODULE_ID),
+        )
 
     async def send_message(self, message: Union[str, models.Message]) -> None:
         """Send a telemetry or input message to its destination
@@ -238,10 +238,11 @@ def _validate_kwargs(exclude=[], **kwargs) -> None:
             raise TypeError("Unsupported keyword argument: '{}'".format(kwarg))
 
 
-def _create_sastoken_provider(
-    *, shared_access_key: Optional[str], sastoken_fn: Optional[custom_typing.FunctionOrCoroutine]
-):  # -> st.SasTokenProvider:
-    # NOTE: these two arguments are mutually exclusive. While that is not validated here,
-    # it is validated by the caller (the IoTHubSession __init__)
-    pass
-    # if shared_access_key:
+def _form_sas_uri(hostname: str, device_id: str, module_id: Optional[str]) -> str:
+    """Format the SAS URI for using IoT Hub"""
+    if module_id:
+        return "{hostname}/devices/{device_id}/modules/{module_id}".format(
+            hostname=hostname, device_id=device_id, module_id=module_id
+        )
+    else:
+        return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
