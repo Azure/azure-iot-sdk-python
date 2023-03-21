@@ -111,6 +111,7 @@ class IoTHubSession:
         exc_val: Optional[BaseException],
         traceback: TracebackType,
     ) -> None:
+        # NOTE: these are not supposed to be able to fail so no error handling required
         await self._mqtt_client.disconnect()
         await self._stop_all()
 
