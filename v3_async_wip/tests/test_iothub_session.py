@@ -4,12 +4,14 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import asyncio
 import pytest
 import ssl
 import time
+from dev_utils import custom_mock
 from pytest_lazyfixture import lazy_fixture
 from v3_async_wip.iothub_session import IoTHubSession
-from v3_async_wip import config
+from v3_async_wip import config, models, iot_exceptions
 from v3_async_wip import connection_string as cs
 from v3_async_wip import iothub_mqtt_client as mqtt
 from v3_async_wip import sastoken as st
@@ -45,10 +47,10 @@ def get_expected_uri(hostname, device_id, module_id):
 
 # ~~~~~ Fixtures ~~~~~~
 
-# # Mock out the underlying clients to avoid starting up tasks that will reduce performance
-# @pytest.fixture(autouse=True)
-# def mock_mqtt_iothub_client(mocker):
-#     return mocker.patch.object(mqtt, "IoTHubMQTTClient", spec=mqtt.IoTHubMQTTClient).return_value
+# Mock out the underlying client in order to not do network operations
+@pytest.fixture(autouse=True)
+def mock_mqtt_iothub_client(mocker):
+    return mocker.patch.object(mqtt, "IoTHubMQTTClient", spec=mqtt.IoTHubMQTTClient).return_value
 
 
 # @pytest.fixture(autouse=True)
@@ -75,6 +77,14 @@ def optional_ssl_context(request, custom_ssl_context):
         return custom_ssl_context
     else:
         return None
+
+
+@pytest.fixture
+def session(custom_ssl_context):
+    """Use a device configuration and custom SSL auth for simplicity"""
+    return IoTHubSession(
+        hostname=FAKE_HOSTNAME, device_id=FAKE_DEVICE_ID, ssl_context=custom_ssl_context
+    )
 
 
 # ~~~~~ Parametrizations ~~~~~
@@ -479,6 +489,23 @@ class TestIoTHubSessionInstantiation:
                 ssl_context=optional_ssl_context,
             )
 
+    @pytest.mark.it("Raises TypeError if an invalid keyword argument is provided")
+    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("device_id, module_id", create_id_params)
+    async def test_bad_kwarg(
+        self, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
+    ):
+        with pytest.raises(TypeError):
+            IoTHubSession(
+                hostname=FAKE_HOSTNAME,
+                device_id=device_id,
+                module_id=module_id,
+                shared_access_key=shared_access_key,
+                sastoken_fn=sastoken_fn,
+                ssl_context=ssl_context,
+                invalid_argument="some value",
+            )
+
     @pytest.mark.it(
         "Allows any exceptions raised when creating a SymmetricKeySigningMechanism to propagate"
     )
@@ -753,6 +780,14 @@ class TestIoTHubSessionFromConnectionString:
         IoTHubSession.from_connection_string(connection_string)
         # If the above invocation didn't raise, the test passed, no assertions required
 
+    @pytest.mark.it("Raises TypeError if an invalid keyword argument is provided")
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
+    async def test_bad_kwarg(self, connection_string, ssl_context):
+        with pytest.raises(TypeError):
+            IoTHubSession.from_connection_string(
+                connection_string, ssl_context, invalid_argument="some_value"
+            )
+
     @pytest.mark.it("Allows any exceptions raised while parsing the connection string to propagate")
     @pytest.mark.parametrize(
         "exception",
@@ -795,5 +830,460 @@ class TestIoTHubSessionFromConnectionString:
         assert e_info.value is arbitrary_exception
 
 
-# class TestIoTHubSessionSendMessage:
-#     @pytest.mark.it("")
+@pytest.mark.describe("IoTHubSession -- Context Manager Usage")
+class TestIoTHubSessionContextManager:
+    @pytest.mark.it(
+        "Starts the IoTHubMQTTClient upon entry into the context manager, and stops it upon exit"
+    )
+    async def test_mqtt_client_start_stop(self, session):
+        assert session._mqtt_client.start.await_count == 0
+        assert session._mqtt_client.stop.await_count == 0
+
+        async with session as session:
+            assert session._mqtt_client.start.await_count == 1
+            assert session._mqtt_client.stop.await_count == 0
+
+        assert session._mqtt_client.start.await_count == 1
+        assert session._mqtt_client.stop.await_count == 1
+
+    @pytest.mark.it(
+        "Stops the IoTHubMQTTClient upon exit, even if an error was raised within the block inside the context manager"
+    )
+    async def test_mqtt_client_start_stop_with_failure(self, session, arbitrary_exception):
+        assert session._mqtt_client.start.await_count == 0
+        assert session._mqtt_client.stop.await_count == 0
+
+        try:
+            async with session as session:
+                assert session._mqtt_client.start.await_count == 1
+                assert session._mqtt_client.stop.await_count == 0
+                raise arbitrary_exception
+        except type(arbitrary_exception):
+            pass
+
+        assert session._mqtt_client.start.await_count == 1
+        assert session._mqtt_client.stop.await_count == 1
+
+    @pytest.mark.it(
+        "Connect the IoTHubMQTTClient upon entry into the context manager, and disconnect it upon exit"
+    )
+    async def test_mqtt_client_connection(self, session):
+        assert session._mqtt_client.connect.await_count == 0
+        assert session._mqtt_client.disconnect.await_count == 0
+
+        async with session as session:
+            assert session._mqtt_client.connect.await_count == 1
+            assert session._mqtt_client.disconnect.await_count == 0
+
+        assert session._mqtt_client.connect.await_count == 1
+        assert session._mqtt_client.disconnect.await_count == 1
+
+    @pytest.mark.it(
+        "Disconnect the IoTHubMQTTClient upon exit, even if an error was raised within the block inside the context manager"
+    )
+    async def test_mqtt_client_connection_with_failure(self, session, arbitrary_exception):
+        assert session._mqtt_client.connect.await_count == 0
+        assert session._mqtt_client.disconnect.await_count == 0
+
+        try:
+            async with session as session:
+                assert session._mqtt_client.connect.await_count == 1
+                assert session._mqtt_client.disconnect.await_count == 0
+                raise arbitrary_exception
+        except type(arbitrary_exception):
+            pass
+
+        assert session._mqtt_client.connect.await_count == 1
+        assert session._mqtt_client.disconnect.await_count == 1
+
+    @pytest.mark.it(
+        "Starts the SasTokenProvider upon entry into the context manager, and stops it upon exit, if one exists"
+    )
+    async def test_sastoken_provider_start_stop(self, session, mock_sastoken_provider):
+        session._sastoken_provider = mock_sastoken_provider
+        assert session._sastoken_provider.start.await_count == 0
+        assert session._sastoken_provider.stop.await_count == 0
+
+        async with session as session:
+            assert session._sastoken_provider.start.await_count == 1
+            assert session._sastoken_provider.stop.await_count == 0
+
+        assert session._sastoken_provider.start.await_count == 1
+        assert session._sastoken_provider.stop.await_count == 1
+
+    @pytest.mark.it(
+        "Stops the SasTokenProvider upon exit, even if an error was raised within the block inside the context manager"
+    )
+    async def test_sastoken_provider_start_stop_with_failure(
+        self, session, mock_sastoken_provider, arbitrary_exception
+    ):
+        session._sastoken_provider = mock_sastoken_provider
+        assert session._sastoken_provider.start.await_count == 0
+        assert session._sastoken_provider.stop.await_count == 0
+
+        try:
+            async with session as session:
+                assert session._sastoken_provider.start.await_count == 1
+                assert session._sastoken_provider.stop.await_count == 0
+                raise arbitrary_exception
+        except type(arbitrary_exception):
+            pass
+
+        assert session._sastoken_provider.start.await_count == 1
+        assert session._sastoken_provider.stop.await_count == 1
+
+    @pytest.mark.it("Can handle the case where SasTokenProvider does not exist")
+    async def test_no_sastoken_provider(self, session):
+        assert session._sastoken_provider is None
+
+        async with session as session:
+            pass
+
+        # If nothing raises here, the test passes
+
+    @pytest.mark.it(
+        "Allows any errors raised within the block inside the context manager to propagate"
+    )
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+            # NOTE: it is importat to test the CancelledError since it is a regular Exception in 3.7,
+            # but a BaseException from 3.8+
+            pytest.param(asyncio.CancelledError(), id="CancelledError"),
+        ],
+    )
+    async def test_error_propagation(self, session, exception):
+        with pytest.raises(type(exception)) as e_info:
+            async with session as session:
+                raise exception
+        assert e_info.value is exception
+
+
+@pytest.mark.describe("IoTHubSession - .send_message()")
+class TestIoTHubSessionSendMessage:
+    @pytest.mark.it(
+        "Invokes .send_message() on the IoTHubMQTTClient, passing the provided `message`, if `message` is a Message object"
+    )
+    async def test_message_object(self, mocker, session):
+        assert session._mqtt_client.send_message.await_count == 0
+
+        m = models.Message("hi")
+        await session.send_message(m)
+
+        assert session._mqtt_client.send_message.await_count == 1
+        assert session._mqtt_client.send_message.await_args == mocker.call(m)
+
+    @pytest.mark.it(
+        "Invokes .send_message() on the IoTHubMQTTClient, passing a new Message object with `message` as the payload, if `message` is a string"
+    )
+    async def test_message_string(self, session):
+        assert session._mqtt_client.send_message.await_count == 0
+
+        m_str = "hi"
+        await session.send_message(m_str)
+
+        assert session._mqtt_client.send_message.await_count == 1
+        m_obj = session._mqtt_client.send_message.await_args[0][0]
+        assert isinstance(m_obj, models.Message)
+        assert m_obj.payload == m_str
+
+    @pytest.mark.it("Allows any exceptions raised by the IoTHubMQTTClient to propagate")
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(mqtt.MQTTError(5), id="MQTTError"),
+            pytest.param(ValueError(), id="ValueError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
+        ],
+    )
+    async def test_mqtt_client_raises(self, session, exception):
+        session._mqtt_client.send_message.side_effect = exception
+
+        with pytest.raises(type(exception)) as e_info:
+            await session.send_message("hi")
+        assert e_info.value is exception
+
+    @pytest.mark.it("Can be cancelled while waiting for the IoTHubMQTTClient operation to complete")
+    async def test_cancel_during_send(self, session):
+        session._mqtt_client.send_message = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.send_message("hi"))
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.send_message.wait_for_hang()
+        assert not t.done()
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+
+@pytest.mark.describe("IoTHubSession - .send_direct_method_response()")
+class TestIoTHubSessionSendDirectMethodResponse:
+    @pytest.fixture
+    def direct_method_response(self):
+        return models.DirectMethodResponse(request_id="id", status=200, payload={"some": "value"})
+
+    @pytest.mark.it(
+        "Invokes .send_direct_method_response() on the IoTHubMQTTClient, passing the provided `method_response`"
+    )
+    async def test_invoke(self, mocker, session, direct_method_response):
+        assert session._mqtt_client.send_direct_method_response.await_count == 0
+
+        await session.send_direct_method_response(direct_method_response)
+
+        assert session._mqtt_client.send_direct_method_response.await_count == 1
+        assert session._mqtt_client.send_direct_method_response.await_args == mocker.call(
+            direct_method_response
+        )
+
+    @pytest.mark.it("Allows any exceptions raised by the IoTHubMQTTClient to propagate")
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(mqtt.MQTTError(5), id="MQTTError"),
+            pytest.param(ValueError(), id="ValueError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
+        ],
+    )
+    async def test_mqtt_client_raises(self, session, direct_method_response, exception):
+        session._mqtt_client.send_direct_method_response.side_effect = exception
+
+        with pytest.raises(type(exception)) as e_info:
+            await session.send_direct_method_response(direct_method_response)
+        assert e_info.value is exception
+
+    @pytest.mark.it("Can be cancelled while waiting for the IoTHubMQTTClient operation to complete")
+    async def test_cancel_during_send(self, session, direct_method_response):
+        session._mqtt_client.send_direct_method_response = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.send_direct_method_response(direct_method_response))
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.send_direct_method_response.wait_for_hang()
+        assert not t.done()
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+
+@pytest.mark.describe("IoTHubSession - .update_reported_properties()")
+class TestIoTHubSessionUpdateReportedProperties:
+    @pytest.fixture
+    def patch(self):
+        return {"key1": "value1", "key2": "value2"}
+
+    @pytest.mark.it(
+        "Invokes .send_twin_patch() on the IoTHubMQTTClient, passing the provided `patch`"
+    )
+    async def test_invoke(self, mocker, session, patch):
+        assert session._mqtt_client.send_twin_patch.await_count == 0
+
+        await session.update_reported_properties(patch)
+
+        assert session._mqtt_client.send_twin_patch.await_count == 1
+        assert session._mqtt_client.send_twin_patch.await_args == mocker.call(patch)
+
+    @pytest.mark.it("Allows any exceptions raised by the IoTHubMQTTClient to propagate")
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(iot_exceptions.IoTHubError(), id="IoTHubError"),
+            pytest.param(mqtt.MQTTError(5), id="MQTTError"),
+            pytest.param(ValueError(), id="ValueError"),
+            pytest.param(asyncio.CancelledError(), id="CancelledError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
+        ],
+    )
+    async def test_mqtt_client_raises(self, session, patch, exception):
+        session._mqtt_client.send_twin_patch.side_effect = exception
+
+        with pytest.raises(type(exception)) as e_info:
+            await session.update_reported_properties(patch)
+        assert e_info.value is exception
+
+    @pytest.mark.it("Can be cancelled while waiting for the IoTHubMQTTClient operation to complete")
+    async def test_cancel_during_send(self, session, patch):
+        session._mqtt_client.send_twin_patch = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.update_reported_properties(patch))
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.send_twin_patch.wait_for_hang()
+        assert not t.done()
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+
+@pytest.mark.describe("IoTHubSession - .get_twin()")
+class TestIoTHubSessionGetTwin:
+    @pytest.mark.it("Invokes .get_twin() on the IoTHubMQTTClient")
+    async def test_invoke(self, mocker, session):
+        assert session._mqtt_client.get_twin.await_count == 0
+
+        await session.get_twin()
+
+        assert session._mqtt_client.get_twin.await_count == 1
+        assert session._mqtt_client.get_twin.await_args == mocker.call()
+
+    @pytest.mark.it("Allows any exceptions raised by the IoTHubMQTTClient to propagate")
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(iot_exceptions.IoTHubError(), id="IoTHubError"),
+            pytest.param(mqtt.MQTTError(5), id="MQTTError"),
+            pytest.param(asyncio.CancelledError(), id="CancelledError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
+        ],
+    )
+    async def test_mqtt_client_raises(self, session, exception):
+        session._mqtt_client.get_twin.side_effect = exception
+
+        with pytest.raises(type(exception)) as e_info:
+            await session.get_twin()
+        assert e_info.value is exception
+
+    @pytest.mark.it("Can be cancelled while waiting for the IoTHubMQTTClient operation to complete")
+    async def test_cancel_during_send(self, session):
+        session._mqtt_client.get_twin = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.get_twin())
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.get_twin.wait_for_hang()
+        assert not t.done()
+
+        # Cancel
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+
+
+@pytest.mark.describe("IoTHubSession - .messages()")
+class TestIoTHubSessionMessages:
+    @pytest.mark.it(
+        "Enables C2D message receive with the IoTHubMQTTClient upon entry into the context manager and disables C2D message receive upon exit"
+    )
+    async def test_context_manager(self, session):
+        assert session._mqtt_client.enable_c2d_message_receive.await_count == 0
+        assert session._mqtt_client.disable_c2d_message_receive.await_count == 0
+
+        async with session.messages():
+            assert session._mqtt_client.enable_c2d_message_receive.await_count == 1
+            assert session._mqtt_client.disable_c2d_message_receive.await_count == 0
+
+        assert session._mqtt_client.enable_c2d_message_receive.await_count == 1
+        assert session._mqtt_client.disable_c2d_message_receive.await_count == 1
+
+    @pytest.mark.it(
+        "Disables C2D message receive upon exit, even if an error is raised inside the context manager block"
+    )
+    async def test_context_manager_failure(self, session, arbitrary_exception):
+        assert session._mqtt_client.enable_c2d_message_receive.await_count == 0
+        assert session._mqtt_client.disable_c2d_message_receive.await_count == 0
+
+        try:
+            async with session.messages():
+                assert session._mqtt_client.enable_c2d_message_receive.await_count == 1
+                assert session._mqtt_client.disable_c2d_message_receive.await_count == 0
+                raise arbitrary_exception
+        except type(arbitrary_exception):
+            pass
+
+        assert session._mqtt_client.enable_c2d_message_receive.await_count == 1
+        assert session._mqtt_client.disable_c2d_message_receive.await_count == 1
+
+    @pytest.mark.it("Yields the IoTHubMQTTClient's incoming C2D message generator")
+    async def test_generator(self, session):
+        # NOTE: This generator is thoroughly tested in test_iothub_mqtt_client.py
+        async with session.messages() as messages:
+            assert messages is session._mqtt_client.incoming_c2d_messages
+
+
+@pytest.mark.describe("IoTHubSession - .direct_method_requests()")
+class TestIoTHubSessionDirectMethodRequests:
+    @pytest.mark.it(
+        "Enables direct method request receive with the IoTHubMQTTClient upon entry into the context manager and disables direct method request receive upon exit"
+    )
+    async def test_context_manager(self, session):
+        assert session._mqtt_client.enable_direct_method_request_receive.await_count == 0
+        assert session._mqtt_client.disable_direct_method_request_receive.await_count == 0
+
+        async with session.direct_method_requests():
+            assert session._mqtt_client.enable_direct_method_request_receive.await_count == 1
+            assert session._mqtt_client.disable_direct_method_request_receive.await_count == 0
+
+        assert session._mqtt_client.enable_direct_method_request_receive.await_count == 1
+        assert session._mqtt_client.disable_direct_method_request_receive.await_count == 1
+
+    @pytest.mark.it(
+        "Disables direct method request receive upon exit, even if an error is raised inside the context manager block"
+    )
+    async def test_context_manager_failure(self, session, arbitrary_exception):
+        assert session._mqtt_client.enable_direct_method_request_receive.await_count == 0
+        assert session._mqtt_client.disable_direct_method_request_receive.await_count == 0
+
+        try:
+            async with session.direct_method_requests():
+                assert session._mqtt_client.enable_direct_method_request_receive.await_count == 1
+                assert session._mqtt_client.disable_direct_method_request_receive.await_count == 0
+                raise arbitrary_exception
+        except type(arbitrary_exception):
+            pass
+
+        assert session._mqtt_client.enable_direct_method_request_receive.await_count == 1
+        assert session._mqtt_client.disable_direct_method_request_receive.await_count == 1
+
+    @pytest.mark.it("Yields the IoTHubMQTTClient's incoming direct method request generator")
+    async def test_generator(self, session):
+        # NOTE: This generator is thoroughly tested in test_iothub_mqtt_client.py
+        async with session.direct_method_requests() as method_requests:
+            assert method_requests is session._mqtt_client.incoming_direct_method_requests
+
+
+@pytest.mark.describe("IoTHubSession - .desired_property_updates()")
+class TestIoTHubSessionDesiredPropertyUpdates:
+    @pytest.mark.it(
+        "Enables twin patch receive with the IoTHubMQTTClient upon entry into the context manager and disables twin patch receive upon exit"
+    )
+    async def test_context_manager(self, session):
+        assert session._mqtt_client.enable_twin_patch_receive.await_count == 0
+        assert session._mqtt_client.disable_twin_patch_receive.await_count == 0
+
+        async with session.desired_property_updates():
+            assert session._mqtt_client.enable_twin_patch_receive.await_count == 1
+            assert session._mqtt_client.disable_twin_patch_receive.await_count == 0
+
+        assert session._mqtt_client.enable_twin_patch_receive.await_count == 1
+        assert session._mqtt_client.disable_twin_patch_receive.await_count == 1
+
+    @pytest.mark.it(
+        "Disables twin patch receive upon exit, even if an error is raised inside the context manager block"
+    )
+    async def test_context_manager_failure(self, session, arbitrary_exception):
+        assert session._mqtt_client.enable_twin_patch_receive.await_count == 0
+        assert session._mqtt_client.disable_twin_patch_receive.await_count == 0
+
+        try:
+            async with session.desired_property_updates():
+                assert session._mqtt_client.enable_twin_patch_receive.await_count == 1
+                assert session._mqtt_client.disable_twin_patch_receive.await_count == 0
+                raise arbitrary_exception
+        except type(arbitrary_exception):
+            pass
+
+        assert session._mqtt_client.enable_twin_patch_receive.await_count == 1
+        assert session._mqtt_client.disable_twin_patch_receive.await_count == 1
+
+    @pytest.mark.it("Yields the IoTHubMQTTClient's incoming twin patch generator")
+    async def test_generator(self, session):
+        # NOTE: This generator is thoroughly tested in test_iothub_mqtt_client.py
+        async with session.desired_property_updates() as updates:
+            assert updates is session._mqtt_client.incoming_twin_patches

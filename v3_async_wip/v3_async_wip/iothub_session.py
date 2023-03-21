@@ -42,6 +42,7 @@ class IoTHubSession:
         :raises: ValueError if none of 'ssl_context', 'symmetric_key' or 'sastoken_fn' are provided
         :raises: ValueError if both 'symmetric_key' and 'sastoken_fn' are provided
         :raises: ValueError if an invalid 'symmetric_key' is provided
+        :raises: TypeError if an invalid keyword argument is provided
         """
         # Validate parameters
         _validate_kwargs(**kwargs)
@@ -98,16 +99,16 @@ class IoTHubSession:
             await self._mqtt_client.connect()
         except (Exception, asyncio.CancelledError):
             # Stop/cleanup if something goes wrong
-            await self._stop()
+            await self._stop_all()
             raise
 
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         await self._mqtt_client.disconnect()
-        await self._stop()
+        await self._stop_all()
 
-    async def _stop(self) -> None:
+    async def _stop_all(self) -> None:
         await self._mqtt_client.stop()
         if self._sastoken_provider:
             await self._sastoken_provider.stop()
@@ -133,6 +134,7 @@ class IoTHubSession:
         :keyword bool websockets: Set to 'True' to use WebSockets over MQTT. Default is 'False'
 
         :raises: ValueError if the provided connection string is invalid
+        :raises: TypeError if an invalid keyword argument is provided
         """
         cs_obj = cs.ConnectionString(connection_string)
         if cs_obj.get(cs.X509, "").lower() == "true" and ssl_context is None:
@@ -186,9 +188,10 @@ class IoTHubSession:
 
         :param dict patch: JSON object containing the updates to the Twin reported properties
 
-        :raises: MQTTError if there is an error sending the twin patch
-        :raises: ValueError if the size of the the twin patch is too large
-        :raises: CancelledError if enabling twin responses is cancelled by network failure      # TODO: what should the behavior be here?
+        :raises: IoTHubError if an error response is received from IoT Hub
+        :raises: MQTTError if there is an error sending the updated reported properties
+        :raises: ValueError if the size of the the reported properties patch too large
+        :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure      # TODO: what should the behavior be here?
         """
         await self._mqtt_client.send_twin_patch(patch)
 
@@ -199,8 +202,8 @@ class IoTHubSession:
         :rtype: dict
 
         :raises: IoTHubError if a error response is received from IoTHub
-        :raises: MQTTError if there is an error sending the twin request
-        :raises: CancelledError if enabling twin responses is cancelled by network failure
+        :raises: MQTTError if there is an error sending the request
+        :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
         return await self._mqtt_client.get_twin()
 

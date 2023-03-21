@@ -11,6 +11,7 @@ import urllib.parse
 from typing import Callable, Optional, AsyncGenerator, TypeVar
 from .custom_typing import TwinPatch, Twin
 from .iot_exceptions import IoTHubError, IoTHubClientError
+from .mqtt_client import MQTTError  # noqa: F401    (Importing directly to re-export)
 from . import config, constant, user_agent, models
 from . import request_response as rr
 from . import mqtt_client as mqtt
@@ -331,6 +332,7 @@ class IoTHubMQTTClient:
         :param patch: The JSON patch to send
         :type patch: dict, list, tuple, str, int, float, bool, None
 
+        :raises: IoTHubError if an error response is received from IoT Hub
         :raises: MQTTError if there is an error sending the twin patch
         :raises: ValueError if the size of the the twin patch is too large
         :raises: CancelledError if enabling twin responses is cancelled by network failure
@@ -400,6 +402,7 @@ class IoTHubMQTTClient:
         :returns: The full twin as a JSON object
         :rtype: dict
 
+        :raises: IoTHubError if an error response is received from IoT Hub
         :raises: MQTTError if there is an error sending the twin request
         :raises: CancelledError if enabling twin responses is cancelled by network failure
         """
