@@ -6,7 +6,8 @@
 import asyncio
 import contextlib
 import ssl
-from typing import Optional, Union, AsyncGenerator
+from typing import Optional, Union, AsyncGenerator, Type
+from types import TracebackType
 
 from v3_async_wip import signing_mechanism as sm
 from v3_async_wip import connection_string as cs
@@ -104,7 +105,12 @@ class IoTHubSession:
 
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        traceback: TracebackType,
+    ) -> None:
         await self._mqtt_client.disconnect()
         await self._stop_all()
 
