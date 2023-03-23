@@ -76,7 +76,7 @@ class IoTHubSession:
             ssl_context = _default_ssl_context()
 
         # Instantiate the MQTTClient
-        cfg = config.IoTHubClientConfig(
+        client_config = config.IoTHubClientConfig(
             hostname=hostname,
             device_id=device_id,
             module_id=module_id,
@@ -85,7 +85,7 @@ class IoTHubSession:
             auto_reconnect=False,  # No reconnect for now
             **kwargs,
         )
-        self._mqtt_client = mqtt.IoTHubMQTTClient(cfg)
+        self._mqtt_client = mqtt.IoTHubMQTTClient(client_config)
 
     async def __aenter__(self) -> "IoTHubSession":
         # First, if using SAS auth, start up the provider
@@ -116,9 +116,11 @@ class IoTHubSession:
         await self._stop_all()
 
     async def _stop_all(self) -> None:
-        await self._mqtt_client.stop()
-        if self._sastoken_provider:
-            await self._sastoken_provider.stop()
+        try:
+            await self._mqtt_client.stop()
+        finally:
+            if self._sastoken_provider:
+                await self._sastoken_provider.stop()
 
     @classmethod
     def from_connection_string(

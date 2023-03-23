@@ -53,11 +53,6 @@ def mock_mqtt_iothub_client(mocker):
     return mocker.patch.object(mqtt, "IoTHubMQTTClient", spec=mqtt.IoTHubMQTTClient).return_value
 
 
-# @pytest.fixture(autouse=True)
-# def mock_http_iothub_client(mocker):
-#     return mocker.patch.object(http, "IoTHubHTTPClient", spec=http.IoTHubHTTPClient).return_value
-
-
 @pytest.fixture(autouse=True)
 def mock_sastoken_provider(mocker):
     return mocker.patch.object(st, "SasTokenProvider", spec=st.SasTokenProvider).return_value
@@ -358,8 +353,12 @@ class TestIoTHubSessionInstantiation:
         my_ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
         original_ssl_ctx_cls = ssl.SSLContext
 
-        # NOTE: due to implementation of SSLContext, we have to mock, and then unset the mock.
-        # Thus, this side effect has been implemented to do just that.
+        # NOTE: SSLContext is difficult to mock as an entire class, due to how it implements
+        # instantiation. Essentially, if you mock the entire class, it will not be able to
+        # instantiate due to an internal reference to the class type, which of course has now been
+        # changed to MagicMock. To get around this, we mock the class with a side effect that can
+        # check the arguments passed to the constructor, return a pre-existing SSLContext, and then
+        # unset the mock to prevent future issues.
         def return_and_reset(*args, **kwargs):
             ssl.SSLContext = original_ssl_ctx_cls
             assert kwargs["protocol"] is ssl.PROTOCOL_TLS_CLIENT
@@ -958,6 +957,8 @@ class TestIoTHubSessionContextManager:
             async with session as session:
                 raise exception
         assert e_info.value is exception
+
+    # TODO: tests re errors in stop
 
 
 @pytest.mark.describe("IoTHubSession - .send_message()")
