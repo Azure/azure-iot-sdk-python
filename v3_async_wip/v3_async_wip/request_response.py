@@ -6,7 +6,7 @@
 """Infrastructure for use implementing a high-level async request/response paradigm"""
 import asyncio
 import uuid
-from typing import Dict
+from typing import Dict, Optional
 
 
 class Response:
@@ -17,8 +17,11 @@ class Response:
 
 
 class Request:
-    def __init__(self) -> None:
-        self.request_id = str(uuid.uuid4())
+    def __init__(self, request_id: Optional[str] = None) -> None:
+        if request_id:
+            self.request_id = request_id
+        else:
+            self.request_id = str(uuid.uuid4())
         self.response_future: asyncio.Future[Response] = asyncio.Future()
 
     async def get_response(self) -> Response:
@@ -36,10 +39,13 @@ class RequestLedger:
     def __contains__(self, request_id):
         return request_id in self.pending
 
-    async def create_request(self) -> Request:
-        request = Request()
+    async def create_request(self, request_id: Optional[str] = None) -> Request:
+        request = Request(request_id=request_id)
         async with self.lock:
-            self.pending[request.request_id] = request.response_future
+            if request.request_id not in self.pending:
+                self.pending[request.request_id] = request.response_future
+            else:
+                raise ValueError("Provided request_id is a duplicate")
         return request
 
     async def delete_request(self, request_id) -> None:
