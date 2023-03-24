@@ -11,7 +11,10 @@ import urllib.parse
 from typing import Callable, Optional, AsyncGenerator, TypeVar
 from .custom_typing import TwinPatch, Twin
 from .iot_exceptions import IoTHubError, IoTHubClientError
-from .mqtt_client import MQTTError  # noqa: F401    (Importing directly to re-export)
+from .mqtt_client import (  # noqa: F401
+    MQTTError,  # noqa: F401    (Importing directly to re-export)
+    MQTTConnectionFailedError,  # noqa: F401    (Importing directly to re-export)
+)
 from . import config, constant, user_agent, models
 from . import request_response as rr
 from . import mqtt_client as mqtt

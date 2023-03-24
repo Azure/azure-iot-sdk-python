@@ -111,9 +111,10 @@ class IoTHubSession:
         exc_val: Optional[BaseException],
         traceback: TracebackType,
     ) -> None:
-        # NOTE: these are not supposed to be able to fail so no error handling required
-        await self._mqtt_client.disconnect()
-        await self._stop_all()
+        try:
+            await self._mqtt_client.disconnect()
+        finally:
+            await self._stop_all()
 
     async def _stop_all(self) -> None:
         try:
@@ -280,6 +281,7 @@ def _format_sas_uri(hostname: str, device_id: str, module_id: Optional[str]) -> 
 def _default_ssl_context() -> ssl.SSLContext:
     """Return a default SSLContext"""
     ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
     ssl_context.verify_mode = ssl.CERT_REQUIRED
     ssl_context.check_hostname = True
     ssl_context.load_default_certs()

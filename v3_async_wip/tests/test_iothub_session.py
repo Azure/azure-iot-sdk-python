@@ -383,6 +383,7 @@ class TestIoTHubSessionInstantiation:
         assert ctx.check_hostname is True
         assert ctx.load_default_certs.call_count == 1
         assert ctx.load_default_certs.call_args == mocker.call()
+        assert ctx.minimum_version == ssl.TLSVersion.TLSv1_2
 
     @pytest.mark.it(
         "Sets the stored SasTokenProvider (if any) on the IoTHubClientConfig used to create the IoTHubMQTTClient"
@@ -947,7 +948,7 @@ class TestIoTHubSessionContextManager:
         "exception",
         [
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
-            # NOTE: it is importat to test the CancelledError since it is a regular Exception in 3.7,
+            # NOTE: it is important to test the CancelledError since it is a regular Exception in 3.7,
             # but a BaseException from 3.8+
             pytest.param(asyncio.CancelledError(), id="CancelledError"),
         ],
@@ -958,7 +959,366 @@ class TestIoTHubSessionContextManager:
                 raise exception
         assert e_info.value is exception
 
-    # TODO: tests re errors in stop
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Allows any errors raised while starting the SasTokenProvider during context manager entry to propagate"
+    )
+    async def test_enter_sastoken_provider_start_raises(
+        self, session, mock_sastoken_provider, arbitrary_exception
+    ):
+        session._sastoken_provider = mock_sastoken_provider
+        session._sastoken_provider.start.side_effect = arbitrary_exception
+
+        with pytest.raises(type(arbitrary_exception)) as e_info:
+            async with session as session:
+                pass
+        assert e_info.value is arbitrary_exception
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Does not start or connect the IoTHubMQTTClient if an error is raised while starting the SasTokenProvider during context manager entry"
+    )
+    async def test_enter_sastoken_provider_start_raises_cleanup(
+        self, session, mock_sastoken_provider, arbitrary_exception
+    ):
+        session._sastoken_provider = mock_sastoken_provider
+        session._sastoken_provider.start.side_effect = arbitrary_exception
+        assert session._sastoken_provider.start.await_count == 0
+        assert session._mqtt_client.start.await_count == 0
+        assert session._mqtt_client.connect.await_count == 0
+
+        with pytest.raises(type(arbitrary_exception)) as e_info:
+            async with session as session:
+                pass
+        assert e_info.value is arbitrary_exception
+
+        assert session._sastoken_provider.start.await_count == 1
+        assert session._mqtt_client.start.await_count == 0
+        assert session._mqtt_client.connect.await_count == 0
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Allows any errors raised while starting the IoTHubMQTTClient during context manager entry to propagate"
+    )
+    async def test_enter_mqtt_client_start_raises(self, session, arbitrary_exception):
+        session._mqtt_client.start.side_effect = arbitrary_exception
+
+        with pytest.raises(type(arbitrary_exception)) as e_info:
+            async with session as session:
+                pass
+        assert e_info.value is arbitrary_exception
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Stops the IoTHubMQTTClient and SasTokenProvider (if present) that were previously started, if an error is raised while starting the IoTHubMQTTClient during context manager entry"
+    )
+    @pytest.mark.parametrize(
+        "sastoken_provider",
+        [
+            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
+            pytest.param(None, id="SasTokenProvider not present"),
+        ],
+    )
+    async def test_enter_mqtt_client_start_raises_cleanup(
+        self, session, sastoken_provider, arbitrary_exception
+    ):
+        session._sastoken_provider = sastoken_provider
+        session._mqtt_client.start.side_effect = arbitrary_exception
+        assert session._mqtt_client.stop.await_count == 0
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 0
+
+        with pytest.raises(type(arbitrary_exception)):
+            async with session as session:
+                pass
+
+        assert session._mqtt_client.stop.await_count == 1
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 1
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Stops the SasTokenProvider (if present) even if an error was raised while stopping the IoTHubMQTTClient in response to an error raised while starting the IoTHubMQTTClient during context manager entry"
+    )
+    @pytest.mark.parametrize(
+        "sastoken_provider",
+        [
+            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
+            pytest.param(None, id="SasTokenProvider not present"),
+        ],
+    )
+    async def test_enter_mqtt_client_start_raises_then_mqtt_client_stop_raises(
+        self, session, sastoken_provider, arbitrary_exception
+    ):
+        session._sastoken_provider = sastoken_provider
+        session._mqtt_client.start.side_effect = arbitrary_exception
+        session._mqtt_client.stop.side_effect = arbitrary_exception
+        assert session._mqtt_client.stop.await_count == 0
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 0
+
+        with pytest.raises(type(arbitrary_exception)):
+            async with session as session:
+                pass
+
+        assert session._mqtt_client.stop.await_count == 1
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 1
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Stops the IoTHubMQTTClient even if an error was raised while stopping the SasTokenProvider in response to an error raised while starting the IoTHubMQTTClient during context manager entry"
+    )
+    async def test_enter_mqtt_client_start_raises_then_sastoken_provider_stop_raises(
+        self, session, mock_sastoken_provider, arbitrary_exception
+    ):
+        session._sastoken_provider = mock_sastoken_provider
+        session._mqtt_client.start.side_effect = arbitrary_exception
+        session._sastoken_provider.stop.side_effect = arbitrary_exception
+        assert session._mqtt_client.stop.await_count == 0
+        assert session._sastoken_provider.stop.await_count == 0
+
+        with pytest.raises(type(arbitrary_exception)):
+            async with session as session:
+                pass
+
+        assert session._mqtt_client.stop.await_count == 1
+        assert session._sastoken_provider.stop.await_count == 1
+
+    @pytest.mark.it(
+        "Allows any errors raised while connecting with the IoTHubMQTTClient during context manager entry to propagate"
+    )
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_enter_mqtt_client_connect_raises(self, session, exception):
+        session._mqtt_client.connect.side_effect = exception
+
+        with pytest.raises(type(exception)) as e_info:
+            async with session as session:
+                pass
+        assert e_info.value is exception
+
+    @pytest.mark.it(
+        "Stops the IoTHubMQTTClient and SasTokenProvider (if present) that were previously started, if an error is raised while connecting during context manager entry"
+    )
+    @pytest.mark.parametrize(
+        "sastoken_provider",
+        [
+            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
+            pytest.param(None, id="SasTokenProvider not present"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_enter_mqtt_client_connect_raises_cleanup(
+        self, session, sastoken_provider, exception
+    ):
+        session._sastoken_provider = sastoken_provider
+        session._mqtt_client.connect.side_effect = exception
+        assert session._mqtt_client.stop.await_count == 0
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 0
+
+        with pytest.raises(type(exception)):
+            async with session as session:
+                pass
+
+        assert session._mqtt_client.stop.await_count == 1
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 1
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Stops the SasTokenProvider (if present) even if an error was raised while stopping the IoTHubMQTTClient in response to an error raised while connecting the IoTHubMQTTClient during context manager entry"
+    )
+    @pytest.mark.parametrize(
+        "sastoken_provider",
+        [
+            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
+            pytest.param(None, id="SasTokenProvider not present"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_enter_mqtt_client_connect_raises_then_mqtt_client_stop_raises(
+        self, session, sastoken_provider, exception, arbitrary_exception
+    ):
+        session._sastoken_provider = sastoken_provider
+        session._mqtt_client.connect.side_effect = exception  # Realistic failure
+        session._mqtt_client.stop.side_effect = arbitrary_exception  # Shouldn't happen
+        assert session._mqtt_client.stop.await_count == 0
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 0
+
+        # NOTE: arbitrary_exception is raised here instead of exception - this is because it
+        # happened second, during resolution of exception, thus taking precedence
+        with pytest.raises(type(arbitrary_exception)):
+            async with session as session:
+                pass
+
+        assert session._mqtt_client.stop.await_count == 1
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 1
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Stops the IoTHubMQTTClient even if an error was raised while stopping the SasTokenProvider in response to an error raised while connecting the IoTHubMQTTClient during context manager entry"
+    )
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
+        ],
+    )
+    async def test_enter_mqtt_client_connect_raises_then_sastoken_provider_stop_raises(
+        self, session, mock_sastoken_provider, exception, arbitrary_exception
+    ):
+        session._sastoken_provider = mock_sastoken_provider
+        session._mqtt_client.connect.side_effect = exception  # Realistic failure
+        session._sastoken_provider.stop.side_effect = arbitrary_exception  # Shouldn't happen
+        assert session._mqtt_client.stop.await_count == 0
+        assert session._sastoken_provider.stop.await_count == 0
+
+        # NOTE: arbitrary_exception is raised here instead of exception - this is because it
+        # happened second, during resolution of exception, thus taking precedence
+        with pytest.raises(type(arbitrary_exception)):
+            async with session as session:
+                pass
+
+        assert session._mqtt_client.stop.await_count == 1
+        assert session._sastoken_provider.stop.await_count == 1
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Allows any errors raised while disconnecting the IoTHubMQTTClient during context manager exit to propagate"
+    )
+    async def test_exit_disconnect_raises(self, session, arbitrary_exception):
+        session._mqtt_client.disconnect.side_effect = arbitrary_exception
+
+        with pytest.raises(type(arbitrary_exception)) as e_info:
+            async with session as session:
+                pass
+        assert e_info.value is arbitrary_exception
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Stops the IoTHubMQTTClient and SasTokenProvider (if present), even if an error was raised while disconnecting the IoTHubMQTTClient during context manager exit"
+    )
+    @pytest.mark.parametrize(
+        "sastoken_provider",
+        [
+            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
+            pytest.param(None, id="SasTokenProvider not present"),
+        ],
+    )
+    async def test_exit_disconnect_raises_cleanup(
+        self, session, sastoken_provider, arbitrary_exception
+    ):
+        session._sastoken_provider = sastoken_provider
+        session._mqtt_client.disconnect.side_effect = arbitrary_exception
+        assert session._mqtt_client.stop.await_count == 0
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 0
+
+        with pytest.raises(type(arbitrary_exception)):
+            async with session as session:
+                pass
+
+        assert session._mqtt_client.stop.await_count == 1
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 1
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Allows any errors raised while stopping the IoTHubMQTTClient during context manager exit to propagate"
+    )
+    async def test_exit_mqtt_client_stop_raises(self, session, arbitrary_exception):
+        session._mqtt_client.stop.side_effect = arbitrary_exception
+
+        with pytest.raises(type(arbitrary_exception)) as e_info:
+            async with session as session:
+                pass
+        assert e_info.value is arbitrary_exception
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Disconnects the IoTHubMQTTClient and stops the SasTokenProvider (if present), even if an error was raised while stopping the IoTHubMQTTClient during context manager exit"
+    )
+    @pytest.mark.parametrize(
+        "sastoken_provider",
+        [
+            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
+            pytest.param(None, id="SasTokenProvider not present"),
+        ],
+    )
+    async def test_exit_mqtt_client_stop_raises_cleanup(
+        self, session, sastoken_provider, arbitrary_exception
+    ):
+        session._sastoken_provider = sastoken_provider
+        session._mqtt_client.stop.side_effect = arbitrary_exception
+        assert session._mqtt_client.disconnect.await_count == 0
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 0
+
+        with pytest.raises(type(arbitrary_exception)):
+            async with session as session:
+                pass
+
+        assert session._mqtt_client.disconnect.await_count == 1
+        if session._sastoken_provider:
+            assert session._sastoken_provider.stop.await_count == 1
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Allows any errors raised while stopping the SasTokenProvider during context manager exit to propagate"
+    )
+    async def test_exit_sastoken_provider_stop_raises(
+        self, session, mock_sastoken_provider, arbitrary_exception
+    ):
+        session._sastoken_provider = mock_sastoken_provider
+        session._sastoken_provider.stop.side_effect = arbitrary_exception
+
+        with pytest.raises(type(arbitrary_exception)):
+            async with session as session:
+                pass
+
+    # NOTE: This shouldn't happen, but we test it anyway
+    @pytest.mark.it(
+        "Disconnects and stops the IoTHubMQTTClient, even if an error was raised while stopping the SasTokenProvider during context manager exit"
+    )
+    async def test_exit_sastoken_provider_stop_raises_cleanup(
+        self, session, mock_sastoken_provider, arbitrary_exception
+    ):
+        session._sastoken_provider = mock_sastoken_provider
+        session._sastoken_provider.stop.side_effect = arbitrary_exception
+        assert session._mqtt_client.disconnect.await_count == 0
+        assert session._mqtt_client.stop.await_count == 0
+
+        with pytest.raises(type(arbitrary_exception)):
+            async with session as session:
+                pass
+
+        assert session._mqtt_client.disconnect.await_count == 1
+        assert session._mqtt_client.stop.await_count == 1
+
+    # TODO: consider adding detailed cancellation tests
+    # Not sure how cancellation would work in a context manager situation, needs more investigation
 
 
 @pytest.mark.describe("IoTHubSession - .send_message()")
