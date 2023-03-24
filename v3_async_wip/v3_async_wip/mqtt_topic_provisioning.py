@@ -68,7 +68,7 @@ def extract_properties_from_response_topic(topic: str) -> Dict[str, str]:
         raise ValueError("topic has incorrect format")
 
 
-def extract_status_code_from_response_topic(topic):
+def extract_status_code_from_response_topic(topic: str) -> str:
     """
     Extract the status code from the response topic
 
