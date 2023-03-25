@@ -797,6 +797,7 @@ class TestIoTHubMQTTClientStop:
             # Unset the mock so that tests can clean up
             client.disconnect = original_disconnect
 
+    # TODO: when run by itself, this test leaves a task unresolved. Not sure why. Not too important.
     @pytest.mark.it(
         "Does not alter any background tasks if already stopped, but does disconnect again"
     )
