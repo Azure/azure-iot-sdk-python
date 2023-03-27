@@ -257,6 +257,8 @@ def extract_request_id_from_twin_response_topic(topic: str) -> str:
         raise ValueError("topic has incorrect format")
 
 
+# NOTE: This is duplicated from mqtt_topic_provisioning. If changing, change there too.
+# Consider putting this in a separate module at some point.
 def _extract_properties(properties_str: str) -> Dict[str, str]:
     """Return a dictionary of properties from a string in the format
     {key1}={value1}&{key2}={value2}...&{keyn}={valuen}
