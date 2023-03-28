@@ -201,7 +201,7 @@ class IoTHubSession:
         :raises: IoTHubError if an error response is received from IoT Hub
         :raises: MQTTError if there is an error sending the updated reported properties
         :raises: ValueError if the size of the the reported properties patch too large
-        :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure      # TODO: what should the behavior be here?
+        :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
         await self._mqtt_client.send_twin_patch(patch)
 

@@ -21,6 +21,8 @@ from . import mqtt_client as mqtt
 from . import mqtt_topic_iothub as mqtt_topic
 
 # TODO: update docstrings with correct class paths once repo structured better
+# TODO: If we're truly done with keeping SAS credentials fresh, we don't need to use SasTokenProvider,
+# and we could just simply use a single token or generator instead.
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +93,6 @@ class IoTHubMQTTClient:
 
         # Background Tasks (Will be set upon `.start()`)
         self._process_twin_responses_bg_task: Optional[asyncio.Task[None]] = None
-        self._keep_credentials_fresh_bg_task: Optional[asyncio.Task[None]] = None
 
     def _create_incoming_data_generator(
         self, topic: str, transform_fn: Callable[[mqtt.MQTTMessage], _T]
@@ -176,33 +177,6 @@ class IoTHubMQTTClient:
                     )
                 )
 
-    async def _keep_credentials_fresh(self) -> None:
-        """Run indefinitely, updating MQTT credentials when new SAS Token is available"""
-        logger.debug("Starting the 'keep_credentials_fresh' background task")
-        while True:
-            if self._sastoken_provider:
-                try:
-                    logger.debug("Waiting for new SAS Token to become available")
-                    new_sastoken = await self._sastoken_provider.wait_for_new_sastoken()
-                    logger.debug("New SAS Token available, updating MQTTClient credentials")
-                    self._mqtt_client.set_credentials(self._username, str(new_sastoken))
-                    # TODO: should we reconnect here? Or just wait for drop?
-                except asyncio.CancelledError:
-                    # NOTE: In Python 3.7 this isn't a BaseException, so we must catch and re-raise
-                    raise
-                except Exception as e:
-                    logger.error(
-                        "Unexpected exception ({}) while keeping credentials fresh. Ignoring".format(
-                            e
-                        )
-                    )
-                    continue
-            else:
-                # NOTE: This should never execute, it's mostly just here to keep the
-                # type checker happy
-                logger.error("No SasTokenProvider. Cannot update credentials")
-                break
-
     async def start(self) -> None:
         """Start up the client.
 
@@ -218,10 +192,6 @@ class IoTHubMQTTClient:
             password = None
         self._mqtt_client.set_credentials(self._username, password)
         # Start background tasks
-        if self._sastoken_provider and not self._keep_credentials_fresh_bg_task:
-            self._keep_credentials_fresh_bg_task = asyncio.create_task(
-                self._keep_credentials_fresh()
-            )
         if not self._process_twin_responses_bg_task:
             self._process_twin_responses_bg_task = asyncio.create_task(
                 self._process_twin_responses()
@@ -243,12 +213,6 @@ class IoTHubMQTTClient:
             self._process_twin_responses_bg_task.cancel()
             cancelled_tasks.append(self._process_twin_responses_bg_task)
             self._process_twin_responses_bg_task = None
-
-        if self._keep_credentials_fresh_bg_task:
-            logger.debug("Cancelling 'keep_credentials_fresh' background task")
-            self._keep_credentials_fresh_bg_task.cancel()
-            cancelled_tasks.append(self._keep_credentials_fresh_bg_task)
-            self._keep_credentials_fresh_bg_task = None
 
         results = await asyncio.gather(
             *cancelled_tasks, asyncio.shield(self.disconnect()), return_exceptions=True

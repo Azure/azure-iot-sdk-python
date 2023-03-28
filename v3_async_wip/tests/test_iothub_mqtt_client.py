@@ -562,7 +562,6 @@ class TestIoTHubMQTTClientInstantiation:
         client_config.module_id = module_id
         client = IoTHubMQTTClient(client_config)
         assert client._process_twin_responses_bg_task is None
-        assert client._keep_credentials_fresh_bg_task is None
 
 
 @pytest.mark.describe("IoTHubMQTTClient - .start()")
@@ -617,42 +616,6 @@ class TestIoTHubMQTTClientStart:
         # Cleanup
         await client.stop()
 
-    # NOTE: For testing the functionality of this task, see the corresponding test suite (TestIoTHubMQTTClientKeepCredentialsFresh)
-    @pytest.mark.it(
-        "Begins running the ._keep_credentials_fresh() coroutine method as a background task, storing it as an attribute, if using SAS authentication"
-    )
-    async def test_keep_credentials_fresh_bg_task(self, client, mock_sastoken_provider):
-        client._sastoken_provider = mock_sastoken_provider
-        assert client._keep_credentials_fresh_bg_task is None
-
-        await client.start()
-
-        # A task was created
-        assert isinstance(client._keep_credentials_fresh_bg_task, asyncio.Task)
-        assert not client._keep_credentials_fresh_bg_task.done()
-        if sys.version_info > (3, 8):
-            # NOTE: There isn't a way to validate the contents of a task until 3.8
-            # as far as I can tell.
-            task_coro_obj = client._keep_credentials_fresh_bg_task.get_coro()
-            assert task_coro_obj.__qualname__ == "IoTHubMQTTClient._keep_credentials_fresh"
-
-        # Cleanup
-        await client.stop()
-
-    @pytest.mark.it(
-        "Does not begin running the ._keep_credentials_fresh() coroutine method as a background task if not using SAS authentication"
-    )
-    async def test_keep_credentials_fresh_bg_task_no_sas(self, client):
-        assert client._sastoken_provider is None
-        assert client._keep_credentials_fresh_bg_task is None
-
-        await client.start()
-
-        assert client._keep_credentials_fresh_bg_task is None
-
-        # Cleanup
-        await client.stop()
-
     @pytest.mark.it(
         "Does not alter any background tasks if already started, but does reset the credentials with the same values"
     )
@@ -671,7 +634,6 @@ class TestIoTHubMQTTClientStart:
         await client.start()
 
         # Current tasks
-        current_keep_credentials_fresh_task = client._keep_credentials_fresh_bg_task
         current_process_twin_responses_task = client._process_twin_responses_bg_task
         # Credentials set
         assert client._mqtt_client.set_credentials.call_count == 1
@@ -681,7 +643,6 @@ class TestIoTHubMQTTClientStart:
         await client.start()
 
         # Tasks unchanged
-        assert client._keep_credentials_fresh_bg_task is current_keep_credentials_fresh_task
         assert client._process_twin_responses_bg_task is current_process_twin_responses_task
         # Credentials set again (the same values as before)
         assert client._mqtt_client.set_credentials.call_count == 2
@@ -742,30 +703,6 @@ class TestIoTHubMQTTClientStop:
         # No AttributeError means success!
 
     @pytest.mark.it(
-        "Cancels the 'keep_credentials_fresh' background task and removes it, if it exists"
-    )
-    async def test_keep_credentials_fresh_bg_task_exists(self, client):
-        assert isinstance(client._keep_credentials_fresh_bg_task, asyncio.Task)
-        t = client._keep_credentials_fresh_bg_task
-        assert not t.done()
-
-        await client.stop()
-
-        assert t.done()
-        assert t.cancelled()
-        assert client._keep_credentials_fresh_bg_task is None
-
-    @pytest.mark.it("Handles the case where no 'keep_credentials_fresh' background task exists")
-    async def test_keep_credentials_fresh_bg_task_no_exist(self, client):
-        # The task is already running, so cancel and remove it
-        assert isinstance(client._keep_credentials_fresh_bg_task, asyncio.Task)
-        client._keep_credentials_fresh_bg_task.cancel()
-        client._keep_credentials_fresh_bg_task = None
-
-        await client.stop()
-        # No AttributeError means success!
-
-    @pytest.mark.it(
         "Allows any exception raised during MQTTClient disconnect to propagate, but only after cancelling background tasks"
     )
     @pytest.mark.parametrize("exception", mqtt_disconnect_exceptions)
@@ -776,9 +713,7 @@ class TestIoTHubMQTTClientStop:
         original_disconnect = client.disconnect
         client.disconnect = mocker.AsyncMock(side_effect=exception)
         try:
-            keep_credentials_fresh_bg_task = client._keep_credentials_fresh_bg_task
             process_twin_responses_bg_task = client._process_twin_responses_bg_task
-            assert not keep_credentials_fresh_bg_task.done()
             assert not process_twin_responses_bg_task.done()
 
             with pytest.raises(type(exception)) as e_info:
@@ -786,12 +721,9 @@ class TestIoTHubMQTTClientStop:
             assert e_info.value is exception
 
             # Background tasks were also cancelled despite the exception
-            assert keep_credentials_fresh_bg_task.done()
-            assert keep_credentials_fresh_bg_task.cancelled()
             assert process_twin_responses_bg_task.done()
             assert process_twin_responses_bg_task.cancelled()
             # And they were unset too
-            assert client._keep_credentials_fresh_bg_task is None
             assert client._process_twin_responses_bg_task is None
         finally:
             # Unset the mock so that tests can clean up
@@ -809,13 +741,11 @@ class TestIoTHubMQTTClientStop:
 
             # Stop
             await client.stop()
-            assert client._keep_credentials_fresh_bg_task is None
             assert client._process_twin_responses_bg_task is None
             assert client.disconnect.await_count == 1
 
             # Stop again
             await client.stop()
-            assert client._keep_credentials_fresh_bg_task is None
             assert client._process_twin_responses_bg_task is None
             assert client.disconnect.await_count == 2
 
@@ -833,9 +763,7 @@ class TestIoTHubMQTTClientStop:
         original_disconnect = client.disconnect
         client.disconnect = custom_mock.HangingAsyncMock()
         try:
-            keep_credentials_fresh_bg_task = client._keep_credentials_fresh_bg_task
             process_twin_responses_bg_task = client._process_twin_responses_bg_task
-            assert not keep_credentials_fresh_bg_task.done()
             assert not process_twin_responses_bg_task.done()
 
             t = asyncio.create_task(client.stop())
@@ -853,12 +781,9 @@ class TestIoTHubMQTTClientStop:
             await asyncio.sleep(0.1)
 
             # And yet the background tasks still were cancelled anyway
-            assert keep_credentials_fresh_bg_task.done()
-            assert keep_credentials_fresh_bg_task.cancelled()
             assert process_twin_responses_bg_task.done()
             assert process_twin_responses_bg_task.cancelled()
             # And they were unset too
-            assert client._keep_credentials_fresh_bg_task is None
             assert client._process_twin_responses_bg_task is None
         finally:
             # Unset the mock so that tests can clean up.
@@ -873,13 +798,8 @@ class TestIoTHubMQTTClientStop:
         spy_twin_response_bg_task_cancel = mocker.spy(
             client._process_twin_responses_bg_task, "cancel"
         )
-        spy_credentials_bg_task_cancel = mocker.spy(
-            client._keep_credentials_fresh_bg_task, "cancel"
-        )
         try:
-            keep_credentials_fresh_bg_task = client._keep_credentials_fresh_bg_task
             process_twin_responses_bg_task = client._process_twin_responses_bg_task
-            assert not keep_credentials_fresh_bg_task.done()
             assert not process_twin_responses_bg_task.done()
 
             t = asyncio.create_task(client.stop())
@@ -890,7 +810,6 @@ class TestIoTHubMQTTClientStop:
             # Background tests may or may not have completed cancellation yet, hard to test accurately.
             # But their cancellation HAS been requested.
             assert spy_twin_response_bg_task_cancel.call_count == 1
-            assert spy_credentials_bg_task_cancel.call_count == 1
 
             # Cancel
             t.cancel()
@@ -899,12 +818,9 @@ class TestIoTHubMQTTClientStop:
 
             # Tasks will be cancelled very soon (if they aren't already)
             await asyncio.sleep(0.1)
-            assert keep_credentials_fresh_bg_task.done()
-            assert keep_credentials_fresh_bg_task.cancelled()
             assert process_twin_responses_bg_task.done()
             assert process_twin_responses_bg_task.cancelled()
             # And they were unset too
-            assert client._keep_credentials_fresh_bg_task is None
             assert client._process_twin_responses_bg_task is None
         finally:
             # Unset the mock so that tests can clean up.
@@ -3704,165 +3620,3 @@ class TestIoTHubMQTTClientProcessTwinResponses:
         t.cancel()
         with pytest.raises(asyncio.CancelledError):
             await t
-
-
-@pytest.mark.describe("IoTHubMQTTClient - BG TASK: ._keep_credentials_fresh()")
-class TestIoTHubMQTTClientKeepCredentialsFresh:
-    @pytest.fixture(autouse=True)
-    def modify_client(self, client, mock_sastoken_provider):
-        """Add a SasTokenProvider since it is necessary for this task"""
-        client._sastoken_provider = mock_sastoken_provider
-
-    @pytest.mark.it("Awaits the availability of a new SasToken from the client's SasTokenProvider")
-    async def test_waits_for_token(self, mocker, client):
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
-
-        t = asyncio.create_task(client._keep_credentials_fresh())
-        await client._sastoken_provider.wait_for_new_sastoken.wait_for_hang()
-
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 1
-        assert client._sastoken_provider.wait_for_new_sastoken.await_args == mocker.call()
-
-        t.cancel()
-
-    @pytest.mark.it(
-        "Updates the MQTTClient's credentials, using the stored username as the username, and the string-converted new SasToken as the password"
-    )
-    async def test_updates_credentials(self, mocker, client):
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
-        assert client._mqtt_client.set_credentials.call_count == 0
-
-        t = asyncio.create_task(client._keep_credentials_fresh())
-        await client._sastoken_provider.wait_for_new_sastoken.wait_for_hang()
-
-        # Waiting for new SasToken
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 1
-        assert client._sastoken_provider.wait_for_new_sastoken.await_args == mocker.call()
-
-        # Trigger new SasToken arrival
-        client._sastoken_provider.wait_for_new_sastoken.stop_hanging()
-        new_sastoken = client._sastoken_provider.wait_for_new_sastoken.return_value
-        assert isinstance(new_sastoken, st.SasToken)
-        await asyncio.sleep(0.1)
-
-        # Credentials are updated
-        assert client._mqtt_client.set_credentials.call_count == 1
-        assert client._mqtt_client.set_credentials.call_args == mocker.call(
-            client._username, str(new_sastoken)
-        )
-
-        t.cancel()
-
-    @pytest.mark.it("Indefinitely repeats")
-    async def test_repeat(self, mocker, client):
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
-        assert client._mqtt_client.set_credentials.call_count == 0
-
-        t = asyncio.create_task(client._keep_credentials_fresh())
-
-        # Test that behavior repeats up to 10 times. No way to really prove infinite.
-        i = 0
-        while i < 10:
-            i += 1
-            # Waiting for token
-            await client._sastoken_provider.wait_for_new_sastoken.wait_for_hang()
-            assert client._sastoken_provider.wait_for_new_sastoken.await_count == i
-            # Continue
-            client._sastoken_provider.wait_for_new_sastoken.stop_hanging()
-            await asyncio.sleep(0.1)
-            # Setting credentials
-            assert client._mqtt_client.set_credentials.call_count == i
-            new_sastoken = client._sastoken_provider.wait_for_new_sastoken.return_value
-            assert client._mqtt_client.set_credentials.call_args == mocker.call(
-                client._username, str(new_sastoken)
-            )
-
-        assert not t.done()
-        t.cancel()
-
-    @pytest.mark.it("Suppresses any unexpected exceptions raised from awaiting a new SasToken")
-    async def test_waiting_for_token_raises(self, client, arbitrary_exception):
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
-        assert client._mqtt_client.set_credentials.call_count == 0
-
-        # Inject failure into waiting for token, but only for the next invocation
-        original_se = client._sastoken_provider.wait_for_new_sastoken.side_effect
-
-        async def new_side_effect():
-            client._sastoken_provider.wait_for_new_sastoken.side_effect = original_se
-            raise arbitrary_exception
-
-        client._sastoken_provider.wait_for_new_sastoken.side_effect = new_side_effect
-
-        # Start task
-        t = asyncio.create_task(client._keep_credentials_fresh())
-        await asyncio.sleep(0.1)
-
-        # The mock that raises was invoked, but the task is still running.
-        # NOTE: Because the error was suppressed, the loop continued, and it was invoked
-        # a second time, which didn't fail because the failure injection was only for the
-        # first invocation. Due to returning to it's original side effect, the mock should
-        # be hanging now
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 2
-        assert client._sastoken_provider.wait_for_new_sastoken.is_hanging()
-        # .set_credentials() has not been called at all yet because the first loop iteration
-        # raised while waiting, and the second is now hanging on the wait
-        assert client._mqtt_client.set_credentials.call_count == 0
-        # The task is still running, because the exception did not propagate
-        assert not t.done()
-
-        t.cancel()
-
-    @pytest.mark.it(
-        "Suppresses any unexpected exceptions raised from setting new MQTTClient credentials"
-    )
-    async def test_set_credentials_raises(self, client, arbitrary_exception):
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
-        assert client._mqtt_client.set_credentials.call_count == 0
-
-        # Make .set_credentials() fail
-        client._mqtt_client.set_credentials.side_effect = arbitrary_exception
-
-        # Start task
-        t = asyncio.create_task(client._keep_credentials_fresh())
-
-        # Hanging, waiting for new SasToken. Stop hang to continue.
-        await client._sastoken_provider.wait_for_new_sastoken.wait_for_hang()
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 1
-        assert client._mqtt_client.set_credentials.call_count == 0
-        client._sastoken_provider.wait_for_new_sastoken.stop_hanging()
-        await asyncio.sleep(0.1)
-
-        # Setting credentials, which has been mocked to raise, was invoked, but the task
-        # is still running because the error was suppressed
-        assert client._mqtt_client.set_credentials.call_count == 1
-        assert not t.done()
-
-        t.cancel()
-
-    @pytest.mark.it("Can be cancelled while awaiting a new SasToken")
-    async def test_cancelled_while_waiting_for_token(self, client):
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 0
-
-        # Start task
-        t = asyncio.create_task(client._keep_credentials_fresh())
-
-        # Hanging, waiting for new SasToken.
-        await client._sastoken_provider.wait_for_new_sastoken.wait_for_hang()
-        assert client._sastoken_provider.wait_for_new_sastoken.await_count == 1
-
-        # Task can be cancelled
-        t.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await t
-
-    @pytest.mark.it("Exits immediately if there is no SasTokenProvider set on the client")
-    async def test_no_provider(self, client):
-        assert client._mqtt_client.set_credentials.call_count == 0
-        client._sastoken_provider = None
-
-        t = asyncio.create_task(client._keep_credentials_fresh())
-        await asyncio.sleep(0.1)
-
-        assert t.done()
-        assert client._mqtt_client.set_credentials.call_count == 0
