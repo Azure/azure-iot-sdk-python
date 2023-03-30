@@ -66,6 +66,7 @@ class IoTHubMQTTClient:
         self._incoming_c2d_messages: Optional[AsyncGenerator[models.Message, None]] = None
         self._incoming_direct_method_requests: AsyncGenerator[models.DirectMethodRequest, None]
         self._incoming_twin_patches: AsyncGenerator[TwinPatch, None]
+        # TODO: what is the proper type for this?
         self._incoming_twin_responses: Optional[AsyncGenerator[Any, None]] = None
         if self._module_id:
             self._incoming_input_messages = self._create_incoming_data_generator(
@@ -253,7 +254,8 @@ class IoTHubMQTTClient:
             cancelled_tasks.append(self._keep_credentials_fresh_bg_task)
             self._keep_credentials_fresh_bg_task = None
 
-        # shut down our async generators
+        # shut down our async generators. If we dont do this, generators won't correctly
+        # stop when we leave the session.
         # https://stackoverflow.com/a/60233813
         # https://stackoverflow.com/questions/60226557/how-to-forcefully-close-an-async-generator
         for generator in [

@@ -202,6 +202,24 @@ class LeakTracker(object):
         Dump a report on leaked objects, including a list of what referrers to each leaked
         object.
 
+        This prints leaked objects and the objects that are referring to them (keeping them
+                alive) underneath, up to `max_referrer_level` levels deep.
+        For example:
+
+        ```
+        A = Object()
+        A.B = Object()
+        A.B.C = Object()
+        ```
+
+        If C is marked as a leak, This will display
+        ```
+        ID(C) C
+          ID(B) B
+            ID(A) A
+        ```
+        Because `B` is keeping `C` alive, and `A` is keeping `B` alive.
+
         """
 
         logger.info("-----------------------------------------------")
@@ -214,6 +232,8 @@ class LeakTracker(object):
         all_objects = gc.get_objects()
         leaked_object_ids = [x.object_id for x in leaked_objects]
 
+        # This is the function that recursively displays leaks and the objets that refer
+        # to them.
         def visit(object, indent):
             line = f"{'  ' * indent} {get_printable_object_name(object)}"
             if indent > max_referrer_level:
