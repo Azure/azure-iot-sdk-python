@@ -113,8 +113,9 @@ async def client(mocker, client_config):
     client._mqtt_client.subscribe = mocker.AsyncMock()
     client._mqtt_client.unsubscribe = mocker.AsyncMock()
     client._mqtt_client.publish = mocker.AsyncMock()
-    # Also mock the set credentials method since we test that
+    # Also mock other methods relevant to tests
     client._mqtt_client.set_credentials = mocker.MagicMock()
+    client._mqtt_client.is_connected = mocker.MagicMock()
 
     # NOTE: No need to invoke .start() here, at least, not yet.
     return client
@@ -903,6 +904,81 @@ class TestIoTHubMQTTClientDisconnect:
         finally:
             # Unset the HangingMock for clean (since shutdown uses disconnect)
             client._mqtt_client.disconnect = mocker.AsyncMock()
+
+
+@pytest.mark.describe("IoTHubMQTTClient - .report_connection_drop()")
+class TestIoTHubMQTTClientReportConnectionDrop:
+    @pytest.mark.it(
+        "Returns the MQTTError that caused an unexpected disconnect in the MQTTClient, if an unexpected disconnect has already occurred"
+    )
+    async def test_previous_unexpected_disconnect(self, client):
+        # Simulate unexpected disconnect
+        cause = mqtt.MQTTError(rc=7)
+        client._mqtt_client._disconnection_cause = cause
+        async with client._mqtt_client.disconnected_cond:
+            client._mqtt_client.disconnected_cond.notify_all()
+
+        # Reports the cause that is already available
+        t = asyncio.create_task(client.report_connection_drop())
+        await asyncio.sleep(0.1)
+        assert t.done()
+        assert t.result() is cause
+
+    @pytest.mark.it(
+        "Waits for an unexpected disconnect in the MQTTClient, and returns the MQTTError that caused it, if an unexpected disconnect has not yet ocurred"
+    )
+    async def test_unexpected_disconnect(self, client):
+        # No connection drop to report yet
+        t = asyncio.create_task(client.report_connection_drop())
+        await asyncio.sleep(0.1)
+        assert not t.done()
+
+        # Simulate unexpected disconnect
+        cause = mqtt.MQTTError(rc=7)
+        client._mqtt_client._disconnection_cause = cause
+        async with client._mqtt_client.disconnected_cond:
+            client._mqtt_client.disconnected_cond.notify_all()
+
+        # Cause can now be reported
+        await asyncio.sleep(0.1)
+        assert t.done()
+        assert t.result() is cause
+
+    @pytest.mark.it(
+        "Does not return if an expected disconnect has previously ocurred in the MQTTClient"
+    )
+    async def test_previous_expected_disconnect(self, client):
+        # Simulate expected disconnect
+        client._mqtt_client._disconnection_cause = None
+        async with client._mqtt_client.disconnected_cond:
+            client._mqtt_client.disconnected_cond.notify_all()
+
+        # No dropped connection to report
+        t = asyncio.create_task(client.report_connection_drop())
+        await asyncio.sleep(0.1)
+        assert not t.done()
+
+        # Clean up
+        t.cancel()
+
+    @pytest.mark.it("Does not return if a expected disconnect occurs in the MQTTClient")
+    async def test_expected_disconnect(self, client):
+        # No connection drop to report
+        t = asyncio.create_task(client.report_connection_drop())
+        await asyncio.sleep(0.1)
+        assert not t.done()
+
+        # Simulate expected disconnect
+        client._mqtt_client._disconnection_cause = None
+        async with client._mqtt_client.disconnected_cond:
+            client._mqtt_client.disconnected_cond.notify_all()
+
+        # Still no report
+        await asyncio.sleep(0.1)
+        assert not t.done()
+
+        # Clean up
+        t.cancel()
 
 
 @pytest.mark.describe("IoTHubMQTTClient - .send_message()")
@@ -3194,6 +3270,19 @@ class TestIoTHubMQTTClientIncomingTwinPatches:
     @pytest.mark.it("Can be cancelled while waiting for an MQTTMessage to arrive")
     async def test_cancelled_while_waiting_for_message(self):
         pass
+
+
+@pytest.mark.describe("IoTHubMQTTClient - PROPERTY: .connected")
+class TestIoTHubMQTTClientConnected:
+    @pytest.mark.it("Returns the result of the MQTTClient's .is_connected() method")
+    def test_returns_result(self, mocker, client):
+        assert client._mqtt_client.is_connected.call_count == 0
+
+        result = client.connected
+
+        assert client._mqtt_client.is_connected.call_count == 1
+        assert client._mqtt_client.is_connected.call_args == mocker.call()
+        assert result is client._mqtt_client.is_connected.return_value
 
 
 @pytest.mark.describe("IoTHubMQTTClient - BG TASK: ._process_twin_responses")

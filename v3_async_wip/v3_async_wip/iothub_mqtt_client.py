@@ -239,7 +239,7 @@ class IoTHubMQTTClient:
         await self._mqtt_client.disconnect()
         logger.debug("Disconnect succeeded")
 
-    async def wait_for_connection_drop(self) -> MQTTError:
+    async def report_connection_drop(self) -> MQTTError:
         """Block until the connection is dropped and return the cause"""
         async with self._mqtt_client.disconnected_cond:
             await self._mqtt_client.disconnected_cond.wait_for(
