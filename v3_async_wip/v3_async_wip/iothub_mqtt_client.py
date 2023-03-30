@@ -8,7 +8,7 @@ import asyncio
 import json
 import logging
 import urllib.parse
-from typing import Callable, Optional, AsyncGenerator, TypeVar
+from typing import Callable, Optional, AsyncGenerator, TypeVar, cast
 from .custom_typing import TwinPatch, Twin
 from .iot_exceptions import IoTHubError, IoTHubClientError
 from .mqtt_client import (  # noqa: F401 (Importing directly to re-export)
@@ -238,6 +238,15 @@ class IoTHubMQTTClient:
         logger.debug("Disconnecting from IoTHub...")
         await self._mqtt_client.disconnect()
         logger.debug("Disconnect succeeded")
+
+    async def wait_for_connection_drop(self) -> MQTTError:
+        """Block until the connection is dropped and return the cause"""
+        async with self._mqtt_client.disconnected_cond:
+            await self._mqtt_client.disconnected_cond.wait_for(
+                lambda: self._mqtt_client.previous_disconnection_cause() is not None
+            )
+            # NOTE: We know this is not None because we just checked above
+            return cast(MQTTError, self._mqtt_client.previous_disconnection_cause())
 
     async def send_message(self, message: models.Message) -> None:
         """Send a telemetry message to IoTHub.
@@ -559,6 +568,11 @@ class IoTHubMQTTClient:
     def incoming_twin_patches(self) -> AsyncGenerator[TwinPatch, None]:
         """Generator that yields incoming TwinPatches"""
         return self._incoming_twin_patches
+
+    @property
+    def connected(self) -> bool:
+        """Boolean indicating connection status"""
+        return self._mqtt_client.is_connected()
 
 
 def _format_client_id(device_id: str, module_id: Optional[str] = None) -> str:

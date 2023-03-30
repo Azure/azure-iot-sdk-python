@@ -6,7 +6,7 @@
 import asyncio
 import contextlib
 import ssl
-from typing import Optional, Union, AsyncGenerator, Type
+from typing import Optional, Union, AsyncGenerator, Type, TypeVar
 from types import TracebackType
 
 from v3_async_wip import signing_mechanism as sm
@@ -14,6 +14,8 @@ from v3_async_wip import connection_string as cs
 from v3_async_wip import sastoken as st
 from v3_async_wip import config, models, custom_typing
 from v3_async_wip import iothub_mqtt_client as mqtt
+
+_T = TypeVar("_T")
 
 
 class IoTHubSession:
@@ -82,10 +84,17 @@ class IoTHubSession:
             module_id=module_id,
             sastoken_provider=self._sastoken_provider,
             ssl_context=ssl_context,
-            auto_reconnect=False,  # No reconnect for now
+            auto_reconnect=False,  # We do not reconnect in a Session
             **kwargs,
         )
         self._mqtt_client = mqtt.IoTHubMQTTClient(client_config)
+
+        # This task is used to propagate dropped connections through receiver generators
+        # It will be set upon context manager entry and cleared upon exit
+        # NOTE: If we wanted to design lower levels of the stack to be specific to our
+        # Session design pattern, this could happen lower (and it would be simpler), but it's
+        # up here so we can be more implementation-generic down the stack.
+        self._wait_for_conn_drop_bg_task: Optional[asyncio.Task[mqtt.MQTTError]] = None
 
     async def __aenter__(self) -> "IoTHubSession":
         # First, if using SAS auth, start up the provider
@@ -98,6 +107,9 @@ class IoTHubSession:
         try:
             await self._mqtt_client.start()
             await self._mqtt_client.connect()
+            self._wait_for_conn_drop_bg_task = asyncio.create_task(
+                self._mqtt_client.wait_for_connection_drop()
+            )
         except (Exception, asyncio.CancelledError):
             # Stop/cleanup if something goes wrong
             await self._stop_all()
@@ -114,6 +126,9 @@ class IoTHubSession:
         try:
             await self._mqtt_client.disconnect()
         finally:
+            if self._wait_for_conn_drop_bg_task:
+                self._wait_for_conn_drop_bg_task.cancel()
+                self._wait_for_conn_drop_bg_task = None
             await self._stop_all()
 
     async def _stop_all(self) -> None:
@@ -164,9 +179,8 @@ class IoTHubSession:
             **kwargs,
         )
 
-    # TODO: should "output" be an optional argument here?
     async def send_message(self, message: Union[str, models.Message]) -> None:
-        """Send a telemetry or input message to its destination
+        """Send a telemetry message to IoT Hub
 
         :param message: Message to send. If not a Message object, will be used as the payload of
             a new Message object.
@@ -217,15 +231,20 @@ class IoTHubSession:
         """
         return await self._mqtt_client.get_twin()
 
-    # TODO: does this need to support input messages? Pending discussion re: Edge
     @contextlib.asynccontextmanager
     async def messages(self) -> AsyncGenerator[AsyncGenerator[models.Message, None], None]:
         """Returns an async generator of incoming C2D messages"""
         await self._mqtt_client.enable_c2d_message_receive()
         try:
-            yield self._mqtt_client.incoming_c2d_messages
+            yield self._add_disconnect_interrupt_to_generator(
+                self._mqtt_client.incoming_c2d_messages
+            )
         finally:
-            await self._mqtt_client.disable_c2d_message_receive()
+            try:
+                await self._mqtt_client.disable_c2d_message_receive()
+            except mqtt.MQTTError:
+                # i.e. not connected
+                pass
 
     @contextlib.asynccontextmanager
     async def direct_method_requests(
@@ -234,9 +253,15 @@ class IoTHubSession:
         """Returns an async generator of incoming direct method requests"""
         await self._mqtt_client.enable_direct_method_request_receive()
         try:
-            yield self._mqtt_client.incoming_direct_method_requests
+            yield self._add_disconnect_interrupt_to_generator(
+                self._mqtt_client.incoming_direct_method_requests
+            )
         finally:
-            await self._mqtt_client.disable_direct_method_request_receive()
+            try:
+                await self._mqtt_client.disable_direct_method_request_receive()
+            except mqtt.MQTTError:
+                # i.e. not connected
+                pass
 
     @contextlib.asynccontextmanager
     async def desired_property_updates(
@@ -245,9 +270,37 @@ class IoTHubSession:
         """Returns an async generator of incoming twin desired property patches"""
         await self._mqtt_client.enable_twin_patch_receive()
         try:
-            yield self._mqtt_client.incoming_twin_patches
+            yield self._add_disconnect_interrupt_to_generator(
+                self._mqtt_client.incoming_twin_patches
+            )
         finally:
-            await self._mqtt_client.disable_twin_patch_receive()
+            try:
+                await self._mqtt_client.disable_twin_patch_receive()
+            except mqtt.MQTTError:
+                # i.e. not connected
+                pass
+
+    def _add_disconnect_interrupt_to_generator(
+        self, generator: AsyncGenerator[_T, None]
+    ) -> AsyncGenerator[_T, None]:
+        """Wrap a generator in another generator that will either return the next item yielded by
+        the original generator, or raise error in the event of disconnect
+        """
+
+        async def wrapping_generator():
+            while True:
+                new_item_t = asyncio.create_task(generator.__anext__())
+                done, _ = await asyncio.wait(
+                    [new_item_t, self._wait_for_conn_drop_bg_task],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if self._wait_for_conn_drop_bg_task in done:
+                    new_item_t.cancel()
+                    raise self._wait_for_conn_drop_bg_task.result()
+                else:
+                    yield new_item_t.result()
+
+        return wrapping_generator()
 
 
 def _validate_kwargs(exclude=[], **kwargs) -> None:
