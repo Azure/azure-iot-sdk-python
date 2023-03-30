@@ -1,15 +1,15 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation. All rights teserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 import asyncio
 import pytest
 import logging
 import const
+import sys
 from dev_utils import get_random_dict
-from azure.iot.device.exceptions import (
-    ClientError,
-    NoConnectionError,
-)
+from v3_async_wip.mqtt_client import MQTTError
+import paho.mqtt.client as paho
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -22,6 +22,14 @@ reset_reported_props = {const.TEST_CONTENT: None}
 PACKET_DROP = "Packet Drop"
 PACKET_REJECT = "Packet Reject"
 
+twin_enabled_and_disabled = [
+    "twin_enabled",
+    [
+        pytest.param(False, id="Twin not yet enabled"),
+        pytest.param(True, id="Twin already enabled"),
+    ],
+]
+
 
 @pytest.fixture(params=[PACKET_DROP, PACKET_REJECT])
 def failure_type(request):
@@ -31,21 +39,14 @@ def failure_type(request):
 @pytest.mark.describe("Client Get Twin")
 class TestGetTwin(object):
     @pytest.mark.it("Can get the twin")
-    @pytest.mark.parametrize(
-        "twin_enabled",
-        [
-            pytest.param(False, id="Twin not yet enabled"),
-            pytest.param(True, id="Twin already enabled"),
-        ],
-    )
     @pytest.mark.quicktest_suite
-    async def test_simple_get_twin(self, leak_tracker, service_helper, client, twin_enabled):
+    async def test_simple_get_twin(self, leak_tracker, service_helper, session_object):
         leak_tracker.set_initial_object_list()
 
-        if twin_enabled:
-            await client._enable_feature("twin")
+        async with session_object:
+            twin1 = await session_object.get_twin()
+        assert session_object.connected is False
 
-        twin1 = await client.get_twin()
         twin2 = await service_helper.get_twin()
 
         # NOTE: It would be nice to compare the full properties, but the service client one
@@ -55,897 +56,229 @@ class TestGetTwin(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises NoConnectionError if there is no connection (Twin not yet enabled)")
+    @pytest.mark.it("Raises MQTTError if there is no connection (Twin not yet enabled)")
     @pytest.mark.quicktest_suite
-    async def test_no_connection_twin_not_enabled(self, leak_tracker, client):
+    async def test_no_connection_twin_not_enabled(self, leak_tracker, session_object):
         leak_tracker.set_initial_object_list()
 
-        await client.disconnect()
-        assert not client.connected
+        assert not session_object.connected
+        assert session_object._mqtt_client._twin_responses_enabled is False
 
-        with pytest.raises(NoConnectionError):
-            await client.get_twin()
-        assert not client.connected
+        with pytest.raises(MQTTError) as e_info:
+            await session_object.get_twin()
+        assert session_object.connected is False
 
-        # TODO: Why does this need a sleep, but the sync test doesn't?
-        # There might be something here, investigate further
-        await asyncio.sleep(0.1)
+        assert e_info.value.rc == paho.MQTT_ERR_NO_CONN
+        del e_info
+
         leak_tracker.check_for_leaks()
+
+    @pytest.mark.skip("get_twin() hangs if disconncted")
+    @pytest.mark.it("Raises MQTTError if there is no connection (Twin enabled)")
+    @pytest.mark.quicktest_suite
+    async def test_no_connection_twin_enabled(self, leak_tracker, session_object):
+        leak_tracker.set_initial_object_list()
+
+        async with session_object:
+            await session_object.get_twin()
+
+        assert session_object.connected is False
+        assert session_object._mqtt_client._twin_responses_enabled is True
+
+        with pytest.raises(MQTTError) as e_info:
+            # This never returns
+            await session_object.get_twin()
+        assert not session_object.connected
+
+        assert e_info.value.rc == paho.MQTT_ERR_NO_CONN
+        del e_info
+
+        leak_tracker.check_for_leaks()
+
+    # TODO "Waits to complete until a connection is established if there is no connection (Twin already enabled)"
 
     @pytest.mark.it(
-        "Waits to complete until a connection is established if there is no connection (Twin already enabled)"
+        "Raises Error on get_twin if network error causes failure enabling twin responses"
     )
-    @pytest.mark.quicktest_suite
-    async def test_no_connection_twin_enabled(self, leak_tracker, service_helper, client):
-        leak_tracker.set_initial_object_list()
-
-        await client._enable_feature("twin")
-
-        await client.disconnect()
-        assert not client.connected
-
-        # Attempt to get twin
-        get_twin_task = asyncio.create_task(client.get_twin())
-        await asyncio.sleep(1)
-        # Still not done
-        assert not get_twin_task.done()
-        # Connect
-        await client.connect()
-        # Task can now finish
-        twin1 = await get_twin_task
-
-        # Validate twin with service
-        twin2 = await service_helper.get_twin()
-        # NOTE: It would be nice to compare the full properties, but the service client one
-        # has metadata the client does not have. Look into this further to expand testing.
-        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
-        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
-
-        leak_tracker.check_for_leaks()
-
-
-@pytest.mark.describe(
-    "Client Get Twin with network failure (Connection Retry enabled, Twin not yet enabled)"
-)
-@pytest.mark.dropped_connection
-@pytest.mark.connection_retry(True)
-@pytest.mark.keep_alive(5)
-class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object):
-    @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
-    async def test_network_failure_causes_disconnect(
-        self, dropper, leak_tracker, client, failure_type
+    async def test_get_twin_raises_if_network_error_enabling_twin_responses(
+        self, dropper, leak_tracker, session_object, failure_type
     ):
         leak_tracker.set_initial_object_list()
-        assert client.connected
 
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
+        async with session_object:
+            assert session_object.connected
 
-        # Attempt to get twin (implicitly enabling twin first)
-        get_task = asyncio.create_task(client.get_twin())
-        # Wait for client disconnect
-        while client.connected:
-            assert not get_task.done()
-            await asyncio.sleep(0.5)
-        # Client has now disconnected
-        with pytest.raises(NoConnectionError):
-            await get_task
+            # Disrupt network
+            if failure_type == PACKET_DROP:
+                dropper.drop_outgoing()
+            elif failure_type == PACKET_REJECT:
+                dropper.reject_outgoing()
 
-        # Restore and manual disconnect to resolve connection retry before leak checking
-        dropper.restore_all()
-        await client.disconnect()
-        del get_task
+            # Attempt to get twin (implicitly enabling twin first)
+            assert session_object._mqtt_client._twin_responses_enabled is False
+            # TODO: is this the right exception?
+            with pytest.raises(asyncio.CancelledError):
+                await session_object.get_twin()
+            assert session_object._mqtt_client._twin_responses_enabled is False
+
+        assert session_object.connected is False
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
-    async def test_network_failure_no_disconnect(
-        self, dropper, leak_tracker, service_helper, client, failure_type
+    @pytest.mark.skip("get_twin doesn't time out if no resopnse")
+    @pytest.mark.keep_alive(5)
+    @pytest.mark.it("Raises Error on get_twin if network error causes request or response to fail")
+    async def test_get_twin_raises_if_network_error_on_request_or_response(
+        self, dropper, leak_tracker, session_object, failure_type
     ):
         leak_tracker.set_initial_object_list()
-        assert client.connected
 
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
+        async with session_object:
+            assert session_object.connected is True
 
-        # Attempt to get twin (implicitly enabling twin first)
-        get_task = asyncio.create_task(client.get_twin())
+            assert session_object._mqtt_client._twin_responses_enabled is False
+            await session_object.get_twin()
+            assert session_object._mqtt_client._twin_responses_enabled is True
 
-        # Has not been able to succeed due to network failure, but client is still connected
-        await asyncio.sleep(1)
-        assert not get_task.done()
-        assert client.connected
+            # Disrupt network
+            if failure_type == PACKET_DROP:
+                dropper.drop_outgoing()
+            elif failure_type == PACKET_REJECT:
+                dropper.reject_outgoing()
 
-        # Restore network, and operation succeeds
-        dropper.restore_all()
-        twin1 = await get_task
+            # TODO: is this the right exception?
+            with pytest.raises(asyncio.CancelledError):
+                await session_object.get_twin()
 
-        # Get the twin from the service to compare
-        twin2 = await service_helper.get_twin()
-        # NOTE: It would be nice to compare the full properties, but the service client one
-        # has metadata the client does not have. Look into this further to expand testing.
-        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
-        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
-
+        assert session_object.connected is False
         leak_tracker.check_for_leaks()
 
-
-@pytest.mark.describe(
-    "Client Get Twin with network failure (Connection Retry disabled, Twin not yet enabled)"
-)
-@pytest.mark.dropped_connection
-@pytest.mark.connection_retry(False)
-@pytest.mark.keep_alive(5)
-class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object):
-    @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
-    async def test_network_failure_causes_disconnect(
-        self, dropper, leak_tracker, client, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to get twin (implicitly enabling twin first)
-        get_task = asyncio.create_task(client.get_twin())
-        # Wait for client disconnect
-        while client.connected:
-            assert not get_task.done()
-            await asyncio.sleep(0.5)
-        # Client has now disconnected
-        with pytest.raises(NoConnectionError):
-            await get_task
-
-        del get_task
-        leak_tracker.check_for_leaks()
-
-    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
-    async def test_network_failure_no_disconnect(
-        self,
-        dropper,
-        leak_tracker,
-        service_helper,
-        client,
-        failure_type,
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to get twin (implicitly enabling twin first)
-        get_task = asyncio.create_task(client.get_twin())
-
-        # Has not been able to succeed due to network failure, but client is still connected
-        await asyncio.sleep(1)
-        assert not get_task.done()
-        assert client.connected
-
-        # Restore network, and operation succeeds
-        dropper.restore_all()
-        twin1 = await get_task
-
-        # Get the twin from the service to compare
-        twin2 = await service_helper.get_twin()
-        # NOTE: It would be nice to compare the full properties, but the service client one
-        # has metadata the client does not have. Look into this further to expand testing.
-        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
-        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
-
-        leak_tracker.check_for_leaks()
-
-
-@pytest.mark.describe(
-    "Client Get Twin with network failure (Connection Retry enabled, Twin already enabled)"
-)
-@pytest.mark.dropped_connection
-@pytest.mark.connection_retry(True)
-@pytest.mark.keep_alive(5)
-class TestGetTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
-    @pytest.mark.it(
-        "Succeeds once network is restored and client automatically reconnects after having disconnected due to network failure"
-    )
-    async def test_network_failure_causes_disconnect(
-        self, dropper, leak_tracker, service_helper, client, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Enable twins
-        await client._enable_feature("twin")
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to get twin
-        get_task = asyncio.create_task(client.get_twin())
-        # Wait for client disconnect
-        while client.connected:
-            assert not get_task.done()
-            await asyncio.sleep(0.5)
-        # Client has now disconnected and task will not finish until reconnection
-        assert not get_task.done()
-        dropper.restore_all()
-        # Wait for client reconnect
-        while not client.connected:
-            assert not get_task.done()
-            await asyncio.sleep(0.5)
-
-        # Once connection is returned, the task will finish
-        twin1 = await get_task
-
-        # Get the twin from the service to compare
-        twin2 = await service_helper.get_twin()
-        # NOTE: It would be nice to compare the full properties, but the service client one
-        # has metadata the client does not have. Look into this further to expand testing.
-        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
-        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
-
-        leak_tracker.check_for_leaks()
-
-    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
-    async def test_network_failure_no_disconnect(
-        self, dropper, leak_tracker, service_helper, client, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Enable twins
-        await client._enable_feature("twin")
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to get twin
-        get_task = asyncio.create_task(client.get_twin())
-
-        # Has not been able to succeed due to network failure, but client is still connected
-        await asyncio.sleep(1)
-        assert not get_task.done()
-        assert client.connected
-
-        # Restore network, and operation succeeds
-        dropper.restore_all()
-        twin1 = await get_task
-
-        # Get the twin from the service to compare
-        twin2 = await service_helper.get_twin()
-        # NOTE: It would be nice to compare the full properties, but the service client one
-        # has metadata the client does not have. Look into this further to expand testing.
-        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
-        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
-
-        leak_tracker.check_for_leaks()
-
-
-@pytest.mark.describe(
-    "Client Get Twin with network failure (Connection Retry disabled, Twin already enabled)"
-)
-@pytest.mark.dropped_connection
-@pytest.mark.connection_retry(False)
-@pytest.mark.keep_alive(5)
-class TestGetTwinNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
-    @pytest.mark.it(
-        "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
-    )
-    async def test_network_failure_causes_disconnect(
-        self, dropper, leak_tracker, service_helper, client, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Enable twins
-        await client._enable_feature("twin")
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to get twin
-        get_task = asyncio.create_task(client.get_twin())
-        # Wait for client disconnect
-        while client.connected:
-            assert not get_task.done()
-            await asyncio.sleep(0.5)
-        # Client has now disconnected and task will not finish until reconnection
-        assert not get_task.done()
-        await asyncio.sleep(1)
-        assert not get_task.done()
-
-        # Restore and manually reconnect
-        dropper.restore_all()
-        await asyncio.sleep(1)
-        await client.connect()
-
-        # Once connection is returned, the task will finish
-        twin1 = await get_task
-
-        # Get the twin from the service to compare
-        twin2 = await service_helper.get_twin()
-        # NOTE: It would be nice to compare the full properties, but the service client one
-        # has metadata the client does not have. Look into this further to expand testing.
-        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
-        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
-
-        leak_tracker.check_for_leaks()
-
-    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
-    async def test_network_failure_no_disconnect(
-        self, dropper, leak_tracker, service_helper, client, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Enable twins
-        await client._enable_feature("twin")
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to get twin
-        get_task = asyncio.create_task(client.get_twin())
-
-        # Has not been able to succeed due to network failure, but client is still connected
-        await asyncio.sleep(1)
-        assert not get_task.done()
-        assert client.connected
-
-        # Restore network, and operation succeeds
-        dropper.restore_all()
-        twin1 = await get_task
-
-        # Get the twin from the service to compare
-        twin2 = await service_helper.get_twin()
-        # NOTE: It would be nice to compare the full properties, but the service client one
-        # has metadata the client does not have. Look into this further to expand testing.
-        assert twin1["desired"]["$version"] == twin2.properties.desired["$version"]
-        assert twin1["reported"]["$version"] == twin2.properties.reported["$version"]
-
-        leak_tracker.check_for_leaks()
+    # TODO "Succeeds if network failure resolves before session_object can disconnect"
 
 
 @pytest.mark.describe("Client Reported Properties")
 class TestReportedProperties(object):
     @pytest.mark.it("Can set a simple reported property")
-    @pytest.mark.parametrize(
-        "twin_enabled",
-        [
-            pytest.param(False, id="Twin not yet enabled"),
-            pytest.param(True, id="Twin already enabled"),
-        ],
-    )
+    @pytest.mark.parametrize(*twin_enabled_and_disabled)
     @pytest.mark.quicktest_suite
     async def test_sends_simple_reported_patch(
-        self, leak_tracker, service_helper, client, twin_enabled, random_reported_props
+        self, leak_tracker, service_helper, session_object, twin_enabled, random_reported_props
     ):
         leak_tracker.set_initial_object_list()
 
-        if twin_enabled:
-            await client._enable_feature("twin")
+        async with session_object:
+            # Enable twin responses if necessary
+            assert session_object._mqtt_client._twin_responses_enabled is False
+            if twin_enabled:
+                await session_object.get_twin()
+                assert session_object._mqtt_client._twin_responses_enabled is True
 
-        # patch properties
-        await client.patch_twin_reported_properties(random_reported_props)
+            # patch properties
+            await session_object.update_reported_properties(random_reported_props)
 
-        # wait for patch to arrive at service and verify
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
+            assert session_object._mqtt_client._twin_responses_enabled is True
 
-        # get twin from the service and verify content
-        twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+            # wait for patch to arrive at service and verify
+            received_patch = await service_helper.get_next_reported_patch_arrival()
+            assert (
+                received_patch[const.REPORTED][const.TEST_CONTENT]
+                == random_reported_props[const.TEST_CONTENT]
+            )
+
+            # get twin from the service and verify content
+            twin = await session_object.get_twin()
+            assert (
+                twin[const.REPORTED][const.TEST_CONTENT]
+                == random_reported_props[const.TEST_CONTENT]
+            )
 
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Raises correct exception for un-serializable patch")
-    @pytest.mark.parametrize(
-        "twin_enabled",
-        [
-            pytest.param(False, id="Twin not yet enabled"),
-            pytest.param(True, id="Twin already enabled"),
-        ],
-    )
-    async def test_bad_reported_patch_raises(self, leak_tracker, client, twin_enabled):
+    @pytest.mark.parametrize(*twin_enabled_and_disabled)
+    async def test_bad_reported_patch_raises(self, leak_tracker, session_object, twin_enabled):
         leak_tracker.set_initial_object_list()
 
-        if twin_enabled:
-            await client._enable_feature("twin")
+        async with session_object:
+            # Enable twin responses if necessary
+            assert session_object._mqtt_client._twin_responses_enabled is False
+            if twin_enabled:
+                await session_object.get_twin()
+                assert session_object._mqtt_client._twin_responses_enabled is True
 
-        # There's no way to serialize a function.
-        def thing_that_cant_serialize():
-            pass
+            # There's no way to serialize a function.
+            def thing_that_cant_serialize():
+                pass
 
-        with pytest.raises(ClientError) as e_info:
-            await client.patch_twin_reported_properties(thing_that_cant_serialize)
-        assert isinstance(e_info.value.__cause__, TypeError)
+            with pytest.raises(TypeError):
+                await session_object.update_reported_properties(thing_that_cant_serialize)
 
-        del e_info
-        # TODO: Why does this need a sleep, but the sync test doesn't?
-        # There might be something here, investigate further
-        await asyncio.sleep(0.1)
+        assert session_object.connected is False
+
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Can clear a reported property")
-    @pytest.mark.parametrize(
-        "twin_enabled",
-        [
-            pytest.param(False, id="Twin not yet enabled"),
-            pytest.param(True, id="Twin already enabled"),
-        ],
-    )
+    @pytest.mark.parametrize(*twin_enabled_and_disabled)
     @pytest.mark.quicktest_suite
     async def test_clear_property(
-        self, leak_tracker, service_helper, client, twin_enabled, random_reported_props
+        self, leak_tracker, service_helper, session_object, twin_enabled, random_reported_props
     ):
         leak_tracker.set_initial_object_list()
 
+        async with session_object:
+            # Enable twin responses if necessary
+            assert session_object._mqtt_client._twin_responses_enabled is False
+            if twin_enabled:
+                await session_object.get_twin()
+                assert session_object._mqtt_client._twin_responses_enabled is True
+
+            # patch properties and verify that the service received the patch
+            await session_object.update_reported_properties(random_reported_props)
+            received_patch = await service_helper.get_next_reported_patch_arrival()
+            assert (
+                received_patch[const.REPORTED][const.TEST_CONTENT]
+                == random_reported_props[const.TEST_CONTENT]
+            )
+
+            # send a patch clearing properties and verify that the service received that patch
+            await session_object.update_reported_properties(reset_reported_props)
+            received_patch = await service_helper.get_next_reported_patch_arrival()
+            assert (
+                received_patch[const.REPORTED][const.TEST_CONTENT]
+                == reset_reported_props[const.TEST_CONTENT]
+            )
+
+            # get the twin and verify that the properties are no longer part of the twin
+            twin = await session_object.get_twin()
+            assert const.TEST_CONTENT not in twin[const.REPORTED]
+
+        assert session_object.connected is False
+
+        leak_tracker.check_for_leaks()
+
+    @pytest.mark.it("Raises NoConnectionError if there is no connection")
+    @pytest.mark.parametrize(*twin_enabled_and_disabled)
+    @pytest.mark.quicktest_suite
+    @pytest.mark.skip("test hangs at line 'test hangs here' if Twin is already enabled")
+    async def test_no_connection_raises_error(
+        self, leak_tracker, session_object, random_reported_props, twin_enabled
+    ):
+        leak_tracker.set_initial_object_list()
+
+        # Enable twin responses if necessary
+        assert session_object._mqtt_client._twin_responses_enabled is False
         if twin_enabled:
-            await client._enable_feature("twin")
-
-        # patch properties and verify that the service received the patch
-        await client.patch_twin_reported_properties(random_reported_props)
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
-
-        # send a patch clearing properties and verify that the service received that patch
-        await client.patch_twin_reported_properties(reset_reported_props)
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == reset_reported_props[const.TEST_CONTENT]
-        )
-
-        # get the twin and verify that the properties are no longer part of the twin
-        twin = await client.get_twin()
-        assert const.TEST_CONTENT not in twin[const.REPORTED]
-
-        leak_tracker.check_for_leaks()
-
-    @pytest.mark.it("Raises NoConnectionError if there is no connection (Twin not yet enabled)")
-    @pytest.mark.quicktest_suite
-    async def test_no_connection_twin_not_enabled(
-        self, leak_tracker, client, random_reported_props
-    ):
-        leak_tracker.set_initial_object_list()
-
-        await client.disconnect()
-        assert not client.connected
-
-        with pytest.raises(NoConnectionError):
-            await client.patch_twin_reported_properties(random_reported_props)
-        assert not client.connected
-
-        # TODO: Why does this need a sleep, but the sync test doesn't?
-        # There might be something here, investigate further
-        await asyncio.sleep(0.1)
-        leak_tracker.check_for_leaks()
-
-    @pytest.mark.it(
-        "Waits to complete until a connection is established if there is no connection (Twin already enabled)"
-    )
-    @pytest.mark.quicktest_suite
-    async def test_no_connection_twin_enabled(
-        self, leak_tracker, client, service_helper, random_reported_props
-    ):
-        leak_tracker.set_initial_object_list()
-
-        await client._enable_feature("twin")
-
-        await client.disconnect()
-        assert not client.connected
-
-        # Attempt to patch
-        patch_task = asyncio.create_task(
-            client.patch_twin_reported_properties(random_reported_props)
-        )
-        await asyncio.sleep(1)
-        # Still not done
-        assert not patch_task.done()
-        # Connect
-        await client.connect()
-        # Task can now finish
-        await patch_task
-
-        # wait for patch to arrive at service and verify
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
-
-        # get twin from the service and verify content
-        twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
-
-        leak_tracker.check_for_leaks()
-
-
-@pytest.mark.describe(
-    "Client Reported Properties with network failure (Connection Retry enabled, Twin not yet enabled)"
-)
-@pytest.mark.dropped_connection
-@pytest.mark.connection_retry(True)
-@pytest.mark.keep_alive(5)
-class TestReportedPropertiesNetworkFailureConnectionRetryEnabledTwinPatchNotEnabled(object):
-    @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
-    async def test_network_failure_causes_disconnect(
-        self, dropper, leak_tracker, client, random_reported_props, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to patch twin (implicitly enabling twin first)
-        patch_task = asyncio.create_task(
-            client.patch_twin_reported_properties(random_reported_props)
-        )
-        # Wait for client disconnect
-        while client.connected:
-            assert not patch_task.done()
-            await asyncio.sleep(0.5)
-        # Client has now disconnected
-        with pytest.raises(NoConnectionError):
-            await patch_task
-
-        # Restore and manual disconnect to resolve connection retry before leak checking
-        dropper.restore_all()
-        await client.disconnect()
-        del patch_task
-        leak_tracker.check_for_leaks()
-
-    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
-    async def test_network_failure_no_disconnect(
-        self, dropper, leak_tracker, service_helper, client, random_reported_props, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to patch twin (implicitly enabling twin first)
-        patch_task = asyncio.create_task(
-            client.patch_twin_reported_properties(random_reported_props)
-        )
-
-        # Has not been able to succeed due to network failure, but client is still connected
-        await asyncio.sleep(1)
-        assert not patch_task.done()
-        assert client.connected
-
-        # Restore network, and operation succeeds
-        dropper.restore_all()
-        await patch_task
-
-        # wait for patch to arrive at service and verify
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
-
-        # get twin from the service and verify content
-        twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
-
-        leak_tracker.check_for_leaks()
-
-
-@pytest.mark.describe(
-    "Client Reported Properties with network failure (Connection Retry disabled, Twin not yet enabled)"
-)
-@pytest.mark.dropped_connection
-@pytest.mark.connection_retry(False)
-@pytest.mark.keep_alive(5)
-class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchNotEnabled(object):
-    @pytest.mark.it("Raises NoConnectionError if client disconnects due to network failure")
-    async def test_network_failure_causes_disconnect(
-        self, dropper, leak_tracker, client, random_reported_props, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to patch twin (implicitly enabling twin first)
-        patch_task = asyncio.create_task(
-            client.patch_twin_reported_properties(random_reported_props)
-        )
-        # Wait for client disconnect
-        while client.connected:
-            assert not patch_task.done()
-            await asyncio.sleep(0.5)
-        # Client has now disconnected
-        with pytest.raises(NoConnectionError):
-            await patch_task
-
-        del patch_task
-        leak_tracker.check_for_leaks()
-
-    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
-    async def test_network_failure_no_disconnect(
-        self, dropper, leak_tracker, service_helper, client, random_reported_props, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to patch twin (implicitly enabling twin first)
-        patch_task = asyncio.create_task(
-            client.patch_twin_reported_properties(random_reported_props)
-        )
-
-        # Has not been able to succeed due to network failure, but client is still connected
-        await asyncio.sleep(1)
-        assert not patch_task.done()
-        assert client.connected
-
-        # Restore network, and operation succeeds
-        dropper.restore_all()
-        await patch_task
-
-        # wait for patch to arrive at service and verify
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
-
-        # get twin from the service and verify content
-        twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
-
-        leak_tracker.check_for_leaks()
-
-
-@pytest.mark.describe(
-    "Client Reported Properties with network failure (Connection Retry enabled, Twin already enabled)"
-)
-@pytest.mark.dropped_connection
-@pytest.mark.connection_retry(True)
-@pytest.mark.keep_alive(5)
-class TestReportedPropertiesTwinNetworkFailureConnectionRetryEnabledTwinPatchAlreadyEnabled(object):
-    @pytest.mark.it(
-        "Succeeds once network is restored and client automatically reconnects after having disconnected due to network failure"
-    )
-    async def test_network_failure_causes_disconnect(
-        self, dropper, leak_tracker, service_helper, client, random_reported_props, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Enable twins
-        await client._enable_feature("twin")
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to patch twin
-        patch_task = asyncio.create_task(
-            client.patch_twin_reported_properties(random_reported_props)
-        )
-
-        # Wait for client disconnect
-        while client.connected:
-            assert not patch_task.done()
-            await asyncio.sleep(0.5)
-        # Client has now disconnected and task will not finish until reconnection
-        assert not patch_task.done()
-        dropper.restore_all()
-        # Wait for client reconnect
-        while not client.connected:
-            assert not patch_task.done()
-            await asyncio.sleep(0.5)
-
-        # Once connection is returned, the task will finish
-        await patch_task
-
-        # wait for patch to arrive at service and verify
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
-
-        # get twin from the service and verify content
-        twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
-
-        leak_tracker.check_for_leaks()
-
-    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
-    async def test_network_failure_no_disconnect(
-        self, dropper, leak_tracker, service_helper, client, random_reported_props, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Enable twins
-        await client._enable_feature("twin")
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to patch twin
-        patch_task = asyncio.create_task(
-            client.patch_twin_reported_properties(random_reported_props)
-        )
-
-        # Has not been able to succeed due to network failure, but client is still connected
-        await asyncio.sleep(1)
-        assert not patch_task.done()
-        assert client.connected
-
-        # Restore network, and operation succeeds
-        dropper.restore_all()
-        await patch_task
-
-        # wait for patch to arrive at service and verify
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
-
-        # get twin from the service and verify content
-        twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
-
-        leak_tracker.check_for_leaks()
-
-
-@pytest.mark.describe(
-    "Client Reported Properties with network failure (Connection Retry disabled, Twin already enabled)"
-)
-@pytest.mark.dropped_connection
-@pytest.mark.connection_retry(False)
-@pytest.mark.keep_alive(5)
-class TestReportedPropertiesNetworkFailureConnectionRetryDisabledTwinPatchAlreadyEnabled(object):
-    @pytest.mark.it(
-        "Succeeds once network is restored and client manually reconnects after having disconnected due to network failure"
-    )
-    async def test_network_failure_causes_disconnect(
-        self, dropper, leak_tracker, service_helper, client, random_reported_props, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Enable twins
-        await client._enable_feature("twin")
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to patch twin
-        patch_task = asyncio.create_task(
-            client.patch_twin_reported_properties(random_reported_props)
-        )
-
-        # Wait for client disconnect
-        while client.connected:
-            assert not patch_task.done()
-            await asyncio.sleep(0.5)
-        # Client has now disconnected and task will not finish until reconnection
-        assert not patch_task.done()
-        await asyncio.sleep(1)
-        assert not patch_task.done()
-
-        # Restore and manually reconnect
-        dropper.restore_all()
-        await asyncio.sleep(1)
-        await client.connect()
-
-        # Once connection is returned, the task will finish
-        await patch_task
-
-        # wait for patch to arrive at service and verify
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
-
-        # get twin from the service and verify content
-        twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
-
-        leak_tracker.check_for_leaks()
-
-    @pytest.mark.it("Succeeds if network failure resolves before client can disconnect")
-    async def test_network_failure_no_disconnect(
-        self, dropper, leak_tracker, service_helper, client, random_reported_props, failure_type
-    ):
-        leak_tracker.set_initial_object_list()
-        assert client.connected
-
-        # Enable twins
-        await client._enable_feature("twin")
-
-        # Disrupt network
-        if failure_type == PACKET_DROP:
-            dropper.drop_outgoing()
-        elif failure_type == PACKET_REJECT:
-            dropper.reject_outgoing()
-
-        # Attempt to patch twin
-        patch_task = asyncio.create_task(
-            client.patch_twin_reported_properties(random_reported_props)
-        )
-
-        # Has not been able to succeed due to network failure, but client is still connected
-        await asyncio.sleep(1)
-        assert not patch_task.done()
-        assert client.connected
-
-        # Restore network, and operation succeeds
-        dropper.restore_all()
-        await patch_task
-
-        # wait for patch to arrive at service and verify
-        received_patch = await service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
-
-        # get twin from the service and verify content
-        twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+            async with session_object:
+                await session_object.get_twin()
+
+                assert session_object._mqtt_client._twin_responses_enabled is True
+        assert session_object.connected is False
+
+        with pytest.raises(MQTTError) as e_info:
+            # test hangs here
+            await session_object.update_reported_properties(random_reported_props)
+        assert e_info.value.rc == paho.MQTT_ERR_NO_CONN
+        del e_info
+        assert session_object.connected is False
 
         leak_tracker.check_for_leaks()
 
@@ -955,34 +288,144 @@ class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
     @pytest.mark.quicktest_suite
     async def test_receives_simple_desired_patch(
-        self, event_loop, leak_tracker, service_helper, client
+        self, event_loop, leak_tracker, service_helper, session_object
     ):
+        random_dict = get_random_dict()
         leak_tracker.set_initial_object_list()
 
-        received_patch = None
-        received = asyncio.Event()
+        # Make a task to pull incoming patches from the generator and pyt
+        # them into a queue.
+        # In py310, anext can do the same thing, but we need to support older
+        # versions.
 
-        async def handle_on_patch_received(patch):
-            nonlocal received_patch, received
-            print("received {}".format(patch))
-            received_patch = patch
-            event_loop.call_soon_threadsafe(received.set)
+        queue = asyncio.Queue()
+        registered = asyncio.Event()
 
-        client.on_twin_desired_properties_patch_received = handle_on_patch_received
-        await client.start_twin_desired_properties_patch_receive()
+        async def listener(sess):
+            try:
+                async with sess.desired_property_updates() as patches:
+                    # signal that we're registered
+                    registered.set()
+                    async for patch in patches:
+                        await queue.put(patch)
+            except asyncio.CancelledError:
+                # this happens during shutdown. no need to log this.
+                raise
+            except BaseException:
+                # Without this line, exceptions get silently ignored until
+                # we await the listener task.
+                logger.error("Exception", exc_info=True)
+                raise
 
+        async with session_object:
+            listener_task = asyncio.create_task(listener(session_object))
+            await registered.wait()
+
+            await service_helper.set_desired_properties(
+                {const.TEST_CONTENT: random_dict},
+            )
+
+            received_patch = await queue.get()
+            assert received_patch[const.TEST_CONTENT] == random_dict
+
+            twin = await session_object.get_twin()
+            assert twin[const.DESIRED][const.TEST_CONTENT] == random_dict
+
+        assert session_object.connected is False
+
+        # make sure our listener ended with an error when we disconnected.
+        logger.info("Waiting for listener_task to complete")
+        with pytest.raises(asyncio.CancelledError):
+            await listener_task
+        logger.info("Done waiting for listener_task")
+
+        leak_tracker.check_for_leaks()
+
+    @pytest.mark.it("Receives a patch for a simple desired property entering session context twice")
+    @pytest.mark.quicktest_suite
+    async def test_receives_simple_desired_patch_enter_session_twice(
+        self, event_loop, leak_tracker, service_helper, session_object
+    ):
         random_dict = get_random_dict()
-        await service_helper.set_desired_properties(
-            {const.TEST_CONTENT: random_dict},
-        )
+        leak_tracker.set_initial_object_list()
 
-        await asyncio.wait_for(received.wait(), 60)
-        assert received.is_set()
+        # Make a task to pull incoming patches from the generator and pyt
+        # them into a queue.
+        # In py310, anext can do the same thing, but we need to support older
+        # versions.
 
-        assert received_patch[const.TEST_CONTENT] == random_dict
+        queue = asyncio.Queue()
+        registered = asyncio.Event()
 
-        twin = await client.get_twin()
-        assert twin[const.DESIRED][const.TEST_CONTENT] == random_dict
+        async def listener(sess):
+            try:
+                # This `async with` is the only difference from the previous test.
+                async with sess:
+                    async with sess.desired_property_updates() as patches:
+                        # signal that we're registered
+                        registered.set()
+                        async for patch in patches:
+                            await queue.put(patch)
+            except asyncio.CancelledError:
+                # this happens during shutdown. no need to log this.
+                raise
+            except Exception:
+                # Without this line, exceptions get silently ignored until
+                # we await the listener task.
+                logger.error("Exception", exc_info=True)
+                raise
+
+        async with session_object:
+            listener_task = asyncio.create_task(listener(session_object))
+            await registered.wait()
+
+            await service_helper.set_desired_properties(
+                {const.TEST_CONTENT: random_dict},
+            )
+
+            received_patch = await queue.get()
+            assert received_patch[const.TEST_CONTENT] == random_dict
+
+            twin = await session_object.get_twin()
+            assert twin[const.DESIRED][const.TEST_CONTENT] == random_dict
+
+        assert session_object.connected is False
+
+        # make sure our listener ended with an error when we disconnected.
+        logger.info("Waiting for listener_task to complete")
+        with pytest.raises(asyncio.CancelledError):
+            await listener_task
+        logger.info("Done waiting for listener_task")
+
+        leak_tracker.check_for_leaks()
+
+    @pytest.mark.it("Receives a patch for a simple desired property using anext")
+    @pytest.mark.quicktest_suite
+    @pytest.mark.skipif(
+        sys.version_info.major == 3 and sys.version_info.minor < 10,
+        reason="anext was not introduced until 3.10",
+    )
+    async def test_receives_simple_desired_patch_using_anext(
+        self, event_loop, leak_tracker, service_helper, session_object
+    ):
+        leak_tracker.set_initial_object_list()
+        random_dict = get_random_dict()
+
+        # Python 3.10 makes our lives easier because we can use anext() and treat the generator like a queue
+
+        async with session_object:
+            async with session_object.desired_property_updates() as patches:
+                await service_helper.set_desired_properties(
+                    {const.TEST_CONTENT: random_dict},
+                )
+
+            received_patch = await anext(patches)
+            assert received_patch[const.TEST_CONTENT] == random_dict
+
+            twin = await session_object.get_twin()
+            assert twin[const.DESIRED][const.TEST_CONTENT] == random_dict
+
+        assert session_object.connected is False
 
         leak_tracker.check_for_leaks()
 

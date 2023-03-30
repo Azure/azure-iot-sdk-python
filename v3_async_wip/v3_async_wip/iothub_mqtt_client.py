@@ -8,7 +8,7 @@ import asyncio
 import json
 import logging
 import urllib.parse
-from typing import Callable, Optional, AsyncGenerator, TypeVar
+from typing import Callable, Optional, AsyncGenerator, TypeVar, Any
 from .custom_typing import TwinPatch, Twin
 from .iot_exceptions import IoTHubError, IoTHubClientError
 from .mqtt_client import (  # noqa: F401 (Importing directly to re-export)
@@ -66,6 +66,7 @@ class IoTHubMQTTClient:
         self._incoming_c2d_messages: Optional[AsyncGenerator[models.Message, None]] = None
         self._incoming_direct_method_requests: AsyncGenerator[models.DirectMethodRequest, None]
         self._incoming_twin_patches: AsyncGenerator[TwinPatch, None]
+        self._incoming_twin_responses: Optional[AsyncGenerator[Any, None]] = None
         if self._module_id:
             self._incoming_input_messages = self._create_incoming_data_generator(
                 topic=mqtt_topic.get_input_topic_for_subscribe(self._device_id, self._module_id),
@@ -105,6 +106,7 @@ class IoTHubMQTTClient:
             async for mqtt_message in incoming_mqtt_messages:
                 try:
                     yield transform_fn(mqtt_message)
+                    mqtt_message = None
                 except asyncio.CancelledError:
                     # NOTE: In Python 3.7 this isn't a BaseException, so we must catch and re-raise
                     # NOTE: This shouldn't ever happen since none of the transform_fns should be
@@ -130,6 +132,7 @@ class IoTHubMQTTClient:
         logger.debug("Starting the 'process_twin_responses' background task")
         twin_response_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
         twin_responses = self._mqtt_client.get_incoming_message_generator(twin_response_topic)
+        self.incoming_twin_response_generator = twin_responses
 
         async for mqtt_message in twin_responses:
             try:
@@ -249,6 +252,26 @@ class IoTHubMQTTClient:
             self._keep_credentials_fresh_bg_task.cancel()
             cancelled_tasks.append(self._keep_credentials_fresh_bg_task)
             self._keep_credentials_fresh_bg_task = None
+
+        # shut down our async generators
+        # https://stackoverflow.com/a/60233813
+        # https://stackoverflow.com/questions/60226557/how-to-forcefully-close-an-async-generator
+        for generator in [
+            self._incoming_input_messages,
+            self._incoming_c2d_messages,
+            self._incoming_direct_method_requests,
+            self._incoming_twin_patches,
+            self._incoming_twin_responses,
+        ]:
+            if generator:
+                coro: Any = generator.__anext__()
+                task: asyncio.Task = asyncio.create_task(coro)
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                await generator.aclose()
 
         results = await asyncio.gather(
             *cancelled_tasks, asyncio.shield(self.disconnect()), return_exceptions=True
@@ -387,7 +410,7 @@ class IoTHubMQTTClient:
                 )
             )
             # TODO: should body be logged? Is there useful info there?
-            if response.status != 200:
+            if response.status >= 400:
                 raise IoTHubError(
                     "IoTHub responded to twin patch with a failed status - {}".format(
                         response.status
@@ -455,7 +478,7 @@ class IoTHubMQTTClient:
                 await self._request_ledger.delete_request(request.request_id)
 
         # Interpret response
-        if response.status != 200:
+        if response.status >= 400:
             raise IoTHubError(
                 "IoTHub responded to get twin request with a failed status - {}".format(
                     response.status

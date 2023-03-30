@@ -750,6 +750,8 @@ class MQTTClient:
                 if rc != mqtt.MQTT_ERR_SUCCESS:
                     if rc not in expected_unsubscribe_rc:
                         logger.warning("Unexpected rc {} from Paho .unsubscribe()".format(rc))
+                    if rc == 4:
+                        raise asyncio.CancelledError()
                     raise MQTTError(rc)
 
                 # Establish a pending unsubscribe
