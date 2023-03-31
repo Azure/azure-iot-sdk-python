@@ -94,7 +94,7 @@ class IoTHubSession:
         # NOTE: If we wanted to design lower levels of the stack to be specific to our
         # Session design pattern, this could happen lower (and it would be simpler), but it's
         # up here so we can be more implementation-generic down the stack.
-        self._report_conn_drop_bg_task: Optional[asyncio.Task[mqtt.MQTTError]] = None
+        self._report_conn_drop_task: Optional[asyncio.Task[mqtt.MQTTError]] = None
 
     async def __aenter__(self) -> "IoTHubSession":
         # First, if using SAS auth, start up the provider
@@ -107,13 +107,14 @@ class IoTHubSession:
         try:
             await self._mqtt_client.start()
             await self._mqtt_client.connect()
-            self._report_conn_drop_bg_task = asyncio.create_task(
-                self._mqtt_client.report_connection_drop()
-            )
         except (Exception, asyncio.CancelledError):
             # Stop/cleanup if something goes wrong
             await self._stop_all()
             raise
+
+        self._report_conn_drop_task = asyncio.create_task(
+            self._mqtt_client.report_connection_drop()
+        )
 
         return self
 
@@ -126,9 +127,9 @@ class IoTHubSession:
         try:
             await self._mqtt_client.disconnect()
         finally:
-            if self._report_conn_drop_bg_task:
-                self._report_conn_drop_bg_task.cancel()
-                self._report_conn_drop_bg_task = None
+            if self._report_conn_drop_task:
+                self._report_conn_drop_task.cancel()
+                self._report_conn_drop_task = None
             await self._stop_all()
 
     async def _stop_all(self) -> None:
@@ -291,12 +292,12 @@ class IoTHubSession:
             while True:
                 new_item_t = asyncio.create_task(generator.__anext__())
                 done, _ = await asyncio.wait(
-                    [new_item_t, self._report_conn_drop_bg_task],
+                    [new_item_t, self._report_conn_drop_task],
                     return_when=asyncio.FIRST_COMPLETED,
                 )
-                if self._report_conn_drop_bg_task in done:
+                if self._report_conn_drop_task in done:
                     new_item_t.cancel()
-                    raise self._report_conn_drop_bg_task.result()
+                    raise self._report_conn_drop_task.result()
                 else:
                     yield new_item_t.result()
 
