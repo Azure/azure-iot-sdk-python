@@ -197,7 +197,7 @@ class TestIoTHubSessionInstantiation:
         # InternalSasTokenGenerator was created from the SymmetricKeySigningMechanism
         assert spy_st_generator_cls.call_count == 1
         assert spy_st_generator_cls.call_args == mocker.call(
-            signing_mechanism=spy_sk_sm_cls.spy_return, uri=expected_uri
+            signing_mechanism=spy_sk_sm_cls.spy_return, uri=expected_uri, ttl=3600
         )
         # SasTokenProvider was created from the InternalSasTokenGenerator
         assert spy_st_provider_cls.call_count == 1

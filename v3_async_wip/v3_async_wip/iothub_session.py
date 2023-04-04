@@ -17,6 +17,8 @@ from v3_async_wip import iothub_mqtt_client as mqtt
 
 _T = TypeVar("_T")
 
+# TODO: add tests for sastoken_ttl argument once we settle on a SAS strategy
+
 
 class IoTHubSession:
     def __init__(
@@ -28,6 +30,7 @@ class IoTHubSession:
         ssl_context: Optional[ssl.SSLContext] = None,
         shared_access_key: Optional[str] = None,
         sastoken_fn: Optional[custom_typing.FunctionOrCoroutine] = None,
+        sastoken_ttl: int = 3600,
         **kwargs,
     ) -> None:
         """
@@ -35,15 +38,27 @@ class IoTHubSession:
             IoT Hub module
         :param str module_id: The module identity for the IoT Hub module
         :param str hostname: Hostname of the IoT Hub or IoT Edge the device should connect to
-        :param ssl_context: Custom SSL context to be used by the client
+        :param ssl_context: Custom SSL context to be used when establishing a connection.
             If not provided, a default one will be used
         :type ssl_context: :class:`ssl.SSLContext`
         :param str shared_access_key: A key that can be used to generate SAS Tokens
         :param sastoken_fn: A function or coroutine function that takes no arguments and returns
             a SAS token string when invoked
+        :param sastoken_ttl: Time-to-live (in seconds) for SAS tokens generated when using
+            'shared_access_key' authentication.
+            If using this auth type, a new Session will need to be created once this time expires.
+            Default is 3600 seconds (1 hour).
 
-        :raises: ValueError if none of 'ssl_context', 'symmetric_key' or 'sastoken_fn' are provided
-        :raises: ValueError if both 'symmetric_key' and 'sastoken_fn' are provided
+        :keyword int keep_alive: Maximum period in seconds between MQTT communications. If no
+            communications are exchanged for this period, a ping exchange will occur.
+            Default is 60 seconds
+        :keyword str product_info: Arbitrary product information which will be included in the
+            User-Agent string
+        :keyword proxy_options: Configuration structure for sending traffic through a proxy server
+        :type: proxy_options: :class:`ProxyOptions`
+        :keyword bool websockets: Set to 'True' to use WebSockets over MQTT. Default is 'False'
+
+        :raises: ValueError if an invalid combination of parameters are provided
         :raises: ValueError if an invalid 'symmetric_key' is provided
         :raises: TypeError if an invalid keyword argument is provided
         """
@@ -65,7 +80,9 @@ class IoTHubSession:
         if shared_access_key:
             uri = _format_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
             signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
-            generator = st.InternalSasTokenGenerator(signing_mechanism=signing_mechanism, uri=uri)
+            generator = st.InternalSasTokenGenerator(
+                signing_mechanism=signing_mechanism, uri=uri, ttl=sastoken_ttl
+            )
             self._sastoken_provider = st.SasTokenProvider(generator)
         elif sastoken_fn:
             generator = st.ExternalSasTokenGenerator(sastoken_fn)
@@ -142,14 +159,24 @@ class IoTHubSession:
 
     @classmethod
     def from_connection_string(
-        cls, connection_string: str, ssl_context: Optional[ssl.SSLContext] = None, **kwargs
+        cls,
+        connection_string: str,
+        ssl_context: Optional[ssl.SSLContext] = None,
+        sastoken_ttl: int = 3600,
+        **kwargs,
     ) -> "IoTHubSession":
         """Instantiate an IoTHubSession using an IoT Hub device or module connection string
 
+        :returns: A new instance of IoTHubSession
+        :rtype: IoTHubSession
+
         :param str connection_string: The IoT Hub device connection string
-        :param ssl_context: Custom SSL context to be used by the client
+        :param ssl_context: Custom SSL context to be used when establishing a connection.
             If not provided, a default one will be used
         :type ssl_context: :class:`ssl.SSLContext`
+        :param sastoken_ttl: Time-to-live (in seconds) for SAS tokens used for authentication.
+            A new Session will need to be created once this time expires.
+            Default is 3600 seconds (1 hour).
 
         :keyword int keep_alive: Maximum period in seconds between MQTT communications. If no
             communications are exchanged for this period, a ping exchange will occur.
@@ -178,6 +205,7 @@ class IoTHubSession:
             module_id=cs_obj.get(cs.MODULE_ID),
             shared_access_key=cs_obj.get(cs.SHARED_ACCESS_KEY),
             ssl_context=ssl_context,
+            sastoken_ttl=sastoken_ttl,
             **kwargs,
         )
 
