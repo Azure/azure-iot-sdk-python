@@ -8,7 +8,7 @@ import asyncio
 import json
 import logging
 import urllib.parse
-from typing import Callable, Optional, AsyncGenerator, TypeVar, cast
+from typing import Callable, Optional, AsyncGenerator, TypeVar
 from .custom_typing import TwinPatch, Twin
 from .iot_exceptions import IoTHubError, IoTHubClientError
 from .mqtt_client import (  # noqa: F401 (Importing directly to re-export)
@@ -239,14 +239,16 @@ class IoTHubMQTTClient:
         await self._mqtt_client.disconnect()
         logger.debug("Disconnect succeeded")
 
-    async def report_connection_drop(self) -> MQTTError:
-        """Block until the connection is dropped and return the cause"""
+    async def wait_for_disconnect(self) -> Optional[MQTTError]:
+        """Block until disconnection and return the cause, if any
+
+        :returns: An MQTTError if the connection was dropped, or None if the
+            connection was intentionally ended
+        :rtype: MQTTError or None
+        """
         async with self._mqtt_client.disconnected_cond:
-            await self._mqtt_client.disconnected_cond.wait_for(
-                lambda: self._mqtt_client.previous_disconnection_cause() is not None
-            )
-            # NOTE: We know this is not None because we just checked above
-            return cast(MQTTError, self._mqtt_client.previous_disconnection_cause())
+            await self._mqtt_client.disconnected_cond.wait_for(lambda: not self.connected)
+            return self._mqtt_client.previous_disconnection_cause()
 
     async def send_message(self, message: models.Message) -> None:
         """Send a telemetry message to IoTHub.

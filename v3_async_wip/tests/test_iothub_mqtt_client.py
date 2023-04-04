@@ -906,8 +906,44 @@ class TestIoTHubMQTTClientDisconnect:
             client._mqtt_client.disconnect = mocker.AsyncMock()
 
 
-@pytest.mark.describe("IoTHubMQTTClient - .report_connection_drop()")
+@pytest.mark.describe("IoTHubMQTTClient - .wait_for_disconnect()")
 class TestIoTHubMQTTClientReportConnectionDrop:
+    @pytest.mark.it(
+        "Returns None if an expected disconnect has previously ocurred in the MQTTClient"
+    )
+    async def test_previous_expected_disconnect(self, client):
+        # Simulate expected disconnect
+        client._mqtt_client._disconnection_cause = None
+        client._mqtt_client.is_connected.return_value = False
+        async with client._mqtt_client.disconnected_cond:
+            client._mqtt_client.disconnected_cond.notify_all()
+
+        # Reports no cause (i.e. expected disconnect)
+        t = asyncio.create_task(client.wait_for_disconnect())
+        await asyncio.sleep(0.1)
+        assert t.done()
+        assert t.result() is None
+
+    @pytest.mark.it(
+        "Waits for a disconnect to occur in the MQTTClient, and returns None once an expected disconnect occurs, if no disconnect has yet ocurred"
+    )
+    async def test_expected_disconnect(self, client):
+        # No connection drop to report
+        t = asyncio.create_task(client.wait_for_disconnect())
+        await asyncio.sleep(0.1)
+        assert not t.done()
+
+        # Simulate expected disconnect
+        client._mqtt_client._disconnection_cause = None
+        client._mqtt_client.is_connected.return_value = False
+        async with client._mqtt_client.disconnected_cond:
+            client._mqtt_client.disconnected_cond.notify_all()
+
+        # Report no cause (i.e. expected disconnect)
+        await asyncio.sleep(0.1)
+        assert t.done()
+        assert t.result() is None
+
     @pytest.mark.it(
         "Returns the MQTTError that caused an unexpected disconnect in the MQTTClient, if an unexpected disconnect has already occurred"
     )
@@ -915,27 +951,29 @@ class TestIoTHubMQTTClientReportConnectionDrop:
         # Simulate unexpected disconnect
         cause = mqtt.MQTTError(rc=7)
         client._mqtt_client._disconnection_cause = cause
+        client._mqtt_client.is_connected.return_value = False
         async with client._mqtt_client.disconnected_cond:
             client._mqtt_client.disconnected_cond.notify_all()
 
         # Reports the cause that is already available
-        t = asyncio.create_task(client.report_connection_drop())
+        t = asyncio.create_task(client.wait_for_disconnect())
         await asyncio.sleep(0.1)
         assert t.done()
         assert t.result() is cause
 
     @pytest.mark.it(
-        "Waits for an unexpected disconnect in the MQTTClient, and returns the MQTTError that caused it, if an unexpected disconnect has not yet ocurred"
+        "Waits for a disconnect to occur in the MQTTClient, and returns the MQTTError that caused it once an unexpected disconnect occurs, if no disconnect has not yet ocurred"
     )
     async def test_unexpected_disconnect(self, client):
         # No connection drop to report yet
-        t = asyncio.create_task(client.report_connection_drop())
+        t = asyncio.create_task(client.wait_for_disconnect())
         await asyncio.sleep(0.1)
         assert not t.done()
 
         # Simulate unexpected disconnect
         cause = mqtt.MQTTError(rc=7)
         client._mqtt_client._disconnection_cause = cause
+        client._mqtt_client.is_connected.return_value = False
         async with client._mqtt_client.disconnected_cond:
             client._mqtt_client.disconnected_cond.notify_all()
 
@@ -943,42 +981,6 @@ class TestIoTHubMQTTClientReportConnectionDrop:
         await asyncio.sleep(0.1)
         assert t.done()
         assert t.result() is cause
-
-    @pytest.mark.it(
-        "Does not return if an expected disconnect has previously ocurred in the MQTTClient"
-    )
-    async def test_previous_expected_disconnect(self, client):
-        # Simulate expected disconnect
-        client._mqtt_client._disconnection_cause = None
-        async with client._mqtt_client.disconnected_cond:
-            client._mqtt_client.disconnected_cond.notify_all()
-
-        # No dropped connection to report
-        t = asyncio.create_task(client.report_connection_drop())
-        await asyncio.sleep(0.1)
-        assert not t.done()
-
-        # Clean up
-        t.cancel()
-
-    @pytest.mark.it("Does not return if a expected disconnect occurs in the MQTTClient")
-    async def test_expected_disconnect(self, client):
-        # No connection drop to report
-        t = asyncio.create_task(client.report_connection_drop())
-        await asyncio.sleep(0.1)
-        assert not t.done()
-
-        # Simulate expected disconnect
-        client._mqtt_client._disconnection_cause = None
-        async with client._mqtt_client.disconnected_cond:
-            client._mqtt_client.disconnected_cond.notify_all()
-
-        # Still no report
-        await asyncio.sleep(0.1)
-        assert not t.done()
-
-        # Clean up
-        t.cancel()
 
 
 @pytest.mark.describe("IoTHubMQTTClient - .send_message()")

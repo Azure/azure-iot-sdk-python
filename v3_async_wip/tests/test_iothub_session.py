@@ -53,7 +53,7 @@ def mock_mqtt_iothub_client(mocker):
         mqtt, "IoTHubMQTTClient", spec=mqtt.IoTHubMQTTClient
     ).return_value
     # Use a HangingAsyncMock here so that the coroutine does not return until we want it to
-    mock_client.report_connection_drop = custom_mock.HangingAsyncMock()
+    mock_client.wait_for_disconnect = custom_mock.HangingAsyncMock()
     return mock_client
 
 
@@ -474,10 +474,10 @@ class TestIoTHubSessionInstantiation:
         cfg = spy_mqtt_cls.call_args[0][0]
         assert getattr(cfg, kwarg_name) == kwarg_value
 
-    @pytest.mark.it("Sets the `report_conn_drop_task` attribute to None")
+    @pytest.mark.it("Sets the `wait_for_disconnect_task` attribute to None")
     @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
-    async def test_report_conn_drop_task(
+    async def test_wait_for_disconnect_task(
         self, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
     ):
         session = IoTHubSession(
@@ -488,7 +488,7 @@ class TestIoTHubSessionInstantiation:
             sastoken_fn=sastoken_fn,
             ssl_context=ssl_context,
         )
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
 
     @pytest.mark.it(
         "Raises ValueError if neither `shared_access_key`, `sastoken_fn` nor `ssl_context` are provided as parameters"
@@ -974,46 +974,46 @@ class TestIoTHubSessionContextManager:
         # If nothing raises here, the test passes
 
     @pytest.mark.it(
-        "Creates a Task from the MQTTClient's .report_connection_drop() coroutine method and stores it as the `report_conn_drop` attribute upon entry into the context manager, and cancels and clears the Task upon exit"
+        "Creates a Task from the MQTTClient's .wait_for_disconnect() coroutine method and stores it as the `wait_for_disconnect_task` attribute upon entry into the context manager, and cancels and clears the Task upon exit"
     )
-    async def test_report_conn_drop_task(self, mocker, session):
-        assert session._report_conn_drop_task is None
-        assert session._mqtt_client.report_connection_drop.call_count == 0
+    async def test_wait_for_disconnect_task(self, mocker, session):
+        assert session._wait_for_disconnect_task is None
+        assert session._mqtt_client.wait_for_disconnect.call_count == 0
 
         async with session as session:
             # Task Created and Method called
-            assert isinstance(session._report_conn_drop_task, asyncio.Task)
-            assert not session._report_conn_drop_task.done()
-            assert session._mqtt_client.report_connection_drop.call_count == 1
-            assert session._mqtt_client.report_connection_drop.call_args == mocker.call()
+            assert isinstance(session._wait_for_disconnect_task, asyncio.Task)
+            assert not session._wait_for_disconnect_task.done()
+            assert session._mqtt_client.wait_for_disconnect.call_count == 1
+            assert session._mqtt_client.wait_for_disconnect.call_args == mocker.call()
             await asyncio.sleep(0.1)
-            assert session._mqtt_client.report_connection_drop.is_hanging()
+            assert session._mqtt_client.wait_for_disconnect.is_hanging()
             # Returning method completes task (thus task corresponds to method)
-            session._mqtt_client.report_connection_drop.stop_hanging()
+            session._mqtt_client.wait_for_disconnect.stop_hanging()
             await asyncio.sleep(0.1)
-            assert session._report_conn_drop_task.done()
+            assert session._wait_for_disconnect_task.done()
             assert (
-                session._report_conn_drop_task.result()
-                is session._mqtt_client.report_connection_drop.return_value
+                session._wait_for_disconnect_task.result()
+                is session._mqtt_client.wait_for_disconnect.return_value
             )
             # Replace the task with a mock so we can show it is cancelled/cleared on exit
             mock_task = mocker.MagicMock()
-            session._report_conn_drop_task = mock_task
+            session._wait_for_disconnect_task = mock_task
             assert mock_task.cancel.call_count == 0
 
         # Mocked task was cancelled and cleared
         assert mock_task.cancel.call_count == 1
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
 
     @pytest.mark.it(
-        "Cancels and clears the `report_conn_drop` Task, even if an error was raised within the block inside the context manager"
+        "Cancels and clears the `wait_for_disconnect_task` Task, even if an error was raised within the block inside the context manager"
     )
-    async def test_report_conn_drop_task_with_failure(self, session, arbitrary_exception):
-        assert session._report_conn_drop_task is None
+    async def test_wait_for_disconnect_task_with_failure(self, session, arbitrary_exception):
+        assert session._wait_for_disconnect_task is None
 
         try:
             async with session as session:
-                task = session._report_conn_drop_task
+                task = session._wait_for_disconnect_task
                 assert task is not None
                 assert not task.done()
                 raise arbitrary_exception
@@ -1021,7 +1021,7 @@ class TestIoTHubSessionContextManager:
             pass
 
         await asyncio.sleep(0.1)
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
         assert task.done()
         assert task.cancelled()
 
@@ -1060,7 +1060,7 @@ class TestIoTHubSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Does not start or connect the IoTHubMQTTClient, nor create the `report_conn_drop_task`, if an error is raised while starting the SasTokenProvider during context manager entry"
+        "Does not start or connect the IoTHubMQTTClient, nor create the `wait_for_disconnect_task`, if an error is raised while starting the SasTokenProvider during context manager entry"
     )
     async def test_enter_sastoken_provider_start_raises_cleanup(
         self, mocker, session, mock_sastoken_provider, arbitrary_exception
@@ -1070,7 +1070,7 @@ class TestIoTHubSessionContextManager:
         assert session._sastoken_provider.start.await_count == 0
         assert session._mqtt_client.start.await_count == 0
         assert session._mqtt_client.connect.await_count == 0
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
         spy_create_task = mocker.spy(asyncio, "create_task")
 
         with pytest.raises(type(arbitrary_exception)) as e_info:
@@ -1081,7 +1081,7 @@ class TestIoTHubSessionContextManager:
         assert session._sastoken_provider.start.await_count == 1
         assert session._mqtt_client.start.await_count == 0
         assert session._mqtt_client.connect.await_count == 0
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
         assert spy_create_task.call_count == 0
 
     # NOTE: This shouldn't happen, but we test it anyway
@@ -1098,7 +1098,7 @@ class TestIoTHubSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Stops the IoTHubMQTTClient and SasTokenProvider (if present) that were previously started, and does not create the `report_conn_drop_task`, if an error is raised while starting the IoTHubMQTTClient during context manager entry"
+        "Stops the IoTHubMQTTClient and SasTokenProvider (if present) that were previously started, and does not create the `wait_for_disconnect_task`, if an error is raised while starting the IoTHubMQTTClient during context manager entry"
     )
     @pytest.mark.parametrize(
         "sastoken_provider",
@@ -1115,7 +1115,7 @@ class TestIoTHubSessionContextManager:
         assert session._mqtt_client.stop.await_count == 0
         if session._sastoken_provider:
             assert session._sastoken_provider.stop.await_count == 0
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
         spy_create_task = mocker.spy(asyncio, "create_task")
 
         with pytest.raises(type(arbitrary_exception)):
@@ -1125,7 +1125,7 @@ class TestIoTHubSessionContextManager:
         assert session._mqtt_client.stop.await_count == 1
         if session._sastoken_provider:
             assert session._sastoken_provider.stop.await_count == 1
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
         assert spy_create_task.call_count == 0
 
     # NOTE: This shouldn't happen, but we test it anyway
@@ -1196,7 +1196,7 @@ class TestIoTHubSessionContextManager:
         assert e_info.value is exception
 
     @pytest.mark.it(
-        "Stops the IoTHubMQTTClient and SasTokenProvider (if present) that were previously started, and does not create the `report_conn_drop_task`, if an error is raised while connecting during context manager entry"
+        "Stops the IoTHubMQTTClient and SasTokenProvider (if present) that were previously started, and does not create the `wait_for_disconnect_task`, if an error is raised while connecting during context manager entry"
     )
     @pytest.mark.parametrize(
         "sastoken_provider",
@@ -1220,7 +1220,7 @@ class TestIoTHubSessionContextManager:
         assert session._mqtt_client.stop.await_count == 0
         if session._sastoken_provider:
             assert session._sastoken_provider.stop.await_count == 0
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
         spy_create_task = mocker.spy(asyncio, "create_task")
 
         with pytest.raises(type(exception)):
@@ -1230,7 +1230,7 @@ class TestIoTHubSessionContextManager:
         assert session._mqtt_client.stop.await_count == 1
         if session._sastoken_provider:
             assert session._sastoken_provider.stop.await_count == 1
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
         assert spy_create_task.call_count == 0
 
     # NOTE: This shouldn't happen, but we test it anyway
@@ -1314,7 +1314,7 @@ class TestIoTHubSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Stops the IoTHubMQTTClient and SasTokenProvider (if present), and cancels and clears the `report_conn_drop_task`, even if an error was raised while disconnecting the IoTHubMQTTClient during context manager exit"
+        "Stops the IoTHubMQTTClient and SasTokenProvider (if present), and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while disconnecting the IoTHubMQTTClient during context manager exit"
     )
     @pytest.mark.parametrize(
         "sastoken_provider",
@@ -1331,18 +1331,18 @@ class TestIoTHubSessionContextManager:
         assert session._mqtt_client.stop.await_count == 0
         if session._sastoken_provider:
             assert session._sastoken_provider.stop.await_count == 0
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
 
         with pytest.raises(type(arbitrary_exception)):
             async with session as session:
-                conn_drop_task = session._report_conn_drop_task
+                conn_drop_task = session._wait_for_disconnect_task
                 assert not conn_drop_task.done()
 
         assert session._mqtt_client.stop.await_count == 1
         if session._sastoken_provider:
             assert session._sastoken_provider.stop.await_count == 1
         await asyncio.sleep(0.1)
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
         assert conn_drop_task.cancelled()
 
     # NOTE: This shouldn't happen, but we test it anyway
@@ -1359,7 +1359,7 @@ class TestIoTHubSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Disconnects the IoTHubMQTTClient and stops the SasTokenProvider (if present), and cancels and clears the `report_conn_drop_task`, even if an error was raised while stopping the IoTHubMQTTClient during context manager exit"
+        "Disconnects the IoTHubMQTTClient and stops the SasTokenProvider (if present), and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while stopping the IoTHubMQTTClient during context manager exit"
     )
     @pytest.mark.parametrize(
         "sastoken_provider",
@@ -1376,18 +1376,18 @@ class TestIoTHubSessionContextManager:
         assert session._mqtt_client.disconnect.await_count == 0
         if session._sastoken_provider:
             assert session._sastoken_provider.stop.await_count == 0
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
 
         with pytest.raises(type(arbitrary_exception)):
             async with session as session:
-                conn_drop_task = session._report_conn_drop_task
+                conn_drop_task = session._wait_for_disconnect_task
                 assert not conn_drop_task.done()
 
         assert session._mqtt_client.disconnect.await_count == 1
         if session._sastoken_provider:
             assert session._sastoken_provider.stop.await_count == 1
         await asyncio.sleep(0.1)
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
         assert conn_drop_task.cancelled()
 
     # NOTE: This shouldn't happen, but we test it anyway
@@ -1406,7 +1406,7 @@ class TestIoTHubSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Disconnects and stops the IoTHubMQTTClient, and cancels and clears the `report_conn_drop_task`, even if an error was raised while stopping the SasTokenProvider during context manager exit"
+        "Disconnects and stops the IoTHubMQTTClient, and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while stopping the SasTokenProvider during context manager exit"
     )
     async def test_exit_sastoken_provider_stop_raises_cleanup(
         self, session, mock_sastoken_provider, arbitrary_exception
@@ -1415,17 +1415,17 @@ class TestIoTHubSessionContextManager:
         session._sastoken_provider.stop.side_effect = arbitrary_exception
         assert session._mqtt_client.disconnect.await_count == 0
         assert session._mqtt_client.stop.await_count == 0
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
 
         with pytest.raises(type(arbitrary_exception)):
             async with session as session:
-                conn_drop_task = session._report_conn_drop_task
+                conn_drop_task = session._wait_for_disconnect_task
                 assert not conn_drop_task.done()
 
         assert session._mqtt_client.disconnect.await_count == 1
         assert session._mqtt_client.stop.await_count == 1
         await asyncio.sleep(0.1)
-        assert session._report_conn_drop_task is None
+        assert session._wait_for_disconnect_task is None
         assert conn_drop_task.cancelled()
 
     # TODO: consider adding detailed cancellation tests
@@ -1475,6 +1475,69 @@ class TestIoTHubSessionSendMessage:
         with pytest.raises(type(exception)) as e_info:
             await session.send_message("hi")
         assert e_info.value is exception
+
+    @pytest.mark.it(
+        "Raises MQTTError (rc=4) without invoking .send_message() on the IoTHubMQTTClient if it is not connected"
+    )
+    async def test_not_connected(self, mocker, session):
+        conn_property_mock = mocker.PropertyMock(return_value=False)
+        type(session._mqtt_client).connected = conn_property_mock
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await session.send_message("hi")
+        assert e_info.value.rc == 4
+        assert session._mqtt_client.send_message.call_count == 0
+
+    @pytest.mark.it(
+        "Raises MQTTError (rc=4) if an expected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+    )
+    async def test_expected_disconnect_during_send(self, session):
+        session._mqtt_client.send_message = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.send_message("hi"))
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.send_message.wait_for_hang()
+        assert not t.done()
+
+        # No disconnect yet
+        assert not session._wait_for_disconnect_task.done()
+        assert session._mqtt_client.wait_for_disconnect.call_count == 1
+        assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+        # Simulate expected disconnect
+        session._mqtt_client.wait_for_disconnect.return_value = None
+        session._mqtt_client.wait_for_disconnect.stop_hanging()
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await t
+        assert e_info.value.rc == 4
+
+    @pytest.mark.it(
+        "Raises the MQTTError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+    )
+    async def test_unexpected_disconnect_during_send(self, session):
+        session._mqtt_client.send_message = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.send_message("hi"))
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.send_message.wait_for_hang()
+        assert not t.done()
+
+        # No unexpected disconnect yet
+        assert not session._wait_for_disconnect_task.done()
+        assert session._mqtt_client.wait_for_disconnect.call_count == 1
+        assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+        # Simulate unexpected disconnect
+        cause = mqtt.MQTTError(rc=7)
+        session._mqtt_client.wait_for_disconnect.return_value = cause
+        session._mqtt_client.wait_for_disconnect.stop_hanging()
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await t
+        assert e_info.value is cause
 
     @pytest.mark.it("Can be cancelled while waiting for the IoTHubMQTTClient operation to complete")
     async def test_cancel_during_send(self, session):
@@ -1527,6 +1590,69 @@ class TestIoTHubSessionSendDirectMethodResponse:
             await session.send_direct_method_response(direct_method_response)
         assert e_info.value is exception
 
+    @pytest.mark.it(
+        "Raises MQTTError (rc=4) without invoking .send_direct_method_response() on the IoTHubMQTTClient if it is not connected"
+    )
+    async def test_not_connected(self, mocker, session, direct_method_response):
+        conn_property_mock = mocker.PropertyMock(return_value=False)
+        type(session._mqtt_client).connected = conn_property_mock
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await session.send_direct_method_response(direct_method_response)
+        assert e_info.value.rc == 4
+        assert session._mqtt_client.send_message.call_count == 0
+
+    @pytest.mark.it(
+        "Raises MQTTError (rc=4) if an expected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+    )
+    async def test_expected_disconnect_during_send(self, session, direct_method_response):
+        session._mqtt_client.send_direct_method_response = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.send_direct_method_response(direct_method_response))
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.send_direct_method_response.wait_for_hang()
+        assert not t.done()
+
+        # No disconnect yet
+        assert not session._wait_for_disconnect_task.done()
+        assert session._mqtt_client.wait_for_disconnect.call_count == 1
+        assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+        # Simulate expected disconnect
+        session._mqtt_client.wait_for_disconnect.return_value = None
+        session._mqtt_client.wait_for_disconnect.stop_hanging()
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await t
+        assert e_info.value.rc == 4
+
+    @pytest.mark.it(
+        "Raises the MQTTError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+    )
+    async def test_unexpected_disconnect_during_send(self, session, direct_method_response):
+        session._mqtt_client.send_direct_method_response = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.send_direct_method_response(direct_method_response))
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.send_direct_method_response.wait_for_hang()
+        assert not t.done()
+
+        # No unexpected disconnect yet
+        assert not session._wait_for_disconnect_task.done()
+        assert session._mqtt_client.wait_for_disconnect.call_count == 1
+        assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+        # Simulate unexpected disconnect
+        cause = mqtt.MQTTError(rc=7)
+        session._mqtt_client.wait_for_disconnect.return_value = cause
+        session._mqtt_client.wait_for_disconnect.stop_hanging()
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await t
+        assert e_info.value is cause
+
     @pytest.mark.it("Can be cancelled while waiting for the IoTHubMQTTClient operation to complete")
     async def test_cancel_during_send(self, session, direct_method_response):
         session._mqtt_client.send_direct_method_response = custom_mock.HangingAsyncMock()
@@ -1576,7 +1702,73 @@ class TestIoTHubSessionUpdateReportedProperties:
 
         with pytest.raises(type(exception)) as e_info:
             await session.update_reported_properties(patch)
-        assert e_info.value is exception
+        # CancelledError doesn't propagate in some versions of Python
+        # TODO: determine which versions exactly
+        if not isinstance(exception, asyncio.CancelledError):
+            assert e_info.value is exception
+
+    @pytest.mark.it(
+        "Raises MQTTError (rc=4) without invoking .send_twin_patch() on the IoTHubMQTTClient if it is not connected"
+    )
+    async def test_not_connected(self, mocker, session, patch):
+        conn_property_mock = mocker.PropertyMock(return_value=False)
+        type(session._mqtt_client).connected = conn_property_mock
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await session.update_reported_properties(patch)
+        assert e_info.value.rc == 4
+        assert session._mqtt_client.send_twin_patch.call_count == 0
+
+    @pytest.mark.it(
+        "Raises MQTTError (rc=4) if an expected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+    )
+    async def test_expected_disconnect_during_send(self, session, patch):
+        session._mqtt_client.send_twin_patch = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.update_reported_properties(patch))
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.send_twin_patch.wait_for_hang()
+        assert not t.done()
+
+        # No disconnect yet
+        assert not session._wait_for_disconnect_task.done()
+        assert session._mqtt_client.wait_for_disconnect.call_count == 1
+        assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+        # Simulate expected disconnect
+        session._mqtt_client.wait_for_disconnect.return_value = None
+        session._mqtt_client.wait_for_disconnect.stop_hanging()
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await t
+        assert e_info.value.rc == 4
+
+    @pytest.mark.it(
+        "Raises the MQTTError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+    )
+    async def test_unexpected_disconnect_during_send(self, session, patch):
+        session._mqtt_client.send_twin_patch = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.update_reported_properties(patch))
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.send_twin_patch.wait_for_hang()
+        assert not t.done()
+
+        # No unexpected disconnect yet
+        assert not session._wait_for_disconnect_task.done()
+        assert session._mqtt_client.wait_for_disconnect.call_count == 1
+        assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+        # Simulate unexpected disconnect
+        cause = mqtt.MQTTError(rc=7)
+        session._mqtt_client.wait_for_disconnect.return_value = cause
+        session._mqtt_client.wait_for_disconnect.stop_hanging()
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await t
+        assert e_info.value is cause
 
     @pytest.mark.it("Can be cancelled while waiting for the IoTHubMQTTClient operation to complete")
     async def test_cancel_during_send(self, session, patch):
@@ -1620,7 +1812,73 @@ class TestIoTHubSessionGetTwin:
 
         with pytest.raises(type(exception)) as e_info:
             await session.get_twin()
-        assert e_info.value is exception
+        # CancelledError doesn't propagate in some versions of Python
+        # TODO: determine which versions exactly
+        if not isinstance(exception, asyncio.CancelledError):
+            assert e_info.value is exception
+
+    @pytest.mark.it(
+        "Raises MQTTError (rc=4) without invoking .get_twin() on the IoTHubMQTTClient if it is not connected"
+    )
+    async def test_not_connected(self, mocker, session):
+        conn_property_mock = mocker.PropertyMock(return_value=False)
+        type(session._mqtt_client).connected = conn_property_mock
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await session.get_twin()
+        assert e_info.value.rc == 4
+        assert session._mqtt_client.get_twin.call_count == 0
+
+    @pytest.mark.it(
+        "Raises MQTTError (rc=4) if an expected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+    )
+    async def test_expected_disconnect_during_send(self, session):
+        session._mqtt_client.get_twin = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.get_twin())
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.get_twin.wait_for_hang()
+        assert not t.done()
+
+        # No disconnect yet
+        assert not session._wait_for_disconnect_task.done()
+        assert session._mqtt_client.wait_for_disconnect.call_count == 1
+        assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+        # Simulate expected disconnect
+        session._mqtt_client.wait_for_disconnect.return_value = None
+        session._mqtt_client.wait_for_disconnect.stop_hanging()
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await t
+        assert e_info.value.rc == 4
+
+    @pytest.mark.it(
+        "Raises the MQTTError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+    )
+    async def test_unexpected_disconnect_during_send(self, session):
+        session._mqtt_client.get_twin = custom_mock.HangingAsyncMock()
+
+        t = asyncio.create_task(session.get_twin())
+
+        # Hanging, waiting for send to finish
+        await session._mqtt_client.get_twin.wait_for_hang()
+        assert not t.done()
+
+        # No unexpected disconnect yet
+        assert not session._wait_for_disconnect_task.done()
+        assert session._mqtt_client.wait_for_disconnect.call_count == 1
+        assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+        # Simulate unexpected disconnect
+        cause = mqtt.MQTTError(rc=7)
+        session._mqtt_client.wait_for_disconnect.return_value = cause
+        session._mqtt_client.wait_for_disconnect.stop_hanging()
+
+        with pytest.raises(mqtt.MQTTError) as e_info:
+            await t
+        assert e_info.value is cause
 
     @pytest.mark.it("Can be cancelled while waiting for the IoTHubMQTTClient operation to complete")
     async def test_cancel_during_send(self, session):
@@ -1684,7 +1942,7 @@ class TestIoTHubSessionMessages:
         c2d_gen_property_mock = mocker.PropertyMock(return_value=mock_c2d_gen)
         type(session._mqtt_client).incoming_c2d_messages = c2d_gen_property_mock
 
-        assert not session._report_conn_drop_task.done()
+        assert not session._wait_for_disconnect_task.done()
         async with session.messages() as messages:
             # Is a generator
             assert isinstance(messages, typing.AsyncGenerator)
@@ -1703,7 +1961,7 @@ class TestIoTHubSessionMessages:
     @pytest.mark.it(
         "Yields an AsyncGenerator that will raise the MQTTError that caused an unexpected disconnect in the IoTHubMQTTClient in the event of an unexpected disconnection"
     )
-    async def test_generator_raise(self, mocker, session):
+    async def test_generator_raise_unexpected_disconnect(self, mocker, session):
         # Mock IoTHubMQTTClient C2D generator to not yield anything yet
         mock_c2d_gen = mocker.AsyncMock()
         mock_c2d_gen.__anext__ = custom_mock.HangingAsyncMock()
@@ -1718,19 +1976,50 @@ class TestIoTHubSessionMessages:
             assert not t.done()
 
             # No unexpected disconnect yet
-            assert not session._report_conn_drop_task.done()
-            assert session._mqtt_client.report_connection_drop.call_count == 1
-            assert session._mqtt_client.report_connection_drop.is_hanging()
+            assert not session._wait_for_disconnect_task.done()
+            assert session._mqtt_client.wait_for_disconnect.call_count == 1
+            assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
             # Trigger unexpected disconnect
             cause = mqtt.MQTTError(rc=7)
-            session._mqtt_client.report_connection_drop.return_value = cause
-            session._mqtt_client.report_connection_drop.stop_hanging()
+            session._mqtt_client.wait_for_disconnect.return_value = cause
+            session._mqtt_client.wait_for_disconnect.stop_hanging()
             await asyncio.sleep(0.1)
 
             # Generator raised the error that caused disconnect
             assert t.done()
             assert t.exception() is cause
+
+    @pytest.mark.it(
+        "Yields an AsyncGenerator that will raise a CancelledError if the event of an expected disconnection"
+    )
+    async def test_generator_raise_expected_disconnect(self, mocker, session):
+        # Mock IoTHubMQTTClient C2D generator to not yield anything yet
+        mock_c2d_gen = mocker.AsyncMock()
+        mock_c2d_gen.__anext__ = custom_mock.HangingAsyncMock()
+        # Set it to be returned by PropertyMock
+        c2d_gen_property_mock = mocker.PropertyMock(return_value=mock_c2d_gen)
+        type(session._mqtt_client).incoming_c2d_messages = c2d_gen_property_mock
+
+        async with session.messages() as messages:
+            # Waiting for new item from generator (since mock is hanging / not returning)
+            t = asyncio.create_task(messages.__anext__())
+            await asyncio.sleep(0.1)
+            assert not t.done()
+
+            # No disconnect yet
+            assert not session._wait_for_disconnect_task.done()
+            assert session._mqtt_client.wait_for_disconnect.call_count == 1
+            assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+            # Trigger expected disconnect
+            session._mqtt_client.wait_for_disconnect.return_value = None
+            session._mqtt_client.wait_for_disconnect.stop_hanging()
+            await asyncio.sleep(0.1)
+
+            # Generator raised CancelledError
+            assert t.done()
+            assert t.cancelled()
 
     @pytest.mark.it(
         "Allows any errors raised while attempting to enable C2D message receive to propagate"
@@ -1825,7 +2114,7 @@ class TestIoTHubSessionDirectMethodRequests:
         dm_gen_property_mock = mocker.PropertyMock(return_value=mock_dm_gen)
         type(session._mqtt_client).incoming_direct_method_requests = dm_gen_property_mock
 
-        assert not session._report_conn_drop_task.done()
+        assert not session._wait_for_disconnect_task.done()
         async with session.direct_method_requests() as direct_method_requests:
             # Is a generator
             assert isinstance(direct_method_requests, typing.AsyncGenerator)
@@ -1844,7 +2133,7 @@ class TestIoTHubSessionDirectMethodRequests:
     @pytest.mark.it(
         "Yields an AsyncGenerator that will raise the MQTTError that caused an unexpected disconnect in the IoTHubMQTTClient in the event of an unexpected disconnection"
     )
-    async def test_generator_raise(self, mocker, session):
+    async def test_generator_raise_unexpected_disconnect(self, mocker, session):
         # Mock IoTHubMQTTClient direct method request generator to not yield anything yet
         mock_dm_gen = mocker.AsyncMock()
         mock_dm_gen.__anext__ = custom_mock.HangingAsyncMock()
@@ -1859,19 +2148,50 @@ class TestIoTHubSessionDirectMethodRequests:
             assert not t.done()
 
             # No unexpected disconnect yet
-            assert not session._report_conn_drop_task.done()
-            assert session._mqtt_client.report_connection_drop.call_count == 1
-            assert session._mqtt_client.report_connection_drop.is_hanging()
+            assert not session._wait_for_disconnect_task.done()
+            assert session._mqtt_client.wait_for_disconnect.call_count == 1
+            assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
             # Trigger unexpected disconnect
             cause = mqtt.MQTTError(rc=7)
-            session._mqtt_client.report_connection_drop.return_value = cause
-            session._mqtt_client.report_connection_drop.stop_hanging()
+            session._mqtt_client.wait_for_disconnect.return_value = cause
+            session._mqtt_client.wait_for_disconnect.stop_hanging()
             await asyncio.sleep(0.1)
 
             # Generator raised the error that caused disconnect
             assert t.done()
             assert t.exception() is cause
+
+    @pytest.mark.it(
+        "Yields an AsyncGenerator that will raise a CancelledError if the event of an expected disconnection"
+    )
+    async def test_generator_raise_expected_disconnect(self, mocker, session):
+        # Mock IoTHubMQTTClient direct method request generator to not yield anything yet
+        mock_dm_gen = mocker.AsyncMock()
+        mock_dm_gen.__anext__ = custom_mock.HangingAsyncMock()
+        # Set it to be returned by PropertyMock
+        dm_gen_property_mock = mocker.PropertyMock(return_value=mock_dm_gen)
+        type(session._mqtt_client).incoming_direct_method_requests = dm_gen_property_mock
+
+        async with session.direct_method_requests() as direct_method_requests:
+            # Waiting for new item from generator (since mock is hanging / not returning)
+            t = asyncio.create_task(direct_method_requests.__anext__())
+            await asyncio.sleep(0.1)
+            assert not t.done()
+
+            # No disconnect yet
+            assert not session._wait_for_disconnect_task.done()
+            assert session._mqtt_client.wait_for_disconnect.call_count == 1
+            assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+            # Trigger expected disconnect
+            session._mqtt_client.wait_for_disconnect.return_value = None
+            session._mqtt_client.wait_for_disconnect.stop_hanging()
+            await asyncio.sleep(0.1)
+
+            # Generator raised CancelledError
+            assert t.done()
+            assert t.cancelled()
 
     @pytest.mark.it(
         "Allows any errors raised while attempting to enable direct method request receive to propagate"
@@ -1964,7 +2284,7 @@ class TestIoTHubSessionDesiredPropertyUpdates:
         twin_patch_property_mock = mocker.PropertyMock(return_value=mock_twin_patch_gen)
         type(session._mqtt_client).incoming_twin_patches = twin_patch_property_mock
 
-        assert not session._report_conn_drop_task.done()
+        assert not session._wait_for_disconnect_task.done()
         async with session.desired_property_updates() as desired_property_updates:
             # Is a generator
             assert isinstance(desired_property_updates, typing.AsyncGenerator)
@@ -1983,7 +2303,7 @@ class TestIoTHubSessionDesiredPropertyUpdates:
     @pytest.mark.it(
         "Yields an AsyncGenerator that will raise the MQTTError that caused an unexpected disconnect in the IoTHubMQTTClient in the event of an unexpected disconnection"
     )
-    async def test_generator_raise(self, mocker, session):
+    async def test_generator_raise_unexpected_disconnect(self, mocker, session):
         # Mock IoTHubMQTTClient twin patch generator to not yield anything yet
         mock_twin_patch_gen = mocker.AsyncMock()
         mock_twin_patch_gen.__anext__ = custom_mock.HangingAsyncMock()
@@ -1998,19 +2318,50 @@ class TestIoTHubSessionDesiredPropertyUpdates:
             assert not t.done()
 
             # No unexpected disconnect yet
-            assert not session._report_conn_drop_task.done()
-            assert session._mqtt_client.report_connection_drop.call_count == 1
-            assert session._mqtt_client.report_connection_drop.is_hanging()
+            assert not session._wait_for_disconnect_task.done()
+            assert session._mqtt_client.wait_for_disconnect.call_count == 1
+            assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
             # Trigger unexpected disconnect
             cause = mqtt.MQTTError(rc=7)
-            session._mqtt_client.report_connection_drop.return_value = cause
-            session._mqtt_client.report_connection_drop.stop_hanging()
+            session._mqtt_client.wait_for_disconnect.return_value = cause
+            session._mqtt_client.wait_for_disconnect.stop_hanging()
             await asyncio.sleep(0.1)
 
             # Generator raised the error that caused disconnect
             assert t.done()
             assert t.exception() is cause
+
+    @pytest.mark.it(
+        "Yields an AsyncGenerator that will raise a CancelledError if the event of an expected disconnection"
+    )
+    async def test_generator_raise_expected_disconnect(self, mocker, session):
+        # Mock IoTHubMQTTClient twin patch generator to not yield anything yet
+        mock_twin_patch_gen = mocker.AsyncMock()
+        mock_twin_patch_gen.__anext__ = custom_mock.HangingAsyncMock()
+        # Set it to be returned by PropertyMock
+        twin_patch_property_mock = mocker.PropertyMock(return_value=mock_twin_patch_gen)
+        type(session._mqtt_client).incoming_twin_patches = twin_patch_property_mock
+
+        async with session.desired_property_updates() as desired_property_updates:
+            # Waiting for new item from generator (since mock is hanging / not returning)
+            t = asyncio.create_task(desired_property_updates.__anext__())
+            await asyncio.sleep(0.1)
+            assert not t.done()
+
+            # No unexpected disconnect yet
+            assert not session._wait_for_disconnect_task.done()
+            assert session._mqtt_client.wait_for_disconnect.call_count == 1
+            assert session._mqtt_client.wait_for_disconnect.is_hanging()
+
+            # Trigger expected disconnect
+            session._mqtt_client.wait_for_disconnect.return_value = None
+            session._mqtt_client.wait_for_disconnect.stop_hanging()
+            await asyncio.sleep(0.1)
+
+            # Generator raised CancelledError
+            assert t.done()
+            assert t.cancelled()
 
     @pytest.mark.it(
         "Allows any errors raised while attempting to enable twin patch receive to propagate"

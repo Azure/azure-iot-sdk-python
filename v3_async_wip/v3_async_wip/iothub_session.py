@@ -6,7 +6,7 @@
 import asyncio
 import contextlib
 import ssl
-from typing import Optional, Union, AsyncGenerator, Type, TypeVar
+from typing import Optional, Union, AsyncGenerator, Type, TypeVar, Awaitable
 from types import TracebackType
 
 from v3_async_wip import signing_mechanism as sm
@@ -94,7 +94,7 @@ class IoTHubSession:
         # NOTE: If we wanted to design lower levels of the stack to be specific to our
         # Session design pattern, this could happen lower (and it would be simpler), but it's
         # up here so we can be more implementation-generic down the stack.
-        self._report_conn_drop_task: Optional[asyncio.Task[mqtt.MQTTError]] = None
+        self._wait_for_disconnect_task: Optional[asyncio.Task[Optional[mqtt.MQTTError]]] = None
 
     async def __aenter__(self) -> "IoTHubSession":
         # First, if using SAS auth, start up the provider
@@ -112,8 +112,8 @@ class IoTHubSession:
             await self._stop_all()
             raise
 
-        self._report_conn_drop_task = asyncio.create_task(
-            self._mqtt_client.report_connection_drop()
+        self._wait_for_disconnect_task = asyncio.create_task(
+            self._mqtt_client.wait_for_disconnect()
         )
 
         return self
@@ -127,9 +127,10 @@ class IoTHubSession:
         try:
             await self._mqtt_client.disconnect()
         finally:
-            if self._report_conn_drop_task:
-                self._report_conn_drop_task.cancel()
-                self._report_conn_drop_task = None
+            # TODO: is it dangerous to cancel / remove this task?
+            if self._wait_for_disconnect_task:
+                self._wait_for_disconnect_task.cancel()
+                self._wait_for_disconnect_task = None
             await self._stop_all()
 
     async def _stop_all(self) -> None:
@@ -189,10 +190,14 @@ class IoTHubSession:
 
         :raises: MQTTError if there is an error sending the Message
         :raises: ValueError if the size of the Message payload is too large
+        :raises: RuntimeError if not connected when invoked
         """
+        if not self._mqtt_client.connected:
+            # See NOTE 1 at the bottom of this file for why this occurs
+            raise mqtt.MQTTError(rc=4)
         if not isinstance(message, models.Message):
             message = models.Message(message)
-        await self._mqtt_client.send_message(message)
+        await self._add_disconnect_interrupt_to_coroutine(self._mqtt_client.send_message(message))
 
     async def send_direct_method_response(
         self, method_response: models.DirectMethodResponse
@@ -206,7 +211,12 @@ class IoTHubSession:
         :raises: MQTTError if there is an error sending the DirectMethodResponse
         :raises: ValueError if the size of the DirectMethodResponse payload is too large
         """
-        await self._mqtt_client.send_direct_method_response(method_response)
+        if not self._mqtt_client.connected:
+            # See NOTE 1 at the bottom of this file for why this occurs
+            raise mqtt.MQTTError(rc=4)
+        await self._add_disconnect_interrupt_to_coroutine(
+            self._mqtt_client.send_direct_method_response(method_response)
+        )
 
     async def update_reported_properties(self, patch: custom_typing.TwinPatch) -> None:
         """Update the reported properties of the Twin
@@ -218,7 +228,10 @@ class IoTHubSession:
         :raises: ValueError if the size of the the reported properties patch too large
         :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
-        await self._mqtt_client.send_twin_patch(patch)
+        if not self._mqtt_client.connected:
+            # See NOTE 1 at the bottom of this file for why this occurs
+            raise mqtt.MQTTError(rc=4)
+        await self._add_disconnect_interrupt_to_coroutine(self._mqtt_client.send_twin_patch(patch))
 
     async def get_twin(self) -> custom_typing.Twin:
         """Retrieve the full Twin data
@@ -230,7 +243,10 @@ class IoTHubSession:
         :raises: MQTTError if there is an error sending the request
         :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
-        return await self._mqtt_client.get_twin()
+        if not self._mqtt_client.connected:
+            # See NOTE 1 at the bottom of this file for why this occurs
+            raise mqtt.MQTTError(rc=4)
+        return await self._add_disconnect_interrupt_to_coroutine(self._mqtt_client.get_twin())
 
     @contextlib.asynccontextmanager
     async def messages(self) -> AsyncGenerator[AsyncGenerator[models.Message, None], None]:
@@ -292,16 +308,44 @@ class IoTHubSession:
             while True:
                 new_item_t = asyncio.create_task(generator.__anext__())
                 done, _ = await asyncio.wait(
-                    [new_item_t, self._report_conn_drop_task],
+                    [new_item_t, self._wait_for_disconnect_task],
                     return_when=asyncio.FIRST_COMPLETED,
                 )
-                if self._report_conn_drop_task in done:
+                if self._wait_for_disconnect_task in done:
                     new_item_t.cancel()
-                    raise self._report_conn_drop_task.result()
+                    cause = self._wait_for_disconnect_task.result()
+                    if cause is not None:
+                        raise cause
+                    else:
+                        # TODO: should this raise MQTTError(rc=4) instead?
+                        raise asyncio.CancelledError("Cancelled by disconnect")
                 else:
                     yield new_item_t.result()
 
         return wrapping_generator()
+
+    def _add_disconnect_interrupt_to_coroutine(self, coro: Awaitable[_T]) -> Awaitable[_T]:
+        """Wrap a coroutine in another coroutine that will either return the result of the original
+        coroutine, or raise error in the event of disconnect
+        """
+
+        async def wrapping_coroutine():
+            original_task = asyncio.create_task(coro)
+            done, _ = await asyncio.wait(
+                [original_task, self._wait_for_disconnect_task],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if self._wait_for_disconnect_task in done:
+                original_task.cancel()
+                cause = self._wait_for_disconnect_task.result()
+                if cause is not None:
+                    raise cause
+                else:
+                    raise mqtt.MQTTError(rc=4)
+            else:
+                return await original_task
+
+        return wrapping_coroutine()
 
 
 def _validate_kwargs(exclude=[], **kwargs) -> None:
@@ -340,3 +384,22 @@ def _default_ssl_context() -> ssl.SSLContext:
     ssl_context.check_hostname = True
     ssl_context.load_default_certs()
     return ssl_context
+
+
+# NOTE 1: We raise this MQTT-level error directly because it won't naturally raise.
+# Our MQTT stack below uses MQTT QoS (Quality of Service) level 1, which means it technically
+# doesn't fail upon an attempt to publish an MQTT message with no connection. An rc 4 would be
+# returned by the publish attempt, but no error would be raised, since the message has been queued,
+# and could later be sent once a connection is established.
+#
+# However, for the implementation of IoTHubSession, this is not desirable  behavior - we want an
+# immediate failure when sending with no connection, and the queuing of the message is strange if
+# an error is raised. Thus, we manually raise an MQTT-level error (with rc 4) without actually
+# making a publish attempt to emulate the MQTT QoS level 0 behavior we would prefer to have.
+#
+# The MQTT-level error is used instead of a higher-level one so that the error handling experience
+# is simpler for the end user - MQTTError is the class of error that is raised on connection drop
+# and any other MQTT-related failure, so it make sense to raise that again here.
+#
+# This is a highly irregular design, and if an alternate solution could be created, that would be
+# ideal.
