@@ -289,6 +289,7 @@ class IoTHubSession:
                 await self._mqtt_client.disable_c2d_message_receive()
             except mqtt.MQTTError:
                 # i.e. not connected
+                # This error would be expected if a disconnection has ocurred
                 pass
 
     @contextlib.asynccontextmanager
@@ -306,6 +307,7 @@ class IoTHubSession:
                 await self._mqtt_client.disable_direct_method_request_receive()
             except mqtt.MQTTError:
                 # i.e. not connected
+                # This error would be expected if a disconnection has ocurred
                 pass
 
     @contextlib.asynccontextmanager
@@ -323,6 +325,7 @@ class IoTHubSession:
                 await self._mqtt_client.disable_twin_patch_receive()
             except mqtt.MQTTError:
                 # i.e. not connected
+                # This error would be expected if a disconnection has ocurred
                 pass
 
     def _add_disconnect_interrupt_to_generator(
