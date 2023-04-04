@@ -341,7 +341,8 @@ class IoTHubSession:
                 if cause is not None:
                     raise cause
                 else:
-                    raise mqtt.MQTTError(rc=4)
+                    # TODO: should this raise MQTTError(rc=4) instead?
+                    raise asyncio.CancelledError("Cancelled by disconnect")
             else:
                 return await original_task
 
