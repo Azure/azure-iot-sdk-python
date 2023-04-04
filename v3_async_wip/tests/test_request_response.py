@@ -29,13 +29,21 @@ class TestResponse:
 @pytest.mark.describe("Request")
 class TestRequest:
     @pytest.mark.it(
-        "Instantiates with a generated UUID (in string format) as the `request_id` attribute"
+        "Instantiates with a generated UUID (in string format) as the `request_id` attribute, if no `request_id` is provided"
     )
-    async def test_request_id_attr(self, mocker):
+    async def test_request_id_attr_generated(self, mocker):
         uuid4_mock = mocker.patch.object(uuid, "uuid4")
         r = Request()
         assert uuid4_mock.call_count == 1
         assert r.request_id == str(uuid4_mock.return_value)
+
+    @pytest.mark.it(
+        "Instantiates with the `request_id` attribute set to the provided `request_id`, if it is provided"
+    )
+    async def test_request_id_provided(self, mocker):
+        my_request_id = "3226c2f7-3d30-425c-b83b-0c34335f8220"
+        r = Request(request_id=my_request_id)
+        assert r.request_id == my_request_id
 
     @pytest.mark.it(
         "Instantiates with an incomplete async Future as the `response_future` attribute"
@@ -91,6 +99,35 @@ class TestRequestLedger:
         assert ledger.pending[req1.request_id] == req1.response_future
         assert ledger.pending[req2.request_id] == req2.response_future
         assert ledger.pending[req3.request_id] == req3.response_future
+
+    @pytest.mark.it(
+        "New Requests can have their request_id provided when invoking .create_request()"
+    )
+    async def test_create_request_custom_id(self, ledger):
+        assert len(ledger.pending) == 0
+        request_id_1 = "3226c2f7-3d30-425c-b83b-0c34335f8220"
+        req1 = await ledger.create_request(request_id=request_id_1)
+        assert len(ledger.pending) == 1
+        request_id_2 = "d9d7ce4d-3be9-498b-abde-913b81b880e5"
+        req2 = await ledger.create_request(request_id=request_id_2)
+        assert len(ledger.pending) == 2
+
+        assert ledger.pending[req1.request_id] == req1.response_future
+        assert ledger.pending[req2.request_id] == req2.response_future
+        assert req1.request_id == request_id_1
+        assert req2.request_id == request_id_2
+
+    @pytest.mark.it(
+        "Raises ValueError if the request id provided via an invocation of .create_request() is already being tracked"
+    )
+    async def test_create_duplicate_id(self, ledger):
+        req_id = "3226c2f7-3d30-425c-b83b-0c34335f8220"
+        req = await ledger.create_request(request_id=req_id)
+        assert req.request_id in ledger.pending
+        assert req.request_id == req_id
+
+        with pytest.raises(ValueError):
+            await ledger.create_request(request_id=req_id)
 
     @pytest.mark.it(
         "Removes a tracked Request from the ledger that matches the request id provided via an invocation of .delete_request()"
