@@ -286,8 +286,10 @@ class AbstractIoTHubClient(abc.ABC):
             raise ValueError(
                 "Use the .create_from_x509_certificate() method instead when using X509 certificates"
             )
+
+        host = connection_string.get(cs.GATEWAY_HOST_NAME, None) or connection_string[cs.HOST_NAME]
         uri = _form_sas_uri(
-            hostname=connection_string[cs.HOST_NAME],
+            hostname=host,
             device_id=connection_string[cs.DEVICE_ID],
             module_id=connection_string.get(cs.MODULE_ID),
         )
@@ -789,7 +791,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             signing_mechanism = hsm
 
         # Create SasToken
-        uri = _form_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
+        uri = _form_sas_uri(hostname=gateway_hostname, device_id=device_id, module_id=module_id)
         token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
             sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
