@@ -267,6 +267,7 @@ def client_set_connected(client):
     """Set the client to a connected state"""
     client._connected = True
     client._desire_connection = True
+    client._disconnection_cause = None
     client._mqtt_client._state = PAHO_STATE_CONNECTED
     # A client after a connection should have a currently running network loop Future
     event_loop = asyncio.get_running_loop()
@@ -277,6 +278,7 @@ def client_set_disconnected(client):
     """Set the client to an (intentionally) disconnected state"""
     client._connected = False
     client._desire_connection = False
+    client._disconnection_cause = None
     client._mqtt_client._state = PAHO_STATE_DISCONNECTED
     # Ensure any running network loop Future exits, then clean up
     # An (intentionally) disconnected client should have no network loop Future at all
@@ -288,6 +290,7 @@ def client_set_connection_dropped(client):
     """Set the client to a state representing an unexpected disconnect"""
     client._connected = False
     client._desire_connection = True
+    client._disconnection_cause = MQTTError(rc=7)
     client._mqtt_client._state = PAHO_STATE_CONNECTION_LOST
     # Ensure any running network loop Future exits.
     # A client after a connection drop should have a completed network loop Future
@@ -308,6 +311,7 @@ def client_set_fresh(client):
     """
     client._connected = False
     client._desire_connection = False
+    client._disconnection_cause = None
     client._mqtt_client._state = PAHO_STATE_NEW
     # Ensure any running network loop Future exits, then clean up
     # A fresh client should have no network loop Future at all
@@ -613,6 +617,12 @@ class TestInstantiation:
         assert not client._connected
         assert not client._desire_connection
 
+    @pytest.mark.it("Sets the previous disconnection cause to None")
+    async def test_disconnection_cause(self, mocker):
+        mocker.patch.object(mqtt, "Client")
+        client = MQTTClient(client_id=fake_device_id, hostname=fake_hostname, port=fake_port)
+        assert client._disconnection_cause is None
+
     @pytest.mark.it("Sets the network loop Future to None")
     async def test_network_loop(self, mocker):
         mocker.patch.object(mqtt, "Client")
@@ -696,6 +706,30 @@ class TestIsConnected:
         elif state == "Connection Dropped":
             client_set_connection_dropped
         assert client.is_connected() == expected_value
+
+
+@pytest.mark.describe("MQTTClient - .previous_disconnection_cause()")
+class TestPreviousDisconnectionCause:
+    @pytest.mark.it("Returns the exception that caused the previous disconnection (if any)")
+    @pytest.mark.parametrize(
+        "state, expected_exc_type",
+        [
+            pytest.param("Connected", type(None), id="Connected"),
+            pytest.param("Disconnected", type(None), id="Disconnected"),
+            pytest.param("Fresh", type(None), id="Fresh"),
+            pytest.param("Connection Dropped", MQTTError, id="Connection Dropped"),
+        ],
+    )
+    async def test_returns_value(self, client, state, expected_exc_type):
+        if state == "Connected":
+            client_set_connected(client)
+        elif state == "Disconnected":
+            client_set_disconnected(client)
+        elif state == "Fresh":
+            client_set_fresh(client)
+        elif state == "Connection Dropped":
+            client_set_connection_dropped(client)
+        assert isinstance(client.previous_disconnection_cause(), expected_exc_type)
 
 
 @pytest.mark.describe("MQTTClient - .add_incoming_message_filter()")
@@ -1042,6 +1076,27 @@ class ConnectWithClientNotConnectedTests:
         await client.connect()
 
         assert client.is_connected()
+
+    # NOTE: Technically, there can only really be a previous cause in the Connection Dropped case
+    # but we'll test it against all cases
+    @pytest.mark.it(
+        "Clears the previous disconnection cause (if any) if connection attempt is successful"
+    )
+    @pytest.mark.parametrize(
+        "prev_cause",
+        [
+            pytest.param(MQTTError(rc=7), id="Previous disconnection cause"),
+            pytest.param(None, id="No previous disconnection cause"),
+        ],
+    )
+    async def test_disconnection_cause_clear_success(self, client, prev_cause):
+        client._disconnection_cause = prev_cause
+        assert client.previous_disconnection_cause() is prev_cause
+
+        await client.connect()
+
+        assert client._disconnection_cause is None
+        assert client.previous_disconnection_cause() is None
 
     @pytest.mark.it(
         "Leaves the client in a disconnected state if an exception is raised while invoking Paho's connect"
@@ -1485,6 +1540,14 @@ class TestConnectWithClientConnected:
 
         assert client.is_connected()
 
+    @pytest.mark.it("Leaves the disconnection cause set to None")
+    async def test_disconnection_cause(self, client):
+        assert client.previous_disconnection_cause() is None
+
+        await client.connect()
+
+        assert client.previous_disconnection_cause() is None
+
     @pytest.mark.it("Does not wait for a response before returning")
     async def test_return(self, client, mock_paho):
         # Require manual completion
@@ -1603,6 +1666,30 @@ class TestDisconnectWithClientConnected:
         await disconnect_task
 
         assert not client.is_connected()
+
+    @pytest.mark.it("Does not set a disconnection cause")
+    @pytest.mark.parametrize(
+        "double_response",
+        [
+            pytest.param(False, id="Single Disconnect Response"),
+            pytest.param(True, id="Double Disconnect Response"),
+        ],
+    )
+    async def test_disconnection_cause(self, client, mock_paho, double_response):
+        # Require manual completion
+        mock_paho._manual_mode = True
+        assert client.previous_disconnection_cause() is None
+
+        # Start a disconnect.
+        disconnect_task = asyncio.create_task(client.disconnect())
+        await asyncio.sleep(0.1)
+        # Trigger disconnect completion
+        mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
+        if double_response:
+            mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_SUCCESS)
+        await disconnect_task
+
+        assert client.previous_disconnection_cause() is None
 
     @pytest.mark.it("Cancels and removes all pending subscribes and unsubscribes")
     @pytest.mark.parametrize(
@@ -1837,12 +1924,20 @@ class TestDisconnectWithClientConnectionDrop:
         assert len(client._pending_pubs) == 3
 
     @pytest.mark.it("Leaves the client in a disconnected state")
-    async def test_state(self, client, mock_paho):
+    async def test_state(self, client):
         assert not client.is_connected()
 
         await client.disconnect()
 
         assert not client.is_connected()
+
+    @pytest.mark.it("Clears the existing disconnection cause")
+    async def test_disconnection_cause(self, client):
+        assert client.previous_disconnection_cause() is not None
+
+        await client.disconnect()
+
+        assert client.previous_disconnection_cause() is None
 
     @pytest.mark.it("Does not wait for a response before returning")
     async def test_return(self, client, mock_paho):
@@ -1980,6 +2075,14 @@ class DisconnectWithClientFullyDisconnectedTests:
 
         assert not client.is_connected()
 
+    @pytest.mark.it("Leaves the disconnection cause set to None")
+    async def test_disconnection_cause(self, client):
+        assert client.previous_disconnection_cause() is None
+
+        await client.disconnect()
+
+        assert client.previous_disconnection_cause() is None
+
     @pytest.mark.it("Does not wait for a response before returning")
     async def test_return(self, client, mock_paho):
         # Require manual completion
@@ -2030,6 +2133,19 @@ class TestUnexpectedDisconnect:
         await asyncio.sleep(0.1)
 
         assert not client.is_connected()
+
+    @pytest.mark.it(
+        "Creates an MQTTError from the failed return code and sets it as the disconnection cause"
+    )
+    async def test_disconnection_cause(self, client, mock_paho):
+        assert client.previous_disconnection_cause() is None
+
+        mock_paho.trigger_on_disconnect(rc=mqtt.MQTT_ERR_CONN_LOST)
+        await asyncio.sleep(0.1)
+
+        cause = client.previous_disconnection_cause()
+        assert isinstance(cause, MQTTError)
+        assert cause.rc is mqtt.MQTT_ERR_CONN_LOST
 
     @pytest.mark.it("Does not alter the reconnect daemon")
     async def test_reconnect_daemon(self, mocker, client, mock_paho):
