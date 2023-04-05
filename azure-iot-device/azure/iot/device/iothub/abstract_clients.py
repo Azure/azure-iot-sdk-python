@@ -699,7 +699,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             try:
                 device_id = connection_string[cs.DEVICE_ID]
                 module_id = connection_string[cs.MODULE_ID]
-                hostname = connection_string[cs.HOST_NAME]
+                # hostname = connection_string[cs.HOST_NAME]
+                hostname = connection_string[cs.GATEWAY_HOST_NAME]
                 gateway_hostname = connection_string[cs.GATEWAY_HOST_NAME]
             except KeyError:
                 raise ValueError("Invalid Connection String")
