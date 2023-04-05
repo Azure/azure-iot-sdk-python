@@ -8,9 +8,9 @@
 import ssl
 import logging
 import urllib
-from azure.iot.device.common.auth import connection_string as cs
-from azure.iot.device.common.auth import sastoken as st
-from azure.iot.device.common.auth import signing_mechanism as sm
+from azure.iot.device import connection_string as cs
+from azure.iot.device import sastoken as st
+from azure.iot.device import signing_mechanism as sm
 
 logger = logging.getLogger(__name__)
 
