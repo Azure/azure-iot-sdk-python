@@ -1391,6 +1391,39 @@ class TestIoTHubMQTTClientSendTwinPatch:
         assert mock_request.get_response.await_count == 1
         assert mock_request.get_response.await_args == mocker.call()
 
+    @pytest.mark.it("Returns None if a successful status is received via the Response")
+    @pytest.mark.parametrize(
+        "responses_enabled",
+        [
+            pytest.param(True, id="Twin Responses Already Enabled"),
+            pytest.param(False, id="Twin Responses Not Yet Enabled"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "successful_status",
+        [
+            pytest.param(200, id="Status Code: 200"),
+            pytest.param(204, id="Status Code: 204"),
+        ],
+    )
+    async def test_success_response(
+        self, mocker, client, twin_patch, responses_enabled, successful_status
+    ):
+        client._twin_responses_enabled = responses_enabled
+        # Override autocompletion behavior on publish (we don't want it here)
+        client._mqtt_client.publish = mocker.AsyncMock()
+        # Mock out the ledger to return a mocked request
+        mock_request = mocker.MagicMock(spec=rr.Request)
+        mock_request.request_id = "fake_request_id"  # Need this for string manipulation
+        mocker.patch.object(client._request_ledger, "create_request", return_value=mock_request)
+        # Mock out the request to return a response
+        mock_response = mocker.MagicMock(spec=rr.Response)
+        mock_response.status = successful_status
+        mock_request.get_response.return_value = mock_response
+
+        result = await client.send_twin_patch(twin_patch)
+        assert result is None
+
     @pytest.mark.it("Raises an IoTHubError if an unsuccessful status is received via the Response")
     @pytest.mark.parametrize(
         "responses_enabled",
@@ -1728,7 +1761,14 @@ class TestIoTHubMQTTClientGetTwin:
             pytest.param(False, id="Twin Responses Not Yet Enabled"),
         ],
     )
-    async def test_success_response(self, mocker, client, responses_enabled):
+    @pytest.mark.parametrize(
+        "successful_status",
+        [
+            pytest.param(200, id="Status Code: 200"),
+            pytest.param(204, id="Status Code: 204"),
+        ],
+    )
+    async def test_success_response(self, mocker, client, responses_enabled, successful_status):
         client._twin_responses_enabled = responses_enabled
         # Override autocompletion behavior on publish (we don't need it here)
         client._mqtt_client.publish = mocker.AsyncMock()
@@ -1738,7 +1778,7 @@ class TestIoTHubMQTTClientGetTwin:
         mocker.patch.object(client._request_ledger, "create_request", return_value=mock_request)
         # Mock out the request to return a response
         mock_response = mocker.MagicMock(spec=rr.Response)
-        mock_response.status = 200
+        mock_response.status = successful_status
         fake_twin_string = '{"json": "in", "a": {"string": "format"}}'
         mock_response.body = fake_twin_string
         mock_request.get_response.return_value = mock_response

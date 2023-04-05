@@ -362,7 +362,7 @@ class IoTHubMQTTClient:
                 )
             )
             # TODO: should body be logged? Is there useful info there?
-            if response.status != 200:
+            if response.status >= 300:
                 raise IoTHubError(
                     "IoTHub responded to twin patch with a failed status - {}".format(
                         response.status
@@ -430,7 +430,7 @@ class IoTHubMQTTClient:
                 await self._request_ledger.delete_request(request.request_id)
 
         # Interpret response
-        if response.status != 200:
+        if response.status >= 300:
             raise IoTHubError(
                 "IoTHub responded to get twin request with a failed status - {}".format(
                     response.status
