@@ -664,7 +664,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
         # First try the regular Edge container variables
         try:
-            hostname = os.environ["IOTEDGE_IOTHUBHOSTNAME"]
+            # hostname = os.environ["IOTEDGE_IOTHUBHOSTNAME"]
+            hostname = os.environ["IOTEDGE_GATEWAYHOSTNAME"]
             device_id = os.environ["IOTEDGE_DEVICEID"]
             module_id = os.environ["IOTEDGE_MODULEID"]
             gateway_hostname = os.environ["IOTEDGE_GATEWAYHOSTNAME"]
