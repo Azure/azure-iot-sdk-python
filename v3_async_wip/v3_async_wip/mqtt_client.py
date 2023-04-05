@@ -122,6 +122,7 @@ class MQTTClient:
         # modify them cannot be invoked in parallel.
         self._connected = False
         self._desire_connection = False
+        self._disconnection_cause: Optional[MQTTError] = None
 
         # Synchronization
         self.connected_cond = asyncio.Condition()
@@ -197,6 +198,7 @@ class MQTTClient:
                     logger.debug("Client State: CONNECTED")
                     self._connected = True
                     self._desire_connection = True
+                    self._disconnection_cause = None
                     async with self.connected_cond:
                         self.connected_cond.notify_all()
                 if self._pending_connect:
@@ -244,6 +246,8 @@ class MQTTClient:
                 async def set_disconnected() -> None:
                     logger.debug("Client State: DISCONNECTED")
                     self._connected = False
+                    if rc != mqtt.MQTT_ERR_SUCCESS:
+                        self._disconnection_cause = MQTTError(rc=rc)
                     async with self.disconnected_cond:
                         self.disconnected_cond.notify_all()
 
@@ -385,6 +389,14 @@ class MQTTClient:
         any point.
         """
         return self._connected
+
+    def previous_disconnection_cause(self) -> Optional[MQTTError]:
+        """
+        Returns an MQTTError from the previous disconnection if it was unexpected as a result of
+            a connection drop.
+        Returns None if the previous disconnection attempt was intentional
+        """
+        return self._disconnection_cause
 
     def set_credentials(self, username: str, password: Optional[str] = None) -> None:
         """
@@ -665,12 +677,10 @@ class MQTTClient:
                     # We still want to do this disconnect however, because doing so changes
                     # Paho's state to indicate we no longer wish to be connected.
                     logger.debug("Early disconnect return (Already disconnected)")
-                    # if self._network_loop_running():
-                    #     # This block should never execute
-                    #     logger.warning("Network loop unexpectedly still running. Waiting")
-                    #     await self._network_loop
                     logger.debug("Clearing network loop task")
                     self._network_loop = None
+                    logger.debug("Clearing previous disconnection cause")
+                    self._disconnection_cause = None
                 else:
                     # This block should never execute
                     logger.warning(
