@@ -4,7 +4,8 @@
 # license information.
 # --------------------------------------------------------------------------
 """This sample demonstrates a more complex scenario for use of the IoTHubSession.
-This application both sends and receives data, and can be controlled via direct methods
+This application both sends and receives data, and can be controlled via direct methods.
+If the connection drops, it will try to establish one again until the user exits.
 """
 
 import asyncio
