@@ -12,27 +12,24 @@ import os
 from azure.iot.device import IoTHubSession, MQTTError, MQTTConnectionFailedError
 
 CONNECTION_STRING = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-
-
-def do_foo():
-    return "done"
+TOTAL_MESSAGES_RECEIVED = 0
 
 
 async def main():
-    msg_count = 0
+    global TOTAL_MESSAGES_RECEIVED
+    print("Starting C2D sample")
+    print("Press Ctrl-C to exit")
     while True:
         try:
+            print("Connecting to IoT Hub...")
             async with IoTHubSession.from_connection_string(CONNECTION_STRING) as session:
+                print("Connected to IoT Hub")
                 async with session.messages() as messages:
+                    print("Waiting to receive messages...")
                     async for message in messages:
-                        msg_count += 1
+                        TOTAL_MESSAGES_RECEIVED += 1
                         print("Message received with payload: {}".format(message.payload))
 
-        except KeyboardInterrupt:
-            # Exit application because user indicated they wish to exit.
-            print("User initiated exit. Exiting.")
-            print("Received {} messages in total.".format(msg_count))
-            raise
         except MQTTError:
             # Connection has been lost. Reconnect on next pass of loop.
             print("Dropped connection. Reconnecting in 1 second")
@@ -44,4 +41,11 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        # Exit application because user indicated they wish to exit.
+        # This will have cancelled `main()` implicitly.
+        print("User initiated exit. Exiting")
+    finally:
+        print("Received {} messages in total".format(TOTAL_MESSAGES_RECEIVED))

@@ -39,12 +39,14 @@ async def send_telemetry(session):
         TOTAL_MESSAGES_SENT += 1
         print("Sending Message #{}.".format(TOTAL_MESSAGES_SENT))
         await session.send_message("Message #{}".format(TOTAL_MESSAGES_SENT))
+        print("Send complete")
         await asyncio.sleep(5)
 
 
 async def receive_c2d_messages(session):
     global TOTAL_MESSAGES_RECEIVED
     async with session.messages() as messages:
+        print("Waiting to receive messages...")
         async for message in messages:
             TOTAL_MESSAGES_RECEIVED += 1
             print("Message received with payload: {}".format(message.payload))
@@ -76,20 +78,19 @@ async def receive_direct_method_requests(session):
 
 
 async def main():
+    print("Starting multi-feature sample")
+    print("Press Ctrl-C to exit")
     while True:
         try:
+            print("Connecting to IoT Hub...")
             async with IoTHubSession.from_connection_string(CONNECTION_STRING) as session:
+                print("Connected to IoT Hub")
                 await asyncio.gather(
                     send_telemetry(session),
                     receive_c2d_messages(session),
                     receive_direct_method_requests(session),
                 )
-        except KeyboardInterrupt:
-            # Exit application because user indicated they wish to exit.
-            print("User initiated exit. Exiting.")
-            print("Sent {} messages in total".format(TOTAL_MESSAGES_SENT))
-            print("Received {} messages in total.".format(TOTAL_MESSAGES_RECEIVED))
-            raise
+
         except MQTTError:
             # Connection has been lost. Reconnect on next pass of loop.
             print("Dropped connection. Reconnecting in 1 second")
@@ -101,4 +102,12 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        # Exit application because user indicated they wish to exit.
+        # This will have cancelled `main()` implicitly.
+        print("User initiated exit. Exiting.")
+    finally:
+        print("Sent {} messages in total.".format(TOTAL_MESSAGES_SENT))
+        print("Received {} messages in total.".format(TOTAL_MESSAGES_RECEIVED))
