@@ -379,6 +379,18 @@ class IoTHubSession:
 
         return wrapping_coroutine()
 
+    @property
+    def connected(self) -> bool:
+        return self._mqtt_client._mqtt_client._connected
+
+    @property
+    def device_id(self) -> str:
+        return self._mqtt_client._device_id
+
+    @property
+    def module_id(self) -> Optional[str]:
+        return self._mqtt_client._module_id
+
 
 def _validate_kwargs(exclude=[], **kwargs) -> None:
     """Helper function to validate user provided kwargs.
