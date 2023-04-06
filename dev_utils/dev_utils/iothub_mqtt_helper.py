@@ -1,9 +1,9 @@
 # TODO: REMOVE THIS WHEN NO LONGER TESTING AT IOTHUB-MQTT LEVEL
 
-from v3_async_wip.config import IoTHubClientConfig
-from v3_async_wip import sastoken as st
-from v3_async_wip import signing_mechanism as sm
-from azure.iot.device.common.auth import connection_string as cs
+from azure.iot.device.config import IoTHubClientConfig
+from azure.iot.device import sastoken as st
+from azure.iot.device import signing_mechanism as sm
+from azure.iot.device import connection_string as cs
 import ssl
 import logging
 
