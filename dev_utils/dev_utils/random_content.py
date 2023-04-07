@@ -5,7 +5,7 @@ import random
 import string
 import json
 import uuid
-from azure.iot.device.iothub import Message
+from azure.iot.device import Message
 
 JSON_CONTENT_TYPE = "application/json"
 JSON_CONTENT_ENCODING = "utf-8"

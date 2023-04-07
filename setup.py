@@ -80,11 +80,12 @@ setup(
         "urllib3>=1.26.5,<1.27",
         # Actual project dependencies
         "paho-mqtt>=1.6.1,<2.0.0",
-        "requests>=2.20.0,<3.0.0",
         "requests-unixsocket>=0.1.5,<1.0.0",
         "typing-extensions>=4.4.0,<5.0",
-        "janus",
         "PySocks",
+        # This dependency is needed by some modules, but none that are actually used
+        # in current IoTHubSession design. This can be removed once we settle on a direction.
+        "aiohttp",
     ],
     python_requires=">=3.7, <4",
     packages=find_namespace_packages(where="azure-iot-device"),

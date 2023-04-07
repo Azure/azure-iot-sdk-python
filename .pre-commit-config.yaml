@@ -11,9 +11,7 @@ repos:
         args: ['--config=.flake8']
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.0.0
-    # NOTE: Azure SDK guidelines say to use 0.931 as a pin, but it seems bugged.
-    # Getting some clarity on this, but for now, we're going to just use the most recent
     hooks:
     -   id: mypy
-        files: v3_async_wip/    # for now only the new v3 files have typings
-        exclude: v3_async_wip/tests
+        files: azure-iot-device
+        exclude: tests

@@ -47,9 +47,6 @@ if __name__ == "__main__":
     pip_command("install -U -r requirements_test.txt")
     pip_command("install -e dev_utils")
 
-    # Install v3 WIP package
-    pip_command("install -e v3_async_wip")
-
     if args.dev_mode:
         # Install local development environment dependencies.
         # These are not compatible on all platforms.

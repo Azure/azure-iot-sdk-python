@@ -55,9 +55,6 @@ jobs:
   - script: 'pytest tests --junitxml=junit/azure-iot-device-test-results.xml --cov=azure --cov-report=xml:coverage.xml --cov-report=html:coverage --cov-append'
     displayName: pytest
 
-  - script: 'pytest v3_async_wip/tests --junitxml=junit/v3-async-test-results.xml --cov=azure --cov-report=xml:coverage.xml --cov-report=html:coverage --cov-append'
-    displayName: pytest (V3 async WIP)
-
   - task: PublishTestResults@2
     displayName: 'Publish Test Results **/*-test-results.xml'
     inputs:
