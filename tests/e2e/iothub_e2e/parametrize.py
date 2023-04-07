@@ -17,25 +17,3 @@ all_method_payload_options = [
         pytest.param(False, False, id="with no request payload and no response payload"),
     ],
 ]
-
-connection_retry_disabled_and_enabled = [
-    "connection_retry",
-    [
-        pytest.param(True, id="connection_retry enabled"),
-        pytest.param(False, id="connection_retry disabled"),
-    ],
-]
-
-connection_retry_enabled = [
-    "connection_retry",
-    [
-        pytest.param(True, id="connection_retry enabled"),
-    ],
-]
-
-connection_retry_disabled = [
-    "connection_retry",
-    [
-        pytest.param(False, id="connection_retry disabled"),
-    ],
-]
