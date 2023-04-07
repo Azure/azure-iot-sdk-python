@@ -14,16 +14,19 @@ The Azure IoT Device SDK for Python enables Python developers to easily create I
 
 * *If you're looking for the v1.x.x client library, it is now preserved in the [v1-deprecated](https://github.com/Azure/azure-iot-sdk-python/tree/v1-deprecated) branch.*
 
+**NOTE: 3.x.x is still in beta and APIs are subject to change until the release of 3.0.0**
+
 
 ## Installing the library
 
 The Azure IoT Device library is available on PyPI:
 
 ```Shell
-pip install azure-iot-device
+pip install azure-iot-device==3.0.0b2
 ```
 
 Python 3.7 or higher is required in order to use the library
+
 
 ## Using the library
 You can view the [**samples repository**](https://github.com/Azure/azure-iot-sdk-python/tree/main/samples) to see examples of SDK usage.
