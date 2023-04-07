@@ -211,7 +211,7 @@ You can still customize the lifespan of generated SAS tokens by providing the op
 
 
 ## X509 Certificate Authentication
-Using X509 authentication is now provided via the new `ssl_context` keyword for the `IoTHubSession` constructor, rather than having it's own `.create_from_x509_certificate()` method. This is to allow additional flexibility for customers who wish for more control over their TLS/SSL authorization. See "TLS/SSL customization" below for more information.
+X509 authentication is now provided via the new `ssl_context` keyword for the `IoTHubSession` constructor, rather than having it's own `.create_from_x509_certificate()` method. This is to allow additional flexibility for customers who wish for more control over their TLS/SSL authentication. See "TLS/SSL customization" below for more information.
 
 #### V2
 ```python
@@ -271,9 +271,9 @@ client = IoTHubSession.from_connection_string(
 ```
 
 ## TLS/SSL Customization
-To allow users more flexibility, we have added the ability to inject an `SSLContext` object into the client via the optional `ssl_context` keyword argument to factory methods in order to customize the TLS/SSL encryption and authentication. As a result, some features previously handled via client APIs are now expected to have been directly set on the injected `SSLContext`.
+To allow users more flexibility with TLS/SSL authentication, we have added the ability to inject an `SSLContext` object into the `IoTHubSession` via the optional `ssl_context` keyword argument that is present on the constructor and factory methods. As a result, some features previously handled via client APIs are now expected to have been directly set on the injected `SSLContext`.
 
-By moving to a model that allows `SSLContext` injection we not only bring our client in line with standard practices, but we also allow for users to modify any aspect of their `SSLContext`, not just the ones we previously supported via API.
+By moving to a model that allows `SSLContext` injection we can allow for users to modify any aspect of their `SSLContext`, not just the ones we previously supported via API.
 
 ### Server Verification Certificates (CA certs)
 #### V2
