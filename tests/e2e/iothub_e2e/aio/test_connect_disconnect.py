@@ -46,6 +46,7 @@ class TestConnectDisconnectDroppedConnection(object):
 
     @pytest.mark.skip("dropped connection doesn't break out of context manager")
     @pytest.mark.it("disconnects when network rejects all outgoing packets")
+    @pytest.mark.keep_alive(5)
     async def test_disconnect_on_reject_outgoing(self, dropper, session_object, leak_tracker):
         """
         This test verifies that the client will disconnect (eventually) if the network starts

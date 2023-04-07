@@ -29,7 +29,7 @@ logging.basicConfig(
 logging.getLogger("e2e").setLevel(level=logging.DEBUG)
 logging.getLogger("paho").setLevel(level=logging.DEBUG)
 logging.getLogger("azure.iot").setLevel(level=logging.DEBUG)
-logging.getLogger("v3_async_wip").setLevel(level=logging.DEBUG)
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -99,7 +99,6 @@ def leak_tracker():
     tracker = leak_tracker_module.LeakTracker()
     tracker.track_module("azure.iot.device")
     tracker.track_module("paho")
-    tracker.track_module("v3_async_wip")
     tracker.filter_callback = leak_tracker_filter
     return tracker
 

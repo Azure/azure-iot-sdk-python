@@ -5,8 +5,7 @@ import test_config
 from dev_utils import test_env
 import logging
 import sys
-from v3_async_wip.models import Message
-from v3_async_wip.iothub_session import IoTHubSession
+from azure.iot.device import Message, IoTHubSession
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)

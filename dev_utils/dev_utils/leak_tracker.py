@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
 # When printing leaks, how many referrer levels do we print?
-max_referrer_level = 20
+max_referrer_level = 5
 
 
 def _run_garbage_collection():
