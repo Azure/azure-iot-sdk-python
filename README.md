@@ -10,11 +10,11 @@ The Azure IoT Device SDK for Python enables Python developers to easily create I
 
 * *If you're migrating v2.x.x code to use v3.x.x check the [IoT Hub Migration Guide](https://github.com/Azure/azure-iot-sdk-python/blob/main/migration_guide_iothub.md) and/or the [Provisioning Migration Guide](https://github.com/Azure/azure-iot-sdk-python/blob/main/migration_guide_provisioning.md)*
 
-* *If you're looking for the azure-iot-hub library, it is now located in the [azure-iot-hub-python](https://github.com/Azure/azure-iot-hub-python) repository*
-
 * *If you're looking for the v2.x.x client library, it is now preserved in the [v2](https://github.com/Azure/azure-iot-sdk-python/tree/v2) branch*
 
 * *If you're looking for the v1.x.x client library, it is now preserved in the [v1-deprecated](https://github.com/Azure/azure-iot-sdk-python/tree/v1-deprecated) branch.*
+
+* *If you're looking for the azure-iot-hub library, it is now located in the [azure-iot-hub-python](https://github.com/Azure/azure-iot-hub-python) repository*
 
 **NOTE: 3.x.x is still in beta and APIs are subject to change until the release of 3.0.0**
 
