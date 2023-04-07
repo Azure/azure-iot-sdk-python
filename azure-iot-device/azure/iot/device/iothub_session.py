@@ -381,7 +381,7 @@ class IoTHubSession:
 
     @property
     def connected(self) -> bool:
-        return self._mqtt_client._mqtt_client._connected
+        return self._mqtt_client.connected
 
     @property
     def device_id(self) -> str:

@@ -6,6 +6,7 @@ import pytest
 import logging
 import json
 import sys
+import traceback
 from dev_utils import get_random_dict
 
 logger = logging.getLogger(__name__)
@@ -32,12 +33,15 @@ class TestReceiveC2d(object):
                     async for message in messages:
                         await queue.put(message)
             except asyncio.CancelledError:
-                # this happens during shutdown. no need to log this.
+                # In python3.7, asyncio.CancelledError is an Exception. We don't
+                # log this since it's part of the shutdown process. After 3.7,
+                # it's a BaseException, so it just gets caught somewhere else.
                 raise
-            except BaseException:
+            except Exception as e:
                 # Without this line, exceptions get silently ignored until
                 # we await the listener task.
-                logger.error("Exception", exc_info=True)
+                logger.error("Exception")
+                logger.error(traceback.format_exception(e))
                 raise
 
         async with session:

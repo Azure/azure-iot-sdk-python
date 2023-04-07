@@ -31,8 +31,6 @@ class TestSendMessage(object):
             await session.send_message(random_message)
 
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
-        # TODO: This behavior changed from v2->v3. Which is correct?
-        # assert json.dumps(event.message_body) == random_message.payload
         assert event.message_body == random_message.payload
 
         leak_tracker.check_for_leaks()

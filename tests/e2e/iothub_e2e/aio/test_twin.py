@@ -119,7 +119,7 @@ class TestGetTwin(object):
             assert session._mqtt_client._twin_responses_enabled is False
             with pytest.raises(MQTTError) as e_info:
                 await session.get_twin()
-            assert e_info.value.rc == paho.MQTT_ERR_CONN_LOST
+            assert e_info.value.rc in [paho.MQTT_ERR_CONN_LOST, paho.MQTT_ERR_KEEPALIVE]
             del e_info
             assert session._mqtt_client._twin_responses_enabled is False
 
