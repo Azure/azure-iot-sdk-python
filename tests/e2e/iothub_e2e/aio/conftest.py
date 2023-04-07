@@ -6,7 +6,7 @@ import asyncio
 from dev_utils import test_env, ServiceHelper
 import logging
 import datetime
-from utils import create_session_object
+from utils import create_session
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -21,7 +21,7 @@ def event_loop():
 
 
 @pytest.fixture(scope="function")
-async def session_object(device_identity, client_kwargs, service_helper, device_id, module_id):
+async def session(device_identity, client_kwargs, service_helper, device_id, module_id):
     service_helper.set_identity(device_id, module_id)
 
     # Keep this here.  It is useful to see this info inside the inside devops pipeline test failures.
@@ -31,7 +31,7 @@ async def session_object(device_identity, client_kwargs, service_helper, device_
         )
     )
 
-    client = create_session_object(device_identity, client_kwargs)
+    client = create_session(device_identity, client_kwargs)
 
     yield client
 

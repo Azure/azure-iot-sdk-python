@@ -27,7 +27,7 @@ def get_fault_injection_message(fault_injection_type):
     return fault_message
 
 
-def create_session_object(device_identity, client_kwargs):
+def create_session(device_identity, client_kwargs):
 
     if test_config.config.auth == test_config.AUTH_CONNECTION_STRING:
         logger.info(

@@ -40,12 +40,12 @@ def failure_type(request):
 class TestGetTwin(object):
     @pytest.mark.it("Can get the twin")
     @pytest.mark.quicktest_suite
-    async def test_simple_get_twin(self, leak_tracker, service_helper, session_object):
+    async def test_simple_get_twin(self, leak_tracker, service_helper, session):
         leak_tracker.set_initial_object_list()
 
-        async with session_object:
-            twin1 = await session_object.get_twin()
-        assert session_object.connected is False
+        async with session:
+            twin1 = await session.get_twin()
+        assert session.connected is False
 
         twin2 = await service_helper.get_twin()
 
@@ -58,15 +58,15 @@ class TestGetTwin(object):
 
     @pytest.mark.it("Raises MQTTError if there is no connection (Twin not yet enabled)")
     @pytest.mark.quicktest_suite
-    async def test_no_connection_twin_not_enabled(self, leak_tracker, session_object):
+    async def test_no_connection_twin_not_enabled(self, leak_tracker, session):
         leak_tracker.set_initial_object_list()
 
-        assert not session_object.connected
-        assert session_object._mqtt_client._twin_responses_enabled is False
+        assert not session.connected
+        assert session._mqtt_client._twin_responses_enabled is False
 
         with pytest.raises(MQTTError) as e_info:
-            await session_object.get_twin()
-        assert session_object.connected is False
+            await session.get_twin()
+        assert session.connected is False
 
         assert e_info.value.rc == paho.MQTT_ERR_NO_CONN
         del e_info
@@ -76,19 +76,19 @@ class TestGetTwin(object):
     @pytest.mark.skip("get_twin() hangs if disconncted")
     @pytest.mark.it("Raises MQTTError if there is no connection (Twin enabled)")
     @pytest.mark.quicktest_suite
-    async def test_no_connection_twin_enabled(self, leak_tracker, session_object):
+    async def test_no_connection_twin_enabled(self, leak_tracker, session):
         leak_tracker.set_initial_object_list()
 
-        async with session_object:
-            await session_object.get_twin()
+        async with session:
+            await session.get_twin()
 
-        assert session_object.connected is False
-        assert session_object._mqtt_client._twin_responses_enabled is True
+        assert session.connected is False
+        assert session._mqtt_client._twin_responses_enabled is True
 
         with pytest.raises(MQTTError) as e_info:
             # This never returns
-            await session_object.get_twin()
-        assert not session_object.connected
+            await session.get_twin()
+        assert not session.connected
 
         assert e_info.value.rc == paho.MQTT_ERR_NO_CONN
         del e_info
@@ -102,12 +102,12 @@ class TestGetTwin(object):
     )
     @pytest.mark.keep_alive(5)
     async def test_get_twin_raises_if_network_error_enabling_twin_responses(
-        self, dropper, leak_tracker, session_object, failure_type
+        self, dropper, leak_tracker, session, failure_type
     ):
         leak_tracker.set_initial_object_list()
 
-        async with session_object:
-            assert session_object.connected
+        async with session:
+            assert session.connected
 
             # Disrupt network
             if failure_type == PACKET_DROP:
@@ -116,30 +116,30 @@ class TestGetTwin(object):
                 dropper.reject_outgoing()
 
             # Attempt to get twin (implicitly enabling twin first)
-            assert session_object._mqtt_client._twin_responses_enabled is False
+            assert session._mqtt_client._twin_responses_enabled is False
             with pytest.raises(MQTTError) as e_info:
-                await session_object.get_twin()
+                await session.get_twin()
             assert e_info.value.rc == paho.MQTT_ERR_CONN_LOST
             del e_info
-            assert session_object._mqtt_client._twin_responses_enabled is False
+            assert session._mqtt_client._twin_responses_enabled is False
 
-        assert session_object.connected is False
+        assert session.connected is False
         leak_tracker.check_for_leaks()
 
     @pytest.mark.skip("get_twin doesn't time out if no resopnse")
     @pytest.mark.keep_alive(5)
     @pytest.mark.it("Raises Error on get_twin if network error causes request or response to fail")
     async def test_get_twin_raises_if_network_error_on_request_or_response(
-        self, dropper, leak_tracker, session_object, failure_type
+        self, dropper, leak_tracker, session, failure_type
     ):
         leak_tracker.set_initial_object_list()
 
-        async with session_object:
-            assert session_object.connected is True
+        async with session:
+            assert session.connected is True
 
-            assert session_object._mqtt_client._twin_responses_enabled is False
-            await session_object.get_twin()
-            assert session_object._mqtt_client._twin_responses_enabled is True
+            assert session._mqtt_client._twin_responses_enabled is False
+            await session.get_twin()
+            assert session._mqtt_client._twin_responses_enabled is True
 
             # Disrupt network
             if failure_type == PACKET_DROP:
@@ -149,12 +149,12 @@ class TestGetTwin(object):
 
             # TODO: is this the right exception?
             with pytest.raises(asyncio.CancelledError):
-                await session_object.get_twin()
+                await session.get_twin()
 
-        assert session_object.connected is False
+        assert session.connected is False
         leak_tracker.check_for_leaks()
 
-    # TODO "Succeeds if network failure resolves before session_object can disconnect"
+    # TODO "Succeeds if network failure resolves before session can disconnect"
 
 
 @pytest.mark.describe("Client Reported Properties")
@@ -163,21 +163,21 @@ class TestReportedProperties(object):
     @pytest.mark.parametrize(*twin_enabled_and_disabled)
     @pytest.mark.quicktest_suite
     async def test_sends_simple_reported_patch(
-        self, leak_tracker, service_helper, session_object, twin_enabled, random_reported_props
+        self, leak_tracker, service_helper, session, twin_enabled, random_reported_props
     ):
         leak_tracker.set_initial_object_list()
 
-        async with session_object:
+        async with session:
             # Enable twin responses if necessary
-            assert session_object._mqtt_client._twin_responses_enabled is False
+            assert session._mqtt_client._twin_responses_enabled is False
             if twin_enabled:
-                await session_object.get_twin()
-                assert session_object._mqtt_client._twin_responses_enabled is True
+                await session.get_twin()
+                assert session._mqtt_client._twin_responses_enabled is True
 
             # patch properties
-            await session_object.update_reported_properties(random_reported_props)
+            await session.update_reported_properties(random_reported_props)
 
-            assert session_object._mqtt_client._twin_responses_enabled is True
+            assert session._mqtt_client._twin_responses_enabled is True
 
             # wait for patch to arrive at service and verify
             received_patch = await service_helper.get_next_reported_patch_arrival()
@@ -187,7 +187,7 @@ class TestReportedProperties(object):
             )
 
             # get twin from the service and verify content
-            twin = await session_object.get_twin()
+            twin = await session.get_twin()
             assert (
                 twin[const.REPORTED][const.TEST_CONTENT]
                 == random_reported_props[const.TEST_CONTENT]
@@ -197,24 +197,24 @@ class TestReportedProperties(object):
 
     @pytest.mark.it("Raises correct exception for un-serializable patch")
     @pytest.mark.parametrize(*twin_enabled_and_disabled)
-    async def test_bad_reported_patch_raises(self, leak_tracker, session_object, twin_enabled):
+    async def test_bad_reported_patch_raises(self, leak_tracker, session, twin_enabled):
         leak_tracker.set_initial_object_list()
 
-        async with session_object:
+        async with session:
             # Enable twin responses if necessary
-            assert session_object._mqtt_client._twin_responses_enabled is False
+            assert session._mqtt_client._twin_responses_enabled is False
             if twin_enabled:
-                await session_object.get_twin()
-                assert session_object._mqtt_client._twin_responses_enabled is True
+                await session.get_twin()
+                assert session._mqtt_client._twin_responses_enabled is True
 
             # There's no way to serialize a function.
             def thing_that_cant_serialize():
                 pass
 
             with pytest.raises(TypeError):
-                await session_object.update_reported_properties(thing_that_cant_serialize)
+                await session.update_reported_properties(thing_that_cant_serialize)
 
-        assert session_object.connected is False
+        assert session.connected is False
 
         leak_tracker.check_for_leaks()
 
@@ -222,19 +222,19 @@ class TestReportedProperties(object):
     @pytest.mark.parametrize(*twin_enabled_and_disabled)
     @pytest.mark.quicktest_suite
     async def test_clear_property(
-        self, leak_tracker, service_helper, session_object, twin_enabled, random_reported_props
+        self, leak_tracker, service_helper, session, twin_enabled, random_reported_props
     ):
         leak_tracker.set_initial_object_list()
 
-        async with session_object:
+        async with session:
             # Enable twin responses if necessary
-            assert session_object._mqtt_client._twin_responses_enabled is False
+            assert session._mqtt_client._twin_responses_enabled is False
             if twin_enabled:
-                await session_object.get_twin()
-                assert session_object._mqtt_client._twin_responses_enabled is True
+                await session.get_twin()
+                assert session._mqtt_client._twin_responses_enabled is True
 
             # patch properties and verify that the service received the patch
-            await session_object.update_reported_properties(random_reported_props)
+            await session.update_reported_properties(random_reported_props)
             received_patch = await service_helper.get_next_reported_patch_arrival()
             assert (
                 received_patch[const.REPORTED][const.TEST_CONTENT]
@@ -242,7 +242,7 @@ class TestReportedProperties(object):
             )
 
             # send a patch clearing properties and verify that the service received that patch
-            await session_object.update_reported_properties(reset_reported_props)
+            await session.update_reported_properties(reset_reported_props)
             received_patch = await service_helper.get_next_reported_patch_arrival()
             assert (
                 received_patch[const.REPORTED][const.TEST_CONTENT]
@@ -250,10 +250,10 @@ class TestReportedProperties(object):
             )
 
             # get the twin and verify that the properties are no longer part of the twin
-            twin = await session_object.get_twin()
+            twin = await session.get_twin()
             assert const.TEST_CONTENT not in twin[const.REPORTED]
 
-        assert session_object.connected is False
+        assert session.connected is False
 
         leak_tracker.check_for_leaks()
 
@@ -262,25 +262,25 @@ class TestReportedProperties(object):
     @pytest.mark.quicktest_suite
     @pytest.mark.skip("test hangs at line 'test hangs here' if Twin is already enabled")
     async def test_no_connection_raises_error(
-        self, leak_tracker, session_object, random_reported_props, twin_enabled
+        self, leak_tracker, session, random_reported_props, twin_enabled
     ):
         leak_tracker.set_initial_object_list()
 
         # Enable twin responses if necessary
-        assert session_object._mqtt_client._twin_responses_enabled is False
+        assert session._mqtt_client._twin_responses_enabled is False
         if twin_enabled:
-            async with session_object:
-                await session_object.get_twin()
+            async with session:
+                await session.get_twin()
 
-                assert session_object._mqtt_client._twin_responses_enabled is True
-        assert session_object.connected is False
+                assert session._mqtt_client._twin_responses_enabled is True
+        assert session.connected is False
 
         with pytest.raises(MQTTError) as e_info:
             # test hangs here
-            await session_object.update_reported_properties(random_reported_props)
+            await session.update_reported_properties(random_reported_props)
         assert e_info.value.rc == paho.MQTT_ERR_NO_CONN
         del e_info
-        assert session_object.connected is False
+        assert session.connected is False
 
         leak_tracker.check_for_leaks()
 
@@ -290,7 +290,7 @@ class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
     @pytest.mark.quicktest_suite
     async def test_receives_simple_desired_patch(
-        self, event_loop, leak_tracker, service_helper, session_object
+        self, event_loop, leak_tracker, service_helper, session
     ):
         random_dict = get_random_dict()
         leak_tracker.set_initial_object_list()
@@ -319,8 +319,8 @@ class TestDesiredProperties(object):
                 logger.error("Exception", exc_info=True)
                 raise
 
-        async with session_object:
-            listener_task = asyncio.create_task(listener(session_object))
+        async with session:
+            listener_task = asyncio.create_task(listener(session))
             await registered.wait()
 
             await service_helper.set_desired_properties(
@@ -330,10 +330,10 @@ class TestDesiredProperties(object):
             received_patch = await queue.get()
             assert received_patch[const.TEST_CONTENT] == random_dict
 
-            twin = await session_object.get_twin()
+            twin = await session.get_twin()
             assert twin[const.DESIRED][const.TEST_CONTENT] == random_dict
 
-        assert session_object.connected is False
+        assert session.connected is False
 
         # make sure our listener ended with an error when we disconnected.
         logger.info("Waiting for listener_task to complete")
@@ -346,7 +346,7 @@ class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property entering session context twice")
     @pytest.mark.quicktest_suite
     async def test_receives_simple_desired_patch_enter_session_twice(
-        self, event_loop, leak_tracker, service_helper, session_object
+        self, event_loop, leak_tracker, service_helper, session
     ):
         random_dict = get_random_dict()
         leak_tracker.set_initial_object_list()
@@ -377,8 +377,8 @@ class TestDesiredProperties(object):
                 logger.error("Exception", exc_info=True)
                 raise
 
-        async with session_object:
-            listener_task = asyncio.create_task(listener(session_object))
+        async with session:
+            listener_task = asyncio.create_task(listener(session))
             await registered.wait()
 
             await service_helper.set_desired_properties(
@@ -388,10 +388,10 @@ class TestDesiredProperties(object):
             received_patch = await queue.get()
             assert received_patch[const.TEST_CONTENT] == random_dict
 
-            twin = await session_object.get_twin()
+            twin = await session.get_twin()
             assert twin[const.DESIRED][const.TEST_CONTENT] == random_dict
 
-        assert session_object.connected is False
+        assert session.connected is False
 
         # make sure our listener ended with an error when we disconnected.
         logger.info("Waiting for listener_task to complete")
@@ -409,15 +409,15 @@ class TestDesiredProperties(object):
         reason="anext was not introduced until 3.10",
     )
     async def test_receives_simple_desired_patch_using_anext(
-        self, event_loop, leak_tracker, service_helper, session_object
+        self, event_loop, leak_tracker, service_helper, session
     ):
         leak_tracker.set_initial_object_list()
         random_dict = get_random_dict()
 
         # Python 3.10 makes our lives easier because we can use anext() and treat the generator like a queue
 
-        async with session_object:
-            async with session_object.desired_property_updates() as patches:
+        async with session:
+            async with session.desired_property_updates() as patches:
                 await service_helper.set_desired_properties(
                     {const.TEST_CONTENT: random_dict},
                 )
@@ -425,10 +425,10 @@ class TestDesiredProperties(object):
             received_patch = await anext(patches)
             assert received_patch[const.TEST_CONTENT] == random_dict
 
-            twin = await session_object.get_twin()
+            twin = await session.get_twin()
             assert twin[const.DESIRED][const.TEST_CONTENT] == random_dict
 
-        assert session_object.connected is False
+        assert session.connected is False
 
         leak_tracker.check_for_leaks()
 

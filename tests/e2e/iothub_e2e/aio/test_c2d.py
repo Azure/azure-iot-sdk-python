@@ -19,7 +19,7 @@ logger.setLevel(level=logging.INFO)
 class TestReceiveC2d(object):
     @pytest.mark.it("Can receive C2D")
     @pytest.mark.quicktest_suite
-    async def test_receive_c2d(self, session_object, service_helper, event_loop, leak_tracker):
+    async def test_receive_c2d(self, session, service_helper, event_loop, leak_tracker):
         leak_tracker.set_initial_object_list()
 
         message = json.dumps(get_random_dict())
@@ -40,14 +40,14 @@ class TestReceiveC2d(object):
                 logger.error("Exception", exc_info=True)
                 raise
 
-        async with session_object:
-            listener_task = asyncio.create_task(listener(session_object))
+        async with session:
+            listener_task = asyncio.create_task(listener(session))
 
             await service_helper.send_c2d(message, {})
 
             received_message = await queue.get()
 
-        assert session_object.connected is False
+        assert session.connected is False
         with pytest.raises(asyncio.CancelledError):
             await listener_task
         listener_task = None
@@ -64,19 +64,17 @@ class TestReceiveC2d(object):
         sys.version_info.major == 3 and sys.version_info.minor < 10,
         reason="anext was not introduced until 3.10",
     )
-    async def test_receive_c2d_using_anext(
-        self, session_object, service_helper, event_loop, leak_tracker
-    ):
+    async def test_receive_c2d_using_anext(self, session, service_helper, event_loop, leak_tracker):
         leak_tracker.set_initial_object_list()
 
         message = json.dumps(get_random_dict())
 
-        async with session_object:
-            async with session_object.messages() as messages:
+        async with session:
+            async with session.messages() as messages:
                 await service_helper.send_c2d(message, {})
                 received_message = await anext(messages)
 
-        assert session_object.connected is False
+        assert session.connected is False
         assert received_message.payload == message
 
         del received_message

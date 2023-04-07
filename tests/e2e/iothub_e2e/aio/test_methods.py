@@ -28,7 +28,7 @@ class TestMethods(object):
     @pytest.mark.parametrize(*parametrize.all_method_payload_options)
     async def test_handle_method_call(
         self,
-        session_object,
+        session,
         method_name,
         method_response_status,
         include_request_payload,
@@ -74,8 +74,8 @@ class TestMethods(object):
                 logger.error("Exception", exc_info=True)
                 raise
 
-        async with session_object:
-            method_listener_task = asyncio.create_task(method_listener(session_object))
+        async with session:
+            method_listener_task = asyncio.create_task(method_listener(session))
 
             await registered.wait()
 
@@ -84,7 +84,7 @@ class TestMethods(object):
             method_response = await service_helper.invoke_method(method_name, request_payload)
             logger.info("Done Invoking method")
 
-        assert session_object.connected is False
+        assert session.connected is False
         with pytest.raises(asyncio.CancelledError):
             await method_listener_task
         method_listener_task = None
