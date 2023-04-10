@@ -22,7 +22,6 @@ class TestConnectDisconnect(object):
         assert session.connected is False
 
 
-@pytest.mark.dropped_connection
 @pytest.mark.describe("Client with dropped connection")
 @pytest.mark.keep_alive(5)
 class TestConnectDisconnectDroppedConnection(object):

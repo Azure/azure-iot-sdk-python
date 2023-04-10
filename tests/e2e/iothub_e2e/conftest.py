@@ -188,10 +188,7 @@ def pytest_runtest_setup(item):
 
     # tests that use iptables need to be skipped on Windows
     if is_windows():
-        for x in item.iter_markers("uses_iptables"):
-            pytest.skip("test uses iptables")
-            return
-        for x in item.iter_markers("dropped_connection"):
+        if "dropper" in item.fixturenames:
             pytest.skip("test uses iptables")
             return
 
