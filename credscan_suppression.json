@@ -10,37 +10,12 @@
       "_justification": "Test containing fake passwords and keys"
     },
     {
-      "file": "\\tests\\unit\\common\\auth\\test_signing_mechanism.py",
+      "file": "\\tests\\unit\\test_signing_mechanism.py",
       "_justification": "Test containing fake keys"
     },
     {
-      "file": "\\tests\\unit\\common\\auth\\test_sastoken.py",
-      "_justification": "Test containing fake signed data"
-    },
-    {
-      "file": "\\tests\\unit\\common\\test_mqtt_transport.py",
-      "_justification": "Test containing fake passwords"
-    },
-    {
-      "file": "\\tests\\unit\\common\\test_http_transport.py",
-      "_justification": "Test containing fake passwords"
-    },
-    {
-      "file": "\\tests\\unit\\iothub\\shared_client_tests.py",
-      "_justification": "Test containing fake signed data"
-    },
-    {
-      "file": "\\tests\\unit\\iothub\\client_fixtures.py",
-      "_justification": "Test containing fake keys and fake signed data"
-    },
-    {
-      "file": "\\tests\\unit\\iothub\\test_sync_clients.py",
-      "_justification": "Test containing fake signed data"
-    },
-    {
-      "file": "\\tests\\unit\\iothub\\aio\\test_async_clients.py",
+      "file": "\\tests\\unit\\test_sastoken.py",
       "_justification": "Test containing fake signed data"
     }
   ]
-
 }

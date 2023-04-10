@@ -16,26 +16,6 @@ def module_id(device_identity):
 
 
 @pytest.fixture(scope="function")
-def connection_retry(request):
-    # let tests use @pytest.mark.connection_retry(x) to set connection_retry
-    marker = request.node.get_closest_marker("connection_retry")
-    if marker:
-        return marker.args[0]
-    else:
-        return True
-
-
-@pytest.fixture(scope="function")
-def auto_connect(request):
-    # let tests use @pytest.mark.auto_connect(x) to set auto_connect
-    marker = request.node.get_closest_marker("auto_connect")
-    if marker:
-        return marker.args[0]
-    else:
-        return True
-
-
-@pytest.fixture(scope="function")
 def websockets():
     return test_config.config.transport == test_config.TRANSPORT_MQTT_WS
 
@@ -62,10 +42,8 @@ def sastoken_ttl(request):
 
 
 @pytest.fixture(scope="function")
-def client_kwargs(auto_connect, connection_retry, websockets, keep_alive, sastoken_ttl):
+def client_kwargs(websockets, keep_alive, sastoken_ttl):
     kwargs = {}
-    kwargs["auto_connect"] = auto_connect
-    kwargs["connection_retry"] = connection_retry
     kwargs["websockets"] = websockets
     if keep_alive is not None:
         kwargs["keep_alive"] = keep_alive

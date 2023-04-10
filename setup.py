@@ -53,23 +53,23 @@ setup(
     description="Microsoft Azure IoT Device Library",
     license="MIT License",
     license_files=("LICENSE",),
-    url="https://github.com/Azure/azure-iot-sdk-python/",
+    url="https://github.com/Azure/azure-iot-sdk-python/tree/v3",
     author="Microsoft Corporation",
     author_email="opensource@microsoft.com",
     long_description=_long_description,
     long_description_content_type="text/markdown",
     classifiers=[
-        "Development Status :: 5 - Production/Stable",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
     install_requires=[
         # Define sub-dependencies due to pip dependency resolution bug
@@ -79,14 +79,15 @@ setup(
         # Security issue below 1.26.5
         "urllib3>=1.26.5,<1.27",
         # Actual project dependencies
-        "deprecation>=2.1.0,<3.0.0",
         "paho-mqtt>=1.6.1,<2.0.0",
-        "requests>=2.20.0,<3.0.0",
         "requests-unixsocket>=0.1.5,<1.0.0",
-        "janus",
+        "typing-extensions>=4.4.0,<5.0",
         "PySocks",
+        # This dependency is needed by some modules, but none that are actually used
+        # in current IoTHubSession design. This can be removed once we settle on a direction.
+        "aiohttp",
     ],
-    python_requires=">=3.6, <4",
+    python_requires=">=3.7, <4",
     packages=find_namespace_packages(where="azure-iot-device"),
     package_dir={"": "azure-iot-device"},
     zip_safe=False,

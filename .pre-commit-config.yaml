@@ -4,8 +4,14 @@ repos:
     hooks:
     - id: black
       language_version: python3
--   repo: https://gitlab.com/pycqa/flake8
+-   repo: https://github.com/pycqa/flake8
     rev: 3.9.1  # Use the ref you want to point at
     hooks:
     -   id: flake8
         args: ['--config=.flake8']
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.0.0
+    hooks:
+    -   id: mypy
+        files: azure-iot-device
+        exclude: tests

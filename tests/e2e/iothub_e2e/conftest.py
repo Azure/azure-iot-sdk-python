@@ -14,8 +14,6 @@ from utils import is_windows
 from drop_fixtures import dropper  # noqa: F401
 from client_fixtures import (  # noqa: F401
     client_kwargs,
-    auto_connect,
-    connection_retry,
     websockets,
     device_id,
     module_id,
@@ -31,6 +29,7 @@ logging.basicConfig(
 logging.getLogger("e2e").setLevel(level=logging.DEBUG)
 logging.getLogger("paho").setLevel(level=logging.DEBUG)
 logging.getLogger("azure.iot").setLevel(level=logging.DEBUG)
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)

@@ -99,6 +99,14 @@ class ServiceHelperSync(object):
         self.cv = threading.Condition()
         self.incoming_eventhub_events = {}
 
+    def clear_incoming(self):
+        """Flush the incoming queues"""
+        with self.incoming_patch_queue.mutex:
+            self.incoming_patch_queue.queue.clear()
+
+        with self.cv:
+            self.incoming_eventhub_events.clear()
+
     def set_identity(self, device_id, module_id):
         if device_id != self.device_id or module_id != self.module_id:
             self.device_id = device_id
@@ -149,6 +157,9 @@ class ServiceHelperSync(object):
             response = self._registry_manager.invoke_device_method(self.device_id, request)
 
         return response
+
+    def get_twin(self):
+        return self._registry_manager.get_twin(self.device_id)
 
     def send_c2d(self, payload, properties):
         if self.module_id:
