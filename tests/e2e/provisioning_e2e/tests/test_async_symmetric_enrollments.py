@@ -5,13 +5,14 @@
 # --------------------------------------------------------------------------
 
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
-from azure.iot.device.aio import ProvisioningDeviceClient
 from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
 from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
 import pytest
 import logging
 import os
 import uuid
+
+from azure.iot.device import ProvisioningSession
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -113,19 +114,16 @@ def assert_device_provisioned(device_id, registration_result):
     assert device.device_id == device_id
 
 
-# TODO Eventually should return result after the APi changes
 async def result_from_register(registration_id, symmetric_key, protocol):
     # We have this mapping because the pytest logs look better with "mqtt" and "mqttws"
     # instead of just "True" and "False".
     protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
-    provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+    async with ProvisioningSession(
         provisioning_host=PROVISIONING_HOST,
         registration_id=registration_id,
         id_scope=ID_SCOPE,
-        symmetric_key=symmetric_key,
+        shared_access_key=symmetric_key,
         websockets=protocol_boolean_mapping[protocol],
-    )
-
-    result = await provisioning_device_client.register()
-    await provisioning_device_client.shutdown()
-    return result
+    ) as session:
+        result = await session.register()
+    return result if result is not None else None
