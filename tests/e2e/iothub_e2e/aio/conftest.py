@@ -6,65 +6,22 @@ import asyncio
 from dev_utils import test_env, ServiceHelper
 import logging
 import datetime
-import json
-import retry_async
-from utils import create_client_object
-from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
+from utils import create_session
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
 
-@pytest.hookimpl(hookwrapper=True)
-def pytest_pyfunc_call(pyfuncitem):
-    """
-    pytest hook that gets called for running an individual test. We use this to store
-    retry statistics for this test in the `pyfuncitem` for the test.
-    """
-
-    # Reset tests before running the test
-    retry_async.reset_retry_stats()
-
-    try:
-        # Run the test. We can do this because hookwrapper=True
-        yield
-    finally:
-        # If we actually collected any stats, store them.
-        if retry_async.retry_stats:
-            pyfuncitem.retry_stats = retry_async.retry_stats
-
-
-@pytest.hookimpl(trylast=True)
-def pytest_sessionfinish(session, exitstatus):
-    """
-    pytest hook that gets called at the end of a test session. We use this to
-    log stress results to stdout.
-    """
-
-    # Loop through all of our tests and print contents of `retry_stats` if it exists.
-    printed_header = False
-    for item in session.items:
-        retry_stats = getattr(item, "retry_stats", None)
-        if retry_stats:
-            if not printed_header:
-                print(
-                    "================================ retry summary ================================="
-                )
-                printed_header = True
-            print("Retry stats for {}".format(item.name))
-            print(json.dumps(retry_stats, indent=2))
-            print("-----------------------------------")
-
-
 @pytest.fixture(scope="session")
 def event_loop():
-    loop = asyncio.get_event_loop()
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
     yield loop
     loop.close()
 
 
 @pytest.fixture(scope="function")
-async def brand_new_client(device_identity, client_kwargs, service_helper, device_id, module_id):
+async def session(device_identity, client_kwargs, service_helper, device_id, module_id):
     service_helper.set_identity(device_id, module_id)
 
     # Keep this here.  It is useful to see this info inside the inside devops pipeline test failures.
@@ -74,30 +31,13 @@ async def brand_new_client(device_identity, client_kwargs, service_helper, devic
         )
     )
 
-    client = create_client_object(
-        device_identity, client_kwargs, IoTHubDeviceClient, IoTHubModuleClient
-    )
+    client = create_session(device_identity, client_kwargs)
 
     yield client
 
     logger.info("---------------------------------------")
-    logger.info("test is complete.  Shutting down client")
+    logger.info("test is complete.")
     logger.info("---------------------------------------")
-
-    await client.shutdown()
-
-    logger.info("-------------------------------------------")
-    logger.info("test is complete.  client shutdown complete")
-    logger.info("-------------------------------------------")
-
-
-@pytest.fixture(scope="function")
-async def client(brand_new_client):
-    client = brand_new_client
-
-    await client.connect()
-
-    yield client
 
 
 @pytest.fixture(scope="session")

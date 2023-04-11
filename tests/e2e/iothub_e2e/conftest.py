@@ -14,8 +14,6 @@ from utils import is_windows
 from drop_fixtures import dropper  # noqa: F401
 from client_fixtures import (  # noqa: F401
     client_kwargs,
-    auto_connect,
-    connection_retry,
     websockets,
     device_id,
     module_id,
@@ -31,6 +29,7 @@ logging.basicConfig(
 logging.getLogger("e2e").setLevel(level=logging.DEBUG)
 logging.getLogger("paho").setLevel(level=logging.DEBUG)
 logging.getLogger("azure.iot").setLevel(level=logging.DEBUG)
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -189,10 +188,7 @@ def pytest_runtest_setup(item):
 
     # tests that use iptables need to be skipped on Windows
     if is_windows():
-        for x in item.iter_markers("uses_iptables"):
-            pytest.skip("test uses iptables")
-            return
-        for x in item.iter_markers("dropped_connection"):
+        if "dropper" in item.fixturenames:
             pytest.skip("test uses iptables")
             return
 

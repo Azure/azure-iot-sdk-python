@@ -15,11 +15,14 @@ class ServiceHelper:
         event_loop=None,
         executor=None,
     ):
-        self._event_loop = event_loop or asyncio.get_event_loop()
+        self._event_loop = event_loop or asyncio.get_running_loop()
         self._executor = executor or concurrent.futures.ThreadPoolExecutor()
         self._inner_object = ServiceHelperSync(
             iothub_connection_string, eventhub_connection_string, eventhub_consumer_group
         )
+
+    def clear_incoming(self):
+        return self._inner_object.clear_incoming()
 
     def set_identity(self, device_id, module_id):
         return self._inner_object.set_identity(device_id, module_id)
@@ -46,6 +49,9 @@ class ServiceHelper:
             connect_timeout_in_seconds,
             response_timeout_in_seconds,
         )
+
+    async def get_twin(self):
+        return await self._event_loop.run_in_executor(self._executor, self._inner_object.get_twin)
 
     async def send_c2d(
         self,

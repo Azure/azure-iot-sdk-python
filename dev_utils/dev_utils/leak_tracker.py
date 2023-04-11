@@ -12,6 +12,9 @@ import importlib
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
+# When printing leaks, how many referrer levels do we print?
+max_referrer_level = 5
+
 
 def _run_garbage_collection():
     """
@@ -37,13 +40,13 @@ def get_printable_object_name(obj):
     """
     try:
         if isinstance(obj, dict):
-            return "Dict ID={}: first-5-keys={}".format(id(obj), list(obj.keys())[:10])
+            return "{} Dict: first-5-keys={}".format(id(obj), list(obj.keys())[:10])
         else:
-            return "{}: {}".format(type(obj), str(obj))
+            return "{} {}: {}".format(id(obj), type(obj), str(obj))
     except TypeError:
-        return "Foreign object (raised TypeError): {}, ID={}".format(type(obj), id(obj))
+        return "{} TypeError on {}".format(id(obj), type(obj))
     except ModuleNotFoundError:
-        return "Foreign object (raised ModuleNotFoundError): {}, ID={}".format(type(obj), id(obj))
+        return "{} ModuleNotFoundError on {}".format(id(obj), type(obj))
 
 
 class TrackedObject(object):
@@ -88,8 +91,10 @@ class TrackedObject(object):
     def get_object(self):
         if self.weakref:
             return self.weakref()
-        else:
+        elif self.dict:
             return self.dict
+        elif self.object_id:
+            return [x for x in gc.get_objects() if id(x) == self.object_id][0]
 
 
 class TrackedModule(object):
@@ -197,191 +202,68 @@ class LeakTracker(object):
         Dump a report on leaked objects, including a list of what referrers to each leaked
         object.
 
-        In order to display useful information on referrers, we need to do some ID-to-object
-        mapping.  This is necessary because of the way the garbage collector keeps track of
-        references between objects.
+        This prints leaked objects and the objects that are referring to them (keeping them
+                alive) underneath, up to `max_referrer_level` levels deep.
+        For example:
 
-        To explain this, if we have object `a` that refers to object `b`:
-            ```
-            >>> class Object(object):
-            ...   pass
-            ...
-            >>> a = Object()
-            >>> b = Object()
-            ```
+        ```
+        A = Object()
+        A.B = Object()
+        A.B.C = Object()
+        ```
 
-        And `a` has a reference to `b`:
-            ```
-            >>> a.something = b
-            ```
+        If C is marked as a leak, This will display
+        ```
+        ID(C) C
+          ID(B) B
+            ID(A) A
+        ```
+        Because `B` is keeping `C` alive, and `A` is keeping `B` alive.
 
-        This means that `a` has a reference to `b`, which means that `b` will not be collected
-        until _after_ `a` is collected.  In other words. `a` is keeping `b` alive.
-
-        You can see this by using `gc.get_referrers(b)` to see who refers to `b`.  But, If you do
-        this, it will tell you that `a` does _not_ refer to `b`. Instead, it is `a.__dict__`
-        that refers to `b`.
-
-            ```
-            >>> a in gc.get_referrers(b)
-            False
-            >>> a.__dict__ in gc.get_referrers(b)
-            True
-            ```
-
-        This feels counterintuitive because, from your viewpoint, `a` does refer to `b`.
-        However, from the garage collector's viewpoint, `a` refers to `a.__dict__` and `a.__dict__`
-        refers to `b`.  In effect, `a` does refer to `b`, but it does so indirectly through
-        `a.__dict__`:
-
-            ```
-            >>> a.__dict__ in gc.get_referrers(b)
-            True
-            >>> a in gc.get_referrers(a.__dict__)
-            True
-            ```
-
-        If, however, object `a` uses `__slots__` to refer to `b`, then object `a` will refer
-        to object `b` and `a.___dict__` will not exist.`
-
-            ```
-            >>> class ObjectWithSlots(object):
-            ...     __slots__ = ["something"]
-            ...
-            >>> a = ObjectWithSlots()
-            >>> b = Object()
-            >>> a.something = b
-            >>> a in gc.get_referrers(b)
-            True
-            >>> a.__dict__ in gc.get_referrers(b)
-            Traceback (most recent call last):
-              File "<stdin>", line 1, in <module>
-            AttributeError: 'ObjectWithSlots' object has no attribute '__dict<'
-            ```
-
-        This can be complicated to keep track of.  So, to dump useful information, we use
-        `id_to_name_map` to keep track of the relationship between `a` and `a.__dict__`.
-        In effect:
-
-            ```
-            id_to_name_map[id(a)] = str(a)
-            id_to_name_map[id(a.__dict__)] = str(a)
-            ```
-
-        With this mapping, we can show that `a` refers to `b`, even when it is `a.__dict__` that is
-        referring to `b`.
-
-        Phew.
         """
 
         logger.info("-----------------------------------------------")
         logger.error("Test failure.  {} objects have leaked:".format(len(leaked_objects)))
-        logger.info("(Default text format is <type(obj): str(obj)>")
+        logger.info("(Default text format is <id(obj) type(obj): str(obj)>")
+        logger.info("Printing to {} levels deep".format(max_referrer_level))
 
-        id_to_name_map = {}
+        visited = set()
 
-        # first, map IDs for leaked objects.  We display these slightly differently because it
-        # makes tracking inter-leak references a little easier.
-        for leak in leaked_objects:
-            id_to_name_map[leak.object_id] = leak
+        all_objects = gc.get_objects()
+        leaked_object_ids = [x.object_id for x in leaked_objects]
 
-            # if the object has a `__dict__` attribute, then map the ID of that dictionary
-            # back to the object also.
-            if leak.get_object() and hasattr(leak.get_object(), "__dict__"):
-                dict_id = id(leak.get_object().__dict__)
-                id_to_name_map[dict_id] = leak
+        # This is the function that recursively displays leaks and the objets that refer
+        # to them.
+        def visit(object, indent):
+            line = f"{'  ' * indent} {get_printable_object_name(object)}"
+            if indent > max_referrer_level:
+                # Stop printing at `max_referrer_level` levels deep
+                print(f"{line} (reached max depth)")
+                return
+            if id(object) == id(all_objects):
+                # all_objects has a reference to all objects.  Stop if we reach it.
+                return
+            elif indent > 0 and id(object) in leaked_object_ids:
+                # We've hit an object at the top level, but we're not at the top level.
+                # this means one of our leaked objects is referring to another of our leaked objects.
+                # Stop here.
+                print(f"{line} (top-level leak)")
+                return
+            elif id(object) in visited:
+                # stop if we've previously visited this object
+                print(f"{line} (previously visited)")
+                return
+            elif str(type(object)) in ["<class 'list'>", "<class 'list_iterator'>"]:
+                # stop at list or list_iterator objects. There are too many of these and
+                # they don't provide any useful information.
+                return
+            else:
+                print(f"{'  ' * indent} {get_printable_object_name(object)}")
+                visited.add(id(object))
+                for referrer in gc.get_referrers(object):
+                    visit(referrer, indent + 1)
 
-        # Second, go through all objects and map IDs for those (unless we've done them already).
-        # In this step, we add mappings for objects and their `__dict__` attributes, but we
-        # don't add `dict` objects yet. This is because we don't know if any `dict` is a user-
-        # created dictionary or if it's a `__dict__`.  If it's a `__dict__`, we add it here and
-        # point it to the owning object.  If it's just a `dict`, we add it in the last loop
-        # through
-        for obj in gc.get_objects():
-            object_id = id(obj)
+        for object in leaked_objects:
+            visit(object.get_object(), 0)
 
-            if not isinstance(obj, dict):
-                if object_id not in id_to_name_map:
-                    id_to_name_map[object_id] = TrackedObject(obj)
-
-                if hasattr(obj, "__dict__"):
-                    dict_id = id(obj.__dict__)
-                    if dict_id not in id_to_name_map:
-                        id_to_name_map[dict_id] = id_to_name_map[object_id]
-
-        # Third, map IDs for all dicts that we haven't done yet.
-        for obj in gc.get_objects():
-            object_id = id(obj)
-
-            if isinstance(obj, dict):
-                if object_id not in id_to_name_map:
-                    id_to_name_map[object_id] = TrackedObject(obj)
-
-        already_reported = set()
-        objects_to_report = leaked_objects.copy()
-
-        # keep track of all 3 generations in handy local variables.  These are here
-        # for developers who might be looking at leaks inside of pdb.
-        gen0 = []
-        gen1 = []
-        gen2 = []
-
-        for generation_storage, generation_name in [
-            (gen0, "generation 0: objects that leaked"),
-            (gen1, "generation 1: objects that refer to leaked objects"),
-            (gen2, "generation 2: objects that refer to generation 1"),
-        ]:
-            next_set_of_objects_to_report = set()
-            if len(objects_to_report):
-                logger.info("-----------------------------------------------")
-                logger.info(generation_name)
-
-                # Add our objects to our generation-specific list. This helps
-                # developers looking at bugs inside pdb because they can just look
-                # at `gen0[0].get_object()` to see the first leaked object, etc.
-                generation_storage.extend(objects_to_report)
-
-                for obj in objects_to_report:
-                    if obj in already_reported:
-                        logger.info("already reported: {}".format(obj.object_name))
-                    else:
-                        logger.info("object: {}".format(obj.object_name))
-                        if not obj.get_object():
-                            logger.info("    not recursing")
-                        else:
-                            for referrer in gc.get_referrers(obj.get_object()):
-                                if (
-                                    isinstance(referrer, dict)
-                                    and referrer.get("dict", None) == obj.get_object()
-                                ):
-                                    # This is the dict from a TrackedObject object.  Skip it.
-                                    pass
-                                else:
-                                    object_id = id(referrer)
-                                    if object_id in id_to_name_map:
-                                        logger.info(
-                                            "    referred by: {}".format(id_to_name_map[object_id])
-                                        )
-                                        next_set_of_objects_to_report.add(id_to_name_map[object_id])
-                                    else:
-                                        logger.info(
-                                            "    referred by Non-object: {}".format(
-                                                get_printable_object_name(referrer)
-                                            )
-                                        )
-                        already_reported.add(obj)
-
-                logger.info(
-                    "Total: {} objects, referred to by {} objects".format(
-                        len(objects_to_report), len(next_set_of_objects_to_report)
-                    )
-                )
-                objects_to_report = next_set_of_objects_to_report
-
-        logger.info("-----------------------------------------------")
-        logger.info("Leaked objects are available in local variables: gen0, gen1, and gen2")
-        logger.info("for the 3 generations of leaks. Use the get_object method to retrieve")
-        logger.info("the actual objects")
-        logger.info("eg: us gen0[0].get_object() to get the first leaked object")
-        logger.info("-----------------------------------------------")
         assert False, "Test failure.  {} objects have leaked:".format(len(leaked_objects))

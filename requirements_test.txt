@@ -1,9 +1,11 @@
 pytest
-pytest-mock
-pytest-asyncio <= 0.16      # Can remove this once Python 3.6 support is dropped
+pytest-mock>=3.10.0
+pytest-asyncio>=0.20.3
 pytest-testdox>=1.1.1
 pytest-cov
 pytest-timeout
+pytest-lazy-fixture
+mock                    # Need to use instead of builtin for backports to 3.7
 flake8
 cryptography                # Needed for cert generation and e2e
 azure-iot-hub                                    # Only needed for iothub e2e
