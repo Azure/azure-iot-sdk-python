@@ -10,10 +10,13 @@ from typing import Dict, Optional
 
 
 class Response:
-    def __init__(self, request_id: str, status: int, body: str) -> None:
+    def __init__(
+        self, request_id: str, status: int, body: str, properties: Optional[dict] = None
+    ) -> None:
         self.request_id = request_id
         self.status = status
         self.body = body  # TODO: naming - "result"?
+        self.properties = properties
 
 
 class Request:

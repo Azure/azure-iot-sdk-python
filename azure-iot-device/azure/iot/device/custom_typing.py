@@ -48,3 +48,28 @@ class StorageInfo(TypedDict):
     containerName: str
     blobName: str
     sasToken: str
+
+
+class RegistrationState(TypedDict):
+    deviceId: str
+    assignedHub: str
+    subStatus: str
+    createdDateTimeUtc: str
+    lastUpdatedDateTimeUtc: str
+    etag: str
+    payload: JSONSerializable
+
+
+RegistrationPayload = Union[dict, object, None]
+
+
+class DeviceRegistrationRequest(TypedDict):
+    registrationId: str
+    payload: RegistrationPayload
+    # TODO csr
+
+
+class RegistrationResult(TypedDict):
+    operationId: str
+    status: str
+    registrationState: RegistrationState
