@@ -6,7 +6,7 @@
 """This module contains tools for working with Shared Access Signature (SAS) Tokens"""
 
 import time
-import urllib
+import urllib.parse
 
 
 class SasTokenError(Exception):
