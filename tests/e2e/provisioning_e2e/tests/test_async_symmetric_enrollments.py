@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
+from provisioning_e2e.service_helper import ServiceRegistryHelper, connection_string_to_hostname
 from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
 from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
 import pytest
@@ -24,7 +24,7 @@ service_client = ProvisioningServiceClient.create_from_connection_string(
     os.getenv("PROVISIONING_SERVICE_CONNECTION_STRING")
 )
 service_client = ProvisioningServiceClient.create_from_connection_string(conn_str)
-device_registry_helper = Helper(os.getenv("IOTHUB_CONNECTION_STRING"))
+device_registry_helper = ServiceRegistryHelper(os.getenv("IOTHUB_CONNECTION_STRING"))
 linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRING"))
 
 

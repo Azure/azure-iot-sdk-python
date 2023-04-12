@@ -4,7 +4,7 @@
 # # license information.
 # # --------------------------------------------------------------------------
 #
-# from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
+# from provisioning_e2e.service_helper import ServiceRegistryHelper, connection_string_to_hostname
 # from azure.iot.device import ProvisioningDeviceClient
 # from azure.iot.device.common import X509
 # from provisioningserviceclient import (
@@ -39,7 +39,7 @@
 # service_client = ProvisioningServiceClient.create_from_connection_string(
 #     os.getenv("PROVISIONING_SERVICE_CONNECTION_STRING")
 # )
-# device_registry_helper = Helper(os.getenv("IOTHUB_CONNECTION_STRING"))
+# device_registry_helper = ServiceRegistryHelper(os.getenv("IOTHUB_CONNECTION_STRING"))
 # linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRING"))
 # PROVISIONING_HOST = os.getenv("PROVISIONING_DEVICE_ENDPOINT")
 # ID_SCOPE = os.getenv("PROVISIONING_DEVICE_IDSCOPE")
