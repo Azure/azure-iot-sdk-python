@@ -10,11 +10,12 @@ from provisioning_e2e.iothubservice20180630.iot_hub_gateway_service_ap_is2018063
 )
 
 from msrest.exceptions import HttpOperationError
-from .connection_string import ConnectionString
-from .sastoken import RenewableSasToken
 
-# from azure.iot.device.connection_string import ConnectionString
-# from azure.iot.device.sastoken import SasToken, InternalSasTokenGenerator
+# from .connection_string import ConnectionString
+# from .sastoken import RenewableSasToken
+
+from azure.iot.device.connection_string import ConnectionString
+from azure.iot.device.sastoken import InternalSasTokenGenerator
 from azure.iot.device.signing_mechanism import SymmetricKeySigningMechanism
 import uuid
 import time
@@ -30,26 +31,23 @@ def connection_string_to_sas_token(conn_str):
     parse an IoTHub service connection string and return the host and a shared access
     signature that can be used to connect to the given hub
     """
-    # conn_str_obj = ConnectionString(conn_str)
-    # uri = _format_sas_uri(
-    #     hostname=conn_str_obj.get("HostName"),
-    #     device_id=conn_str_obj.get("DeviceId"),
-    #     module_id=conn_str_obj.get("ModuleId"),
-    # )
-    # signing_mechanism = SymmetricKeySigningMechanism(conn_str_obj.get("SharedAccessKey"))
-    # # signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
-    # generator = InternalSasTokenGenerator(signing_mechanism=signing_mechanism, uri=uri, ttl=3600)
-    # sas_token = generator.generate_sastoken()
-    #
-    # return {"host": conn_str_obj.get("HostName"), "sas": str(sas_token)}
-
     conn_str_obj = ConnectionString(conn_str)
     signing_mechanism = SymmetricKeySigningMechanism(conn_str_obj.get("SharedAccessKey"))
-    sas_token = RenewableSasToken(
-        uri=conn_str_obj.get("HostName"),
-        key_name=conn_str_obj.get("SharedAccessKeyName"),
-        signing_mechanism=signing_mechanism,
+    # signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
+    generator = InternalSasTokenGenerator(
+        signing_mechanism=signing_mechanism, uri=conn_str_obj.get("HostName"), ttl=3600
     )
+    sas_token = generator.generate_sastoken()
+
+    # return {"host": conn_str_obj.get("HostName"), "sas": str(sas_token)}
+
+    # conn_str_obj = ConnectionString(conn_str)
+    # signing_mechanism = SymmetricKeySigningMechanism(conn_str_obj.get("SharedAccessKey"))
+    # sas_token = RenewableSasToken(
+    #     uri=conn_str_obj.get("HostName"),
+    #     key_name=conn_str_obj.get("SharedAccessKeyName"),
+    #     signing_mechanism=signing_mechanism,
+    # )
 
     return {"host": conn_str_obj.get("HostName"), "sas": str(sas_token)}
 
