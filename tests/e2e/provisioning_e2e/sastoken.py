@@ -44,7 +44,8 @@ class SasToken(object):
     _device_token_format = "SharedAccessSignature sr={}&sig={}&se={}"
 
     def __init__(self, uri, key, key_name=None, ttl=3600):
-        self._uri = urllib.parse.quote_plus(uri)
+        # self._uri = urllib.parse.quote_plus(uri)
+        self._uri = urllib.parse.quote(uri, safe="")
         self._key = key
         self._key_name = key_name
         self.ttl = ttl
