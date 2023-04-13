@@ -11,7 +11,7 @@ from typing import Dict, Optional
 
 class Response:
     def __init__(
-        self, request_id: str, status: int, body: str, properties: Optional[dict] = None
+        self, request_id: str, status: int, body: str, properties: Optional[Dict[str, str]] = None
     ) -> None:
         self.request_id = request_id
         self.status = status

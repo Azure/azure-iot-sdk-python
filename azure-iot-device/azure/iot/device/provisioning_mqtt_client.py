@@ -72,12 +72,6 @@ class ProvisioningMQTTClient:
 
         # Background Tasks (Will be set upon `.start()`)
         self._process_dps_responses_task: Optional[asyncio.Task[None]] = None
-        # self._keep_credentials_fresh_bg_task: Optional[asyncio.Task[None]] = None
-
-        # I dont need a timer, since it is async I can do same thing via sleep
-        # TODO Should this be part of client config?
-        # self.default_interval = 5
-        # self._event_loop = asyncio.get_running_loop()
 
     async def _enable_dps_responses(self) -> None:
         """Enable receiving of registration or polling responses from device provisioning service"""
@@ -146,33 +140,6 @@ class ProvisioningMQTTClient:
                         e, request_id
                     )
                 )
-
-    async def _keep_credentials_fresh(self) -> None:
-        """Run indefinitely, updating MQTT credentials when new SAS Token is available"""
-        logger.debug("Starting the 'keep_credentials_fresh' background task")
-        while True:
-            if self._sastoken_provider:
-                try:
-                    logger.debug("Waiting for new SAS Token to become available")
-                    new_sastoken = await self._sastoken_provider.wait_for_new_sastoken()
-                    logger.debug("New SAS Token available, updating MQTTClient credentials")
-                    self._mqtt_client.set_credentials(self._username, str(new_sastoken))
-                    # TODO: should we reconnect here? Or just wait for drop?
-                except asyncio.CancelledError:
-                    # NOTE: In Python 3.7 this isn't a BaseException, so we must catch and re-raise
-                    raise
-                except Exception as e:
-                    logger.error(
-                        "Unexpected exception ({}) while keeping credentials fresh. Ignoring".format(
-                            e
-                        )
-                    )
-                    continue
-            else:
-                # NOTE: This should never execute, it's mostly just here to keep the
-                # type checker happy
-                logger.error("No SasTokenProvider. Cannot update credentials")
-                break
 
     async def start(self) -> None:
         """Start up the client.
@@ -331,8 +298,8 @@ class ProvisioningMQTTClient:
             if register_response:
                 if 300 <= register_response.status < 429:
                     raise ProvisioningServiceError(
-                        "Device Provisioning Service responded to the register request with a failed status - {}. ".format(
-                            register_response.status
+                        "Device Provisioning Service responded to the register request with a failed status - {}. The detailed error is {}.".format(
+                            register_response.status, register_response.body
                         )
                     )
                 elif register_response.status >= 429:
@@ -462,8 +429,8 @@ class ProvisioningMQTTClient:
                 if 300 <= query_response.status < 429:
                     # breaking from while
                     raise ProvisioningServiceError(
-                        "Device Provisioning Service responded to the polling request with a failed status - {}. ".format(
-                            query_response.status
+                        "Device Provisioning Service responded to the polling request with a failed status - {}. The detailed error is {}. ".format(
+                            query_response.status, query_response.body
                         )
                     )
                 elif query_response.status >= 429:
