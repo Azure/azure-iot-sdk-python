@@ -107,9 +107,9 @@ def assert_device_provisioned(device_id, registration_result):
     :param registration_result: The registration result
     """
     print(registration_result)
-    # assert registration_result["status"] == "assigned"
-    # assert registration_result["registrationState"]["deviceId"] == device_id
-    # assert registration_result["registrationState"]["assignedHub"] == linked_iot_hub
+    assert registration_result["status"] == "assigned"
+    assert registration_result["registrationState"]["deviceId"] == device_id
+    assert registration_result["registrationState"]["assignedHub"] == linked_iot_hub
 
     device = device_registry_helper.get_device(device_id)
     assert device is not None
