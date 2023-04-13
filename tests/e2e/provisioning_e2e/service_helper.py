@@ -11,12 +11,12 @@ from provisioning_e2e.iothubservice20180630.iot_hub_gateway_service_ap_is2018063
 
 from msrest.exceptions import HttpOperationError
 
-# from .connection_string import ConnectionString
-# from .sastoken import RenewableSasToken
+from .connection_string import ConnectionString
+from .sastoken import SasToken
 
-from azure.iot.device.connection_string import ConnectionString
-from azure.iot.device.sastoken import InternalSasTokenGenerator
-from azure.iot.device.signing_mechanism import SymmetricKeySigningMechanism
+# from azure.iot.device.connection_string import ConnectionString
+# from azure.iot.device.sastoken import InternalSasTokenGenerator
+# from azure.iot.device.signing_mechanism import SymmetricKeySigningMechanism
 import uuid
 import time
 import random
@@ -31,15 +31,13 @@ def connection_string_to_sas_token(conn_str):
     parse an IoTHub service connection string and return the host and a shared access
     signature that can be used to connect to the given hub
     """
-    conn_str_obj = ConnectionString(conn_str)
-    signing_mechanism = SymmetricKeySigningMechanism(conn_str_obj.get("SharedAccessKey"))
-    # signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
-    generator = InternalSasTokenGenerator(
-        signing_mechanism=signing_mechanism, uri=conn_str_obj.get("HostName"), ttl=3600
-    )
-    sas_token = generator.generate_sastoken()
-
-    # return {"host": conn_str_obj.get("HostName"), "sas": str(sas_token)}
+    # conn_str_obj = ConnectionString(conn_str)
+    # signing_mechanism = SymmetricKeySigningMechanism(conn_str_obj.get("SharedAccessKey"))
+    # # signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
+    # generator = InternalSasTokenGenerator(
+    #     signing_mechanism=signing_mechanism, uri=conn_str_obj.get("HostName"), ttl=3600
+    # )
+    # sas_token = generator.generate_sastoken()
 
     # conn_str_obj = ConnectionString(conn_str)
     # signing_mechanism = SymmetricKeySigningMechanism(conn_str_obj.get("SharedAccessKey"))
@@ -48,6 +46,12 @@ def connection_string_to_sas_token(conn_str):
     #     key_name=conn_str_obj.get("SharedAccessKeyName"),
     #     signing_mechanism=signing_mechanism,
     # )
+    conn_str_obj = ConnectionString(conn_str)
+    sas_token = SasToken(
+        uri=conn_str_obj.get("HostName"),
+        key=conn_str_obj.get("SharedAccessKey"),
+        key_name=conn_str_obj.get("SharedAccessKeyName"),
+    )
 
     return {"host": conn_str_obj.get("HostName"), "sas": str(sas_token)}
 
