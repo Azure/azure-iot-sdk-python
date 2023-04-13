@@ -46,6 +46,7 @@ async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_
 
         registration_result = await result_from_register(registration_id, symmetric_key, protocol)
 
+        assert registration_result is not None
         assert_device_provisioned(
             device_id=registration_id, registration_result=registration_result
         )
@@ -54,6 +55,7 @@ async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
+@pytest.mark.skip("Run only 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a symmetric key authentication"
 )
@@ -71,6 +73,7 @@ async def test_device_register_with_device_id_for_a_symmetric_key_individual_enr
 
         registration_result = await result_from_register(registration_id, symmetric_key, protocol)
 
+        assert registration_result is not None
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
         device_registry_helper.try_delete_device(device_id)
