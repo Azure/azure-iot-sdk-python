@@ -147,13 +147,12 @@ class ProvisioningSession:
         :raises: MQTTError if there is an error sending the request
         :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
-        return await self._mqtt_client.send_register(payload)
-        # if not self._mqtt_client.connected:
-        #     # See NOTE 1 at the bottom of iothub_session file for why this occurs
-        #     raise mqtt.MQTTError(rc=4)
-        # return await self._add_disconnect_interrupt_to_coroutine(
-        #     self._mqtt_client.send_register(payload)
-        # )
+        if not self._mqtt_client.connected:
+            # See NOTE 1 at the bottom of iothub_session file for why this occurs
+            raise mqtt.MQTTError(rc=4)
+        return await self._add_disconnect_interrupt_to_coroutine(
+            self._mqtt_client.send_register(payload)
+        )
 
     def _add_disconnect_interrupt_to_coroutine(self, coro: Awaitable[_T]) -> Awaitable[_T]:
         """Wrap a coroutine in another coroutine that will either return the result of the original
