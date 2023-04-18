@@ -22,7 +22,7 @@ import ssl
 from . import path_adjust  # noqa: F401
 
 # Refers to an item in "scripts" in the root. This is made to work via the above path_adjust
-from create_x509_chain_crypto import (
+from scripts.create_x509_chain_crypto import (
     before_cert_creation_from_pipeline,
     call_intermediate_cert_and_device_cert_creation_from_pipeline,
     delete_directories_certs_created_from_pipeline,
