@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 from typing import Optional
 
-from provisioning_e2e.iothubservice20180630.iot_hub_gateway_service_ap_is20180630 import (
+from .iothubservice20180630.iot_hub_gateway_service_ap_is20180630 import (
     IotHubGatewayServiceAPIs20180630,
 )
 
