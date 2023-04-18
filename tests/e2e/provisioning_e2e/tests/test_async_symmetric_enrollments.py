@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from provisioning_e2e.service_helper import ServiceRegistryHelper, connection_string_to_hostname
+from ..service_helper import ServiceRegistryHelper, connection_string_to_hostname
 from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
 from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
 import pytest
