@@ -68,6 +68,16 @@ This library primarily uses the **MQTT protocol**.
 | X.509 Enrollment Group      | :heavy_check_mark:       | Provisioning via [X.509 leaf certificate](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-security#leaf-certificate)).  Please review the [samples](azure-iot-device/samples/async-hub-scenarios/provision_x509.py) folder on how to create a device client.                                                                                                                  |
 | Symmetric Key Enrollment    | :heavy_check_mark:       | Provisioning via [Symmetric key attestation](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-symmetric-key-attestation)).  Please review the [samples](azure-iot-device/samples/async-hub-scenarios/provision_symmetric_key.py) folder on how to create a device client.                                                                                                               |
 
+## Support
+
+The current Azure IoT Device SDK supported releases is outlined in the following table.
+
+Refer to the [Azure IoT Device SDK lifecycle and support](https://learn.microsoft.com/en-us/azure/iot/iot-device-sdks-lifecycle-and-support) for details on the different supported stages.
+
+| Release | Category | End-of-life |
+|-|-|-|
+| 2.18.2 | Active | - |
+| 3.0.0b2 | Preview | 2023-7-15 |
 
 ## Contributing
 
