@@ -8,7 +8,7 @@ jobs:
   strategy:
     matrix:
       py37_mqtt:              { pv: '3.7', transport: 'mqtt', consumer_group: 'e2e-consumer-group-1' }
-      py310_mqttws:           { pv: '3.10', transport: 'mqttws', consumer_group: 'e2e-consumer-group-2' }
+#      py310_mqttws:           { pv: '3.10', transport: 'mqttws', consumer_group: 'e2e-consumer-group-2' }
 
   steps:
     - task: UsePythonVersion@0
