@@ -70,7 +70,7 @@ This library primarily uses the **MQTT protocol**.
 
 ## Support
 
-The current Azure IoT Device SDK supported releases is outlined in the following table.
+The Azure IoT Hub Device Client supported releases is outlined in the following table.
 
 Refer to the [Azure IoT Device SDK lifecycle and support](https://learn.microsoft.com/en-us/azure/iot/iot-device-sdks-lifecycle-and-support) for details on the different supported stages.
 
