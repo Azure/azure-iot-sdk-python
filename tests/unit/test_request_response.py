@@ -8,22 +8,28 @@ import pytest
 import uuid
 from azure.iot.device.request_response import Request, Response, RequestLedger
 
-
 fake_request_id = str(uuid.uuid4())
 fake_status = 200
 fake_body = "{'data' : 'value'}"
+fake_props = {
+    "fake_key_1": "fake_val_1",
+    "fake_key_2": "fake_val_2",
+}
 
 
 @pytest.mark.describe("Response")
 class TestResponse:
     @pytest.mark.it(
-        "Instantiates with the provided request_id, status, and body stored as attributes"
+        "Instantiates with the provided request_id, status, body and properties stored as attributes"
     )
     def test_attributes(self):
-        r = Response(request_id=fake_request_id, status=fake_status, body=fake_body)
+        r = Response(
+            request_id=fake_request_id, status=fake_status, body=fake_body, properties=fake_props
+        )
         assert r.request_id == fake_request_id
         assert r.status == fake_status
         assert r.body == fake_body
+        assert r.properties == fake_props
 
 
 @pytest.mark.describe("Request")
