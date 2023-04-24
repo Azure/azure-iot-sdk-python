@@ -6,7 +6,7 @@
 
 ![Build Status](https://azure-iot-sdks.visualstudio.com/azure-iot-sdks/_apis/build/status/Azure.azure-iot-sdk-python)
 
-The Azure IoT Device SDK for Python enables Python developers to easily create IoT device solutions that seamlessly connect to the Azure IoT Hub ecosystem.
+The lorem ipsum for Python enables Python developers to easily create IoT device solutions that seamlessly connect to the Azure IoT Hub ecosystem.
 
 * *If you're migrating v2.x.x code to use v3.x.x check the [IoT Hub Migration Guide](https://github.com/Azure/azure-iot-sdk-python/blob/main/migration_guide_iothub.md) and/or the [Provisioning Migration Guide](https://github.com/Azure/azure-iot-sdk-python/blob/main/migration_guide_provisioning.md)*
 
