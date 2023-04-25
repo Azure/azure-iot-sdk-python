@@ -13,6 +13,7 @@ from os.path import dirname as dir
 # no longer true, we can get rid of this file.
 root_path = dir(dir(sys.path[0]))
 script_path = os.path.join(root_path, "scripts")
+print("The path after scripts is")
 print(script_path)
 if script_path not in sys.path:
     sys.path.append(script_path)

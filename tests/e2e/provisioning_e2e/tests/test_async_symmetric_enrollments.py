@@ -4,14 +4,15 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
-from azure.iot.device.aio import ProvisioningDeviceClient
+from ..service_helper import ServiceRegistryHelper, connection_string_to_hostname
 from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
 from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
 import pytest
 import logging
 import os
 import uuid
+
+from azure.iot.device import ProvisioningSession
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -23,7 +24,7 @@ service_client = ProvisioningServiceClient.create_from_connection_string(
     os.getenv("PROVISIONING_SERVICE_CONNECTION_STRING")
 )
 service_client = ProvisioningServiceClient.create_from_connection_string(conn_str)
-device_registry_helper = Helper(os.getenv("IOTHUB_CONNECTION_STRING"))
+device_registry_helper = ServiceRegistryHelper(os.getenv("IOTHUB_CONNECTION_STRING"))
 linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRING"))
 
 
@@ -45,6 +46,7 @@ async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_
 
         registration_result = await result_from_register(registration_id, symmetric_key, protocol)
 
+        assert registration_result is not None
         assert_device_provisioned(
             device_id=registration_id, registration_result=registration_result
         )
@@ -70,6 +72,7 @@ async def test_device_register_with_device_id_for_a_symmetric_key_individual_enr
 
         registration_result = await result_from_register(registration_id, symmetric_key, protocol)
 
+        assert registration_result is not None
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
         device_registry_helper.try_delete_device(device_id)
@@ -103,9 +106,10 @@ def assert_device_provisioned(device_id, registration_result):
     :param device_id: The device id
     :param registration_result: The registration result
     """
-    assert registration_result.status == "assigned"
-    assert registration_result.registration_state.device_id == device_id
-    assert registration_result.registration_state.assigned_hub == linked_iot_hub
+    print(registration_result)
+    assert registration_result["status"] == "assigned"
+    assert registration_result["registrationState"]["deviceId"] == device_id
+    assert registration_result["registrationState"]["assignedHub"] == linked_iot_hub
 
     device = device_registry_helper.get_device(device_id)
     assert device is not None
@@ -113,19 +117,16 @@ def assert_device_provisioned(device_id, registration_result):
     assert device.device_id == device_id
 
 
-# TODO Eventually should return result after the APi changes
 async def result_from_register(registration_id, symmetric_key, protocol):
     # We have this mapping because the pytest logs look better with "mqtt" and "mqttws"
     # instead of just "True" and "False".
     protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
-    provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+    async with ProvisioningSession(
         provisioning_host=PROVISIONING_HOST,
         registration_id=registration_id,
         id_scope=ID_SCOPE,
-        symmetric_key=symmetric_key,
+        shared_access_key=symmetric_key,
         websockets=protocol_boolean_mapping[protocol],
-    )
-
-    result = await provisioning_device_client.register()
-    await provisioning_device_client.shutdown()
-    return result
+    ) as session:
+        result = await session.register()
+    return result if result is not None else None
