@@ -1936,7 +1936,7 @@ class TestIoTHubSessionMessages:
         "Does not attempt to disable C2D message receive upon exit if IoTHubMQTTClient is disconnected"
     )
     @pytest.mark.parametrize("graceful_exit", graceful_exit_params)
-    async def test_context_manager_exit_while_disconencted(
+    async def test_context_manager_exit_while_disconnected(
         self, session, arbitrary_exception, graceful_exit
     ):
         assert session._mqtt_client.enable_c2d_message_receive.await_count == 0
@@ -2127,7 +2127,7 @@ class TestIoTHubSessionDirectMethodRequests:
         "Does not attempt to disable direct method request receive upon exit if IoTHubMQTTClient is disconnected"
     )
     @pytest.mark.parametrize("graceful_exit", graceful_exit_params)
-    async def test_context_manager_exit_while_disconencted(
+    async def test_context_manager_exit_while_disconnected(
         self, session, arbitrary_exception, graceful_exit
     ):
         assert session._mqtt_client.enable_direct_method_request_receive.await_count == 0
@@ -2324,7 +2324,7 @@ class TestIoTHubSessionDesiredPropertyUpdates:
         "Does not attempt to disable twin patch receive upon exit if IoTHubMQTTClient is disconnected"
     )
     @pytest.mark.parametrize("graceful_exit", graceful_exit_params)
-    async def test_context_manager_exit_while_disconencted(
+    async def test_context_manager_exit_while_disconnected(
         self, session, arbitrary_exception, graceful_exit
     ):
         assert session._mqtt_client.enable_twin_patch_receive.await_count == 0
