@@ -35,6 +35,7 @@ You can view the [**samples repository**](https://github.com/Azure/azure-iot-sdk
 
 Full API documentation for this package is available via [**Microsoft Docs**](https://docs.microsoft.com/python/api/azure-iot-device/azure.iot.device?view=azure-python). Note that this documentation may currently be out of date as v3.x.x is still in preview at the time of this writing.
 
+You can use the [**Connection Diagnostic Tool**](https://github.com/Azure/azure-iot-connection-diagnostic-tool) to help ascertain the cause of any connection issues you run into when using the SDK.
 
 ## Features
 
