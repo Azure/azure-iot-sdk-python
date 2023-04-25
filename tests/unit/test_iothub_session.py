@@ -160,6 +160,12 @@ sk_sm_create_exceptions = [
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
 ]
 
+# Does the session exit gracefully or because of error?
+graceful_exit_params = [
+    pytest.param(True, id="graceful exit"),
+    pytest.param(False, id="exit because of exception"),
+]
+
 
 @pytest.mark.describe("IoTHubSession -- Instantiation")
 class TestIoTHubSessionInstantiation:
@@ -1927,6 +1933,29 @@ class TestIoTHubSessionMessages:
         assert session._mqtt_client.disable_c2d_message_receive.await_count == 1
 
     @pytest.mark.it(
+        "Does not attempt to disable C2D message receive upon exit if IoTHubMQTTClient is disconnected"
+    )
+    @pytest.mark.parametrize("graceful_exit", graceful_exit_params)
+    async def test_context_manager_exit_while_disconnected(
+        self, session, arbitrary_exception, graceful_exit
+    ):
+        assert session._mqtt_client.enable_c2d_message_receive.await_count == 0
+        assert session._mqtt_client.disable_c2d_message_receive.await_count == 0
+
+        try:
+            async with session.messages():
+                assert session._mqtt_client.enable_c2d_message_receive.await_count == 1
+                assert session._mqtt_client.disable_c2d_message_receive.await_count == 0
+                session._mqtt_client.connected = False
+                if not graceful_exit:
+                    raise arbitrary_exception
+        except type(arbitrary_exception):
+            pass
+
+        assert session._mqtt_client.enable_c2d_message_receive.await_count == 1
+        assert session._mqtt_client.disable_c2d_message_receive.await_count == 0
+
+    @pytest.mark.it(
         "Yields an AsyncGenerator that yields the C2D messages yielded by the IoTHubMQTTClient's incoming C2D message generator"
     )
     async def test_generator_yield(self, mocker, session):
@@ -2093,6 +2122,29 @@ class TestIoTHubSessionDirectMethodRequests:
 
         assert session._mqtt_client.enable_direct_method_request_receive.await_count == 1
         assert session._mqtt_client.disable_direct_method_request_receive.await_count == 1
+
+    @pytest.mark.it(
+        "Does not attempt to disable direct method request receive upon exit if IoTHubMQTTClient is disconnected"
+    )
+    @pytest.mark.parametrize("graceful_exit", graceful_exit_params)
+    async def test_context_manager_exit_while_disconnected(
+        self, session, arbitrary_exception, graceful_exit
+    ):
+        assert session._mqtt_client.enable_direct_method_request_receive.await_count == 0
+        assert session._mqtt_client.disable_direct_method_request_receive.await_count == 0
+
+        try:
+            async with session.direct_method_requests():
+                assert session._mqtt_client.enable_direct_method_request_receive.await_count == 1
+                assert session._mqtt_client.disable_direct_method_request_receive.await_count == 0
+                session._mqtt_client.connected = False
+                if not graceful_exit:
+                    raise arbitrary_exception
+        except type(arbitrary_exception):
+            pass
+
+        assert session._mqtt_client.enable_direct_method_request_receive.await_count == 1
+        assert session._mqtt_client.disable_direct_method_request_receive.await_count == 0
 
     @pytest.mark.it(
         "Yields an AsyncGenerator that yields the direct method requests yielded by the IoTHubMQTTClient's incoming direct method request message generator"
@@ -2267,6 +2319,29 @@ class TestIoTHubSessionDesiredPropertyUpdates:
 
         assert session._mqtt_client.enable_twin_patch_receive.await_count == 1
         assert session._mqtt_client.disable_twin_patch_receive.await_count == 1
+
+    @pytest.mark.it(
+        "Does not attempt to disable twin patch receive upon exit if IoTHubMQTTClient is disconnected"
+    )
+    @pytest.mark.parametrize("graceful_exit", graceful_exit_params)
+    async def test_context_manager_exit_while_disconnected(
+        self, session, arbitrary_exception, graceful_exit
+    ):
+        assert session._mqtt_client.enable_twin_patch_receive.await_count == 0
+        assert session._mqtt_client.disable_twin_patch_receive.await_count == 0
+
+        try:
+            async with session.desired_property_updates():
+                assert session._mqtt_client.enable_twin_patch_receive.await_count == 1
+                assert session._mqtt_client.disable_twin_patch_receive.await_count == 0
+                session._mqtt_client.connected = False
+                if not graceful_exit:
+                    raise arbitrary_exception
+        except type(arbitrary_exception):
+            pass
+
+        assert session._mqtt_client.enable_twin_patch_receive.await_count == 1
+        assert session._mqtt_client.disable_twin_patch_receive.await_count == 0
 
     @pytest.mark.it(
         "Yields an AsyncGenerator that yields the desired property patches yielded by the IoTHubMQTTClient's incoming twin patch generator"
