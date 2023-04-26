@@ -286,7 +286,8 @@ class IoTHubSession:
             )
         finally:
             try:
-                await self._mqtt_client.disable_c2d_message_receive()
+                if self._mqtt_client.connected:
+                    await self._mqtt_client.disable_c2d_message_receive()
             except mqtt.MQTTError:
                 # i.e. not connected
                 # This error would be expected if a disconnection has ocurred
@@ -304,7 +305,8 @@ class IoTHubSession:
             )
         finally:
             try:
-                await self._mqtt_client.disable_direct_method_request_receive()
+                if self._mqtt_client.connected:
+                    await self._mqtt_client.disable_direct_method_request_receive()
             except mqtt.MQTTError:
                 # i.e. not connected
                 # This error would be expected if a disconnection has ocurred
@@ -322,7 +324,8 @@ class IoTHubSession:
             )
         finally:
             try:
-                await self._mqtt_client.disable_twin_patch_receive()
+                if self._mqtt_client.connected:
+                    await self._mqtt_client.disable_twin_patch_receive()
             except mqtt.MQTTError:
                 # i.e. not connected
                 # This error would be expected if a disconnection has ocurred
