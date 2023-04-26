@@ -27,7 +27,7 @@ Please follow the instructions and template below to save us time requesting add
    -  A detailed description.
    -  A [Minimal Complete Reproducible Example](https://stackoverflow.com/help/mcve). This is code we can cut and paste into a readily available sample and run, or a link to a project you've written that we can compile to reproduce the bug. 
    -  Console logs.
-   -  If this is a connection related issue, including logs from the [Connection Diagnostic Tool](https://github.com/Azure/azure-iot-connection-diagnostic-tool)
+   -  If this is a connection related issue, include logs from the [Connection Diagnostic Tool](https://github.com/Azure/azure-iot-connection-diagnostic-tool)
 
 5. Delete these instructions before submitting the bug.
 
