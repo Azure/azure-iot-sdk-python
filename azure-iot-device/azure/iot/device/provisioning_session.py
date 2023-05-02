@@ -12,7 +12,6 @@ from . import signing_mechanism as sm
 from . import sastoken as st
 from . import config, custom_typing, constant
 from . import provisioning_mqtt_client as mqtt
-from .custom_typing import RegistrationPayload
 
 _T = TypeVar("_T")
 
@@ -154,9 +153,12 @@ class ProvisioningSession:
                 await self._sastoken_provider.stop()
 
     async def register(
-        self, payload: Optional[RegistrationPayload] = None
+        self, payload: custom_typing.JSONSerializable = None
     ) -> custom_typing.RegistrationResult:
         """Register the device
+
+        :param payload: The JSON serializable data that constitutes the registration payload
+        :type payload: dict, list, str, int, float, bool, None
 
         :returns: RegistrationResult
         :rtype: RegistrationResult

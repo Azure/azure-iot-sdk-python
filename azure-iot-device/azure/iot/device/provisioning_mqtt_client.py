@@ -13,8 +13,8 @@ from typing import Optional, TypeVar
 from .custom_typing import (
     RegistrationResult,
     RegistrationState,
-    RegistrationPayload,
     DeviceRegistrationRequest,
+    JSONSerializable,
 )
 from .provisioning_exceptions import ProvisioningServiceError
 from .mqtt_client import (  # noqa: F401 (Importing directly to re-export)
@@ -212,9 +212,7 @@ class ProvisioningMQTTClient:
             await self._mqtt_client.disconnected_cond.wait_for(lambda: not self.connected)
             return self._mqtt_client.previous_disconnection_cause()
 
-    async def send_register(
-        self, payload: Optional[RegistrationPayload] = None
-    ) -> RegistrationResult:
+    async def send_register(self, payload: JSONSerializable = None) -> RegistrationResult:
         if not self._register_responses_enabled:
             await self._enable_dps_responses()
         register_request_id = str(uuid.uuid4())
