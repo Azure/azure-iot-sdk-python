@@ -4,7 +4,6 @@ from azure.iot.device import ProvisioningSession, MQTTError, MQTTConnectionFaile
 import os
 
 
-provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
 symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
@@ -23,7 +22,6 @@ class Fruit(object):
 async def main():
     try:
         async with ProvisioningSession(
-            provisioning_host=provisioning_host,
             registration_id=registration_id,
             id_scope=id_scope,
             shared_access_key=symmetric_key,

@@ -4,7 +4,6 @@ from azure.iot.device import ProvisioningSession, MQTTError, MQTTConnectionFaile
 import os
 import ssl
 
-provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 
 logging.basicConfig(level=logging.DEBUG)
@@ -24,7 +23,6 @@ async def run_dps(registration_id, certfile, keyfile, password):
     try:
         ssl_context = create_default_context(certfile, keyfile, password)
         async with ProvisioningSession(
-            provisioning_host=provisioning_host,
             registration_id=registration_id,
             id_scope=id_scope,
             ssl_context=ssl_context,

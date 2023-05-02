@@ -5,7 +5,6 @@ import os
 import ssl
 
 
-provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
 
@@ -27,7 +26,6 @@ async def main():
         )
 
         async with ProvisioningSession(
-            provisioning_host=provisioning_host,
             registration_id=registration_id,
             id_scope=id_scope,
             ssl_context=ssl_context,

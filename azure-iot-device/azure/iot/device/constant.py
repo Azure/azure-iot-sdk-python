@@ -12,6 +12,7 @@ PROVISIONING_IDENTIFIER = "azure-iot-device-provisioning-py"
 IOTHUB_API_VERSION = "2020-09-30"
 PROVISIONING_API_VERSION = "2019-03-31"
 SECURITY_MESSAGE_INTERFACE_ID = "urn:azureiot:Security:SecurityAgent:1"
+PROVISIONING_GLOBAL_ENDPOINT = "global.azure-devices-provisioning.net"
 
 # TODO: find somewhere else for this
 TELEMETRY_MESSAGE_SIZE_LIMIT = 262144

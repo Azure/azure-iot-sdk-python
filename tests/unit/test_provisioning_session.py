@@ -71,7 +71,7 @@ def optional_ssl_context(request, custom_ssl_context):
 async def session(custom_ssl_context):
     """Use a symmetric key configuration and custom SSL auth for simplicity"""
     async with ProvisioningSession(
-        provisioning_host=FAKE_HOSTNAME,
+        provisioning_endpoint=FAKE_HOSTNAME,
         registration_id=FAKE_REGISTRATION_ID,
         id_scope=FAKE_ID_SCOPE,
         shared_access_key=FAKE_SHARED_ACCESS_KEY,
@@ -83,7 +83,7 @@ async def session(custom_ssl_context):
 @pytest.fixture
 def disconnected_session(custom_ssl_context):
     return ProvisioningSession(
-        provisioning_host=FAKE_HOSTNAME,
+        provisioning_endpoint=FAKE_HOSTNAME,
         registration_id=FAKE_REGISTRATION_ID,
         id_scope=FAKE_ID_SCOPE,
         ssl_context=custom_ssl_context,
@@ -170,7 +170,7 @@ class TestProvisioningSessionInstantiation:
         expected_uri = get_expected_uri()
 
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -203,7 +203,7 @@ class TestProvisioningSessionInstantiation:
         spy_st_provider_cls = mocker.spy(st, "SasTokenProvider")
 
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -227,7 +227,7 @@ class TestProvisioningSessionInstantiation:
         spy_st_provider_cls = mocker.spy(st, "SasTokenProvider")
 
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             ssl_context=custom_ssl_context,
@@ -248,7 +248,7 @@ class TestProvisioningSessionInstantiation:
         assert spy_mqtt_cls.call_count == 0
 
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -269,7 +269,7 @@ class TestProvisioningSessionInstantiation:
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -288,7 +288,7 @@ class TestProvisioningSessionInstantiation:
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -310,7 +310,7 @@ class TestProvisioningSessionInstantiation:
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -348,7 +348,7 @@ class TestProvisioningSessionInstantiation:
         mocker.spy(my_ssl_context, "load_default_certs")
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -373,7 +373,7 @@ class TestProvisioningSessionInstantiation:
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -392,7 +392,7 @@ class TestProvisioningSessionInstantiation:
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -421,7 +421,7 @@ class TestProvisioningSessionInstantiation:
         kwargs = {kwarg_name: kwarg_value}
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -437,7 +437,7 @@ class TestProvisioningSessionInstantiation:
     @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
     async def test_wait_for_disconnect_task(self, shared_access_key, sastoken_fn, ssl_context):
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -454,7 +454,7 @@ class TestProvisioningSessionInstantiation:
             ProvisioningSession(
                 registration_id=FAKE_REGISTRATION_ID,
                 id_scope=FAKE_ID_SCOPE,
-                provisioning_host=FAKE_HOSTNAME,
+                provisioning_endpoint=FAKE_HOSTNAME,
             )
 
     @pytest.mark.it(
@@ -465,7 +465,7 @@ class TestProvisioningSessionInstantiation:
             ProvisioningSession(
                 registration_id=FAKE_REGISTRATION_ID,
                 id_scope=FAKE_ID_SCOPE,
-                provisioning_host=FAKE_HOSTNAME,
+                provisioning_endpoint=FAKE_HOSTNAME,
                 shared_access_key=FAKE_SHARED_ACCESS_KEY,
                 sastoken_fn=sastoken_generator_fn,
                 ssl_context=optional_ssl_context,
@@ -478,7 +478,7 @@ class TestProvisioningSessionInstantiation:
             ProvisioningSession(
                 registration_id=FAKE_REGISTRATION_ID,
                 id_scope=FAKE_ID_SCOPE,
-                provisioning_host=FAKE_HOSTNAME,
+                provisioning_endpoint=FAKE_HOSTNAME,
                 shared_access_key=shared_access_key,
                 sastoken_fn=sastoken_fn,
                 ssl_context=ssl_context,
@@ -500,7 +500,7 @@ class TestProvisioningSessionInstantiation:
             ProvisioningSession(
                 registration_id=FAKE_REGISTRATION_ID,
                 id_scope=FAKE_ID_SCOPE,
-                provisioning_host=FAKE_HOSTNAME,
+                provisioning_endpoint=FAKE_HOSTNAME,
                 shared_access_key=shared_access_key,
                 sastoken_fn=sastoken_fn,
                 ssl_context=ssl_context,

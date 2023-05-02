@@ -10,7 +10,7 @@ from types import TracebackType
 
 from . import signing_mechanism as sm
 from . import sastoken as st
-from . import config, custom_typing
+from . import config, custom_typing, constant
 from . import provisioning_mqtt_client as mqtt
 from .custom_typing import RegistrationPayload
 
@@ -21,26 +21,40 @@ class ProvisioningSession:
     def __init__(
         self,
         *,
-        provisioning_host: str,
+        provisioning_endpoint: str = constant.PROVISIONING_GLOBAL_ENDPOINT,
         id_scope: str,
         registration_id: str,
         ssl_context: Optional[ssl.SSLContext] = None,
         shared_access_key: Optional[str] = None,
         sastoken_fn: Optional[custom_typing.FunctionOrCoroutine] = None,
+        sastoken_ttl: int = 3600,
         **kwargs,
     ) -> None:
         """
+        :param str provisioning_endpoint: The provisioning endpoint you wish to provision with.
+            If not provided, defaults to 'global.azure-devices-provisioning.net'
+        :param str id_scope: The ID scope used to uniquely identify the specific provisioning
+            service instance to register devices with.
         :param str registration_id: The device registration identity being provisioned.
-        :param str hostname: The hostname of the Provisioning hub instance to connect to.
-        :param ssl_context: Custom SSL context to be used by the client
+        :param ssl_context: Custom SSL context to be used when establishing a connection.
             If not provided, a default one will be used
         :type ssl_context: :class:`ssl.SSLContext`
         :param str shared_access_key: A key that can be used to generate SAS Tokens
         :param sastoken_fn: A function or coroutine function that takes no arguments and returns
             a SAS token string when invoked
+        :param sastoken_ttl: Time-to-live (in seconds) for SAS tokens generated when using
+            'shared_access_key' authentication.
+            If using this auth type, a new Session will need to be created once this time expires.
+            Default is 3600 seconds (1 hour).
 
-        :raises: ValueError if none of 'ssl_context', 'symmetric_key' or 'sastoken_fn' are provided
-        :raises: ValueError if both 'symmetric_key' and 'sastoken_fn' are provided
+        :keyword int keep_alive: Maximum period in seconds between MQTT communications. If no
+            communications are exchanged for this period, a ping exchange will occur.
+            Default is 60 seconds
+        :keyword proxy_options: Configuration structure for sending traffic through a proxy server
+        :type: proxy_options: :class:`ProxyOptions`
+        :keyword bool websockets: Set to 'True' to use WebSockets over MQTT. Default is 'False'
+
+        :raises: ValueError if an invalid combination of parameters are provided
         :raises: ValueError if an invalid 'symmetric_key' is provided
         :raises: TypeError if an invalid keyword argument is provided
         """
@@ -64,10 +78,8 @@ class ProvisioningSession:
         if shared_access_key:
             uri = _format_sas_uri(id_scope=id_scope, registration_id=registration_id)
             signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
-            # TODO This existed before
-            token_ttl = kwargs.get("sastoken_ttl", 3600)
             generator = st.InternalSasTokenGenerator(
-                signing_mechanism=signing_mechanism, uri=uri, ttl=token_ttl
+                signing_mechanism=signing_mechanism, uri=uri, ttl=sastoken_ttl
             )
             self._sastoken_provider = st.SasTokenProvider(generator)
         elif sastoken_fn:
@@ -82,7 +94,7 @@ class ProvisioningSession:
 
         # Instantiate the MQTTClient
         client_config = config.ProvisioningClientConfig(
-            hostname=provisioning_host,
+            hostname=provisioning_endpoint,
             registration_id=registration_id,
             id_scope=id_scope,
             sastoken_provider=self._sastoken_provider,
@@ -91,6 +103,12 @@ class ProvisioningSession:
             **kwargs,
         )
         self._mqtt_client = mqtt.ProvisioningMQTTClient(client_config)
+
+        # This task is used to propagate dropped connections through receiver generators
+        # It will be set upon context manager entry and cleared upon exit
+        # NOTE: If we wanted to design lower levels of the stack to be specific to our
+        # Session design pattern, this could happen lower (and it would be simpler), but it's
+        # up here so we can be more implementation-generic down the stack.
         self._wait_for_disconnect_task: Optional[asyncio.Task[Optional[mqtt.MQTTError]]] = None
 
     async def __aenter__(self) -> "ProvisioningSession":
@@ -184,13 +202,9 @@ def _validate_kwargs(exclude=[], **kwargs) -> None:
     Raises TypeError if an invalid option has been provided"""
     valid_kwargs = [
         # "auto_reconnect",
-        # "server_verification_cert",
-        # "gateway_hostname",
-        "websockets",
-        # "cipher",
-        "proxy_options",
-        "sastoken_ttl",
         "keep_alive",
+        "proxy_options",
+        "websockets",
     ]
 
     for kwarg in kwargs:
