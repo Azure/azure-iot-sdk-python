@@ -106,7 +106,6 @@ async def main():
 from azure.iot.device import IoTHubSession
 
 async def main():
-    async def main():
     async with IoTHubSession.from_connection_string("<Your Connection String>") as session:
         async with session.messages() as messages:
             async for message in messages:
@@ -236,7 +235,7 @@ client = IoTHubDeviceClient.create_from_x509_certificate(
 from azure.iot.device import IoTHubSession
 import ssl
 
-ssl_context = ssl.SSLContext.create_default_context()
+ssl_context = ssl.create_default_context()
 ssl_context.load_cert_chain(
     certfile="<Your X509 Cert File Path>",
     keyfile="<Your X509 Key File>",
@@ -257,7 +256,7 @@ Note that SSLContexts can be used with the  `.from_connection_string()` factory 
 from azure.iot.device import IoTHubSession
 import ssl
 
-ssl_context = ssl.SSLContext.create_default_context()
+ssl_context = ssl.create_default_context()
 ssl_context.load_cert_chain(
     certfile="<Your X509 Cert File Path>",
     keyfile="<Your X509 Key File>",
@@ -294,7 +293,7 @@ client = IoTHubDeviceClient.create_from_connection_string(
 from azure.iot.device import IoTHubSession
 import ssl
 
-ssl_context = ssl.SSLContext.create_default_context(
+ssl_context = ssl.create_default_context(
     cafile="<Your CA Certificate File Path>",
 )
 
@@ -320,7 +319,7 @@ client = IoTHubDeviceClient.create_from_connection_string(
 from azure.iot.device import IoTHubSession
 import ssl
 
-ssl_context = ssl.SSLContext.create_default_context()
+ssl_context = ssl.create_default_context()
 ssl_context.set_ciphers("<Your Cipher>")
 
 client = IoTHubSession.from_connection_string(

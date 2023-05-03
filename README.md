@@ -31,7 +31,7 @@ Python 3.7 or higher is required in order to use the library
 
 
 ## Using the library
-You can view the [**samples repository**](https://github.com/Azure/azure-iot-sdk-python/tree/main/samples) to see examples of SDK usage.
+You can view the [**samples directory**](https://github.com/Azure/azure-iot-sdk-python/tree/main/samples) to see examples of SDK usage.
 
 Full API documentation for this package is available via [**Microsoft Docs**](https://docs.microsoft.com/python/api/azure-iot-device/azure.iot.device?view=azure-python). Note that this documentation may currently be out of date as v3.x.x is still in preview at the time of this writing.
 

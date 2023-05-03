@@ -78,7 +78,7 @@ from azure.iot.device import ProvisioningSession
 import ssl
 
 async def main():
-    ssl_context = ssl.SSLContext.create_default_context()
+    ssl_context = ssl.create_default_context()
     ssl_context.load_cert_chain(
         certfile="<Your X509 Cert File Path>",
         keyfile="<Your X509 Key File>",
@@ -121,7 +121,7 @@ provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
 from azure.iot.device import ProvisioningSession
 import ssl
 
-ssl_context = ssl.SSLContext.create_default_context(
+ssl_context = ssl.create_default_context(
     cafile="<Your CA Certificate File Path>",
 )
 
@@ -152,7 +152,7 @@ provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
 from azure.iot.device import ProvisioningSession
 import ssl
 
-ssl_context = ssl.SSLContext.create_default_context()
+ssl_context = ssl.create_default_context()
 ssl_context.set_ciphers("<Your Cipher>")
 
 session = ProvisioningSession(
