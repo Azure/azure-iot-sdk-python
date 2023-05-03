@@ -1,11 +1,9 @@
 [
     {
-        "version" : "2.12.0",
-        "category" : "active"
+        "version" : "2.12.0"
     },
     {
         "version" : "3.0.0b2",
-        "category" : "preview",
         "eol" : "2023-07-15"
     }
 ]
