@@ -3,7 +3,12 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-"""This sample demonstrates a simple recurring telemetry using an IoTHubSession"""
+"""
+This sample demonstrates a simple recurring telemetry using an IoTHubSession
+
+It's set to be used in the following MS Learn Tutorial:
+https://learn.microsoft.com/en-us/azure/iot-develop/quickstart-send-telemetry-iot-hub?pivots=programming-language-python
+"""
 
 import asyncio
 import os
