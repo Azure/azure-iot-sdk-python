@@ -5,9 +5,9 @@
 # --------------------------------------------------------------------------
 
 
-from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
-from azure.iot.device.aio import ProvisioningDeviceClient
-from azure.iot.device.common import X509
+from ..service_helper import ServiceRegistryHelper, connection_string_to_hostname
+from azure.iot.device import ProvisioningSession
+
 from provisioningserviceclient import (
     ProvisioningServiceClient,
     IndividualEnrollment,
@@ -18,11 +18,11 @@ import pytest
 import logging
 import os
 import uuid
-
+import ssl
 from . import path_adjust  # noqa: F401
 
 # Refers to an item in "scripts" in the root. This is made to work via the above path_adjust
-from create_x509_chain_crypto import (
+from scripts.create_x509_chain_crypto import (
     before_cert_creation_from_pipeline,
     call_intermediate_cert_and_device_cert_creation_from_pipeline,
     delete_directories_certs_created_from_pipeline,
@@ -40,7 +40,7 @@ device_password = "mortis"
 service_client = ProvisioningServiceClient.create_from_connection_string(
     os.getenv("PROVISIONING_SERVICE_CONNECTION_STRING")
 )
-device_registry_helper = Helper(os.getenv("IOTHUB_CONNECTION_STRING"))
+device_registry_helper = ServiceRegistryHelper(os.getenv("IOTHUB_CONNECTION_STRING"))
 linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRING"))
 
 PROVISIONING_HOST = os.getenv("PROVISIONING_DEVICE_ENDPOINT")
@@ -95,6 +95,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment(p
             registration_id, device_cert_file, device_key_file, protocol
         )
 
+        assert registration_result is not None
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
         device_registry_helper.try_delete_device(device_id)
@@ -121,6 +122,7 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
             registration_id, device_cert_file, device_key_file, protocol
         )
 
+        assert registration_result is not None
         assert_device_provisioned(
             device_id=registration_id, registration_result=registration_result
         )
@@ -179,6 +181,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
                 protocol=protocol,
             )
 
+            assert registration_result is not None
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
             device_registry_helper.try_delete_device(device_id)
 
@@ -242,7 +245,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
                 device_key_file=device_key_input_file,
                 protocol=protocol,
             )
-
+            assert registration_result is not None
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
             device_registry_helper.try_delete_device(device_id)
 
@@ -258,9 +261,9 @@ def assert_device_provisioned(device_id, registration_result):
     :param device_id: The device id
     :param registration_result: The registration result
     """
-    assert registration_result.status == "assigned"
-    assert registration_result.registration_state.device_id == device_id
-    assert registration_result.registration_state.assigned_hub == linked_iot_hub
+    assert registration_result["status"] == "assigned"
+    assert registration_result["registrationState"]["deviceId"] == device_id
+    assert registration_result["registrationState"]["assignedHub"] == linked_iot_hub
 
     device = device_registry_helper.get_device(device_id)
     assert device is not None
@@ -289,16 +292,31 @@ def create_individual_enrollment_with_x509_client_certs(device_index, device_id=
 
 
 async def result_from_register(registration_id, device_cert_file, device_key_file, protocol):
-    x509 = X509(cert_file=device_cert_file, key_file=device_key_file, pass_phrase=device_password)
+    # We have this mapping because the pytest logs look better with "mqtt" and "mqttws"
+    # instead of just "True" and "False".
     protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
-    provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certificate(
+    ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+    ssl_context.verify_mode = ssl.CERT_REQUIRED
+    ssl_context.check_hostname = True
+    ssl_context.load_default_certs()
+    ssl_context.load_cert_chain(
+        certfile=device_cert_file,
+        keyfile=device_key_file,
+        password=device_password,
+    )
+
+    async with ProvisioningSession(
         provisioning_host=PROVISIONING_HOST,
         registration_id=registration_id,
         id_scope=ID_SCOPE,
-        x509=x509,
+        ssl_context=ssl_context,
         websockets=protocol_boolean_mapping[protocol],
-    )
-
-    result = await provisioning_device_client.register()
-    await provisioning_device_client.shutdown()
-    return result
+    ) as session:
+        print("Connected")
+        properties = {"Type": "Apple", "Sweet": True, "count": 5}
+        result = await session.register(payload=properties)
+        print("Finished provisioning")
+        print(result)
+        result = await session.register()
+    return result if result is not None else None

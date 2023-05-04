@@ -36,6 +36,8 @@ class TestMethods(object):
         service_helper,
         leak_tracker,
     ):
+        done_sending_response = asyncio.Event()
+
         leak_tracker.set_initial_object_list()
         registered = asyncio.Event()
 
@@ -53,7 +55,7 @@ class TestMethods(object):
 
         async def method_listener(sess):
             try:
-                nonlocal actual_request
+                nonlocal actual_request, done_sending_response
                 async with sess.direct_method_requests() as requests:
                     registered.set()
                     async for request in requests:
@@ -65,6 +67,8 @@ class TestMethods(object):
                                 request, method_response_status, response_payload
                             )
                         )
+                        done_sending_response.set()
+
             except asyncio.CancelledError:
                 # this happens during shutdown. no need to log this.
                 raise
@@ -83,6 +87,13 @@ class TestMethods(object):
             logger.info("Invoking method")
             method_response = await service_helper.invoke_method(method_name, request_payload)
             logger.info("Done Invoking method")
+            # This is counterintuitive, Even though we've received the method response,
+            # we don't know if the client is done sending the response. This is because
+            # iothub returns the method repsonse immediately. It's possible that the
+            # PUBACK hasn't been received by the device client yet. We need to wait until
+            # the client receives the PUBACK before we exit.
+            await done_sending_response.wait()
+            logger.info("signal from listener received.  Exiting session.")
 
         assert session.connected is False
         with pytest.raises(asyncio.CancelledError):

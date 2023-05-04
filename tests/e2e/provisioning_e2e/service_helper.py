@@ -3,15 +3,17 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+from typing import Optional
 
-from provisioning_e2e.iothubservice20180630.iot_hub_gateway_service_ap_is20180630 import (
+from .iothubservice20180630.iot_hub_gateway_service_ap_is20180630 import (
     IotHubGatewayServiceAPIs20180630,
 )
 
 from msrest.exceptions import HttpOperationError
-from azure.iot.device.common.auth.connection_string import ConnectionString
-from azure.iot.device.common.auth.sastoken import RenewableSasToken
-from azure.iot.device.common.auth.signing_mechanism import SymmetricKeySigningMechanism
+
+from .connection_string import ConnectionString
+from .sastoken import SasToken
+
 import uuid
 import time
 import random
@@ -27,10 +29,9 @@ def connection_string_to_sas_token(conn_str):
     signature that can be used to connect to the given hub
     """
     conn_str_obj = ConnectionString(conn_str)
-    signing_mechanism = SymmetricKeySigningMechanism(conn_str_obj.get("SharedAccessKey"))
-    sas_token = RenewableSasToken(
+    sas_token = SasToken(
         uri=conn_str_obj.get("HostName"),
-        signing_mechanism=signing_mechanism,
+        key=conn_str_obj.get("SharedAccessKey"),
         key_name=conn_str_obj.get("SharedAccessKeyName"),
     )
 
@@ -44,6 +45,16 @@ def connection_string_to_hostname(conn_str):
     """
     conn_str_obj = ConnectionString(conn_str)
     return conn_str_obj.get("HostName")
+
+
+def _format_sas_uri(hostname: str, device_id: str, module_id: Optional[str]) -> str:
+    """Format the SAS URI for using IoT Hub"""
+    if module_id:
+        return "{hostname}/devices/{device_id}/modules/{module_id}".format(
+            hostname=hostname, device_id=device_id, module_id=module_id
+        )
+    else:
+        return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
 
 
 def run_with_retry(fun, args, kwargs):
@@ -70,7 +81,7 @@ def run_with_retry(fun, args, kwargs):
                 raise e
 
 
-class Helper:
+class ServiceRegistryHelper:
     def __init__(self, service_connection_string):
         self.cn = connection_string_to_sas_token(service_connection_string)
         self.service = IotHubGatewayServiceAPIs20180630("https://" + self.cn["host"]).service
