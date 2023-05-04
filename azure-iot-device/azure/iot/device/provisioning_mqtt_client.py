@@ -16,7 +16,7 @@ from .custom_typing import (
     RegistrationPayload,
     DeviceRegistrationRequest,
 )
-from .provisioning_exceptions import ProvisioningServiceError
+from .iot_exceptions import ProvisioningServiceError
 from .mqtt_client import (  # noqa: F401 (Importing directly to re-export)
     MQTTError,
     MQTTConnectionFailedError,

@@ -22,7 +22,14 @@ class IoTEdgeEnvironmentError(Exception):
     """Represents a failure retrieving data from the IoT Edge environment"""
 
 
+# TODO: Should this be here? Only if HTTP stack still exists. If not, move to specific file
 class IoTHubClientError(Exception):
     """Represents a failure from the IoTHub Client"""
+
+    pass
+
+
+class ProvisioningServiceError(Exception):
+    """Represents a failure reported by Provisioning Service"""
 
     pass
