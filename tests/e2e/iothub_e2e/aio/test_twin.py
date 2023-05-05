@@ -7,7 +7,7 @@ import logging
 import const
 import sys
 from dev_utils import get_random_dict
-from azure.iot.device import MQTTError
+from azure.iot.device import MQTTError, SessionError
 import paho.mqtt.client as paho
 
 
@@ -56,7 +56,7 @@ class TestGetTwin(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises MQTTError if there is no connection (Twin not yet enabled)")
+    @pytest.mark.it("Raises SessionError if there is no connection (Twin not yet enabled)")
     @pytest.mark.quicktest_suite
     async def test_no_connection_twin_not_enabled(self, leak_tracker, session):
         leak_tracker.set_initial_object_list()
@@ -64,17 +64,14 @@ class TestGetTwin(object):
         assert not session.connected
         assert session._mqtt_client._twin_responses_enabled is False
 
-        with pytest.raises(MQTTError) as e_info:
+        with pytest.raises(SessionError):
             await session.get_twin()
         assert session.connected is False
 
-        assert e_info.value.rc == paho.MQTT_ERR_NO_CONN
-        del e_info
-
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.skip("get_twin() hangs if disconncted")
-    @pytest.mark.it("Raises MQTTError if there is no connection (Twin enabled)")
+    @pytest.mark.skip("get_twin() hangs if disconnected")
+    @pytest.mark.it("Raises SessionError if there is no connection (Twin enabled)")
     @pytest.mark.quicktest_suite
     async def test_no_connection_twin_enabled(self, leak_tracker, session):
         leak_tracker.set_initial_object_list()
@@ -85,13 +82,10 @@ class TestGetTwin(object):
         assert session.connected is False
         assert session._mqtt_client._twin_responses_enabled is True
 
-        with pytest.raises(MQTTError) as e_info:
+        with pytest.raises(SessionError):
             # This never returns
             await session.get_twin()
         assert not session.connected
-
-        assert e_info.value.rc == paho.MQTT_ERR_NO_CONN
-        del e_info
 
         leak_tracker.check_for_leaks()
 
@@ -257,7 +251,7 @@ class TestReportedProperties(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises NoConnectionError if there is no connection")
+    @pytest.mark.it("Raises SessionError if there is no connection")
     @pytest.mark.parametrize(*twin_enabled_and_disabled)
     @pytest.mark.quicktest_suite
     @pytest.mark.skip("test hangs at line 'test hangs here' if Twin is already enabled")
@@ -275,11 +269,9 @@ class TestReportedProperties(object):
                 assert session._mqtt_client._twin_responses_enabled is True
         assert session.connected is False
 
-        with pytest.raises(MQTTError) as e_info:
+        with pytest.raises(SessionError):
             # test hangs here
             await session.update_reported_properties(random_reported_props)
-        assert e_info.value.rc == paho.MQTT_ERR_NO_CONN
-        del e_info
         assert session.connected is False
 
         leak_tracker.check_for_leaks()
@@ -422,7 +414,7 @@ class TestDesiredProperties(object):
                     {const.TEST_CONTENT: random_dict},
                 )
 
-            received_patch = await anext(patches)
+            received_patch = await anext(patches)  # noqa: F821
             assert received_patch[const.TEST_CONTENT] == random_dict
 
             twin = await session.get_twin()

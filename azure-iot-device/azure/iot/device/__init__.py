@@ -11,6 +11,7 @@ from .exceptions import (  # noqa: F401
     IoTEdgeError,
     IoTEdgeEnvironmentError,
     ProvisioningServiceError,
+    SessionError,
     IoTHubClientError,
     MQTTError,
     MQTTConnectionFailedError,
