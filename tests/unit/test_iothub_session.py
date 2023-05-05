@@ -21,7 +21,6 @@ from azure.iot.device import signing_mechanism as sm
 FAKE_DEVICE_ID = "fake_device_id"
 FAKE_MODULE_ID = "fake_module_id"
 FAKE_HOSTNAME = "fake.hostname"
-FAKE_GATEWAY_HOSTNAME = "fake.gateway.hostname"
 FAKE_URI = "fake/resource/location"
 FAKE_SHARED_ACCESS_KEY = "Zm9vYmFy"
 FAKE_SIGNATURE = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="

@@ -13,8 +13,8 @@ from typing import Optional, TypeVar
 from .custom_typing import (
     RegistrationResult,
     RegistrationState,
-    RegistrationPayload,
     DeviceRegistrationRequest,
+    JSONSerializable,
 )
 from . import config, constant, user_agent
 from . import exceptions as exc
@@ -48,7 +48,6 @@ class ProvisioningMQTTClient:
         self._username = _format_username(
             id_scope=client_config.id_scope,
             registration_id=self._registration_id,
-            # product_info=client_config.product_info,
         )
 
         # SAS (Optional)
@@ -208,9 +207,7 @@ class ProvisioningMQTTClient:
             await self._mqtt_client.disconnected_cond.wait_for(lambda: not self.connected)
             return self._mqtt_client.previous_disconnection_cause()
 
-    async def send_register(
-        self, payload: Optional[RegistrationPayload] = None
-    ) -> RegistrationResult:
+    async def send_register(self, payload: JSONSerializable = None) -> RegistrationResult:
         if not self._register_responses_enabled:
             await self._enable_dps_responses()
         register_request_id = str(uuid.uuid4())
@@ -219,9 +216,7 @@ class ProvisioningMQTTClient:
             "registrationId": self._registration_id,
             "payload": payload,
         }
-        publish_payload = json.dumps(
-            device_registration_request, default=lambda o: o.__dict__, sort_keys=True
-        )
+        publish_payload = json.dumps(device_registration_request)
         interval = 0  # Initially set to no sleep
         register_response = None
 
@@ -236,11 +231,6 @@ class ProvisioningMQTTClient:
                     logger.debug(
                         "Sending register request to Device Provisioning Service... (rid: {})".format(
                             request.request_id
-                        )
-                    )
-                    logger.debug(
-                        "The payload to be published to Device Provisioning Service is {}".format(
-                            publish_payload
                         )
                     )
                     await self._mqtt_client.publish(register_topic, publish_payload)

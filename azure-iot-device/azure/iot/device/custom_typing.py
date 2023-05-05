@@ -60,12 +60,9 @@ class RegistrationState(TypedDict):
     payload: JSONSerializable
 
 
-RegistrationPayload = Union[dict, object, None]
-
-
 class DeviceRegistrationRequest(TypedDict):
     registrationId: str
-    payload: RegistrationPayload
+    payload: JSONSerializable
     # TODO csr
 
 

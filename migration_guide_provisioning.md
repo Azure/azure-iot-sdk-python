@@ -4,12 +4,14 @@ This guide details how to update existing code for IoT Hub provisioning that use
 
 **Note that currently V3 only presents an async set of APIs. This guide will be updated when that changes**
 
-**Note that ProvisioningSession is still not yet available as it is in development**
-
 For changes when communicating between a device and IoT Hub, please refer to `migration_guide_iothub.md` in this same directory.
 
+## Default usage of the Global Provisioning Endpoint
+The Global Provisioning Endpoint - `global.azure-devices-provisioning.net` previously had to be manually provided via the `provisioning_host` argument to any factory method. For V3, the argument has been renamed to `provisioning_endpoint` and is now provided directly to the `ProvisioningSession` constructor. It defaults to the Global Provisioning Endpoint if not provided, so the vast majority of users can simply not provide anything. The only time the `provisioning_endpoint` argument is necessary in V3 is if your solution involves using a private endpoint.
+
+
 ## Provisioning using Shared Access Key (Symmetric Key)
-Using shared access key authentication (formerly called symmetric key) is now provided via the `shared_access_key` parameter on the `ProvisioningSession` constructor. rather than having it's own `create_from_symmetric_key()` factory method.
+Using shared access key authentication (formerly called 'symmetric key authentication') is now provided via the `shared_access_key` argument instead of the `symmetric_key` parameter. This parameter is now provided directly to the `ProvisioningSession` constructor, rather than using the `create_from_symmetric_key()` factory method.
 
 #### V2
 ```python
@@ -17,7 +19,7 @@ from azure.iot.device.aio import ProvisioningDeviceClient
 
 async def main():
     provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
-            provisioning_host="<Your Provisioning Hostname>",
+            provisioning_host="global.azure-devices-provisioning.net",
             registration_id="<Your Registration ID>",
             id_scope="<Your ID Scope>",
             symmetric_key="<Your Shared Access Key>",
@@ -34,7 +36,6 @@ from azure.iot.device import ProvisioningSession
 
 async def main():
     async with ProvisioningSession(
-        hostname="<Your Provisioning Hostname>",
         id_scope="<Your ID Scope>",
         registration_id="<Your Registration ID>",
         shared_access_key="<Your Shared Access Key>"
@@ -44,7 +45,7 @@ async def main():
 
 
 ## Provisioning using X509 Certificates
-X509 authentication is now provided via the new `ssl_context` keyword for the `ProvisioningSession` constructor, rather than having it's own `.create_from_x509_certificate()` factory method. This is to allow additional flexibility for
+X509 authentication is now provided via the new `ssl_context` keyword argument for the `ProvisioningSession` constructor, rather than using `.create_from_x509_certificate()` factory method. This is to allow additional flexibility for
 customers who wish to have more control over their TLS/SSL authentication. See "TLS/SSL customization" below for more information.
 
 #### V2
@@ -60,7 +61,7 @@ async def main():
     )
 
     provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certificate(
-            provisioning_host="<Your Provisioning Hostname>",
+            provisioning_host="global.azure-devices-provisioning.net",
             registration_id="<Your Registration ID>",
             id_scope="<Your ID Scope>",
             x509=x509,
@@ -85,7 +86,6 @@ async def main():
     )
 
     async with ProvisioningSession(
-        hostname="<Your Provisioning Hostname>",
         id_scope="<Your ID Scope>",
         registration_id="<Your Registration ID>",
         ssl_context=ssl_context
@@ -108,7 +108,7 @@ certfile = open("<Your CA Certificate File Path>")
 root_ca_cert = certfile.read()
 
 provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
-    provisioning_host="<Your Provisioning Hostname>",
+    provisioning_host="global.azure-devices-provisioning.net",
     registration_id="<Your Registration ID>",
     id_scope="<Your ID Scope>",
     symmetric_key="<Your Shared Access Key>",
@@ -126,7 +126,6 @@ ssl_context = ssl.create_default_context(
 )
 
 session = ProvisioningSession(
-    hostname="<Your Provisioning Hostname>",
     registration_id="<Your Registration ID>",
     id_scope="<Your ID Scope>",
     symmetric_key="<Your Shared Access Key>",
@@ -140,7 +139,7 @@ session = ProvisioningSession(
 from azure.iot.device.aio import ProvisioningDeviceClient
 
 provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
-    provisioning_host="<Your Provisioning Hostname>",
+    provisioning_host="global.azure-devices-provisioning.net",,
     registration_id="<Your Registration ID>",
     id_scope="<Your ID Scope>",
     symmetric_key="<Your Shared Access Key>",
@@ -157,7 +156,6 @@ ssl_context = ssl.create_default_context()
 ssl_context.set_ciphers("<Your Cipher>")
 
 session = ProvisioningSession(
-    hostname="<Your Provisioning Hostname>",
     registration_id="<Your Registration ID>",
     id_scope="<Your ID Scope>",
     symmetric_key="<Your Shared Access Key>",
@@ -171,6 +169,6 @@ Some keyword arguments provided at client creation in V2 have been removed in V3
 
 | V2                          | V3               | Explanation                                              |
 |-----------------------------|------------------|----------------------------------------------------------|
-| `gateway_hostname`          | **REMOVED**      | Supported via `hostname` parameter                       |
+| `gateway_hostname`          | **REMOVED**      | Unsupported scenario (was unnecessary in V2)             |
 | `server_verification_cert`  | **REMOVED**      | Supported via SSL injection                              |
 | `cipher`                    | **REMOVED**      | Supported via SSL injection                              |

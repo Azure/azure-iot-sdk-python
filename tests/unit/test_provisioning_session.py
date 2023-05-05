@@ -5,7 +5,7 @@ import time
 from dev_utils import custom_mock
 from pytest_lazyfixture import lazy_fixture
 from azure.iot.device.provisioning_session import ProvisioningSession
-from azure.iot.device import config, exceptions
+from azure.iot.device import config, exceptions, constant
 from azure.iot.device import provisioning_mqtt_client as mqtt
 from azure.iot.device import sastoken as st
 from azure.iot.device import signing_mechanism as sm
@@ -13,7 +13,6 @@ from azure.iot.device import signing_mechanism as sm
 FAKE_REGISTRATION_ID = "fake_registration_id"
 FAKE_ID_SCOPE = "fake_idscope"
 FAKE_HOSTNAME = "fake.hostname"
-FAKE_GATEWAY_HOSTNAME = "fake.gateway.hostname"
 FAKE_URI = "fake/resource/location"
 FAKE_SHARED_ACCESS_KEY = "Zm9vYmFy"
 FAKE_SIGNATURE = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
@@ -71,7 +70,6 @@ def optional_ssl_context(request, custom_ssl_context):
 async def session(custom_ssl_context):
     """Use a symmetric key configuration and custom SSL auth for simplicity"""
     async with ProvisioningSession(
-        provisioning_host=FAKE_HOSTNAME,
         registration_id=FAKE_REGISTRATION_ID,
         id_scope=FAKE_ID_SCOPE,
         shared_access_key=FAKE_SHARED_ACCESS_KEY,
@@ -83,7 +81,6 @@ async def session(custom_ssl_context):
 @pytest.fixture
 def disconnected_session(custom_ssl_context):
     return ProvisioningSession(
-        provisioning_host=FAKE_HOSTNAME,
         registration_id=FAKE_REGISTRATION_ID,
         id_scope=FAKE_ID_SCOPE,
         ssl_context=custom_ssl_context,
@@ -155,6 +152,17 @@ sk_sm_create_exceptions = [
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
 ]
 
+json_serializable_payload_params = [
+    pytest.param("String payload", id="String Payload"),
+    pytest.param(123, id="Integer Payload"),
+    pytest.param(2.0, id="Float Payload"),
+    pytest.param(True, id="Boolean Payload"),
+    pytest.param({"dictionary": {"payload": "nested"}}, id="Dictionary Payload"),
+    pytest.param([1, 2, 3], id="List Payload"),
+    pytest.param((1, 2, 3), id="Tuple Payload"),
+    pytest.param(None, id="No Payload"),
+]
+
 
 @pytest.mark.describe("ProvisioningSession -- Instantiation")
 class TestProvisioningSessionInstantiation:
@@ -170,7 +178,6 @@ class TestProvisioningSessionInstantiation:
         expected_uri = get_expected_uri()
 
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -203,7 +210,6 @@ class TestProvisioningSessionInstantiation:
         spy_st_provider_cls = mocker.spy(st, "SasTokenProvider")
 
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -227,7 +233,6 @@ class TestProvisioningSessionInstantiation:
         spy_st_provider_cls = mocker.spy(st, "SasTokenProvider")
 
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             ssl_context=custom_ssl_context,
@@ -248,7 +253,6 @@ class TestProvisioningSessionInstantiation:
         assert spy_mqtt_cls.call_count == 0
 
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -262,14 +266,14 @@ class TestProvisioningSessionInstantiation:
         assert session._mqtt_client is spy_mqtt_cls.spy_return
 
     @pytest.mark.it(
-        "Sets the provided `hostname` on the ProvisioningClientConfig used to create the ProvisioningMQTTClient"
+        "Sets the provided `provisioning_endpoint` as the `hostname` on the ProvisioningClientConfig used to create the ProvisioningMQTTClient, if `provisioning_endpoint` is provided"
     )
     @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
-    async def test_hostname(self, mocker, shared_access_key, sastoken_fn, ssl_context):
+    async def test_custom_endpoint(self, mocker, shared_access_key, sastoken_fn, ssl_context):
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -281,6 +285,24 @@ class TestProvisioningSessionInstantiation:
         assert cfg.hostname == FAKE_HOSTNAME
 
     @pytest.mark.it(
+        "Sets the Global Provisioning Endpoint as the `hostname` on the ProvisioningClientConfig used to create the ProvisioningMQTTClient, if no `provisioning_endpoint` is provided"
+    )
+    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
+    async def test_default_endpoint(self, mocker, shared_access_key, sastoken_fn, ssl_context):
+        spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
+
+        ProvisioningSession(
+            registration_id=FAKE_REGISTRATION_ID,
+            id_scope=FAKE_ID_SCOPE,
+            shared_access_key=shared_access_key,
+            ssl_context=ssl_context,
+            sastoken_fn=sastoken_fn,
+        )
+
+        cfg = spy_mqtt_cls.call_args[0][0]
+        assert cfg.hostname == constant.PROVISIONING_GLOBAL_ENDPOINT
+
+    @pytest.mark.it(
         "Sets the provided `registration_id` and `id_scope` values on the ProvisioningClientConfig used to create the ProvisioningMQTTClient"
     )
     @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
@@ -288,7 +310,6 @@ class TestProvisioningSessionInstantiation:
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -310,7 +331,6 @@ class TestProvisioningSessionInstantiation:
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -348,7 +368,7 @@ class TestProvisioningSessionInstantiation:
         mocker.spy(my_ssl_context, "load_default_certs")
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -373,7 +393,7 @@ class TestProvisioningSessionInstantiation:
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -392,7 +412,7 @@ class TestProvisioningSessionInstantiation:
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -421,7 +441,7 @@ class TestProvisioningSessionInstantiation:
         kwargs = {kwarg_name: kwarg_value}
 
         ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -437,7 +457,7 @@ class TestProvisioningSessionInstantiation:
     @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
     async def test_wait_for_disconnect_task(self, shared_access_key, sastoken_fn, ssl_context):
         session = ProvisioningSession(
-            provisioning_host=FAKE_HOSTNAME,
+            provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
@@ -454,7 +474,7 @@ class TestProvisioningSessionInstantiation:
             ProvisioningSession(
                 registration_id=FAKE_REGISTRATION_ID,
                 id_scope=FAKE_ID_SCOPE,
-                provisioning_host=FAKE_HOSTNAME,
+                provisioning_endpoint=FAKE_HOSTNAME,
             )
 
     @pytest.mark.it(
@@ -465,7 +485,7 @@ class TestProvisioningSessionInstantiation:
             ProvisioningSession(
                 registration_id=FAKE_REGISTRATION_ID,
                 id_scope=FAKE_ID_SCOPE,
-                provisioning_host=FAKE_HOSTNAME,
+                provisioning_endpoint=FAKE_HOSTNAME,
                 shared_access_key=FAKE_SHARED_ACCESS_KEY,
                 sastoken_fn=sastoken_generator_fn,
                 ssl_context=optional_ssl_context,
@@ -478,7 +498,7 @@ class TestProvisioningSessionInstantiation:
             ProvisioningSession(
                 registration_id=FAKE_REGISTRATION_ID,
                 id_scope=FAKE_ID_SCOPE,
-                provisioning_host=FAKE_HOSTNAME,
+                provisioning_endpoint=FAKE_HOSTNAME,
                 shared_access_key=shared_access_key,
                 sastoken_fn=sastoken_fn,
                 ssl_context=ssl_context,
@@ -500,7 +520,7 @@ class TestProvisioningSessionInstantiation:
             ProvisioningSession(
                 registration_id=FAKE_REGISTRATION_ID,
                 id_scope=FAKE_ID_SCOPE,
-                provisioning_host=FAKE_HOSTNAME,
+                provisioning_endpoint=FAKE_HOSTNAME,
                 shared_access_key=shared_access_key,
                 sastoken_fn=sastoken_fn,
                 ssl_context=ssl_context,
@@ -1084,21 +1104,28 @@ class TestProvisioningSessionContextManager:
 
 @pytest.mark.describe("ProvisioningSession - .register()")
 class TestProvisioningSessionRegister:
-    @pytest.mark.it("Invokes .send_register() on the ProvisioningMQTTClient")
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
+    @pytest.mark.it(
+        "Invokes .send_register() on the ProvisioningMQTTClient, passing the provided `payload`, if provided"
     )
-    async def test_invoke(self, mocker, session, registration_payload):
+    @pytest.mark.parametrize("payload", json_serializable_payload_params)
+    async def test_invoke_with_payload(self, mocker, session, payload):
         assert session._mqtt_client.send_register.await_count == 0
 
-        await session.register(registration_payload)
+        await session.register(payload)
 
         assert session._mqtt_client.send_register.await_count == 1
-        assert session._mqtt_client.send_register.await_args == mocker.call(registration_payload)
+        assert session._mqtt_client.send_register.await_args == mocker.call(payload)
+
+    @pytest.mark.it(
+        "Invokes .send_register() on the ProvisioningMQTTClient, passing None, if no `payload` is provided"
+    )
+    async def test_invoke_no_payload(self, mocker, session):
+        assert session._mqtt_client.send_register.await_count == 0
+
+        await session.register()
+
+        assert session._mqtt_client.send_register.await_count == 1
+        assert session._mqtt_client.send_register.await_args == mocker.call(None)
 
     @pytest.mark.it("Allows any exceptions raised by the ProvisioningMQTTClient to propagate")
     @pytest.mark.parametrize(
@@ -1110,18 +1137,12 @@ class TestProvisioningSessionRegister:
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
         ],
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
-    async def test_mqtt_client_raises(self, session, exception, registration_payload):
+    @pytest.mark.parametrize("payload", json_serializable_payload_params)
+    async def test_mqtt_client_raises(self, session, exception, payload):
         session._mqtt_client.send_register.side_effect = exception
 
         with pytest.raises(type(exception)) as e_info:
-            await session.register(registration_payload)
+            await session.register(payload)
         # CancelledError doesn't propagate in some versions of Python
         # TODO: determine which versions exactly
         if not isinstance(exception, asyncio.CancelledError):
@@ -1130,36 +1151,24 @@ class TestProvisioningSessionRegister:
     @pytest.mark.it(
         "Raises MQTTError (rc=4) without invoking .register() on the ProvisioningMQTTClient if it is not connected"
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
-    async def test_not_connected(self, mocker, session, registration_payload):
+    @pytest.mark.parametrize("payload", json_serializable_payload_params)
+    async def test_not_connected(self, mocker, session, payload):
         conn_property_mock = mocker.PropertyMock(return_value=False)
         type(session._mqtt_client).connected = conn_property_mock
 
         with pytest.raises(mqtt.MQTTError) as e_info:
-            await session.register(registration_payload)
+            await session.register(payload)
         assert e_info.value.rc == 4
         assert session._mqtt_client.send_register.call_count == 0
 
     @pytest.mark.it(
         "Raises CancelledError if an expected disconnect occurs in the ProvisioningMQTTClient while waiting for the operation to complete"
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
-    async def test_expected_disconnect_during_send(self, session, registration_payload):
+    @pytest.mark.parametrize("payload", json_serializable_payload_params)
+    async def test_expected_disconnect_during_send(self, session, payload):
         session._mqtt_client.send_register = custom_mock.HangingAsyncMock()
 
-        t = asyncio.create_task(session.register(registration_payload))
+        t = asyncio.create_task(session.register(payload))
 
         # Hanging, waiting for send to finish
         await session._mqtt_client.send_register.wait_for_hang()
@@ -1181,17 +1190,11 @@ class TestProvisioningSessionRegister:
         "Raises the MQTTError that caused the unexpected disconnect, if an unexpected disconnect occurs in the "
         "ProvisioningMQTTClient while waiting for the operation to complete"
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
-    async def test_unexpected_disconnect_during_send(self, session, registration_payload):
+    @pytest.mark.parametrize("payload", json_serializable_payload_params)
+    async def test_unexpected_disconnect_during_send(self, session, payload):
         session._mqtt_client.send_register = custom_mock.HangingAsyncMock()
 
-        t = asyncio.create_task(session.register(registration_payload))
+        t = asyncio.create_task(session.register(payload))
 
         # Hanging, waiting for send to finish
         await session._mqtt_client.send_register.wait_for_hang()
@@ -1214,17 +1217,11 @@ class TestProvisioningSessionRegister:
     @pytest.mark.it(
         "Can be cancelled while waiting for the ProvisioningMQTTClient operation to complete"
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
-    async def test_cancel_during_send(self, session, registration_payload):
+    @pytest.mark.parametrize("payload", json_serializable_payload_params)
+    async def test_cancel_during_send(self, session, payload):
         session._mqtt_client.send_register = custom_mock.HangingAsyncMock()
 
-        t = asyncio.create_task(session.register(registration_payload))
+        t = asyncio.create_task(session.register(payload))
 
         # Hanging, waiting for send to finish
         await session._mqtt_client.send_register.wait_for_hang()
