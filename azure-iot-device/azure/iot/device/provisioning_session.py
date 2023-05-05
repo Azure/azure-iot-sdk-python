@@ -8,6 +8,7 @@ import ssl
 from typing import Optional, Type, Awaitable, TypeVar
 from types import TracebackType
 
+from . import exceptions as exc
 from . import signing_mechanism as sm
 from . import sastoken as st
 from . import config, custom_typing
@@ -91,7 +92,9 @@ class ProvisioningSession:
             **kwargs,
         )
         self._mqtt_client = mqtt.ProvisioningMQTTClient(client_config)
-        self._wait_for_disconnect_task: Optional[asyncio.Task[Optional[mqtt.MQTTError]]] = None
+        self._wait_for_disconnect_task: Optional[
+            asyncio.Task[Optional[exc.MQTTConnectionDroppedError]]
+        ] = None
 
     async def __aenter__(self) -> "ProvisioningSession":
         # First, if using SAS auth, start up the provider
@@ -149,7 +152,7 @@ class ProvisioningSession:
         """
         if not self._mqtt_client.connected:
             # See NOTE 1 at the bottom of iothub_session file for why this occurs
-            raise mqtt.MQTTError(rc=4)
+            raise exc.MQTTError(rc=4)
         return await self._add_disconnect_interrupt_to_coroutine(
             self._mqtt_client.send_register(payload)
         )

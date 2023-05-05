@@ -18,7 +18,13 @@ from azure.iot.device.iothub_mqtt_client import (
     IoTHubMQTTClient,
     DEFAULT_RECONNECT_INTERVAL,
 )
-from azure.iot.device.iot_exceptions import IoTHubClientError, IoTHubError
+from azure.iot.device.exceptions import (
+    IoTHubClientError,
+    IoTHubError,
+    MQTTError,
+    MQTTConnectionFailedError,
+    MQTTConnectionDroppedError,
+)
 from azure.iot.device import config, constant, models, user_agent
 from azure.iot.device import mqtt_client as mqtt
 from azure.iot.device import request_response as rr
@@ -40,14 +46,14 @@ FAKE_INPUT_NAME = "fake_input"
 # Parametrizations
 # TODO: expand this when we know more about what exceptions get raised from MQTTClient
 mqtt_connect_exceptions = [
-    pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+    pytest.param(MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
 ]
 mqtt_disconnect_exceptions = [
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception")
 ]
 mqtt_publish_exceptions = [
-    pytest.param(mqtt.MQTTError(rc=5), id="MQTTError"),
+    pytest.param(MQTTError(rc=5), id="MQTTError"),
     pytest.param(ValueError(), id="ValueError"),
     pytest.param(TypeError(), id="TypeError"),
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
@@ -55,14 +61,14 @@ mqtt_publish_exceptions = [
 mqtt_subscribe_exceptions = [
     # NOTE: CancelledError is here because network failure can cancel a subscribe
     # without explicit invocation of cancel on the subscribe
-    pytest.param(mqtt.MQTTError(rc=5), id="MQTTError"),
+    pytest.param(MQTTError(rc=5), id="MQTTError"),
     pytest.param(asyncio.CancelledError(), id="CancelledError (Not initiated)"),
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
 ]
 mqtt_unsubscribe_exceptions = [
     # NOTE: CancelledError is here because network failure can cancel an unsubscribe
     # without explicit invocation of cancel on the unsubscribe
-    pytest.param(mqtt.MQTTError(rc=5), id="MQTTError"),
+    pytest.param(MQTTError(rc=5), id="MQTTError"),
     pytest.param(asyncio.CancelledError(), id="CancelledError (Not initiated)"),
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
 ]
@@ -945,11 +951,11 @@ class TestIoTHubMQTTClientReportConnectionDrop:
         assert t.result() is None
 
     @pytest.mark.it(
-        "Returns the MQTTError that caused an unexpected disconnect in the MQTTClient, if an unexpected disconnect has already occurred"
+        "Returns the MQTTConnectionDroppedError that caused an unexpected disconnect in the MQTTClient, if an unexpected disconnect has already occurred"
     )
     async def test_previous_unexpected_disconnect(self, client):
         # Simulate unexpected disconnect
-        cause = mqtt.MQTTError(rc=7)
+        cause = MQTTConnectionDroppedError(rc=7)
         client._mqtt_client._disconnection_cause = cause
         client._mqtt_client.is_connected.return_value = False
         async with client._mqtt_client.disconnected_cond:
@@ -971,7 +977,7 @@ class TestIoTHubMQTTClientReportConnectionDrop:
         assert not t.done()
 
         # Simulate unexpected disconnect
-        cause = mqtt.MQTTError(rc=7)
+        cause = MQTTError(rc=7)
         client._mqtt_client._disconnection_cause = cause
         client._mqtt_client.is_connected.return_value = False
         async with client._mqtt_client.disconnected_cond:

@@ -9,7 +9,7 @@ import pytest
 import requests
 import urllib.parse
 from azure.iot.device.edge_hsm import IoTEdgeHsm
-from azure.iot.device.iot_exceptions import IoTEdgeError
+from azure.iot.device.exceptions import IoTEdgeError
 from azure.iot.device import user_agent
 
 

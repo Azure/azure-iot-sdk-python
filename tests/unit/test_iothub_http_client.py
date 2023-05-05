@@ -14,7 +14,7 @@ from dev_utils import custom_mock
 from azure.iot.device import config, constant, user_agent
 from azure.iot.device import http_path_iothub as http_path
 from azure.iot.device import sastoken as st
-from azure.iot.device.iot_exceptions import IoTHubClientError, IoTHubError, IoTEdgeError
+from azure.iot.device.exceptions import IoTHubClientError, IoTHubError, IoTEdgeError
 from azure.iot.device.iothub_http_client import IoTHubHTTPClient
 
 FAKE_DEVICE_ID = "fake_device_id"

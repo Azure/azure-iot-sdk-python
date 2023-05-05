@@ -23,7 +23,7 @@ from azure.iot.device.provisioning_mqtt_client import (
     DEFAULT_TIMEOUT_INTERVAL,
 )
 
-from azure.iot.device.iot_exceptions import ProvisioningServiceError
+from azure.iot.device.exceptions import ProvisioningServiceError
 from azure.iot.device import config, constant, user_agent
 from azure.iot.device import mqtt_client as mqtt
 from azure.iot.device import request_response as rr

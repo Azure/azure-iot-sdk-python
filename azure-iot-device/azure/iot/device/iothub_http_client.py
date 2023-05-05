@@ -9,7 +9,7 @@ import logging
 import urllib.parse
 from typing import Optional, cast
 from .custom_typing import DirectMethodParameters, DirectMethodResult, StorageInfo
-from .iot_exceptions import IoTHubClientError, IoTHubError, IoTEdgeError
+from .exceptions import IoTHubClientError, IoTHubError, IoTEdgeError
 from . import config, constant, user_agent
 from . import http_path_iothub as http_path
 

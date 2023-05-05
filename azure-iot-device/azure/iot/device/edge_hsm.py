@@ -11,7 +11,7 @@ import requests_unixsocket  # type: ignore
 import urllib.parse
 from typing import Union
 from . import user_agent
-from .iot_exceptions import IoTEdgeError
+from .exceptions import IoTEdgeError
 from .signing_mechanism import SigningMechanism
 
 requests_unixsocket.monkeypatch()

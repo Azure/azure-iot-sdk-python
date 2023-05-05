@@ -12,7 +12,7 @@ import typing
 from dev_utils import custom_mock
 from pytest_lazyfixture import lazy_fixture
 from azure.iot.device.iothub_session import IoTHubSession
-from azure.iot.device import config, models, iot_exceptions
+from azure.iot.device import config, exceptions, models
 from azure.iot.device import connection_string as cs
 from azure.iot.device import iothub_mqtt_client as mqtt
 from azure.iot.device import sastoken as st
@@ -1694,7 +1694,7 @@ class TestIoTHubSessionUpdateReportedProperties:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(iot_exceptions.IoTHubError(), id="IoTHubError"),
+            pytest.param(exceptions.IoTHubError(), id="IoTHubError"),
             pytest.param(mqtt.MQTTError(5), id="MQTTError"),
             pytest.param(ValueError(), id="ValueError"),
             pytest.param(asyncio.CancelledError(), id="CancelledError"),
@@ -1804,7 +1804,7 @@ class TestIoTHubSessionGetTwin:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(iot_exceptions.IoTHubError(), id="IoTHubError"),
+            pytest.param(exceptions.IoTHubError(), id="IoTHubError"),
             pytest.param(mqtt.MQTTError(5), id="MQTTError"),
             pytest.param(asyncio.CancelledError(), id="CancelledError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),

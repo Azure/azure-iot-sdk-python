@@ -5,7 +5,7 @@ import time
 from dev_utils import custom_mock
 from pytest_lazyfixture import lazy_fixture
 from azure.iot.device.provisioning_session import ProvisioningSession
-from azure.iot.device import config, iot_exceptions
+from azure.iot.device import config, exceptions
 from azure.iot.device import provisioning_mqtt_client as mqtt
 from azure.iot.device import sastoken as st
 from azure.iot.device import signing_mechanism as sm
@@ -1104,7 +1104,7 @@ class TestProvisioningSessionRegister:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(iot_exceptions.ProvisioningServiceError(), id="ProvisioningServiceError"),
+            pytest.param(exceptions.ProvisioningServiceError(), id="ProvisioningServiceError"),
             pytest.param(mqtt.MQTTError(5), id="MQTTError"),
             pytest.param(asyncio.CancelledError(), id="CancelledError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
