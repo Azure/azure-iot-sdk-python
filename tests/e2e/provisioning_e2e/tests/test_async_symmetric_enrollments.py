@@ -122,7 +122,7 @@ async def result_from_register(registration_id, symmetric_key, protocol):
     # instead of just "True" and "False".
     protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
     async with ProvisioningSession(
-        provisioning_host=PROVISIONING_HOST,
+        provisioning_endpoint=PROVISIONING_HOST,
         registration_id=registration_id,
         id_scope=ID_SCOPE,
         shared_access_key=symmetric_key,

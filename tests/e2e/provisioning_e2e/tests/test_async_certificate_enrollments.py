@@ -307,7 +307,7 @@ async def result_from_register(registration_id, device_cert_file, device_key_fil
     )
 
     async with ProvisioningSession(
-        provisioning_host=PROVISIONING_HOST,
+        provisioning_endpoint=PROVISIONING_HOST,
         registration_id=registration_id,
         id_scope=ID_SCOPE,
         ssl_context=ssl_context,

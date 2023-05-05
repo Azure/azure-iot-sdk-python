@@ -2,36 +2,36 @@ import asyncio
 import logging
 from azure.iot.device import ProvisioningSession, MQTTError, MQTTConnectionFailedError
 import os
+import ssl
 
 
-provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
-symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
-
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-class Fruit(object):
-    def __init__(self, first_name, last_name, dict_of_stuff):
-        self.first_name = first_name
-        self.last_name = last_name
-        self.props = dict_of_stuff
-
-
 async def main():
     try:
+        ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
+        ssl_context.check_hostname = True
+        ssl_context.load_default_certs()
+        # These are all fake file names and password and to  be replaced as per scenario.
+        ssl_context.load_cert_chain(
+            certfile="device_cert4.pem",
+            keyfile="device_key4.pem",
+            password="devicepass",
+        )
+
         async with ProvisioningSession(
-            provisioning_host=provisioning_host,
             registration_id=registration_id,
             id_scope=id_scope,
-            shared_access_key=symmetric_key,
+            ssl_context=ssl_context,
         ) as session:
             print("Connected")
-            properties = {"Type": "Apple", "Sweet": "True"}
-            fruit_a = Fruit("McIntosh", "Red", properties)
-            result = await session.register(payload=fruit_a)
+            result = await session.register(payload="optional registration payload")
             print("Finished provisioning")
             print(result)
 

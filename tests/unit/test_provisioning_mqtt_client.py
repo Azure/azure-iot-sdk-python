@@ -585,15 +585,15 @@ class TestProvisioningMQTTClientSendRegister:
 
         client._mqtt_client.publish.side_effect = fake_publish
 
+    @pytest.fixture(params=["With Payload", "No Payload"])
+    def registration_payload(self, request):
+        if request.param == "With Payload":
+            return "some payload"
+        else:
+            return None
+
     @pytest.mark.it(
         "Awaits a subscribe to the register dps response topic using the MQTTClient, if register dps responses have not already been enabled"
-    )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
     )
     async def test_mqtt_subscribe_not_enabled(self, mocker, client, registration_payload):
         assert client._mqtt_client.subscribe.await_count == 0
@@ -608,13 +608,6 @@ class TestProvisioningMQTTClientSendRegister:
     @pytest.mark.it(
         "Does not perform a subscribe if register dps responses have already been enabled"
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_mqtt_subscribe_already_enabled(self, client, registration_payload):
         assert client._mqtt_client.subscribe.await_count == 0
         client._register_responses_enabled = True
@@ -624,13 +617,6 @@ class TestProvisioningMQTTClientSendRegister:
         assert client._mqtt_client.subscribe.call_count == 0
 
     @pytest.mark.it("Sets the register_responses_enabled flag to True upon subscribe success")
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_response_enabled_flag_success(self, client, registration_payload):
         assert client._register_responses_enabled is False
 
@@ -646,13 +632,6 @@ class TestProvisioningMQTTClientSendRegister:
             pytest.param(False, id="Register Responses Not Yet Enabled"),
         ],
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_generate_request(self, mocker, client, responses_enabled, registration_payload):
         client._register_responses_enabled = responses_enabled
         spy_create_request = mocker.spy(client._request_ledger, "create_request")
@@ -665,19 +644,14 @@ class TestProvisioningMQTTClientSendRegister:
         assert spy_create_request.await_count == 1
         assert spy_create_request.await_args == mocker.call(FAKE_REGISTER_REQUEST_ID)
 
-    @pytest.mark.it("Awaits a publish to the register request topic using the MQTTClient")
+    @pytest.mark.it(
+        "Awaits a publish to the register request topic using the MQTTClient, sending a JSON object containing the client's registration ID and the provided registration payload"
+    )
     @pytest.mark.parametrize(
         "responses_enabled",
         [
             pytest.param(True, id="Register Responses Already Enabled"),
             pytest.param(False, id="Register Responses Not Yet Enabled"),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
         ],
     )
     async def test_mqtt_publish(self, mocker, client, responses_enabled, registration_payload):
@@ -689,7 +663,45 @@ class TestProvisioningMQTTClientSendRegister:
 
         request = spy_create_request.spy_return
         expected_topic = mqtt_topic.get_register_topic_for_publish(request.request_id)
-        payload_dict = {"payload": registration_payload, "registrationId": FAKE_REGISTRATION_ID}
+        payload_dict = {"registrationId": client._registration_id, "payload": registration_payload}
+        expected_payload = json.dumps(payload_dict)
+
+        assert client._mqtt_client.publish.await_count == 1
+        assert client._mqtt_client.publish.await_args == mocker.call(
+            expected_topic, expected_payload
+        )
+
+    @pytest.mark.it("Supports any JSON-serializable payload")
+    @pytest.mark.parametrize(
+        "responses_enabled",
+        [
+            pytest.param(True, id="Register Responses Already Enabled"),
+            pytest.param(False, id="Register Responses Not Yet Enabled"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "registration_payload",
+        [
+            pytest.param("String Payload", id="String Payload"),
+            pytest.param(1234, id="Int Payload"),
+            pytest.param(2.0, id="Float Payload"),
+            pytest.param(True, id="Boolean Payload"),
+            pytest.param([1, 2, 3], id="List Payload"),
+            pytest.param({"some": {"dictionary": "value"}}, id="Dictionary Payload"),
+            pytest.param((1, 2), id="Tuple Payload"),
+            pytest.param(None, id="No Payload"),
+        ],
+    )
+    async def test_json_payload(self, mocker, client, responses_enabled, registration_payload):
+        client._register_responses_enabled = responses_enabled
+        spy_create_request = mocker.spy(client._request_ledger, "create_request")
+        assert client._mqtt_client.publish.await_count == 0
+
+        await client.send_register(payload=registration_payload)
+
+        request = spy_create_request.spy_return
+        expected_topic = mqtt_topic.get_register_topic_for_publish(request.request_id)
+        payload_dict = {"registrationId": client._registration_id, "payload": registration_payload}
         expected_payload = json.dumps(payload_dict)
 
         assert client._mqtt_client.publish.await_count == 1
@@ -703,13 +715,6 @@ class TestProvisioningMQTTClientSendRegister:
         [
             pytest.param(True, id="Register Responses Already Enabled"),
             pytest.param(False, id="Register Responses Not Yet Enabled"),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
         ],
     )
     async def test_get_response(self, mocker, client, responses_enabled, registration_payload):
@@ -754,13 +759,6 @@ class TestProvisioningMQTTClientSendRegister:
             pytest.param(428, id="Status Code: 428"),
         ],
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_failed_response(
         self, mocker, client, responses_enabled, failed_status, registration_payload
     ):
@@ -788,13 +786,6 @@ class TestProvisioningMQTTClientSendRegister:
         [
             pytest.param(True, id="Register Responses Already Enabled"),
             pytest.param(False, id="Register Responses Not Yet Enabled"),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
         ],
     )
     async def test_success_response(self, mocker, client, responses_enabled, registration_payload):
@@ -841,14 +832,10 @@ class TestProvisioningMQTTClientSendRegister:
             pytest.param(False, id="Register Responses Not Yet Enabled"),
         ],
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_retry_response(self, mocker, client, responses_enabled, registration_payload):
+        # Mock out the sleep so that these tests don't run so slowly
+        mock_sleep = mocker.patch.object(asyncio, "sleep")
+
         retry_after_val_1 = 1
         retry_after_val_2 = 2
         client._register_responses_enabled = responses_enabled
@@ -887,19 +874,18 @@ class TestProvisioningMQTTClientSendRegister:
         mock_response_3.body = fake_response_string
 
         mock_request.get_response.side_effect = [mock_response_1, mock_response_2, mock_response_3]
-        spy_sleep_factory = mocker.spy(asyncio, "sleep")
         mocker.patch.object(uuid, "uuid4", return_value=mock_request.request_id)
 
         expected_topic_register = mqtt_topic.get_register_topic_for_publish(mock_request.request_id)
-        payload_dict = {"payload": registration_payload, "registrationId": FAKE_REGISTRATION_ID}
+        payload_dict = {"registrationId": FAKE_REGISTRATION_ID, "payload": registration_payload}
         expected_registration_payload = json.dumps(payload_dict)
 
         registration_response = await client.send_register(payload=registration_payload)
 
-        assert spy_sleep_factory.call_count == 3
+        assert mock_sleep.call_count == 3
 
         # First sleep is 0 and then retry after
-        assert spy_sleep_factory.call_args_list == [
+        assert mock_sleep.call_args_list == [
             mocker.call(0),
             mocker.call(retry_after_val_1),
             mocker.call(retry_after_val_2),
@@ -926,14 +912,10 @@ class TestProvisioningMQTTClientSendRegister:
             pytest.param(False, id="Register Responses Not Yet Enabled"),
         ],
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_polling_response(self, mocker, client, responses_enabled, registration_payload):
+        # Mock out the sleep so that these tests don't run so slowly
+        mock_sleep = mocker.patch.object(asyncio, "sleep")
+
         client._register_responses_enabled = responses_enabled
         # Override autocompletion behavior on publish (we don't need it here)
         client._mqtt_client.publish = mocker.AsyncMock()
@@ -969,7 +951,6 @@ class TestProvisioningMQTTClientSendRegister:
 
         mock_request.get_response.side_effect = [mock_response_1, mock_response_2]
 
-        spy_sleep_factory = mocker.spy(asyncio, "sleep")
         # Mock uuid4 to return the fake request id
         mocker.patch.object(uuid, "uuid4", return_value=mock_request.request_id)
 
@@ -977,15 +958,15 @@ class TestProvisioningMQTTClientSendRegister:
         expected_topic_query = mqtt_topic.get_status_query_topic_for_publish(
             mock_request.request_id, FAKE_OPERATION_ID
         )
-        payload_dict = {"payload": registration_payload, "registrationId": FAKE_REGISTRATION_ID}
+        payload_dict = {"registrationId": FAKE_REGISTRATION_ID, "payload": registration_payload}
         expected_registration_payload = json.dumps(payload_dict)
 
         registration_response = await client.send_register(payload=registration_payload)
 
-        assert spy_sleep_factory.call_count == 2
+        assert mock_sleep.call_count == 2
 
         # First sleep is 0 and then DEFAULT_POLLING_INTERVAL
-        assert spy_sleep_factory.call_args_list == [
+        assert mock_sleep.call_args_list == [
             mocker.call(0),
             mocker.call(DEFAULT_POLLING_INTERVAL),
         ]
@@ -1001,13 +982,6 @@ class TestProvisioningMQTTClientSendRegister:
     # This is different from a user-initiated cancellation
     @pytest.mark.it("Allows any exceptions raised from the MQTTClient subscribe to propagate")
     @pytest.mark.parametrize("exception", mqtt_subscribe_exceptions)
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_mqtt_subscribe_exception(self, client, exception, registration_payload):
         assert client._register_responses_enabled is False
         client._mqtt_client.subscribe.side_effect = exception
@@ -1022,13 +996,6 @@ class TestProvisioningMQTTClientSendRegister:
         "Does not set the register_responses_enabled flag to True or create a Request if MQTTClient subscribe raises"
     )
     @pytest.mark.parametrize("exception", mqtt_subscribe_exceptions)
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_subscribe_exception_cleanup(
         self, mocker, client, exception, registration_payload
     ):
@@ -1046,13 +1013,6 @@ class TestProvisioningMQTTClientSendRegister:
     # MQTTClient in response to a network failure.
     @pytest.mark.it(
         "Does not set the register_responses_enabled flag to True or create a Request if cancelled while waiting for the MQTTClient subscribe to finish"
-    )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
     )
     async def test_mqtt_subscribe_cancel_cleanup(self, mocker, client, registration_payload):
         assert client._register_responses_enabled is False
@@ -1075,13 +1035,6 @@ class TestProvisioningMQTTClientSendRegister:
 
     @pytest.mark.it("Allows any exceptions raised from the MQTTClient publish to propagate")
     @pytest.mark.parametrize("exception", mqtt_publish_exceptions)
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_mqtt_publish_exception(self, client, exception, registration_payload):
         client._mqtt_client.publish.side_effect = exception
 
@@ -1091,13 +1044,6 @@ class TestProvisioningMQTTClientSendRegister:
 
     @pytest.mark.it("Deletes the Request from the RequestLedger if MQTTClient publish raises")
     @pytest.mark.parametrize("exception", mqtt_publish_exceptions)
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_mqtt_publish_exception_cleanup(
         self, mocker, client, exception, registration_payload
     ):
@@ -1119,13 +1065,6 @@ class TestProvisioningMQTTClientSendRegister:
 
     @pytest.mark.it(
         "Deletes the Request from the RequestLedger if cancelled while waiting for the MQTTClient publish to finish"
-    )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
     )
     async def test_mqtt_publish_cancel_cleanup(self, mocker, client, registration_payload):
         client._mqtt_client.publish = custom_mock.HangingAsyncMock()
@@ -1158,13 +1097,6 @@ class TestProvisioningMQTTClientSendRegister:
 
     @pytest.mark.it(
         "Deletes the Request from the RequestLedger if cancelled while waiting for a register dps response"
-    )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
     )
     async def test_waiting_response_cancel_cleanup(self, mocker, client, registration_payload):
         # Override autocompletion behavior on publish (we don't want it here)
@@ -1207,13 +1139,6 @@ class TestProvisioningMQTTClientSendRegister:
         [
             pytest.param(True, id="Register Responses Already Enabled"),
             pytest.param(False, id="Register Responses Not Yet Enabled"),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
         ],
     )
     async def test_waiting_response_within_default_timeout(
@@ -1266,13 +1191,6 @@ class TestProvisioningMQTTClientSendRegister:
             pytest.param(False, id="Register Responses Not Yet Enabled"),
         ],
     )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
-        ],
-    )
     async def test_waiting_response_timeout_exception(
         self, mocker, client, responses_enabled, registration_payload
     ):
@@ -1284,21 +1202,25 @@ class TestProvisioningMQTTClientSendRegister:
         mock_request.request_id = FAKE_REGISTER_REQUEST_ID  # Need this for string manipulation
         mocker.patch.object(client._request_ledger, "create_request", return_value=mock_request)
 
-        patch_wait_for = mocker.patch.object(asyncio, "wait_for")
-        fake_exception = asyncio.TimeoutError("fake timeout exception")
-        patch_wait_for.side_effect = fake_exception
+        # Simulate a timeout
+        fake_timeout = asyncio.TimeoutError("fake timeout exception")
 
-        raised = False
+        def simulate_timeout(awaitable, timeout):
+            # Create a task from the awaitable, and then cancel it so that no warnings are thrown
+            # about the awaitable never being awaited.
+            # This is because in the real implementation, the awaitable is scheduled on the
+            # event loop, and then later cancelled in the case of timeout
+            t = asyncio.create_task(awaitable)
+            t.cancel()
+            raise fake_timeout
 
-        # can not use with pytest.raises(ProvisioningServiceError) as e_info as e_info does not contain cause
-        try:
+        mocker.patch.object(asyncio, "wait_for", side_effect=simulate_timeout)
+
+        # Timeout causes ProvisioningServiceError
+        with pytest.raises(ProvisioningServiceError) as e_info:
             await client.send_register(payload=registration_payload)
-        except ProvisioningServiceError as pe:
-            raised = True
-            assert pe.__cause__ is fake_exception
-            assert mock_request.request_id in pe.args[0]
 
-        assert raised
+        assert e_info.value.__cause__ is fake_timeout
 
     @pytest.mark.it(
         "Deletes the Request from the RequestLedger if timeout occurred while waiting for a register dps response"
@@ -1308,13 +1230,6 @@ class TestProvisioningMQTTClientSendRegister:
         [
             pytest.param(True, id="Register Responses Already Enabled"),
             pytest.param(False, id="Register Responses Not Yet Enabled"),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "registration_payload",
-        [
-            pytest.param('{"text": "this is registration payload"}', id="Some payload"),
-            pytest.param(None, id="No payload"),
         ],
     )
     async def test_waiting_response_timeout_cleanup(
@@ -1330,12 +1245,24 @@ class TestProvisioningMQTTClientSendRegister:
         spy_create_request = mocker.spy(client._request_ledger, "create_request")
         spy_delete_request = mocker.spy(client._request_ledger, "delete_request")
 
-        patch_wait_for = mocker.patch.object(asyncio, "wait_for")
-        fake_exception = asyncio.TimeoutError("fake timeout exception")
-        patch_wait_for.side_effect = fake_exception
+        # Simulate a timeout
+        fake_timeout = asyncio.TimeoutError("fake timeout exception")
 
-        with pytest.raises(ProvisioningServiceError):
+        def simulate_timeout(awaitable, timeout):
+            # Create a task from the awaitable, and then cancel it so that no warnings are thrown
+            # about the awaitable never being awaited.
+            # This is because in the real implementation, the awaitable is scheduled on the
+            # event loop, and then later cancelled in the case of timeout
+            t = asyncio.create_task(awaitable)
+            t.cancel()
+            raise fake_timeout
+
+        mocker.patch.object(asyncio, "wait_for", side_effect=simulate_timeout)
+
+        # Timeout occurs
+        with pytest.raises(ProvisioningServiceError) as e_info:
             await client.send_register(payload=registration_payload)
+        assert e_info.value.__cause__ is fake_timeout
 
         # Request was created, but not yet deleted
         assert spy_create_request.await_count == 1
@@ -1366,6 +1293,12 @@ class TestProvisioningMQTTClientSendPolling:
             await client._request_ledger.match_response(response)
 
         client._mqtt_client.publish.side_effect = fake_publish
+
+    @pytest.fixture(autouse=True)
+    def mock_sleep(self, mocker):
+        # .send_polling() always involves asyncio sleeps, which dramatically slows down
+        # the unit tests. Mock out these sleeps to speed them up.
+        return mocker.patch.object(asyncio, "sleep")
 
     @pytest.mark.it("Generates a new Request, using the RequestLedger stored on the client")
     async def test_generate_request(self, mocker, client):
@@ -1488,7 +1421,7 @@ class TestProvisioningMQTTClientSendPolling:
         "then finally returns the registration result received in the Response, converted to JSON, "
         "when the Response status was successful on the last attempt"
     )
-    async def test_retry_response(self, mocker, client):
+    async def test_retry_response(self, mocker, client, mock_sleep):
         retry_after_val_1 = 1
         retry_after_val_2 = 2
         # Override autocompletion behavior on publish (we don't need it here)
@@ -1526,7 +1459,6 @@ class TestProvisioningMQTTClientSendPolling:
         mock_response_3.body = fake_response_string
 
         mock_request.get_response.side_effect = [mock_response_1, mock_response_2, mock_response_3]
-        spy_sleep_factory = mocker.spy(asyncio, "sleep")
         mocker.patch.object(uuid, "uuid4", return_value=mock_request.request_id)
 
         expected_topic_query = mqtt_topic.get_status_query_topic_for_publish(
@@ -1535,10 +1467,10 @@ class TestProvisioningMQTTClientSendPolling:
 
         registration_response = await client.send_polling(FAKE_OPERATION_ID)
 
-        assert spy_sleep_factory.call_count == 3
+        assert mock_sleep.call_count == 3
 
         # First sleep is default polling interval and then retry after
-        assert spy_sleep_factory.call_args_list == [
+        assert mock_sleep.call_args_list == [
             mocker.call(2),
             mocker.call(retry_after_val_1),
             mocker.call(retry_after_val_2),
@@ -1558,7 +1490,7 @@ class TestProvisioningMQTTClientSendPolling:
         "finally returns the registration result received in the Response, "
         "converted to JSON, when the Response status was successful on the last attempt"
     )
-    async def test_polling_response(self, mocker, client):
+    async def test_polling_response(self, mocker, client, mock_sleep):
         # Override autocompletion behavior on publish (we don't need it here)
         client._mqtt_client.publish = mocker.AsyncMock()
         # Mock out the ledger to return a mocked request
@@ -1596,7 +1528,6 @@ class TestProvisioningMQTTClientSendPolling:
         # Need to use side effect instead of return value to generate different responses
         mock_request.get_response.side_effect = [mock_response_1, mock_response_2]
 
-        spy_sleep_factory = mocker.spy(asyncio, "sleep")
         # Mock uuid4 to return the fake request id
         mocker.patch.object(uuid, "uuid4", return_value=mock_request.request_id)
 
@@ -1606,10 +1537,10 @@ class TestProvisioningMQTTClientSendPolling:
 
         registration_response = await client.send_polling(FAKE_OPERATION_ID)
 
-        assert spy_sleep_factory.call_count == 2
+        assert mock_sleep.call_count == 2
 
         # Both sleep are DEFAULT_POLLING_INTERVAL
-        assert spy_sleep_factory.call_args_list == [
+        assert mock_sleep.call_args_list == [
             mocker.call(DEFAULT_POLLING_INTERVAL),
             mocker.call(DEFAULT_POLLING_INTERVAL),
         ]
@@ -1768,21 +1699,24 @@ class TestProvisioningMQTTClientSendPolling:
         mock_request.request_id = FAKE_POLLING_REQUEST_ID
         mocker.patch.object(client._request_ledger, "create_request", return_value=mock_request)
 
-        patch_wait_for = mocker.patch.object(asyncio, "wait_for")
-        fake_exception = asyncio.TimeoutError("fake timeout exception")
-        patch_wait_for.side_effect = fake_exception
+        # Simulate a timeout
+        fake_timeout = asyncio.TimeoutError("fake timeout exception")
 
-        raised = False
+        def simulate_timeout(awaitable, timeout):
+            # Create a task from the awaitable, and then cancel it so that no warnings are thrown
+            # about the awaitable never being awaited.
+            # This is because in the real implementation, the awaitable is scheduled on the
+            # event loop, and then later cancelled in the case of timeout
+            t = asyncio.create_task(awaitable)
+            t.cancel()
+            raise fake_timeout
 
-        # can not use with pytest.raises(ProvisioningServiceError) as e_info as e_info does not contain cause
-        try:
+        mocker.patch.object(asyncio, "wait_for", side_effect=simulate_timeout)
+
+        # Timeout causes ProvisioningServiceError
+        with pytest.raises(ProvisioningServiceError) as e_info:
             await client.send_polling(operation_id=FAKE_OPERATION_ID)
-        except ProvisioningServiceError as pe:
-            raised = True
-            assert pe.__cause__ is fake_exception
-            assert mock_request.request_id in pe.args[0]
-
-        assert raised
+        assert e_info.value.__cause__ is fake_timeout
 
     @pytest.mark.it(
         "Deletes the Request from the RequestLedger if timeout occurred while waiting for a register dps response"
@@ -1797,12 +1731,24 @@ class TestProvisioningMQTTClientSendPolling:
         spy_create_request = mocker.spy(client._request_ledger, "create_request")
         spy_delete_request = mocker.spy(client._request_ledger, "delete_request")
 
-        patch_wait_for = mocker.patch.object(asyncio, "wait_for")
-        fake_exception = asyncio.TimeoutError("fake timeout exception")
-        patch_wait_for.side_effect = fake_exception
+        # Simulate a timeout
+        fake_timeout = asyncio.TimeoutError("fake timeout exception")
 
-        with pytest.raises(ProvisioningServiceError):
+        def simulate_timeout(awaitable, timeout):
+            # Create a task from the awaitable, and then cancel it so that no warnings are thrown
+            # about the awaitable never being awaited.
+            # This is because in the real implementation, the awaitable is scheduled on the
+            # event loop, and then later cancelled in the case of timeout
+            t = asyncio.create_task(awaitable)
+            t.cancel()
+            raise fake_timeout
+
+        mocker.patch.object(asyncio, "wait_for", side_effect=simulate_timeout)
+
+        # Timeout occurs
+        with pytest.raises(ProvisioningServiceError) as e_info:
             await client.send_polling(operation_id=FAKE_OPERATION_ID)
+        assert e_info.value.__cause__ is fake_timeout
 
         # Request was created, but not yet deleted
         assert spy_create_request.await_count == 1
