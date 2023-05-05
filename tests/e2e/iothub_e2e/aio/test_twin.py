@@ -7,7 +7,7 @@ import logging
 import const
 import sys
 from dev_utils import get_random_dict
-from azure.iot.device import MQTTError, SessionError
+from azure.iot.device import MQTTConnectionDroppedError, SessionError
 import paho.mqtt.client as paho
 
 
@@ -88,7 +88,7 @@ class TestGetTwin(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
-        "Raises Error on get_twin if network error causes failure enabling twin responses"
+        "Raises MQTTConnectionDroppedError on get_twin if network error causes failure enabling twin responses"
     )
     @pytest.mark.keep_alive(5)
     async def test_get_twin_raises_if_network_error_enabling_twin_responses(
@@ -107,7 +107,7 @@ class TestGetTwin(object):
 
             # Attempt to get twin (implicitly enabling twin first)
             assert session._mqtt_client._twin_responses_enabled is False
-            with pytest.raises(MQTTError) as e_info:
+            with pytest.raises(MQTTConnectionDroppedError) as e_info:
                 await session.get_twin()
             assert e_info.value.rc in [paho.MQTT_ERR_CONN_LOST, paho.MQTT_ERR_KEEPALIVE]
             del e_info
@@ -116,7 +116,7 @@ class TestGetTwin(object):
         assert session.connected is False
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.skip("get_twin doesn't time out if no resopnse")
+    @pytest.mark.skip("get_twin doesn't time out if no response")
     @pytest.mark.keep_alive(5)
     @pytest.mark.it("Raises Error on get_twin if network error causes request or response to fail")
     async def test_get_twin_raises_if_network_error_on_request_or_response(
