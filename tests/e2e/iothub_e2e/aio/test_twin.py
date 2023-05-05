@@ -70,7 +70,6 @@ class TestGetTwin(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.skip("get_twin() hangs if disconnected")
     @pytest.mark.it("Raises SessionError if there is no connection (Twin enabled)")
     @pytest.mark.quicktest_suite
     async def test_no_connection_twin_enabled(self, leak_tracker, session):
@@ -83,13 +82,10 @@ class TestGetTwin(object):
         assert session._mqtt_client._twin_responses_enabled is True
 
         with pytest.raises(SessionError):
-            # This never returns
             await session.get_twin()
         assert not session.connected
 
         leak_tracker.check_for_leaks()
-
-    # TODO "Waits to complete until a connection is established if there is no connection (Twin already enabled)"
 
     @pytest.mark.it(
         "Raises Error on get_twin if network error causes failure enabling twin responses"
@@ -254,7 +250,6 @@ class TestReportedProperties(object):
     @pytest.mark.it("Raises SessionError if there is no connection")
     @pytest.mark.parametrize(*twin_enabled_and_disabled)
     @pytest.mark.quicktest_suite
-    @pytest.mark.skip("test hangs at line 'test hangs here' if Twin is already enabled")
     async def test_no_connection_raises_error(
         self, leak_tracker, session, random_reported_props, twin_enabled
     ):
@@ -270,7 +265,6 @@ class TestReportedProperties(object):
         assert session.connected is False
 
         with pytest.raises(SessionError):
-            # test hangs here
             await session.update_reported_properties(random_reported_props)
         assert session.connected is False
 
