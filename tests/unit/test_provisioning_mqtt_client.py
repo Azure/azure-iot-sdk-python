@@ -23,8 +23,8 @@ from azure.iot.device.provisioning_mqtt_client import (
     DEFAULT_TIMEOUT_INTERVAL,
 )
 
-from azure.iot.device.exceptions import ProvisioningServiceError
 from azure.iot.device import config, constant, user_agent
+from azure.iot.device import exceptions as exc
 from azure.iot.device import mqtt_client as mqtt
 from azure.iot.device import request_response as rr
 from azure.iot.device import mqtt_topic_provisioning as mqtt_topic
@@ -775,7 +775,7 @@ class TestProvisioningMQTTClientSendRegister:
         mock_response.body = " "
         mock_request.get_response.return_value = mock_response
 
-        with pytest.raises(ProvisioningServiceError):
+        with pytest.raises(exc.ProvisioningServiceError):
             await client.send_register(payload=registration_payload)
 
     @pytest.mark.it(
@@ -1217,7 +1217,7 @@ class TestProvisioningMQTTClientSendRegister:
         mocker.patch.object(asyncio, "wait_for", side_effect=simulate_timeout)
 
         # Timeout causes ProvisioningServiceError
-        with pytest.raises(ProvisioningServiceError) as e_info:
+        with pytest.raises(exc.ProvisioningServiceError) as e_info:
             await client.send_register(payload=registration_payload)
 
         assert e_info.value.__cause__ is fake_timeout
@@ -1260,7 +1260,7 @@ class TestProvisioningMQTTClientSendRegister:
         mocker.patch.object(asyncio, "wait_for", side_effect=simulate_timeout)
 
         # Timeout occurs
-        with pytest.raises(ProvisioningServiceError) as e_info:
+        with pytest.raises(exc.ProvisioningServiceError) as e_info:
             await client.send_register(payload=registration_payload)
         assert e_info.value.__cause__ is fake_timeout
 
@@ -1379,7 +1379,7 @@ class TestProvisioningMQTTClientSendPolling:
         mock_response.body = " "
         mock_request.get_response.return_value = mock_response
 
-        with pytest.raises(ProvisioningServiceError):
+        with pytest.raises(exc.ProvisioningServiceError):
             await client.send_polling(FAKE_OPERATION_ID)
 
     @pytest.mark.it(
@@ -1714,7 +1714,7 @@ class TestProvisioningMQTTClientSendPolling:
         mocker.patch.object(asyncio, "wait_for", side_effect=simulate_timeout)
 
         # Timeout causes ProvisioningServiceError
-        with pytest.raises(ProvisioningServiceError) as e_info:
+        with pytest.raises(exc.ProvisioningServiceError) as e_info:
             await client.send_polling(operation_id=FAKE_OPERATION_ID)
         assert e_info.value.__cause__ is fake_timeout
 
@@ -1746,7 +1746,7 @@ class TestProvisioningMQTTClientSendPolling:
         mocker.patch.object(asyncio, "wait_for", side_effect=simulate_timeout)
 
         # Timeout occurs
-        with pytest.raises(ProvisioningServiceError) as e_info:
+        with pytest.raises(exc.ProvisioningServiceError) as e_info:
             await client.send_polling(operation_id=FAKE_OPERATION_ID)
         assert e_info.value.__cause__ is fake_timeout
 

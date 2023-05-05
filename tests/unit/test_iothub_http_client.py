@@ -14,7 +14,7 @@ from dev_utils import custom_mock
 from azure.iot.device import config, constant, user_agent
 from azure.iot.device import http_path_iothub as http_path
 from azure.iot.device import sastoken as st
-from azure.iot.device.exceptions import IoTHubClientError, IoTHubError, IoTEdgeError
+from azure.iot.device import exceptions as exc
 from azure.iot.device.iothub_http_client import IoTHubHTTPClient
 
 FAKE_DEVICE_ID = "fake_device_id"
@@ -545,7 +545,7 @@ class TestIoTHubHTTPClientInvokeDirectMethod:
         mock_response = client._session.post.return_value.__aenter__.return_value
         mock_response.status = failed_status
 
-        with pytest.raises(IoTEdgeError):
+        with pytest.raises(exc.IoTEdgeError):
             await client.invoke_direct_method(
                 device_id=target_device_id, module_id=target_module_id, method_params=method_params
             )
@@ -557,7 +557,7 @@ class TestIoTHubHTTPClientInvokeDirectMethod:
         client._module_id = None
         client._edge_module_id = None
 
-        with pytest.raises(IoTHubClientError):
+        with pytest.raises(exc.IoTHubClientError):
             await client.invoke_direct_method(
                 device_id=target_device_id, module_id=target_module_id, method_params=method_params
             )
@@ -773,7 +773,7 @@ class TestIoTHubHTTPClientGetStorageInfoForBlob:
         mock_response = client._session.post.return_value.__aenter__.return_value
         mock_response.status = failed_status
 
-        with pytest.raises(IoTHubError):
+        with pytest.raises(exc.IoTHubError):
             await client.get_storage_info_for_blob(blob_name="fake_blob")
 
     @pytest.mark.it("Raises IoTHubClientError if not configured as a Device")
@@ -789,7 +789,7 @@ class TestIoTHubHTTPClientGetStorageInfoForBlob:
         client._module_id = FAKE_MODULE_ID
         client._edge_module_id = edge_module_id
 
-        with pytest.raises(IoTHubClientError):
+        with pytest.raises(exc.IoTHubClientError):
             await client.get_storage_info_for_blob(blob_name="some blob")
 
     @pytest.mark.it("Allows any exceptions raised by the POST request to propagate")
@@ -987,7 +987,7 @@ class TestIoTHubHTTPClientNotifyBlobUploadStatus:
         mock_response = client._session.post.return_value.__aenter__.return_value
         mock_response.status = failed_status
 
-        with pytest.raises(IoTHubError):
+        with pytest.raises(exc.IoTHubError):
             await client.notify_blob_upload_status(**kwargs)
 
     @pytest.mark.it("Raises IoTHubClientError if not configured as a Device")
@@ -1003,7 +1003,7 @@ class TestIoTHubHTTPClientNotifyBlobUploadStatus:
         client._module_id = FAKE_MODULE_ID
         client._edge_module_id = edge_module_id
 
-        with pytest.raises(IoTHubClientError):
+        with pytest.raises(exc.IoTHubClientError):
             await client.notify_blob_upload_status(**kwargs)
 
     @pytest.mark.it("Allows any exceptions raised by the POST request to propagate")

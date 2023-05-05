@@ -9,7 +9,7 @@ import pytest
 import requests
 import urllib.parse
 from azure.iot.device.edge_hsm import IoTEdgeHsm
-from azure.iot.device.exceptions import IoTEdgeError
+from azure.iot.device import exceptions as exc
 from azure.iot.device import user_agent
 
 
@@ -139,7 +139,7 @@ class TestIoTEdgeHsmGetCertificate(object):
         error = requests.exceptions.HTTPError()
         mock_response.raise_for_status.side_effect = error
 
-        with pytest.raises(IoTEdgeError) as e_info:
+        with pytest.raises(exc.IoTEdgeError) as e_info:
             await edge_hsm.get_certificate()
         assert e_info.value.__cause__ is error
 
@@ -149,7 +149,7 @@ class TestIoTEdgeHsmGetCertificate(object):
         error = ValueError()
         mock_response.json.side_effect = error
 
-        with pytest.raises(IoTEdgeError) as e_info:
+        with pytest.raises(exc.IoTEdgeError) as e_info:
             await edge_hsm.get_certificate()
         assert e_info.value.__cause__ is error
 
@@ -159,7 +159,7 @@ class TestIoTEdgeHsmGetCertificate(object):
         # Return an empty json dict with no 'certificate' key
         mock_response.json.return_value = {}
 
-        with pytest.raises(IoTEdgeError):
+        with pytest.raises(exc.IoTEdgeError):
             await edge_hsm.get_certificate()
 
 
@@ -241,7 +241,7 @@ class TestIoTEdgeHsmSign(object):
         error = requests.exceptions.HTTPError()
         mock_response.raise_for_status.side_effect = error
 
-        with pytest.raises(IoTEdgeError) as e_info:
+        with pytest.raises(exc.IoTEdgeError) as e_info:
             await edge_hsm.sign("somedata")
         assert e_info.value.__cause__ is error
 
@@ -250,7 +250,7 @@ class TestIoTEdgeHsmSign(object):
         mock_response = mock_requests_post.return_value
         error = ValueError()
         mock_response.json.side_effect = error
-        with pytest.raises(IoTEdgeError) as e_info:
+        with pytest.raises(exc.IoTEdgeError) as e_info:
             await edge_hsm.sign("somedata")
         assert e_info.value.__cause__ is error
 
@@ -259,5 +259,5 @@ class TestIoTEdgeHsmSign(object):
         mock_response = mock_requests_post.return_value
         mock_response.json.return_value = {}
 
-        with pytest.raises(IoTEdgeError):
+        with pytest.raises(exc.IoTEdgeError):
             await edge_hsm.sign("somedata")

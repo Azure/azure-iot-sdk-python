@@ -9,7 +9,7 @@ import logging
 import urllib.parse
 from typing import Optional, cast
 from .custom_typing import DirectMethodParameters, DirectMethodResult, StorageInfo
-from .exceptions import IoTHubClientError, IoTHubError, IoTEdgeError
+from . import exceptions as exc
 from . import config, constant, user_agent
 from . import http_path_iothub as http_path
 
@@ -114,7 +114,7 @@ class IoTHubHTTPClient:
         if not self._edge_module_id:
             # NOTE: The Edge Module ID will be exist for any Module, it doesn't actually indicate
             # if it is an Edge Module or not. There's no way to tell, unfortunately.
-            raise IoTHubClientError(".invoke_direct_method() only available for Edge Modules")
+            raise exc.IoTHubClientError(".invoke_direct_method() only available for Edge Modules")
 
         path = http_path.get_direct_method_invoke_path(device_id, module_id)
         query_params = {PARAM_API_VERISON: constant.IOTHUB_API_VERSION}
@@ -142,7 +142,7 @@ class IoTHubHTTPClient:
 
             if response.status >= 300:
                 logger.error("Received failure response from IoT Edge for direct method invocation")
-                raise IoTEdgeError(
+                raise exc.IoTEdgeError(
                     "IoT Edge responded to direct method invocation with a failed status ({status}) - {reason}".format(
                         status=response.status, reason=response.reason
                     )
@@ -167,7 +167,7 @@ class IoTHubHTTPClient:
         :raises: :class:`IoTHubError` if IoTHub responds with failure
         """
         if self._module_id:
-            raise IoTHubClientError(".get_storage_info_for_blob() only available for Devices")
+            raise exc.IoTHubClientError(".get_storage_info_for_blob() only available for Devices")
 
         path = http_path.get_storage_info_for_blob_path(
             self._device_id
@@ -191,7 +191,7 @@ class IoTHubHTTPClient:
 
             if response.status >= 300:
                 logger.error("Received failure response from IoTHub for storage info request")
-                raise IoTHubError(
+                raise exc.IoTHubError(
                     "IoTHub responded to storage info request with a failed status ({status}) - {reason}".format(
                         status=response.status, reason=response.reason
                     )
@@ -216,7 +216,7 @@ class IoTHubHTTPClient:
         :raises: :class:`IoTHubError` if IoTHub responds with failure
         """
         if self._module_id:
-            raise IoTHubClientError(".notify_blob_upload_status() only available for Devices")
+            raise exc.IoTHubClientError(".notify_blob_upload_status() only available for Devices")
 
         path = http_path.get_notify_blob_upload_status_path(self._device_id)
         query_params = {PARAM_API_VERISON: constant.IOTHUB_API_VERSION}
@@ -243,7 +243,7 @@ class IoTHubHTTPClient:
 
             if response.status >= 300:
                 logger.error("Received failure response from IoTHub for blob upload notification")
-                raise IoTHubError(
+                raise exc.IoTHubError(
                     "IoTHub responded to blob upload notification with a failed status ({status}) - {reason}".format(
                         status=response.status, reason=response.reason
                     )
