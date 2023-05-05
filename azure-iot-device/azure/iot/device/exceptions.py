@@ -11,11 +11,17 @@ from .mqtt_client import (  # noqa: F401 (Importing directly to re-export)
 )
 
 
-# Client Exceptions
+# Client/Session Exceptions
 # TODO: Should this be here? Only if HTTP stack still exists. If not, move to specific file
 # TODO: Should this just be a generic ClientError that could be used across clients?
 class IoTHubClientError(Exception):
     """Represents a failure from the IoTHub Client"""
+
+    pass
+
+
+class SessionError(Exception):
+    """Represents a failure from the Session object"""
 
     pass
 
