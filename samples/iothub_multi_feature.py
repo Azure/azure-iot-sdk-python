@@ -13,7 +13,7 @@ import os
 from azure.iot.device import (
     IoTHubSession,
     DirectMethodResponse,
-    MQTTError,
+    MQTTConnectionDroppedError,
     MQTTConnectionFailedError,
 )
 
@@ -91,7 +91,7 @@ async def main():
                     receive_direct_method_requests(session),
                 )
 
-        except MQTTError:
+        except MQTTConnectionDroppedError:
             # Connection has been lost. Reconnect on next pass of loop.
             print("Dropped connection. Reconnecting in 1 second")
             await asyncio.sleep(1)

@@ -12,8 +12,9 @@ import typing
 from dev_utils import custom_mock
 from pytest_lazyfixture import lazy_fixture
 from azure.iot.device.iothub_session import IoTHubSession
-from azure.iot.device import config, models, iot_exceptions
+from azure.iot.device import config, models
 from azure.iot.device import connection_string as cs
+from azure.iot.device import exceptions as exc
 from azure.iot.device import iothub_mqtt_client as mqtt
 from azure.iot.device import sastoken as st
 from azure.iot.device import signing_mechanism as sm
@@ -1188,7 +1189,7 @@ class TestIoTHubSessionContextManager:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -1213,7 +1214,7 @@ class TestIoTHubSessionContextManager:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -1252,7 +1253,7 @@ class TestIoTHubSessionContextManager:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -1283,7 +1284,7 @@ class TestIoTHubSessionContextManager:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -1469,7 +1470,7 @@ class TestIoTHubSessionSendMessage:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTError(5), id="MQTTError"),
+            pytest.param(exc.MQTTError(5), id="MQTTError"),
             pytest.param(ValueError(), id="ValueError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
         ],
@@ -1482,15 +1483,14 @@ class TestIoTHubSessionSendMessage:
         assert e_info.value is exception
 
     @pytest.mark.it(
-        "Raises MQTTError (rc=4) without invoking .send_message() on the IoTHubMQTTClient if it is not connected"
+        "Raises SessionError without invoking .send_message() on the IoTHubMQTTClient if it is not connected"
     )
     async def test_not_connected(self, mocker, session):
         conn_property_mock = mocker.PropertyMock(return_value=False)
         type(session._mqtt_client).connected = conn_property_mock
 
-        with pytest.raises(mqtt.MQTTError) as e_info:
+        with pytest.raises(exc.SessionError):
             await session.send_message("hi")
-        assert e_info.value.rc == 4
         assert session._mqtt_client.send_message.call_count == 0
 
     @pytest.mark.it(
@@ -1518,7 +1518,7 @@ class TestIoTHubSessionSendMessage:
             await t
 
     @pytest.mark.it(
-        "Raises the MQTTError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+        "Raises the MQTTConnectionDroppedError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
     )
     async def test_unexpected_disconnect_during_send(self, session):
         session._mqtt_client.send_message = custom_mock.HangingAsyncMock()
@@ -1535,11 +1535,11 @@ class TestIoTHubSessionSendMessage:
         assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
         # Simulate unexpected disconnect
-        cause = mqtt.MQTTError(rc=7)
+        cause = exc.MQTTConnectionDroppedError(rc=7)
         session._mqtt_client.wait_for_disconnect.return_value = cause
         session._mqtt_client.wait_for_disconnect.stop_hanging()
 
-        with pytest.raises(mqtt.MQTTError) as e_info:
+        with pytest.raises(exc.MQTTConnectionDroppedError) as e_info:
             await t
         assert e_info.value is cause
 
@@ -1582,7 +1582,7 @@ class TestIoTHubSessionSendDirectMethodResponse:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTError(5), id="MQTTError"),
+            pytest.param(exc.MQTTError(5), id="MQTTError"),
             pytest.param(ValueError(), id="ValueError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
         ],
@@ -1595,15 +1595,14 @@ class TestIoTHubSessionSendDirectMethodResponse:
         assert e_info.value is exception
 
     @pytest.mark.it(
-        "Raises MQTTError (rc=4) without invoking .send_direct_method_response() on the IoTHubMQTTClient if it is not connected"
+        "Raises SessionError without invoking .send_direct_method_response() on the IoTHubMQTTClient if it is not connected"
     )
     async def test_not_connected(self, mocker, session, direct_method_response):
         conn_property_mock = mocker.PropertyMock(return_value=False)
         type(session._mqtt_client).connected = conn_property_mock
 
-        with pytest.raises(mqtt.MQTTError) as e_info:
+        with pytest.raises(exc.SessionError):
             await session.send_direct_method_response(direct_method_response)
-        assert e_info.value.rc == 4
         assert session._mqtt_client.send_message.call_count == 0
 
     @pytest.mark.it(
@@ -1631,7 +1630,7 @@ class TestIoTHubSessionSendDirectMethodResponse:
             await t
 
     @pytest.mark.it(
-        "Raises the MQTTError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+        "Raises the MQTTConnectionDroppedError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
     )
     async def test_unexpected_disconnect_during_send(self, session, direct_method_response):
         session._mqtt_client.send_direct_method_response = custom_mock.HangingAsyncMock()
@@ -1648,11 +1647,11 @@ class TestIoTHubSessionSendDirectMethodResponse:
         assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
         # Simulate unexpected disconnect
-        cause = mqtt.MQTTError(rc=7)
+        cause = exc.MQTTConnectionDroppedError(rc=7)
         session._mqtt_client.wait_for_disconnect.return_value = cause
         session._mqtt_client.wait_for_disconnect.stop_hanging()
 
-        with pytest.raises(mqtt.MQTTError) as e_info:
+        with pytest.raises(exc.MQTTConnectionDroppedError) as e_info:
             await t
         assert e_info.value is cause
 
@@ -1693,8 +1692,8 @@ class TestIoTHubSessionUpdateReportedProperties:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(iot_exceptions.IoTHubError(), id="IoTHubError"),
-            pytest.param(mqtt.MQTTError(5), id="MQTTError"),
+            pytest.param(exc.IoTHubError(), id="IoTHubError"),
+            pytest.param(exc.MQTTError(5), id="MQTTError"),
             pytest.param(ValueError(), id="ValueError"),
             pytest.param(asyncio.CancelledError(), id="CancelledError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
@@ -1711,15 +1710,14 @@ class TestIoTHubSessionUpdateReportedProperties:
             assert e_info.value is exception
 
     @pytest.mark.it(
-        "Raises MQTTError (rc=4) without invoking .send_twin_patch() on the IoTHubMQTTClient if it is not connected"
+        "Raises SessionError without invoking .send_twin_patch() on the IoTHubMQTTClient if it is not connected"
     )
     async def test_not_connected(self, mocker, session, patch):
         conn_property_mock = mocker.PropertyMock(return_value=False)
         type(session._mqtt_client).connected = conn_property_mock
 
-        with pytest.raises(mqtt.MQTTError) as e_info:
+        with pytest.raises(exc.SessionError):
             await session.update_reported_properties(patch)
-        assert e_info.value.rc == 4
         assert session._mqtt_client.send_twin_patch.call_count == 0
 
     @pytest.mark.it(
@@ -1747,7 +1745,7 @@ class TestIoTHubSessionUpdateReportedProperties:
             await t
 
     @pytest.mark.it(
-        "Raises the MQTTError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+        "Raises the MQTTConnectionDroppedError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
     )
     async def test_unexpected_disconnect_during_send(self, session, patch):
         session._mqtt_client.send_twin_patch = custom_mock.HangingAsyncMock()
@@ -1764,11 +1762,11 @@ class TestIoTHubSessionUpdateReportedProperties:
         assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
         # Simulate unexpected disconnect
-        cause = mqtt.MQTTError(rc=7)
+        cause = exc.MQTTConnectionDroppedError(rc=7)
         session._mqtt_client.wait_for_disconnect.return_value = cause
         session._mqtt_client.wait_for_disconnect.stop_hanging()
 
-        with pytest.raises(mqtt.MQTTError) as e_info:
+        with pytest.raises(exc.MQTTConnectionDroppedError) as e_info:
             await t
         assert e_info.value is cause
 
@@ -1803,8 +1801,8 @@ class TestIoTHubSessionGetTwin:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(iot_exceptions.IoTHubError(), id="IoTHubError"),
-            pytest.param(mqtt.MQTTError(5), id="MQTTError"),
+            pytest.param(exc.IoTHubError(), id="IoTHubError"),
+            pytest.param(exc.MQTTError(5), id="MQTTError"),
             pytest.param(asyncio.CancelledError(), id="CancelledError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
         ],
@@ -1820,15 +1818,14 @@ class TestIoTHubSessionGetTwin:
             assert e_info.value is exception
 
     @pytest.mark.it(
-        "Raises MQTTError (rc=4) without invoking .get_twin() on the IoTHubMQTTClient if it is not connected"
+        "Raises SessionError without invoking .get_twin() on the IoTHubMQTTClient if it is not connected"
     )
     async def test_not_connected(self, mocker, session):
         conn_property_mock = mocker.PropertyMock(return_value=False)
         type(session._mqtt_client).connected = conn_property_mock
 
-        with pytest.raises(mqtt.MQTTError) as e_info:
+        with pytest.raises(exc.SessionError):
             await session.get_twin()
-        assert e_info.value.rc == 4
         assert session._mqtt_client.get_twin.call_count == 0
 
     @pytest.mark.it(
@@ -1856,7 +1853,7 @@ class TestIoTHubSessionGetTwin:
             await t
 
     @pytest.mark.it(
-        "Raises the MQTTError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
+        "Raises the MQTTConnectionDroppedError that caused the unexpected disconnect, if an unexpected disconnect occurs in the IoTHubMQTTClient while waiting for the operation to complete"
     )
     async def test_unexpected_disconnect_during_send(self, session):
         session._mqtt_client.get_twin = custom_mock.HangingAsyncMock()
@@ -1873,11 +1870,11 @@ class TestIoTHubSessionGetTwin:
         assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
         # Simulate unexpected disconnect
-        cause = mqtt.MQTTError(rc=7)
+        cause = exc.MQTTConnectionDroppedError(rc=7)
         session._mqtt_client.wait_for_disconnect.return_value = cause
         session._mqtt_client.wait_for_disconnect.stop_hanging()
 
-        with pytest.raises(mqtt.MQTTError) as e_info:
+        with pytest.raises(exc.MQTTConnectionDroppedError) as e_info:
             await t
         assert e_info.value is cause
 
@@ -1983,7 +1980,7 @@ class TestIoTHubSessionMessages:
             assert mock_c2d_gen.__anext__.await_count == 3
 
     @pytest.mark.it(
-        "Yields an AsyncGenerator that will raise the MQTTError that caused an unexpected disconnect in the IoTHubMQTTClient in the event of an unexpected disconnection"
+        "Yields an AsyncGenerator that will raise the MQTTConnectionDroppedError that caused an unexpected disconnect in the IoTHubMQTTClient in the event of an unexpected disconnection"
     )
     async def test_generator_raise_unexpected_disconnect(self, mocker, session):
         # Mock IoTHubMQTTClient C2D generator to not yield anything yet
@@ -2005,7 +2002,7 @@ class TestIoTHubSessionMessages:
             assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
             # Trigger unexpected disconnect
-            cause = mqtt.MQTTError(rc=7)
+            cause = exc.MQTTConnectionDroppedError(rc=7)
             session._mqtt_client.wait_for_disconnect.return_value = cause
             session._mqtt_client.wait_for_disconnect.stop_hanging()
             await asyncio.sleep(0.1)
@@ -2046,12 +2043,24 @@ class TestIoTHubSessionMessages:
             assert t.cancelled()
 
     @pytest.mark.it(
+        "Raises SessionError without enabling C2D message receive on the IoTHubMQTTClient if it is not connected"
+    )
+    async def test_not_connected(self, mocker, session):
+        conn_property_mock = mocker.PropertyMock(return_value=False)
+        type(session._mqtt_client).connected = conn_property_mock
+
+        with pytest.raises(exc.SessionError):
+            async with session.messages():
+                pass
+        assert session._mqtt_client.enable_c2d_message_receive.call_count == 0
+
+    @pytest.mark.it(
         "Allows any errors raised while attempting to enable C2D message receive to propagate"
     )
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTError(rc=4), id="MQTTError"),
+            pytest.param(exc.MQTTError(rc=4), id="MQTTError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -2068,7 +2077,7 @@ class TestIoTHubSessionMessages:
         "Suppresses any MQTTErrors raised while attempting to disable C2D message receive"
     )
     async def test_disable_raises_mqtt_error(self, session):
-        session._mqtt_client.disable_c2d_message_receive.side_effect = mqtt.MQTTError(rc=4)
+        session._mqtt_client.disable_c2d_message_receive.side_effect = exc.MQTTError(rc=4)
 
         async with session.messages():
             pass
@@ -2178,7 +2187,7 @@ class TestIoTHubSessionDirectMethodRequests:
             assert mock_dm_gen.__anext__.await_count == 3
 
     @pytest.mark.it(
-        "Yields an AsyncGenerator that will raise the MQTTError that caused an unexpected disconnect in the IoTHubMQTTClient in the event of an unexpected disconnection"
+        "Yields an AsyncGenerator that will raise the MQTTConnectionDroppedError that caused an unexpected disconnect in the IoTHubMQTTClient in the event of an unexpected disconnection"
     )
     async def test_generator_raise_unexpected_disconnect(self, mocker, session):
         # Mock IoTHubMQTTClient direct method request generator to not yield anything yet
@@ -2200,7 +2209,7 @@ class TestIoTHubSessionDirectMethodRequests:
             assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
             # Trigger unexpected disconnect
-            cause = mqtt.MQTTError(rc=7)
+            cause = exc.MQTTConnectionDroppedError(rc=7)
             session._mqtt_client.wait_for_disconnect.return_value = cause
             session._mqtt_client.wait_for_disconnect.stop_hanging()
             await asyncio.sleep(0.1)
@@ -2241,12 +2250,24 @@ class TestIoTHubSessionDirectMethodRequests:
             assert t.cancelled()
 
     @pytest.mark.it(
+        "Raises SessionError without enabling direct method request receive on the IoTHubMQTTClient if it is not connected"
+    )
+    async def test_not_connected(self, mocker, session):
+        conn_property_mock = mocker.PropertyMock(return_value=False)
+        type(session._mqtt_client).connected = conn_property_mock
+
+        with pytest.raises(exc.SessionError):
+            async with session.direct_method_requests():
+                pass
+        assert session._mqtt_client.enable_direct_method_request_receive.call_count == 0
+
+    @pytest.mark.it(
         "Allows any errors raised while attempting to enable direct method request receive to propagate"
     )
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTError(rc=4), id="MQTTError"),
+            pytest.param(exc.MQTTError(rc=4), id="MQTTError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -2263,9 +2284,7 @@ class TestIoTHubSessionDirectMethodRequests:
         "Suppresses any MQTTErrors raised while attempting to disable direct method request receive"
     )
     async def test_disable_raises_mqtt_error(self, session):
-        session._mqtt_client.disable_direct_method_request_receive.side_effect = mqtt.MQTTError(
-            rc=4
-        )
+        session._mqtt_client.disable_direct_method_request_receive.side_effect = exc.MQTTError(rc=4)
 
         async with session.direct_method_requests():
             pass
@@ -2371,7 +2390,7 @@ class TestIoTHubSessionDesiredPropertyUpdates:
             assert mock_twin_patch_gen.__anext__.await_count == 3
 
     @pytest.mark.it(
-        "Yields an AsyncGenerator that will raise the MQTTError that caused an unexpected disconnect in the IoTHubMQTTClient in the event of an unexpected disconnection"
+        "Yields an AsyncGenerator that will raise the MQTTConnectionDroppedError that caused an unexpected disconnect in the IoTHubMQTTClient in the event of an unexpected disconnection"
     )
     async def test_generator_raise_unexpected_disconnect(self, mocker, session):
         # Mock IoTHubMQTTClient twin patch generator to not yield anything yet
@@ -2393,7 +2412,7 @@ class TestIoTHubSessionDesiredPropertyUpdates:
             assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
             # Trigger unexpected disconnect
-            cause = mqtt.MQTTError(rc=7)
+            cause = exc.MQTTConnectionDroppedError(rc=7)
             session._mqtt_client.wait_for_disconnect.return_value = cause
             session._mqtt_client.wait_for_disconnect.stop_hanging()
             await asyncio.sleep(0.1)
@@ -2434,12 +2453,24 @@ class TestIoTHubSessionDesiredPropertyUpdates:
             assert t.cancelled()
 
     @pytest.mark.it(
+        "Raises SessionError without enabling twin patch receive on the IoTHubMQTTClient if it is not connected"
+    )
+    async def test_not_connected(self, mocker, session):
+        conn_property_mock = mocker.PropertyMock(return_value=False)
+        type(session._mqtt_client).connected = conn_property_mock
+
+        with pytest.raises(exc.SessionError):
+            async with session.desired_property_updates():
+                pass
+        assert session._mqtt_client.enable_twin_patch_receive.call_count == 0
+
+    @pytest.mark.it(
         "Allows any errors raised while attempting to enable twin patch receive to propagate"
     )
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTError(rc=4), id="MQTTError"),
+            pytest.param(exc.MQTTError(rc=4), id="MQTTError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -2456,7 +2487,7 @@ class TestIoTHubSessionDesiredPropertyUpdates:
         "Suppresses any MQTTErrors raised while attempting to disable twin patch receive"
     )
     async def test_disable_raises_mqtt_error(self, session):
-        session._mqtt_client.disable_twin_patch_receive.side_effect = mqtt.MQTTError(rc=4)
+        session._mqtt_client.disable_twin_patch_receive.side_effect = exc.MQTTError(rc=4)
 
         async with session.desired_property_updates():
             pass

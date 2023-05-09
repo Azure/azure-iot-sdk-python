@@ -42,8 +42,39 @@ expected_on_connect_rc = [
 ]
 
 
+# NOTE: Paho has two kinds of errors and associated error codes: MQTT and MQTT CONNACK:
+#
+#   - MQTT CONNACK errors only occur when attempting to establish a connection over MQTT, and thus
+#   map onto the MQTTConnectionFailedError exception defined below.
+#
+#   - MQTT errors occur everywhere else, and in this implementation map to two different types of
+#   exceptions depending on context:
+#
+#       - MQTT errors that result from a failed client operation (publish, subscribe, unsubscribe)
+#       map onto the MQTTError exception defined below.
+#
+#       - MQTT errors that result from a lost connection that had previously been established map
+#       onto the MQTTConnectionDroppedError exception defined below.
+#
+#   The reason for this artificially created split within basic MQTT errors is to provide
+#   flexibility to the user of this library in order to write try/except code that can easily
+#   differentiate between the cause of the error, and handle it accordingly. While it is true that
+#   MQTTConnectionDroppedErrors are exclusively retrieved via the `.previous_disconnection_cause()`
+#   method, an application that is sufficiently complex may want to re-raise such exceptions,
+#   and making a clear semantic split in error definitions can greatly simplify higher level
+#   try/except logic.
+
+
 class MQTTError(Exception):
     """Represents a failure with a Paho-given error rc code"""
+
+    def __init__(self, rc):
+        self.rc = rc
+        super().__init__(mqtt.error_string(rc))
+
+
+class MQTTConnectionDroppedError(Exception):
+    """Represents a failure indicating a lost connection with a Paho-given error rc code"""
 
     def __init__(self, rc):
         self.rc = rc
@@ -122,7 +153,7 @@ class MQTTClient:
         # modify them cannot be invoked in parallel.
         self._connected = False
         self._desire_connection = False
-        self._disconnection_cause: Optional[MQTTError] = None
+        self._disconnection_cause: Optional[MQTTConnectionDroppedError] = None
 
         # Synchronization
         self.connected_cond = asyncio.Condition()
@@ -247,7 +278,7 @@ class MQTTClient:
                     logger.debug("Client State: DISCONNECTED")
                     self._connected = False
                     if rc != mqtt.MQTT_ERR_SUCCESS:
-                        self._disconnection_cause = MQTTError(rc=rc)
+                        self._disconnection_cause = MQTTConnectionDroppedError(rc=rc)
                     async with self.disconnected_cond:
                         self.disconnected_cond.notify_all()
 
@@ -390,9 +421,9 @@ class MQTTClient:
         """
         return self._connected
 
-    def previous_disconnection_cause(self) -> Optional[MQTTError]:
+    def previous_disconnection_cause(self) -> Optional[MQTTConnectionDroppedError]:
         """
-        Returns an MQTTError from the previous disconnection if it was unexpected as a result of
+        Returns an MQTTConnectionDroppedError from the previous disconnection if it was unexpected as a result of
             a connection drop.
         Returns None if the previous disconnection attempt was intentional
         """

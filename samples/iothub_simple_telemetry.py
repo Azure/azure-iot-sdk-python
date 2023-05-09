@@ -12,7 +12,7 @@ https://learn.microsoft.com/en-us/azure/iot-develop/quickstart-send-telemetry-io
 
 import asyncio
 import os
-from azure.iot.device import IoTHubSession, MQTTError, MQTTConnectionFailedError
+from azure.iot.device import IoTHubSession, MQTTConnectionDroppedError, MQTTConnectionFailedError
 
 CONNECTION_STRING = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 TOTAL_MESSAGES_SENT = 0
@@ -34,7 +34,7 @@ async def main():
                 print("Send Complete")
                 await asyncio.sleep(5)
 
-    except MQTTError:
+    except MQTTConnectionDroppedError:
         # Connection has been lost.
         print("Dropped connection. Exiting")
     except MQTTConnectionFailedError:

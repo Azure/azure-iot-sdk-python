@@ -5,10 +5,12 @@
 # --------------------------------------------------------------------------
 import asyncio
 import contextlib
+import functools
 import ssl
 from typing import Optional, Union, AsyncGenerator, Type, TypeVar, Awaitable
 from types import TracebackType
 
+from . import exceptions as exc
 from . import signing_mechanism as sm
 from . import connection_string as cs
 from . import sastoken as st
@@ -18,6 +20,29 @@ from . import iothub_mqtt_client as mqtt
 _T = TypeVar("_T")
 
 # TODO: add tests for sastoken_ttl argument once we settle on a SAS strategy
+
+
+def _requires_connection(f):
+    """Decorator to indicate a method requires the Session to already be connected."""
+
+    @functools.wraps(f)
+    def check_connection_wrapper(*args, **kwargs):
+        this = args[0]  # a.k.a. self
+        if not this._mqtt_client.connected:
+            # NOTE: We need to raise an error directly if not connected because at MQTT
+            # Quality of Service (QoS) level 1, used at the lower levels of this stack,
+            # a MQTT Publish does not actually fail if not connected - instead, it waits
+            # for a connection to be established, and publishes the data once connected.
+            #
+            # This is not desirable behavior, so we check the connection state before
+            # any network operation over MQTT. While this issue only affects MQTT Publishes,
+            # and not MQTT Subscribes or Unsubscribes, we want this logic to be used
+            # on all methods that do MQTT operations for consistency.
+            raise exc.SessionError("IoTHubSession not connected")
+        else:
+            return f(*args, **kwargs)
+
+    return check_connection_wrapper
 
 
 class IoTHubSession:
@@ -111,7 +136,9 @@ class IoTHubSession:
         # NOTE: If we wanted to design lower levels of the stack to be specific to our
         # Session design pattern, this could happen lower (and it would be simpler), but it's
         # up here so we can be more implementation-generic down the stack.
-        self._wait_for_disconnect_task: Optional[asyncio.Task[Optional[mqtt.MQTTError]]] = None
+        self._wait_for_disconnect_task: Optional[
+            asyncio.Task[Optional[exc.MQTTConnectionDroppedError]]
+        ] = None
 
     async def __aenter__(self) -> "IoTHubSession":
         # First, if using SAS auth, start up the provider
@@ -209,6 +236,7 @@ class IoTHubSession:
             **kwargs,
         )
 
+    @_requires_connection
     async def send_message(self, message: Union[str, models.Message]) -> None:
         """Send a telemetry message to IoT Hub
 
@@ -220,13 +248,11 @@ class IoTHubSession:
         :raises: ValueError if the size of the Message payload is too large
         :raises: RuntimeError if not connected when invoked
         """
-        if not self._mqtt_client.connected:
-            # See NOTE 1 at the bottom of this file for why this occurs
-            raise mqtt.MQTTError(rc=4)
         if not isinstance(message, models.Message):
             message = models.Message(message)
         await self._add_disconnect_interrupt_to_coroutine(self._mqtt_client.send_message(message))
 
+    @_requires_connection
     async def send_direct_method_response(
         self, method_response: models.DirectMethodResponse
     ) -> None:
@@ -239,13 +265,11 @@ class IoTHubSession:
         :raises: MQTTError if there is an error sending the DirectMethodResponse
         :raises: ValueError if the size of the DirectMethodResponse payload is too large
         """
-        if not self._mqtt_client.connected:
-            # See NOTE 1 at the bottom of this file for why this occurs
-            raise mqtt.MQTTError(rc=4)
         await self._add_disconnect_interrupt_to_coroutine(
             self._mqtt_client.send_direct_method_response(method_response)
         )
 
+    @_requires_connection
     async def update_reported_properties(self, patch: custom_typing.TwinPatch) -> None:
         """Update the reported properties of the Twin
 
@@ -256,11 +280,9 @@ class IoTHubSession:
         :raises: ValueError if the size of the the reported properties patch too large
         :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
-        if not self._mqtt_client.connected:
-            # See NOTE 1 at the bottom of this file for why this occurs
-            raise mqtt.MQTTError(rc=4)
         await self._add_disconnect_interrupt_to_coroutine(self._mqtt_client.send_twin_patch(patch))
 
+    @_requires_connection
     async def get_twin(self) -> custom_typing.Twin:
         """Retrieve the full Twin data
 
@@ -271,12 +293,10 @@ class IoTHubSession:
         :raises: MQTTError if there is an error sending the request
         :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
-        if not self._mqtt_client.connected:
-            # See NOTE 1 at the bottom of this file for why this occurs
-            raise mqtt.MQTTError(rc=4)
         return await self._add_disconnect_interrupt_to_coroutine(self._mqtt_client.get_twin())
 
     @contextlib.asynccontextmanager
+    @_requires_connection
     async def messages(self) -> AsyncGenerator[AsyncGenerator[models.Message, None], None]:
         """Returns an async generator of incoming C2D messages"""
         await self._mqtt_client.enable_c2d_message_receive()
@@ -288,12 +308,13 @@ class IoTHubSession:
             try:
                 if self._mqtt_client.connected:
                     await self._mqtt_client.disable_c2d_message_receive()
-            except mqtt.MQTTError:
+            except exc.MQTTError:
                 # i.e. not connected
                 # This error would be expected if a disconnection has ocurred
                 pass
 
     @contextlib.asynccontextmanager
+    @_requires_connection
     async def direct_method_requests(
         self,
     ) -> AsyncGenerator[AsyncGenerator[models.DirectMethodRequest, None], None]:
@@ -307,12 +328,13 @@ class IoTHubSession:
             try:
                 if self._mqtt_client.connected:
                     await self._mqtt_client.disable_direct_method_request_receive()
-            except mqtt.MQTTError:
+            except exc.MQTTError:
                 # i.e. not connected
                 # This error would be expected if a disconnection has ocurred
                 pass
 
     @contextlib.asynccontextmanager
+    @_requires_connection
     async def desired_property_updates(
         self,
     ) -> AsyncGenerator[AsyncGenerator[custom_typing.TwinPatch, None], None]:
@@ -326,7 +348,7 @@ class IoTHubSession:
             try:
                 if self._mqtt_client.connected:
                     await self._mqtt_client.disable_twin_patch_receive()
-            except mqtt.MQTTError:
+            except exc.MQTTError:
                 # i.e. not connected
                 # This error would be expected if a disconnection has ocurred
                 pass
@@ -351,7 +373,6 @@ class IoTHubSession:
                     if cause is not None:
                         raise cause
                     else:
-                        # TODO: should this raise MQTTError(rc=4) instead?
                         raise asyncio.CancelledError("Cancelled by disconnect")
                 else:
                     yield new_item_t.result()
@@ -375,7 +396,6 @@ class IoTHubSession:
                 if cause is not None:
                     raise cause
                 else:
-                    # TODO: should this raise MQTTError(rc=4) instead?
                     raise asyncio.CancelledError("Cancelled by disconnect")
             else:
                 return await original_task
@@ -431,22 +451,3 @@ def _default_ssl_context() -> ssl.SSLContext:
     ssl_context.check_hostname = True
     ssl_context.load_default_certs()
     return ssl_context
-
-
-# NOTE 1: We raise this MQTT-level error directly because it won't naturally raise.
-# Our MQTT stack below uses MQTT QoS (Quality of Service) level 1, which means it technically
-# doesn't fail upon an attempt to publish an MQTT message with no connection. An rc 4 would be
-# returned by the publish attempt, but no error would be raised, since the message has been queued,
-# and could later be sent once a connection is established.
-#
-# However, for the implementation of IoTHubSession, this is not desirable  behavior - we want an
-# immediate failure when sending with no connection, and the queuing of the message is strange if
-# an error is raised. Thus, we manually raise an MQTT-level error (with rc 4) without actually
-# making a publish attempt to emulate the MQTT QoS level 0 behavior we would prefer to have.
-#
-# The MQTT-level error is used instead of a higher-level one so that the error handling experience
-# is simpler for the end user - MQTTError is the class of error that is raised on connection drop
-# and any other MQTT-related failure, so it make sense to raise that again here.
-#
-# This is a highly irregular design, and if an alternate solution could be created, that would be
-# ideal.

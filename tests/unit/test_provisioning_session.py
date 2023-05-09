@@ -5,7 +5,8 @@ import time
 from dev_utils import custom_mock
 from pytest_lazyfixture import lazy_fixture
 from azure.iot.device.provisioning_session import ProvisioningSession
-from azure.iot.device import config, provisioning_exceptions, constant
+from azure.iot.device import config, constant
+from azure.iot.device import exceptions as exc
 from azure.iot.device import provisioning_mqtt_client as mqtt
 from azure.iot.device import sastoken as st
 from azure.iot.device import signing_mechanism as sm
@@ -853,7 +854,7 @@ class TestProvisioningSessionContextManager:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -878,7 +879,7 @@ class TestProvisioningSessionContextManager:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -917,7 +918,7 @@ class TestProvisioningSessionContextManager:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -948,7 +949,7 @@ class TestProvisioningSessionContextManager:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -1131,10 +1132,8 @@ class TestProvisioningSessionRegister:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(
-                provisioning_exceptions.ProvisioningServiceError(), id="ProvisioningServiceError"
-            ),
-            pytest.param(mqtt.MQTTError(5), id="MQTTError"),
+            pytest.param(exc.ProvisioningServiceError(), id="ProvisioningServiceError"),
+            pytest.param(exc.MQTTError(5), id="MQTTError"),
             pytest.param(asyncio.CancelledError(), id="CancelledError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Error"),
         ],
@@ -1151,16 +1150,15 @@ class TestProvisioningSessionRegister:
             assert e_info.value is exception
 
     @pytest.mark.it(
-        "Raises MQTTError (rc=4) without invoking .register() on the ProvisioningMQTTClient if it is not connected"
+        "Raises SessionError without invoking .register() on the ProvisioningMQTTClient if it is not connected"
     )
     @pytest.mark.parametrize("payload", json_serializable_payload_params)
     async def test_not_connected(self, mocker, session, payload):
         conn_property_mock = mocker.PropertyMock(return_value=False)
         type(session._mqtt_client).connected = conn_property_mock
 
-        with pytest.raises(mqtt.MQTTError) as e_info:
+        with pytest.raises(exc.SessionError):
             await session.register(payload)
-        assert e_info.value.rc == 4
         assert session._mqtt_client.send_register.call_count == 0
 
     @pytest.mark.it(
@@ -1189,7 +1187,7 @@ class TestProvisioningSessionRegister:
             await t
 
     @pytest.mark.it(
-        "Raises the MQTTError that caused the unexpected disconnect, if an unexpected disconnect occurs in the "
+        "Raises the MQTTConnectionDroppedError that caused the unexpected disconnect, if an unexpected disconnect occurs in the "
         "ProvisioningMQTTClient while waiting for the operation to complete"
     )
     @pytest.mark.parametrize("payload", json_serializable_payload_params)
@@ -1208,11 +1206,11 @@ class TestProvisioningSessionRegister:
         assert session._mqtt_client.wait_for_disconnect.is_hanging()
 
         # Simulate unexpected disconnect
-        cause = mqtt.MQTTError(rc=7)
+        cause = exc.MQTTConnectionDroppedError(rc=7)
         session._mqtt_client.wait_for_disconnect.return_value = cause
         session._mqtt_client.wait_for_disconnect.stop_hanging()
 
-        with pytest.raises(mqtt.MQTTError) as e_info:
+        with pytest.raises(exc.MQTTConnectionDroppedError) as e_info:
             await t
         assert e_info.value is cause
 

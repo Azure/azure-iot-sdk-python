@@ -8,6 +8,7 @@ import ssl
 from typing import Optional, Type, Awaitable, TypeVar
 from types import TracebackType
 
+from . import exceptions as exc
 from . import signing_mechanism as sm
 from . import sastoken as st
 from . import config, custom_typing, constant
@@ -108,7 +109,9 @@ class ProvisioningSession:
         # NOTE: If we wanted to design lower levels of the stack to be specific to our
         # Session design pattern, this could happen lower (and it would be simpler), but it's
         # up here so we can be more implementation-generic down the stack.
-        self._wait_for_disconnect_task: Optional[asyncio.Task[Optional[mqtt.MQTTError]]] = None
+        self._wait_for_disconnect_task: Optional[
+            asyncio.Task[Optional[exc.MQTTConnectionDroppedError]]
+        ] = None
 
     async def __aenter__(self) -> "ProvisioningSession":
         # First, if using SAS auth, start up the provider
@@ -168,8 +171,12 @@ class ProvisioningSession:
         :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
         if not self._mqtt_client.connected:
-            # See NOTE 1 at the bottom of iothub_session file for why this occurs
-            raise mqtt.MQTTError(rc=4)
+            # NOTE: We need to raise an error directly if not connected because at MQTT
+            # Quality of Service (QoS) level 1, used at the lower levels of this stack,
+            # a MQTT Publish does not actually fail if not connected - instead, it waits
+            # for a connection to be established, and publishes the data once connected.
+            # This is not desirable behavior, so we check the connection state.
+            raise exc.SessionError("ProvisioningSession not connected")
         return await self._add_disconnect_interrupt_to_coroutine(
             self._mqtt_client.send_register(payload)
         )
@@ -191,7 +198,6 @@ class ProvisioningSession:
                 if cause is not None:
                     raise cause
                 else:
-                    # TODO: should this raise MQTTError(rc=4) instead?
                     raise asyncio.CancelledError("Cancelled by disconnect")
             else:
                 return await original_task

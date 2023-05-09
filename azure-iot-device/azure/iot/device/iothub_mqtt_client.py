@@ -10,12 +10,8 @@ import logging
 import urllib.parse
 from typing import Callable, Optional, AsyncGenerator, TypeVar
 from .custom_typing import TwinPatch, Twin
-from .iot_exceptions import IoTHubError, IoTHubClientError
-from .mqtt_client import (  # noqa: F401 (Importing directly to re-export)
-    MQTTError,
-    MQTTConnectionFailedError,
-)
 from . import config, constant, user_agent, models
+from . import exceptions as exc
 from . import request_response as rr
 from . import mqtt_client as mqtt
 from . import mqtt_topic_iothub as mqtt_topic
@@ -240,12 +236,12 @@ class IoTHubMQTTClient:
         await self._mqtt_client.disconnect()
         logger.debug("Disconnect succeeded")
 
-    async def wait_for_disconnect(self) -> Optional[MQTTError]:
+    async def wait_for_disconnect(self) -> Optional[exc.MQTTConnectionDroppedError]:
         """Block until disconnection and return the cause, if any
 
-        :returns: An MQTTError if the connection was dropped, or None if the
+        :returns: An MQTTConnectionDroppedError if the connection was dropped, or None if the
             connection was intentionally ended
-        :rtype: MQTTError or None
+        :rtype: MQTTConnectionDroppedError or None
         """
         async with self._mqtt_client.disconnected_cond:
             await self._mqtt_client.disconnected_cond.wait_for(lambda: not self.connected)
@@ -364,7 +360,7 @@ class IoTHubMQTTClient:
             )
             # TODO: should body be logged? Is there useful info there?
             if response.status >= 300:
-                raise IoTHubError(
+                raise exc.IoTHubError(
                     "IoTHub responded to twin patch with a failed status - {}".format(
                         response.status
                     )
@@ -432,7 +428,7 @@ class IoTHubMQTTClient:
 
         # Interpret response
         if response.status >= 300:
-            raise IoTHubError(
+            raise exc.IoTHubError(
                 "IoTHub responded to get twin request with a failed status - {}".format(
                     response.status
                 )
@@ -450,7 +446,7 @@ class IoTHubMQTTClient:
         :raises: IoTHubClientError if client not configured for a Device
         """
         if self._module_id:
-            raise IoTHubClientError("C2D messages not available on Modules")
+            raise exc.IoTHubClientError("C2D messages not available on Modules")
         logger.debug("Enabling receive for C2D messages...")
         topic = mqtt_topic.get_c2d_topic_for_subscribe(self._device_id)
         await self._mqtt_client.subscribe(topic)
@@ -464,7 +460,7 @@ class IoTHubMQTTClient:
         :raises: IoTHubClientError if client not configured for a Device
         """
         if self._module_id:
-            raise IoTHubClientError("C2D messages not available on Modules")
+            raise exc.IoTHubClientError("C2D messages not available on Modules")
         logger.debug("Disabling receive for C2D messages...")
         topic = mqtt_topic.get_c2d_topic_for_subscribe(self._device_id)
         await self._mqtt_client.unsubscribe(topic)
@@ -478,7 +474,7 @@ class IoTHubMQTTClient:
         :raises: IoTHubClientError if client not configured for a Module
         """
         if not self._module_id:
-            raise IoTHubClientError("Input messages not available on Devices")
+            raise exc.IoTHubClientError("Input messages not available on Devices")
         logger.debug("Enabling receive for input messages...")
         topic = mqtt_topic.get_input_topic_for_subscribe(self._device_id, self._module_id)
         await self._mqtt_client.subscribe(topic)
@@ -492,7 +488,7 @@ class IoTHubMQTTClient:
         :raises: IoTHubClientError if client not configured for a Module
         """
         if not self._module_id:
-            raise IoTHubClientError("Input messages not available on Devices")
+            raise exc.IoTHubClientError("Input messages not available on Devices")
         logger.debug("Disabling receive for input messages...")
         topic = mqtt_topic.get_input_topic_for_subscribe(self._device_id, self._module_id)
         await self._mqtt_client.unsubscribe(topic)
@@ -548,7 +544,7 @@ class IoTHubMQTTClient:
     def incoming_c2d_messages(self) -> AsyncGenerator[models.Message, None]:
         """Generator that yields incoming C2D Messages"""
         if not self._incoming_c2d_messages:
-            raise IoTHubClientError("C2D Messages not available for Module")
+            raise exc.IoTHubClientError("C2D Messages not available for Module")
         else:
             return self._incoming_c2d_messages
 
@@ -556,7 +552,7 @@ class IoTHubMQTTClient:
     def incoming_input_messages(self) -> AsyncGenerator[models.Message, None]:
         """Generator that yields incoming input Messages"""
         if not self._incoming_input_messages:
-            raise IoTHubClientError("Input Messages not available for Device")
+            raise exc.IoTHubClientError("Input Messages not available for Device")
         else:
             return self._incoming_input_messages
 

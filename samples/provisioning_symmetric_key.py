@@ -1,6 +1,10 @@
 import asyncio
 import logging
-from azure.iot.device import ProvisioningSession, MQTTError, MQTTConnectionFailedError
+from azure.iot.device import (
+    ProvisioningSession,
+    MQTTConnectionDroppedError,
+    MQTTConnectionFailedError,
+)
 import os
 
 
@@ -24,7 +28,7 @@ async def main():
             print("Finished provisioning")
             print(result)
 
-    except MQTTError:
+    except MQTTConnectionDroppedError:
         # Connection has been lost.
         print("Dropped connection. Exiting")
     except MQTTConnectionFailedError:

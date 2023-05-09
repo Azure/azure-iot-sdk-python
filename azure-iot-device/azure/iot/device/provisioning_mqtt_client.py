@@ -16,12 +16,8 @@ from .custom_typing import (
     DeviceRegistrationRequest,
     JSONSerializable,
 )
-from .provisioning_exceptions import ProvisioningServiceError
-from .mqtt_client import (  # noqa: F401 (Importing directly to re-export)
-    MQTTError,
-    MQTTConnectionFailedError,
-)
 from . import config, constant, user_agent
+from . import exceptions as exc
 from . import request_response as rr
 from . import mqtt_client as mqtt
 from . import mqtt_topic_provisioning as mqtt_topic
@@ -200,12 +196,12 @@ class ProvisioningMQTTClient:
         await self._mqtt_client.disconnect()
         logger.debug("Disconnect succeeded")
 
-    async def wait_for_disconnect(self) -> Optional[MQTTError]:
+    async def wait_for_disconnect(self) -> Optional[exc.MQTTConnectionDroppedError]:
         """Block until disconnection and return the cause, if any
 
-        :returns: An MQTTError if the connection was dropped, or None if the
+        :returns: An MQTTConnectionDroppedError if the connection was dropped, or None if the
             connection was intentionally ended
-        :rtype: MQTTError or None
+        :rtype: MQTTConnectionDroppedError or None
         """
         async with self._mqtt_client.disconnected_cond:
             await self._mqtt_client.disconnected_cond.wait_for(lambda: not self.connected)
@@ -269,7 +265,7 @@ class ProvisioningMQTTClient:
                         "took more time than allowable limit while waiting for a response. If the response arrives, "
                         "it will be discarded (rid: {})".format(request.request_id)
                     )
-                    raise ProvisioningServiceError(
+                    raise exc.ProvisioningServiceError(
                         "Device Provisioning Service timed out while waiting for response to the "
                         "register request...(rid: {}).".format(request.request_id)
                     ) from te
@@ -287,7 +283,7 @@ class ProvisioningMQTTClient:
                     await self._request_ledger.delete_request(request.request_id)
             if register_response:
                 if 300 <= register_response.status < 429:
-                    raise ProvisioningServiceError(
+                    raise exc.ProvisioningServiceError(
                         "Device Provisioning Service responded to the register request with a failed status - {}. The detailed error is {}.".format(
                             register_response.status, register_response.body
                         )
@@ -338,7 +334,7 @@ class ProvisioningMQTTClient:
                         }
                         return registration_result
                     else:
-                        raise ProvisioningServiceError(
+                        raise exc.ProvisioningServiceError(
                             "Device Provisioning Service responded to the register request with an invalid "
                             "registration status {} failed status - {}. The entire error response is {}".format(
                                 registration_status,
@@ -399,7 +395,7 @@ class ProvisioningMQTTClient:
                         "took more time than allowable limit while waiting for a response. If the response arrives, "
                         "it will be discarded (rid: {})".format(request.request_id)
                     )
-                    raise ProvisioningServiceError(
+                    raise exc.ProvisioningServiceError(
                         "Device Provisioning Service timed out while waiting for response to the "
                         "polling request with (rid: {})".format(request.request_id)
                     ) from te
@@ -418,7 +414,7 @@ class ProvisioningMQTTClient:
             if query_response:
                 if 300 <= query_response.status < 429:
                     # breaking from while
-                    raise ProvisioningServiceError(
+                    raise exc.ProvisioningServiceError(
                         "Device Provisioning Service responded to the polling request with a failed status - {}. The detailed error is {}. ".format(
                             query_response.status, query_response.body
                         )
@@ -475,7 +471,7 @@ class ProvisioningMQTTClient:
                         }
                         return registration_result
                     else:
-                        raise ProvisioningServiceError(
+                        raise exc.ProvisioningServiceError(
                             "Device Provisioning Service responded to the polling request with an invalid "
                             "registration status {} failed status - {}. The entire error response is {}".format(
                                 registration_status,

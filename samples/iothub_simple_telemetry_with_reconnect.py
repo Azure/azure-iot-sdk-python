@@ -9,7 +9,7 @@ If the connection drops, it will try to establish one again until the user exits
 
 import asyncio
 import os
-from azure.iot.device import IoTHubSession, MQTTError, MQTTConnectionFailedError
+from azure.iot.device import IoTHubSession, MQTTConnectionDroppedError, MQTTConnectionFailedError
 
 CONNECTION_STRING = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 TOTAL_MESSAGES_SENT = 0
@@ -31,7 +31,7 @@ async def main():
                     print("Send Complete")
                     await asyncio.sleep(5)
 
-        except MQTTError:
+        except MQTTConnectionDroppedError:
             # Connection has been lost. Reconnect on next pass of loop.
             print("Dropped connection. Reconnecting in 1 second")
             await asyncio.sleep(1)

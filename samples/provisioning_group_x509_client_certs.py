@@ -1,6 +1,10 @@
 import asyncio
 import logging
-from azure.iot.device import ProvisioningSession, MQTTError, MQTTConnectionFailedError
+from azure.iot.device import (
+    ProvisioningSession,
+    MQTTConnectionDroppedError,
+    MQTTConnectionFailedError,
+)
 import os
 import ssl
 
@@ -32,7 +36,7 @@ async def run_dps(registration_id, certfile, keyfile, password):
             print("Finished provisioning")
             print(result)
 
-    except MQTTError as me:
+    except MQTTConnectionDroppedError as me:
         # Connection has been lost.
         print("Dropped connection. Exiting")
         raise Exception("Dropped connection") from me

@@ -4,7 +4,12 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.mqtt_client import MQTTClient, MQTTError, MQTTConnectionFailedError
+from azure.iot.device.mqtt_client import (
+    MQTTClient,
+    MQTTError,
+    MQTTConnectionFailedError,
+    MQTTConnectionDroppedError,
+)
 from azure.iot.device.mqtt_client import (
     expected_connect_rc,
     expected_subscribe_rc,
@@ -290,7 +295,7 @@ def client_set_connection_dropped(client):
     """Set the client to a state representing an unexpected disconnect"""
     client._connected = False
     client._desire_connection = True
-    client._disconnection_cause = MQTTError(rc=7)
+    client._disconnection_cause = MQTTConnectionDroppedError(rc=7)
     client._mqtt_client._state = PAHO_STATE_CONNECTION_LOST
     # Ensure any running network loop Future exits.
     # A client after a connection drop should have a completed network loop Future
@@ -717,7 +722,7 @@ class TestPreviousDisconnectionCause:
             pytest.param("Connected", type(None), id="Connected"),
             pytest.param("Disconnected", type(None), id="Disconnected"),
             pytest.param("Fresh", type(None), id="Fresh"),
-            pytest.param("Connection Dropped", MQTTError, id="Connection Dropped"),
+            pytest.param("Connection Dropped", MQTTConnectionDroppedError, id="Connection Dropped"),
         ],
     )
     async def test_returns_value(self, client, state, expected_exc_type):
@@ -1085,7 +1090,7 @@ class ConnectWithClientNotConnectedTests:
     @pytest.mark.parametrize(
         "prev_cause",
         [
-            pytest.param(MQTTError(rc=7), id="Previous disconnection cause"),
+            pytest.param(MQTTConnectionDroppedError(rc=7), id="Previous disconnection cause"),
             pytest.param(None, id="No previous disconnection cause"),
         ],
     )
@@ -2144,7 +2149,7 @@ class TestUnexpectedDisconnect:
         await asyncio.sleep(0.1)
 
         cause = client.previous_disconnection_cause()
-        assert isinstance(cause, MQTTError)
+        assert isinstance(cause, MQTTConnectionDroppedError)
         assert cause.rc is mqtt.MQTT_ERR_CONN_LOST
 
     @pytest.mark.it("Does not alter the reconnect daemon")

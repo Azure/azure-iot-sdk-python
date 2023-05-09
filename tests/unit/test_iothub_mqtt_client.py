@@ -18,8 +18,8 @@ from azure.iot.device.iothub_mqtt_client import (
     IoTHubMQTTClient,
     DEFAULT_RECONNECT_INTERVAL,
 )
-from azure.iot.device.iot_exceptions import IoTHubClientError, IoTHubError
 from azure.iot.device import config, constant, models, user_agent
+from azure.iot.device import exceptions as exc
 from azure.iot.device import mqtt_client as mqtt
 from azure.iot.device import request_response as rr
 from azure.iot.device import mqtt_topic_iothub as mqtt_topic
@@ -40,14 +40,14 @@ FAKE_INPUT_NAME = "fake_input"
 # Parametrizations
 # TODO: expand this when we know more about what exceptions get raised from MQTTClient
 mqtt_connect_exceptions = [
-    pytest.param(mqtt.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+    pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
 ]
 mqtt_disconnect_exceptions = [
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception")
 ]
 mqtt_publish_exceptions = [
-    pytest.param(mqtt.MQTTError(rc=5), id="MQTTError"),
+    pytest.param(exc.MQTTError(rc=5), id="MQTTError"),
     pytest.param(ValueError(), id="ValueError"),
     pytest.param(TypeError(), id="TypeError"),
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
@@ -55,14 +55,14 @@ mqtt_publish_exceptions = [
 mqtt_subscribe_exceptions = [
     # NOTE: CancelledError is here because network failure can cancel a subscribe
     # without explicit invocation of cancel on the subscribe
-    pytest.param(mqtt.MQTTError(rc=5), id="MQTTError"),
+    pytest.param(exc.MQTTError(rc=5), id="MQTTError"),
     pytest.param(asyncio.CancelledError(), id="CancelledError (Not initiated)"),
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
 ]
 mqtt_unsubscribe_exceptions = [
     # NOTE: CancelledError is here because network failure can cancel an unsubscribe
     # without explicit invocation of cancel on the unsubscribe
-    pytest.param(mqtt.MQTTError(rc=5), id="MQTTError"),
+    pytest.param(exc.MQTTError(rc=5), id="MQTTError"),
     pytest.param(asyncio.CancelledError(), id="CancelledError (Not initiated)"),
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
 ]
@@ -945,11 +945,11 @@ class TestIoTHubMQTTClientReportConnectionDrop:
         assert t.result() is None
 
     @pytest.mark.it(
-        "Returns the MQTTError that caused an unexpected disconnect in the MQTTClient, if an unexpected disconnect has already occurred"
+        "Returns the MQTTConnectionDroppedError that caused an unexpected disconnect in the MQTTClient, if an unexpected disconnect has already occurred"
     )
     async def test_previous_unexpected_disconnect(self, client):
         # Simulate unexpected disconnect
-        cause = mqtt.MQTTError(rc=7)
+        cause = exc.MQTTConnectionDroppedError(rc=7)
         client._mqtt_client._disconnection_cause = cause
         client._mqtt_client.is_connected.return_value = False
         async with client._mqtt_client.disconnected_cond:
@@ -971,7 +971,7 @@ class TestIoTHubMQTTClientReportConnectionDrop:
         assert not t.done()
 
         # Simulate unexpected disconnect
-        cause = mqtt.MQTTError(rc=7)
+        cause = exc.MQTTError(rc=7)
         client._mqtt_client._disconnection_cause = cause
         client._mqtt_client.is_connected.return_value = False
         async with client._mqtt_client.disconnected_cond:
@@ -1455,7 +1455,7 @@ class TestIoTHubMQTTClientSendTwinPatch:
         mock_response.status = failed_status
         mock_request.get_response.return_value = mock_response
 
-        with pytest.raises(IoTHubError):
+        with pytest.raises(exc.IoTHubError):
             await client.send_twin_patch(twin_patch)
 
     # NOTE: MQTTClient subscribe can generate it's own cancellations due to network failure.
@@ -1748,7 +1748,7 @@ class TestIoTHubMQTTClientGetTwin:
         mock_response.body = " "
         mock_request.get_response.return_value = mock_response
 
-        with pytest.raises(IoTHubError):
+        with pytest.raises(exc.IoTHubError):
             await client.get_twin()
 
     @pytest.mark.it(
@@ -2048,7 +2048,7 @@ class TestIoTHubMQTTClientEnableC2DMessageReceive(IoTHubMQTTClientEnableReceiveT
     @pytest.mark.it("Raises IoTHubClientError if client not configured for a Device")
     async def test_with_module_id(self, client):
         client._module_id = FAKE_MODULE_ID
-        with pytest.raises(IoTHubClientError):
+        with pytest.raises(exc.IoTHubClientError):
             await client.enable_c2d_message_receive()
 
 
@@ -2065,7 +2065,7 @@ class TestIoTHubMQTTClientDisableC2DMessageReceive(IoTHubMQTTClientDisableReceiv
     @pytest.mark.it("Raises IoTHubClientError if client not configured for a Device")
     async def test_with_module_id(self, client):
         client._module_id = FAKE_MODULE_ID
-        with pytest.raises(IoTHubClientError):
+        with pytest.raises(exc.IoTHubClientError):
             await client.disable_c2d_message_receive()
 
 
@@ -2087,7 +2087,7 @@ class TestIoTHubMQTTClientEnableInputMessageReceive(IoTHubMQTTClientEnableReceiv
     @pytest.mark.it("Raises IoTHubClientError if client not configured for a Module")
     async def test_no_module_id(self, client):
         client._module_id = None
-        with pytest.raises(IoTHubClientError):
+        with pytest.raises(exc.IoTHubClientError):
             await client.enable_input_message_receive()
 
 
@@ -2109,7 +2109,7 @@ class TestIoTHubMQTTClientDisableInputMessageReceive(IoTHubMQTTClientDisableRece
     @pytest.mark.it("Raises IoTHubClientError if client not configured for a Module")
     async def test_no_module_id(self, client):
         client._module_id = None
-        with pytest.raises(IoTHubClientError):
+        with pytest.raises(exc.IoTHubClientError):
             await client.disable_input_message_receive()
 
 
@@ -2182,7 +2182,7 @@ class TestIoTHubMQTTClientIncomingC2DMessages:
         # at instantiation time
         client_config.module_id = FAKE_MODULE_ID
         client = IoTHubMQTTClient(client_config)
-        with pytest.raises(IoTHubClientError):
+        with pytest.raises(exc.IoTHubClientError):
             client.incoming_c2d_messages
 
     @pytest.mark.it(
@@ -2562,7 +2562,7 @@ class TestIoTHubMQTTClientIncomingInputMessages:
         # at instantiation time
         client_config.module_id = None
         client = IoTHubMQTTClient(client_config)
-        with pytest.raises(IoTHubClientError):
+        with pytest.raises(exc.IoTHubClientError):
             client.incoming_input_messages
 
     @pytest.mark.it(
