@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 import asyncio
 import contextlib
+import functools
 import ssl
 from typing import Optional, Union, AsyncGenerator, Type, TypeVar, Awaitable
 from types import TracebackType
@@ -24,6 +25,7 @@ _T = TypeVar("_T")
 def _requires_connection(f):
     """Decorator to indicate a method requires the Session to already be connected."""
 
+    @functools.wraps(f)
     def check_connection_wrapper(*args, **kwargs):
         this = args[0]  # a.k.a. self
         if not this._mqtt_client.connected:
