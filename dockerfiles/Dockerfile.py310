@@ -1,8 +1,13 @@
 from mcr.microsoft.com/mirror/docker/library/python:3.10-slim-buster
 
-RUN apt update && apt install -y \
-    git \
-    iptables
+RUN apt update \
+    && apt install -y \
+        iptables \
+    && apt clean
 
-COPY 
+WORKDIR /sdk
+COPY requirements_test.txt .
+RUN pip install -r requirements_test.txt
+COPY . .
+RUN python ./scripts/env_setup.py --no_dev
 
