@@ -1,0 +1,82 @@
+name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
+
+variables:
+  hubName: 'iotsdk-python-horton-hub'
+  runCount: $[counter(0,100)]
+  containerRegistry: iotsdke2e
+  credentialFile: $(System.DefaultWorkingDirectory)/creds.json
+  manifestFile: $(System.DefaultWorkingDirectory)/manifest.json
+  scriptDirectory: $(Build.SourcesDirectory)/scripts/edge_setup 
+
+jobs:
+- job: 'Test'
+
+  strategy:
+    maxParallel: 4
+    matrix:
+      linux_edge_py310_mqtt:
+        pv: '3.10'
+        transport: 'mqtt'
+        imageName: 'Ubuntu 20.04'
+        consumerGroup: 'cg6'
+        devicePrefix: "mqtt-py310"
+
+  pool:
+    vmImage: $(imageName)
+
+  variables:
+    deviceId: $(devicePrefix)-$(runCount)
+
+  steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.10'
+        architecture: 'x64'
+
+    - task: AzureCLI@2
+      displayName: Install Prerequisites
+      inputs:
+        azureSubscription: 'ServiceConnectionDemo'
+        scriptType: bash
+        scriptLocation: scriptPath
+        scriptPath: $(scriptDirectory)/install-prereqs.sh
+
+    - task: AzureCLI@2
+      displayName: Create and configure edge device ${{ variables.deviceId }}
+      inputs:
+        azureSubscription: 'ServiceConnectionDemo'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          export IOTHUB_E2E_REPO_ADDRESS=$(IOTHUB-E2E-REPO-ADDRESS)
+          export IOTHUB_E2E_REPO_USER=$(IOTHUB-E2E-REPO-USER)
+          export IOTHUB_E2E_REPO_PASSWORD=$(IOTHUB-E2E-REPO-PASSWORD)
+          $(scriptDirectory)/deploy-edge-device.sh $(deviceId) $(hubName)
+
+    - task: Bash@3
+      displayName: "Wait for container to start"
+      timeoutInMinutes: 15
+      inputs:
+        targetType: script
+        script: |
+          cd $(ScriptDirectory)
+          ./wait-for-container.sh edgeAgent
+          ./wait-for-container.sh edgeHub
+          ./wait-for-container.sh testMod
+          ./wait-for-container.sh echoMod
+          docker ps
+
+    - task: AzureCLI@2
+      displayName: Remove Edge Device ${{ variables.deviceId }}
+      inputs:
+        azureSubscription: 'ServiceConnectionDemo'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az iot hub device-identity delete -n $(hubName) --device-id $(deviceId)
+      condition: always()
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      condition: always()
+
