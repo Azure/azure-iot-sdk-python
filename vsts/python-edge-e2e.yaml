@@ -4,8 +4,6 @@ variables:
   hubName: 'iotsdk-python-horton-hub'
   runCount: $[counter(0,100)]
   containerRegistry: iotsdke2e
-  credentialFile: $(System.DefaultWorkingDirectory)/creds.json
-  manifestFile: $(System.DefaultWorkingDirectory)/manifest.json
   scriptDirectory: $(Build.SourcesDirectory)/scripts/edge_setup 
 
 jobs:
@@ -15,7 +13,7 @@ jobs:
     maxParallel: 4
     matrix:
       linux_edge_py310_mqtt:
-        pv: '3.10'
+        pv: '310'
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
         consumerGroup: 'cg6'
@@ -26,6 +24,7 @@ jobs:
 
   variables:
     deviceId: $(devicePrefix)-$(runCount)
+    dockerImageTag: $(containerRegistry).azurecr.io/$(devicePrefix)-$(runCount)
 
   steps:
     - task: UsePythonVersion@0
@@ -36,10 +35,22 @@ jobs:
     - task: AzureCLI@2
       displayName: Install Prerequisites
       inputs:
-        azureSubscription: 'ServiceConnectionDemo'
         scriptType: bash
         scriptLocation: scriptPath
         scriptPath: $(scriptDirectory)/install-prereqs.sh
+
+
+    - task: AzureCLI@2
+      display: Create and push docker images
+      inputs:
+        azureSubscription: 'ServiceConnectionDemo'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          cd $(Build.SourcesDirectory)
+          az acr login $(containerRegistry)
+          docker build -t $(dockerImageTag) . -f $(scriptDirectort}/dockerfiles/Dockerfile.$(pv)
+          docker push $(dockerImageTag)
 
     - task: AzureCLI@2
       displayName: Create and configure edge device ${{ variables.deviceId }}
@@ -74,6 +85,16 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: |
           az iot hub device-identity delete -n $(hubName) --device-id $(deviceId)
+      condition: always()
+
+    - task: AzureCLI@2
+      displayName: Remove $(dockerImageTag) container
+      inputs:
+        azureSubscription: 'ServiceConnectionDemo'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az acr manifest delete $(dockerImageTag)
       condition: always()
 
     - task: PublishTestResults@2
