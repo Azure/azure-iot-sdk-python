@@ -50,7 +50,7 @@ jobs:
         inlineScript: |
           cd $(Build.SourcesDirectory)
           az acr login -n $(containerRegistry)
-          docker build -t $(dockerImageTag) . -f $(scriptDirectort}/dockerfiles/Dockerfile.$(pv)
+          docker build -t $(dockerImageTag) . -f $(scriptDirectory)/dockerfiles/Dockerfile.$(pv)
           docker push $(dockerImageTag)
 
     - task: AzureCLI@2
@@ -89,7 +89,7 @@ jobs:
       condition: always()
 
     - task: AzureCLI@2
-      displayName: Remove $(dockerImageTag) container
+      displayName: Remove ${{ variables.dockerImageTag }} container
       inputs:
         azureSubscription: 'ServiceConnectionDemo'
         scriptType: bash
