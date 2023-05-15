@@ -35,6 +35,7 @@ jobs:
     - task: AzureCLI@2
       displayName: Install Prerequisites
       inputs:
+        azureSubscription: 'ServiceConnectionDemo'
         scriptType: bash
         scriptLocation: scriptPath
         scriptPath: $(scriptDirectory)/install-prereqs.sh
