@@ -49,7 +49,7 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: |
           cd $(Build.SourcesDirectory)
-          az acr login -n $(containerRegistry)
+          docker login -p $(IOTHUB_E3E_REPO_PASSWORD) -u $(IOTHUB_E2E_REPO_USER) $(IOTHUB_E2E_REPO_ADDRESS)
           docker build -t $(dockerImageTag) . -f $(scriptDirectory)/dockerfiles/Dockerfile.$(pv)
           docker push $(dockerImageTag)
 
