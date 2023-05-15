@@ -49,7 +49,7 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: |
           cd $(Build.SourcesDirectory)
-          az acr login $(containerRegistry)
+          az acr login -n $(containerRegistry)
           docker build -t $(dockerImageTag) . -f $(scriptDirectort}/dockerfiles/Dockerfile.$(pv)
           docker push $(dockerImageTag)
 
