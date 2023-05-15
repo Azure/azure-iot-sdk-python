@@ -13,7 +13,7 @@ jobs:
     maxParallel: 4
     matrix:
       linux_edge_py310_mqtt:
-        pv: '310'
+        pv: 'py310'
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
         consumerGroup: 'cg6'
