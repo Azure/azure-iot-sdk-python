@@ -41,15 +41,14 @@ jobs:
         scriptPath: $(scriptDirectory)/install-prereqs.sh
 
 
-    - task: AzureCLI@2
+    - task: Bash@3
       displayName: Create and push docker images
+      timeoutInMinutes: 15
       inputs:
-        azureSubscription: 'ServiceConnectionDemo'
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
+        targetType: script
+        script: |
           cd $(Build.SourcesDirectory)
-          docker login -p $(IOTHUB_E3E_REPO_PASSWORD) -u $(IOTHUB_E2E_REPO_USER) $(IOTHUB_E2E_REPO_ADDRESS)
+          docker login -p $(IOTHUB-E2E-REPO-PASSWORD) -u $(IOTHUB-E2E-REPO-USER) $(IOTHUB-E2E-REPO-ADDRESS)
           docker build -t $(dockerImageTag) . -f $(scriptDirectory)/dockerfiles/Dockerfile.$(pv)
           docker push $(dockerImageTag)
 
