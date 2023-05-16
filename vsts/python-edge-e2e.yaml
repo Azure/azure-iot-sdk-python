@@ -44,7 +44,7 @@ jobs:
 
     - task: AzureCLI@2
       displayName: Create and push docker images
-      input:
+      inputs:
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
