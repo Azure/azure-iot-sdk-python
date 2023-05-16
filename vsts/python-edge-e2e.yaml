@@ -94,6 +94,7 @@ jobs:
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
+          az acr login -n $(containerRegistry)
           az acr manifest delete $(dockerImageTag) --yes
       condition: always()
 
