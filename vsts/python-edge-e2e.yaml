@@ -45,6 +45,7 @@ jobs:
     - task: AzureCLI@2
       displayName: Create and push docker images
       inputs:
+        azureSubscription: 'ServiceConnectionDemo'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
