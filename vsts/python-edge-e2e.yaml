@@ -94,7 +94,7 @@ jobs:
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-          az acr manifest delete $(dockerImageTag)
+          az acr manifest delete $(dockerImageTag) --yes
       condition: always()
 
     - task: PublishTestResults@2
