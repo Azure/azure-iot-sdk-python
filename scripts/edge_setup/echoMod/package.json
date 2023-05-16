@@ -2,5 +2,11 @@
   "dependencies": {
     "azure-iot-device": "^1.18.2",
     "azure-iot-device-mqtt": "^1.16.2"
+  },
+  "scripts": {
+    "prettier": "prettier -w *.js package.json"
+  },
+  "devDependencies": {
+    "prettier": "^2.8.8"
   }
 }
