@@ -41,6 +41,9 @@ class SasToken:
     def __str__(self) -> str:
         return self._token_str
 
+    def is_expired(self):
+        return time.time() >= self.expiry_time
+
     @property
     def expiry_time(self) -> float:
         # NOTE: Time is typically expressed in float in Python, even though a

@@ -12,9 +12,10 @@ from typing import Callable, Optional, AsyncGenerator, TypeVar
 from .custom_typing import TwinPatch, Twin
 from . import config, constant, user_agent, models
 from . import exceptions as exc
-from . import request_response as rr
 from . import mqtt_client as mqtt
 from . import mqtt_topic_iothub as mqtt_topic
+from . import sastoken as st
+from . import request_response as rr
 
 # TODO: update docstrings with correct class paths once repo structured better
 # TODO: If we're truly done with keeping SAS credentials fresh, we don't need to use SasTokenProvider,
@@ -47,12 +48,12 @@ class IoTHubMQTTClient:
             product_info=client_config.product_info,
         )
 
-        # SAS (Optional)
-        self._sastoken_provider = client_config.sastoken_provider
+        # SAS
+        self._sastoken: Optional[st.SasToken] = None
 
         # MQTT Configuration
         self._mqtt_client = _create_mqtt_client(self._client_id, client_config)
-        # NOTE: credentials are set upon `.start()`
+        # NOTE: credentials are set upon `.connect()`.
 
         # Add filters for receive topics delivering data used internally
         twin_response_topic = mqtt_topic.get_twin_response_topic_for_subscribe()
@@ -174,20 +175,19 @@ class IoTHubMQTTClient:
                     )
                 )
 
+    def set_sastoken(self, sastoken: st.SasToken):
+        """Set the current SasToken being used for authentication"""
+        # TODO: validate token?
+        self._sastoken = sastoken
+        # NOTE: This actually gets set on the underlying mqtt client during a `.connect()`
+        # since credentials need to be set whether or not SasTokens are being used.
+
     async def start(self) -> None:
         """Start up the client.
 
         - Must be invoked before any other methods.
         - If already started, will not (meaningfully) do anything.
         """
-        # Set credentials
-        if self._sastoken_provider:
-            logger.debug("Using SASToken as password")
-            password = str(self._sastoken_provider.get_current_sastoken())
-        else:
-            logger.debug("No password used")
-            password = None
-        self._mqtt_client.set_credentials(self._username, password)
         # Start background tasks
         if not self._process_twin_responses_bg_task:
             self._process_twin_responses_bg_task = asyncio.create_task(
@@ -225,6 +225,17 @@ class IoTHubMQTTClient:
 
         :raises: MQTTConnectionFailedError if there is a failure connecting
         """
+        # Set credentials
+        if self._sastoken:
+            logger.debug("Using SASToken as password")
+            password = str(self._sastoken)
+            if self._sastoken.is_expired():
+                logger.warning("Current SASToken is expired")
+        else:
+            logger.debug("No password used")
+            password = None
+        self._mqtt_client.set_credentials(self._username, password)
+
         # Connect
         logger.debug("Connecting to IoTHub...")
         await self._mqtt_client.connect()
