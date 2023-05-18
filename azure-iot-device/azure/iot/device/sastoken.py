@@ -5,13 +5,11 @@
 # --------------------------------------------------------------------------
 """This module contains tools for working with Shared Access Signature (SAS) Tokens"""
 
-import abc
 import asyncio
 import logging
 import time
 import urllib.parse
-from typing import Dict, List, Optional, Awaitable, Callable, cast
-from .custom_typing import FunctionOrCoroutine
+from typing import Dict, List, Optional
 from .signing_mechanism import SigningMechanism
 
 
@@ -61,14 +59,7 @@ class SasToken:
         return urllib.parse.unquote(signature)
 
 
-class SasTokenGenerator(abc.ABC):
-    @abc.abstractmethod
-    async def generate_sastoken(self):
-        pass
-
-
-# TODO: SigningMechanismSasTokenGenerator?
-class InternalSasTokenGenerator(SasTokenGenerator):
+class SasTokenGenerator:
     def __init__(self, signing_mechanism: SigningMechanism, uri: str, ttl: int = 3600) -> None:
         """An object that can generate SasTokens using provided values
 
@@ -104,35 +95,8 @@ class InternalSasTokenGenerator(SasTokenGenerator):
         return SasToken(token_str)
 
 
-class ExternalSasTokenGenerator(SasTokenGenerator):
-    # TODO: need more specificity in generator_fn
-    def __init__(self, generator_fn: FunctionOrCoroutine):
-        """An object that can generate SasTokens by invoking a provided callable.
-        This callable can be a function or a coroutine function.
-
-        :param generator_fn: A callable that takes no arguments and returns a SAS Token string
-        :type generator_fn: Function or Coroutine Function which returns a string
-        """
-        self.generator_fn = generator_fn
-
-    async def generate_sastoken(self) -> SasToken:
-        """Generate a new SasToken
-
-        :raises: SasTokenError if the token cannot be generated
-        """
-        try:
-            # NOTE: the typechecker has some problems here, so we help it with a cast.
-            if asyncio.iscoroutinefunction(self.generator_fn):
-                generator_fn = cast(Callable[[], Awaitable[str]], self.generator_fn)
-                token_str = await generator_fn()
-            else:
-                generator_coro_fn = cast(Callable[[], str], self.generator_fn)
-                token_str = generator_coro_fn()
-            return SasToken(token_str)
-        except Exception as e:
-            raise SasTokenError("Unable to generate SasToken") from e
-
-
+# NOTE: SasTokenProvider is currently unused. It could potentially be removed.
+# For now, it will stay defined in case it is needed in the future.
 class SasTokenProvider:
     def __init__(self, generator: SasTokenGenerator) -> None:
         """Object responsible for providing a valid SasToken.

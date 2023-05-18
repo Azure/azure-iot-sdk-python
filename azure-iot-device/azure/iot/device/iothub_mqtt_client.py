@@ -18,8 +18,6 @@ from . import sastoken as st
 from . import request_response as rr
 
 # TODO: update docstrings with correct class paths once repo structured better
-# TODO: If we're truly done with keeping SAS credentials fresh, we don't need to use SasTokenProvider,
-# and we could just simply use a single token or generator instead.
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +48,9 @@ class IoTHubMQTTClient:
 
         # SAS
         self._sastoken: Optional[st.SasToken] = None
+        # NOTE: Because SAS tokens have a lifespan that expires, after which they need to be
+        # replaced, they are not set at instantiation, and are instead set manually via the
+        # `.set_sastoken()` method to allow for flexible higher level SAS logic.
 
         # MQTT Configuration
         self._mqtt_client = _create_mqtt_client(self._client_id, client_config)
@@ -177,7 +178,6 @@ class IoTHubMQTTClient:
 
     def set_sastoken(self, sastoken: st.SasToken):
         """Set the current SasToken being used for authentication"""
-        # TODO: validate token?
         self._sastoken = sastoken
         # NOTE: This actually gets set on the underlying mqtt client during a `.connect()`
         # since credentials need to be set whether or not SasTokens are being used.
@@ -224,13 +224,14 @@ class IoTHubMQTTClient:
         """Connect to IoTHub
 
         :raises: MQTTConnectionFailedError if there is a failure connecting
+        :raises: CredentialError if the current SasToken has expired
         """
         # Set credentials
         if self._sastoken:
             logger.debug("Using SASToken as password")
-            password = str(self._sastoken)
             if self._sastoken.is_expired():
-                logger.warning("Current SASToken is expired")
+                raise exc.CredentialError("SAS Token expired - set a new one")
+            password = str(self._sastoken)
         else:
             logger.debug("No password used")
             password = None

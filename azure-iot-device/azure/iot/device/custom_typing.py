@@ -9,6 +9,7 @@ from typing_extensions import TypedDict, ParamSpec
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
+# TODO: This is currently unused. Remove when we're sure it's no longer necessary
 FunctionOrCoroutine = Union[Callable[_P, _R], Callable[_P, Awaitable[_R]]]
 
 

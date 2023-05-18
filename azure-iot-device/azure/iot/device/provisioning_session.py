@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import asyncio
+import logging
 import ssl
 from typing import Optional, Type, Awaitable, TypeVar
 from types import TracebackType
@@ -14,7 +15,14 @@ from . import sastoken as st
 from . import config, custom_typing, constant
 from . import provisioning_mqtt_client as mqtt
 
+logger = logging.getLogger(__name__)
+
 _T = TypeVar("_T")
+
+# NOTE: ProvisioningSession does not implement an `.update_sastoken()` method.
+# This is because the ProvisioningSession is used in such a short-lived way that there should not
+# be a need to update a user-provided SAS token. If a need emerges, the method can be copied
+# directly from the IoTHubSession.
 
 
 class ProvisioningSession:
@@ -26,7 +34,7 @@ class ProvisioningSession:
         registration_id: str,
         ssl_context: Optional[ssl.SSLContext] = None,
         shared_access_key: Optional[str] = None,
-        sastoken_fn: Optional[custom_typing.FunctionOrCoroutine] = None,
+        sastoken: Optional[str] = None,
         sastoken_ttl: int = 3600,
         **kwargs,
     ) -> None:
@@ -40,11 +48,9 @@ class ProvisioningSession:
             If not provided, a default one will be used
         :type ssl_context: :class:`ssl.SSLContext`
         :param str shared_access_key: A key that can be used to generate SAS Tokens
-        :param sastoken_fn: A function or coroutine function that takes no arguments and returns
-            a SAS token string when invoked
+        :param str sastoken: A SAS Token string to use directly as a credential
         :param sastoken_ttl: Time-to-live (in seconds) for SAS tokens generated when using
             'shared_access_key' authentication.
-            If using this auth type, a new Session will need to be created once this time expires.
             Default is 3600 seconds (1 hour).
 
         :keyword int keep_alive: Maximum period in seconds between MQTT communications. If no
@@ -55,49 +61,51 @@ class ProvisioningSession:
         :keyword bool websockets: Set to 'True' to use WebSockets over MQTT. Default is 'False'
 
         :raises: ValueError if an invalid combination of parameters are provided
-        :raises: ValueError if an invalid 'symmetric_key' is provided
-        :raises: TypeError if an invalid keyword argument is provided
+        :raises: ValueError if an invalid parameter value is provided
+        :raises: TypeError if an unsupported keyword argument is provided
         """
         # The following validation is present in the previous SDK.
         _validate_registration_id(registration_id)
         # Validate parameters
         _validate_kwargs(**kwargs)
-        if shared_access_key and sastoken_fn:
+        if shared_access_key and sastoken:
             raise ValueError(
-                "Incompatible authentication - cannot provide both 'shared_access_key' and 'sastoken_fn'"
+                "Incompatible authentication - cannot provide both 'shared_access_key' and 'sastoken'"
             )
-        if not shared_access_key and not sastoken_fn and not ssl_context:
+        if not shared_access_key and not sastoken and not ssl_context:
             raise ValueError(
-                "Missing authentication - must provide one of 'shared_access_key', 'sastoken_fn' or 'ssl_context'"
+                "Missing authentication - must provide one of 'shared_access_key', 'sastoken' or 'ssl_context'"
             )
-
-        # Set up SAS auth (if using)
-        generator: Optional[st.SasTokenGenerator]
-        # NOTE: Need to keep a reference to the SasTokenProvider so we can stop it during cleanup
-        self._sastoken_provider: Optional[st.SasTokenProvider]
-        if shared_access_key:
-            uri = _format_sas_uri(id_scope=id_scope, registration_id=registration_id)
-            signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
-            generator = st.InternalSasTokenGenerator(
-                signing_mechanism=signing_mechanism, uri=uri, ttl=sastoken_ttl
-            )
-            self._sastoken_provider = st.SasTokenProvider(generator)
-        elif sastoken_fn:
-            generator = st.ExternalSasTokenGenerator(sastoken_fn)
-            self._sastoken_provider = st.SasTokenProvider(generator)
-        else:
-            self._sastoken_provider = None
 
         # Create a default SSLContext if not provided
         if not ssl_context:
             ssl_context = _default_ssl_context()
+
+        # Set up SAS auth for future use (if using)
+        self._user_sastoken: Optional[st.SasToken] = None
+        self._sastoken_generator: Optional[st.SasTokenGenerator] = None
+        if shared_access_key:
+            # If using SasToken generation, we cannot generate during this __init__
+            # because .generate_sastoken() is a coroutine. The token will be generated and then
+            # set on the underlying client upon context manager entry
+            uri = _format_sas_uri(id_scope=id_scope, registration_id=registration_id)
+            signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
+            self._sastoken_generator = st.SasTokenGenerator(
+                signing_mechanism=signing_mechanism, uri=uri, ttl=sastoken_ttl
+            )
+        elif sastoken:
+            # If directly using a SasToken, it is set here, and will later be set on the
+            # underlying client upon context manager entry
+            new_sas = st.SasToken(sastoken)
+            if new_sas.is_expired():
+                raise ValueError("SAS Token has already expired")
+            self._user_sastoken = new_sas
 
         # Instantiate the MQTTClient
         client_config = config.ProvisioningClientConfig(
             hostname=provisioning_endpoint,
             registration_id=registration_id,
             id_scope=id_scope,
-            sastoken_provider=self._sastoken_provider,
             ssl_context=ssl_context,
             auto_reconnect=False,  # No reconnect for now
             **kwargs,
@@ -114,11 +122,19 @@ class ProvisioningSession:
         ] = None
 
     async def __aenter__(self) -> "ProvisioningSession":
-        # First, if using SAS auth, start up the provider
-        if self._sastoken_provider:
-            # NOTE: No try/except block is needed here because in the case of failure there is not
-            # yet anything that we would need to clean up.
-            await self._sastoken_provider.start()
+        """
+        Connect and begin a session with the Device Provisioning Service
+
+        :raises: MQTTConnectionFailedError if connecting fails
+        :raises: CredentialError if user-provided SAS Token has expired
+        """
+        # First, if using SAS auth, set it on the underlying client
+        if self._user_sastoken:
+            # NOTE: We don't need to validate here, because .connect() below will fail
+            # with a CredentialError if this token is already expired.
+            self._mqtt_client.set_sastoken(self._user_sastoken)
+        elif self._sastoken_generator:
+            self._mqtt_client.set_sastoken(await self._sastoken_generator.generate_sastoken())
 
         # Start/connect
         try:
@@ -126,7 +142,7 @@ class ProvisioningSession:
             await self._mqtt_client.connect()
         except (Exception, asyncio.CancelledError):
             # Stop/cleanup if something goes wrong
-            await self._stop_all()
+            await self._mqtt_client.stop()
             raise
         self._wait_for_disconnect_task = asyncio.create_task(
             self._mqtt_client.wait_for_disconnect()
@@ -139,6 +155,7 @@ class ProvisioningSession:
         exc_val: Optional[BaseException],
         traceback: TracebackType,
     ) -> None:
+        """Disconnect and end a session with the IoTHub"""
         try:
             await self._mqtt_client.disconnect()
         finally:
@@ -146,14 +163,7 @@ class ProvisioningSession:
             if self._wait_for_disconnect_task:
                 self._wait_for_disconnect_task.cancel()
                 self._wait_for_disconnect_task = None
-            await self._stop_all()
-
-    async def _stop_all(self) -> None:
-        try:
             await self._mqtt_client.stop()
-        finally:
-            if self._sastoken_provider:
-                await self._sastoken_provider.stop()
 
     async def register(
         self, payload: custom_typing.JSONSerializable = None
@@ -168,6 +178,8 @@ class ProvisioningSession:
 
         :raises: ProvisioningError if a error response is received from IoTHub
         :raises: MQTTError if there is an error sending the request
+        :raises: MQTTConnectionDroppedError if the connection is lost during the registration attempt
+        :raises: SessionError if there is no connection
         :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
         if not self._mqtt_client.connected:

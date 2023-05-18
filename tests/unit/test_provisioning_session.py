@@ -21,12 +21,6 @@ FAKE_SIGNATURE = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
 # ~~~~~ Helpers ~~~~~~
 
 
-def sastoken_generator_fn():
-    return "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-        resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=str(int(time.time()) + 3600)
-    )
-
-
 def get_expected_uri():
     return "{id_scope}/registrations/{registration_id}".format(
         id_scope=FAKE_ID_SCOPE, registration_id=FAKE_REGISTRATION_ID
@@ -46,9 +40,11 @@ def mock_mqtt_provisioning_client(mocker):
     return mock_client
 
 
-@pytest.fixture(autouse=True)
-def mock_sastoken_provider(mocker):
-    return mocker.patch.object(st, "SasTokenProvider", spec=st.SasTokenProvider).return_value
+@pytest.fixture
+def sastoken_str():
+    return "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+        resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=str(int(time.time()) + 3600)
+    )
 
 
 @pytest.fixture
@@ -100,7 +96,7 @@ def disconnected_session(custom_ssl_context):
 # NOTE: Do NOT combine this with the SSL fixtures above. This parametrization contains
 # ssl contexts where necessary
 create_auth_params = [
-    # Provide args in form 'shared_access_key, sastoken_fn, ssl_context'
+    # Provide args in form 'shared_access_key, sastoken, ssl_context'
     pytest.param(
         FAKE_SHARED_ACCESS_KEY, None, None, id="Shared Access Key SAS Auth + Default SSLContext"
     ),
@@ -112,13 +108,13 @@ create_auth_params = [
     ),
     pytest.param(
         None,
-        sastoken_generator_fn,
+        lazy_fixture("sastoken_str"),
         None,
         id="User-Provided SAS Token Auth + Default SSLContext",
     ),
     pytest.param(
         None,
-        sastoken_generator_fn,
+        lazy_fixture("sastoken_str"),
         lazy_fixture("custom_ssl_context"),
         id="User-Provided SAS Token Auth + Custom SSLContext",
     ),
@@ -128,8 +124,10 @@ create_auth_params = [
 create_auth_params_sas = [param for param in create_auth_params if "SAS" in param.id]
 # Just the parameters where a Shared Access Key auth is used
 create_auth_params_sak = [param for param in create_auth_params if param.values[0] is not None]
-# Just the parameters where SAS callback auth is used
-create_auth_params_token_cb = [param for param in create_auth_params if param.values[1] is not None]
+# Just the parameters where user-provided SAS token auth
+create_auth_params_user_token = [
+    param for param in create_auth_params if param.values[1] is not None
+]
 # Just the parameters where a custom SSLContext is provided
 create_auth_params_custom_ssl = [
     param for param in create_auth_params if param.values[2] is not None
@@ -168,14 +166,13 @@ json_serializable_payload_params = [
 @pytest.mark.describe("ProvisioningSession -- Instantiation")
 class TestProvisioningSessionInstantiation:
     @pytest.mark.it(
-        "Instantiates and stores a SasTokenProvider that uses symmetric key-based token generation, if `shared_access_key` is provided"
+        "Instantiates and stores a SasTokenGenerator using the `shared_access_key`, if `shared_access_key` is provided"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params_sak)
-    async def test_sak_auth(self, mocker, shared_access_key, sastoken_fn, ssl_context):
-        assert sastoken_fn is None
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params_sak)
+    async def test_sak_auth(self, mocker, shared_access_key, sastoken, ssl_context):
+        assert sastoken is None
         spy_sk_sm_cls = mocker.spy(sm, "SymmetricKeySigningMechanism")
-        spy_st_generator_cls = mocker.spy(st, "InternalSasTokenGenerator")
-        spy_st_provider_cls = mocker.spy(st, "SasTokenProvider")
+        spy_st_generator_cls = mocker.spy(st, "SasTokenGenerator")
         expected_uri = get_expected_uri()
 
         session = ProvisioningSession(
@@ -188,66 +185,52 @@ class TestProvisioningSessionInstantiation:
         # SymmetricKeySigningMechanism was created from the shared access key
         assert spy_sk_sm_cls.call_count == 1
         assert spy_sk_sm_cls.call_args == mocker.call(shared_access_key)
-        # InternalSasTokenGenerator was created from the SymmetricKeySigningMechanism
+        # SasTokenGenerator was created from the SymmetricKeySigningMechanism
         assert spy_st_generator_cls.call_count == 1
         assert spy_st_generator_cls.call_args == mocker.call(
             signing_mechanism=spy_sk_sm_cls.spy_return, uri=expected_uri, ttl=3600
         )
-        # SasTokenProvider was created from the InternalSasTokenGenerator
-        assert spy_st_provider_cls.call_count == 1
-        assert spy_st_provider_cls.call_args == mocker.call(spy_st_generator_cls.spy_return)
-        # SasTokenProvider was set on the Session
-        assert session._sastoken_provider is spy_st_provider_cls.spy_return
+        # SasTokenGenerator was set on the Session
+        assert session._sastoken_generator is spy_st_generator_cls.spy_return
 
     @pytest.mark.it(
-        "Instantiates and stores a SasTokenProvider that uses callback-based token generation, if `sastoken_fn` is provided"
+        "Instantiates and stores a SasToken from the `sastoken` string, if `sastoken` is provided"
     )
     @pytest.mark.parametrize(
-        "shared_access_key, sastoken_fn, ssl_context", create_auth_params_token_cb
+        "shared_access_key, sastoken, ssl_context", create_auth_params_user_token
     )
-    async def test_token_callback_auth(self, mocker, shared_access_key, sastoken_fn, ssl_context):
+    async def test_user_sastoken_auth(self, mocker, shared_access_key, sastoken, ssl_context):
         assert shared_access_key is None
-        spy_st_generator_cls = mocker.spy(st, "ExternalSasTokenGenerator")
-        spy_st_provider_cls = mocker.spy(st, "SasTokenProvider")
 
         session = ProvisioningSession(
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
             ssl_context=ssl_context,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
         )
 
-        # ExternalSasTokenGenerator was created from the sastoken_fn
-        assert spy_st_generator_cls.call_count == 1
-        assert spy_st_generator_cls.call_args == mocker.call(sastoken_fn)
-        # SasTokenProvider was created from the ExternalSasTokenGenerator
-        assert spy_st_provider_cls.call_count == 1
-        assert spy_st_provider_cls.call_args == mocker.call(spy_st_generator_cls.spy_return)
-        # SasTokenProvider was set on the Session
-        assert session._sastoken_provider is spy_st_provider_cls.spy_return
+        assert isinstance(session._user_sastoken, st.SasToken)
+        assert str(session._user_sastoken) == sastoken
 
     @pytest.mark.it(
-        "Does not instantiate or store any SasTokenProvider if neither `shared_access_key` nor `sastoken_fn` are provided"
+        "Sets all SAS-related attributes to None if neither `shared_access_key` nor `sastoken` are provided"
     )
-    async def test_non_sas_auth(self, mocker, custom_ssl_context):
-        spy_st_provider_cls = mocker.spy(st, "SasTokenProvider")
-
+    async def test_non_sas_auth(self, custom_ssl_context):
         session = ProvisioningSession(
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             ssl_context=custom_ssl_context,
         )
-
-        # No SasTokenProvider
-        assert session._sastoken_provider is None
-        assert spy_st_provider_cls.call_count == 0
+        # No SAS-related attributes set
+        assert session._sastoken_generator is None
+        assert session._user_sastoken is None
 
     @pytest.mark.it(
         "Instantiates and stores an ProvisioningMQTTClient, using a new ProvisioningClientConfig object"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
-    async def test_mqtt_client(self, mocker, shared_access_key, sastoken_fn, ssl_context):
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    async def test_mqtt_client(self, mocker, shared_access_key, sastoken, ssl_context):
         spy_config_cls = mocker.spy(config, "ProvisioningClientConfig")
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
         assert spy_config_cls.call_count == 0
@@ -258,7 +241,7 @@ class TestProvisioningSessionInstantiation:
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
             ssl_context=ssl_context,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
         )
 
         assert spy_config_cls.call_count == 1
@@ -269,8 +252,8 @@ class TestProvisioningSessionInstantiation:
     @pytest.mark.it(
         "Sets the provided `provisioning_endpoint` as the `hostname` on the ProvisioningClientConfig used to create the ProvisioningMQTTClient, if `provisioning_endpoint` is provided"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
-    async def test_custom_endpoint(self, mocker, shared_access_key, sastoken_fn, ssl_context):
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    async def test_custom_endpoint(self, mocker, shared_access_key, sastoken, ssl_context):
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
@@ -279,7 +262,7 @@ class TestProvisioningSessionInstantiation:
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
             ssl_context=ssl_context,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
         )
 
         cfg = spy_mqtt_cls.call_args[0][0]
@@ -288,8 +271,8 @@ class TestProvisioningSessionInstantiation:
     @pytest.mark.it(
         "Sets the Global Provisioning Endpoint as the `hostname` on the ProvisioningClientConfig used to create the ProvisioningMQTTClient, if no `provisioning_endpoint` is provided"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
-    async def test_default_endpoint(self, mocker, shared_access_key, sastoken_fn, ssl_context):
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    async def test_default_endpoint(self, mocker, shared_access_key, sastoken, ssl_context):
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
@@ -297,7 +280,7 @@ class TestProvisioningSessionInstantiation:
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
             ssl_context=ssl_context,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
         )
 
         cfg = spy_mqtt_cls.call_args[0][0]
@@ -306,8 +289,8 @@ class TestProvisioningSessionInstantiation:
     @pytest.mark.it(
         "Sets the provided `registration_id` and `id_scope` values on the ProvisioningClientConfig used to create the ProvisioningMQTTClient"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
-    async def test_ids(self, mocker, shared_access_key, sastoken_fn, ssl_context):
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    async def test_ids(self, mocker, shared_access_key, sastoken, ssl_context):
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
@@ -315,7 +298,7 @@ class TestProvisioningSessionInstantiation:
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
             ssl_context=ssl_context,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
         )
 
         cfg = spy_mqtt_cls.call_args[0][0]
@@ -326,9 +309,9 @@ class TestProvisioningSessionInstantiation:
         "Sets the provided `ssl_context` on the ProvisioningClientConfig used to create the ProvisioningMQTTClient, if provided"
     )
     @pytest.mark.parametrize(
-        "shared_access_key, sastoken_fn, ssl_context", create_auth_params_custom_ssl
+        "shared_access_key, sastoken, ssl_context", create_auth_params_custom_ssl
     )
-    async def test_custom_ssl_context(self, mocker, shared_access_key, sastoken_fn, ssl_context):
+    async def test_custom_ssl_context(self, mocker, shared_access_key, sastoken, ssl_context):
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
@@ -336,7 +319,7 @@ class TestProvisioningSessionInstantiation:
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
             ssl_context=ssl_context,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
         )
 
         cfg = spy_mqtt_cls.call_args[0][0]
@@ -346,9 +329,9 @@ class TestProvisioningSessionInstantiation:
         "Sets a default SSLContext on the ProvisioningClientConfig used to create the ProvisioningMQTTClient, if `ssl_context` is not provided"
     )
     @pytest.mark.parametrize(
-        "shared_access_key, sastoken_fn, ssl_context", create_auth_params_default_ssl
+        "shared_access_key, sastoken, ssl_context", create_auth_params_default_ssl
     )
-    async def test_default_ssl_context(self, mocker, shared_access_key, sastoken_fn, ssl_context):
+    async def test_default_ssl_context(self, mocker, shared_access_key, sastoken, ssl_context):
         assert ssl_context is None
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
         my_ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
@@ -373,7 +356,7 @@ class TestProvisioningSessionInstantiation:
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
         )
 
         cfg = spy_mqtt_cls.call_args[0][0]
@@ -387,29 +370,10 @@ class TestProvisioningSessionInstantiation:
         assert ctx.minimum_version == ssl.TLSVersion.TLSv1_2
 
     @pytest.mark.it(
-        "Sets the stored SasTokenProvider (if any) on the ProvisioningClientConfig used to create the ProvisioningMQTTClient"
-    )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
-    async def test_sastoken_provider_cfg(self, mocker, shared_access_key, sastoken_fn, ssl_context):
-        spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
-
-        session = ProvisioningSession(
-            provisioning_endpoint=FAKE_HOSTNAME,
-            registration_id=FAKE_REGISTRATION_ID,
-            id_scope=FAKE_ID_SCOPE,
-            shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
-            ssl_context=ssl_context,
-        )
-
-        cfg = spy_mqtt_cls.call_args[0][0]
-        assert cfg.sastoken_provider is session._sastoken_provider
-
-    @pytest.mark.it(
         "Sets `auto_reconnect` to False on the ProvisioningClientConfig used to create the ProvisioningMQTTClient"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
-    async def test_auto_reconnect_cfg(self, mocker, shared_access_key, sastoken_fn, ssl_context):
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    async def test_auto_reconnect_cfg(self, mocker, shared_access_key, sastoken, ssl_context):
         spy_mqtt_cls = mocker.spy(mqtt, "ProvisioningMQTTClient")
 
         ProvisioningSession(
@@ -417,7 +381,7 @@ class TestProvisioningSessionInstantiation:
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
             ssl_context=ssl_context,
         )
 
@@ -427,13 +391,13 @@ class TestProvisioningSessionInstantiation:
     @pytest.mark.it(
         "Sets any provided optional keyword arguments on the ProvisioningClientConfig used to create the ProvisioningMQTTClient"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
     @pytest.mark.parametrize("kwarg_name, kwarg_value", factory_kwargs)
     async def test_kwargs(
         self,
         mocker,
         shared_access_key,
-        sastoken_fn,
+        sastoken,
         ssl_context,
         kwarg_name,
         kwarg_value,
@@ -446,7 +410,7 @@ class TestProvisioningSessionInstantiation:
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
             ssl_context=ssl_context,
             **kwargs
         )
@@ -455,20 +419,20 @@ class TestProvisioningSessionInstantiation:
         assert getattr(cfg, kwarg_name) == kwarg_value
 
     @pytest.mark.it("Sets the `wait_for_disconnect_task` attribute to None")
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
-    async def test_wait_for_disconnect_task(self, shared_access_key, sastoken_fn, ssl_context):
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    async def test_wait_for_disconnect_task(self, shared_access_key, sastoken, ssl_context):
         session = ProvisioningSession(
             provisioning_endpoint=FAKE_HOSTNAME,
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
             ssl_context=ssl_context,
         )
         assert session._wait_for_disconnect_task is None
 
     @pytest.mark.it(
-        "Raises ValueError if neither `shared_access_key`, `sastoken_fn` nor `ssl_context` are provided as parameters"
+        "Raises ValueError if neither `shared_access_key`, `sastoken` nor `ssl_context` are provided as parameters"
     )
     async def test_no_auth(self):
         with pytest.raises(ValueError):
@@ -479,29 +443,47 @@ class TestProvisioningSessionInstantiation:
             )
 
     @pytest.mark.it(
-        "Raises ValueError if both `shared_access_key` and `sastoken_fn` are provided as parameters"
+        "Raises ValueError if both `shared_access_key` and `sastoken` are provided as parameters"
     )
-    async def test_conflicting_auth(self, optional_ssl_context):
+    async def test_conflicting_auth(self, sastoken_str, optional_ssl_context):
         with pytest.raises(ValueError):
             ProvisioningSession(
                 registration_id=FAKE_REGISTRATION_ID,
                 id_scope=FAKE_ID_SCOPE,
                 provisioning_endpoint=FAKE_HOSTNAME,
                 shared_access_key=FAKE_SHARED_ACCESS_KEY,
-                sastoken_fn=sastoken_generator_fn,
+                sastoken=sastoken_str,
+                ssl_context=optional_ssl_context,
+            )
+
+    @pytest.mark.it("Raises ValueError if the provided `sastoken` is already expired")
+    async def test_expired_sastoken(self, optional_ssl_context):
+        expired_sastoken_str = (
+            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=str(int(time.time()) - 10)
+            )
+        )
+
+        with pytest.raises(ValueError):
+            ProvisioningSession(
+                registration_id=FAKE_REGISTRATION_ID,
+                id_scope=FAKE_ID_SCOPE,
+                provisioning_endpoint=FAKE_HOSTNAME,
+                shared_access_key=FAKE_SHARED_ACCESS_KEY,
+                sastoken=expired_sastoken_str,
                 ssl_context=optional_ssl_context,
             )
 
     @pytest.mark.it("Raises TypeError if an invalid keyword argument is provided")
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
-    async def test_bad_kwarg(self, shared_access_key, sastoken_fn, ssl_context):
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    async def test_bad_kwarg(self, shared_access_key, sastoken, ssl_context):
         with pytest.raises(TypeError):
             ProvisioningSession(
                 registration_id=FAKE_REGISTRATION_ID,
                 id_scope=FAKE_ID_SCOPE,
                 provisioning_endpoint=FAKE_HOSTNAME,
                 shared_access_key=shared_access_key,
-                sastoken_fn=sastoken_fn,
+                sastoken=sastoken,
                 ssl_context=ssl_context,
                 invalid_argument="some value",
             )
@@ -510,12 +492,10 @@ class TestProvisioningSessionInstantiation:
         "Allows any exceptions raised when creating a SymmetricKeySigningMechanism to propagate"
     )
     @pytest.mark.parametrize("exception", sk_sm_create_exceptions)
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params_sak)
-    async def test_sksm_raises(
-        self, mocker, shared_access_key, sastoken_fn, ssl_context, exception
-    ):
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params_sak)
+    async def test_sksm_raises(self, mocker, shared_access_key, sastoken, ssl_context, exception):
         mocker.patch.object(sm, "SymmetricKeySigningMechanism", side_effect=exception)
-        assert sastoken_fn is None
+        assert sastoken is None
 
         with pytest.raises(type(exception)) as e_info:
             ProvisioningSession(
@@ -523,7 +503,7 @@ class TestProvisioningSessionInstantiation:
                 id_scope=FAKE_ID_SCOPE,
                 provisioning_endpoint=FAKE_HOSTNAME,
                 shared_access_key=shared_access_key,
-                sastoken_fn=sastoken_fn,
+                sastoken=sastoken,
                 ssl_context=ssl_context,
             )
         assert e_info.value is exception
@@ -534,6 +514,51 @@ class TestProvisioningSessionContextManager:
     @pytest.fixture
     def session(self, disconnected_session):
         return disconnected_session
+
+    @pytest.mark.it(
+        "Sets the user-provided SasToken on the ProvisioningMQTTClient upon entry into the context manager, if using user-provided SAS auth"
+    )
+    async def test_user_provided_sas(self, mocker, session, sastoken_str):
+        session._user_sastoken = st.SasToken(sastoken_str)
+        assert session._mqtt_client.set_sastoken.call_count == 0
+
+        async with session as session:
+            assert session._mqtt_client.set_sastoken.call_count == 1
+            assert session._mqtt_client.set_sastoken.call_args == mocker.call(
+                session._user_sastoken
+            )
+
+        assert session._mqtt_client.set_sastoken.call_count == 1
+
+    @pytest.mark.it(
+        "Generates a SasToken using the SasTokenGenerator, and sets it on the ProvisioningMQTTClient upon entry into the context manager, if using Shared Access Key SAS auth"
+    )
+    async def test_sak_generation_sas(self, mocker, session):
+        session._sastoken_generator = mocker.MagicMock(spec=st.SasTokenGenerator)
+        assert session._sastoken_generator.generate_sastoken.await_count == 0
+        assert session._mqtt_client.set_sastoken.call_count == 0
+
+        async with session as session:
+            assert session._sastoken_generator.generate_sastoken.await_count == 1
+            assert session._sastoken_generator.generate_sastoken.await_args == mocker.call()
+            assert session._mqtt_client.set_sastoken.call_count == 1
+            assert session._mqtt_client.set_sastoken.call_args == mocker.call(
+                session._sastoken_generator.generate_sastoken.return_value
+            )
+
+        assert session._sastoken_generator.generate_sastoken.call_count == 1
+        assert session._mqtt_client.set_sastoken.call_count == 1
+
+    @pytest.mark.it("Does not set any SasToken on the ProvisioningMQTTClient if not using SAS auth")
+    async def test_no_sas(self, session):
+        assert session._user_sastoken is None
+        assert session._sastoken_generator is None
+        assert session._mqtt_client.set_sastoken.call_count == 0
+
+        async with session as session:
+            assert session._mqtt_client.set_sastoken.call_count == 0
+
+        assert session._mqtt_client.set_sastoken.call_count == 0
 
     @pytest.mark.it(
         "Starts the ProvisioningMQTTClient upon entry into the context manager, and stops it upon exit"
@@ -598,51 +623,6 @@ class TestProvisioningSessionContextManager:
 
         assert session._mqtt_client.connect.await_count == 1
         assert session._mqtt_client.disconnect.await_count == 1
-
-    @pytest.mark.it(
-        "Starts the SasTokenProvider upon entry into the context manager, and stops it upon exit, if one exists"
-    )
-    async def test_sastoken_provider_start_stop(self, session, mock_sastoken_provider):
-        session._sastoken_provider = mock_sastoken_provider
-        assert session._sastoken_provider.start.await_count == 0
-        assert session._sastoken_provider.stop.await_count == 0
-
-        async with session as session:
-            assert session._sastoken_provider.start.await_count == 1
-            assert session._sastoken_provider.stop.await_count == 0
-
-        assert session._sastoken_provider.start.await_count == 1
-        assert session._sastoken_provider.stop.await_count == 1
-
-    @pytest.mark.it(
-        "Stops the SasTokenProvider upon exit, even if an error was raised within the block inside the context manager"
-    )
-    async def test_sastoken_provider_start_stop_with_failure(
-        self, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        assert session._sastoken_provider.start.await_count == 0
-        assert session._sastoken_provider.stop.await_count == 0
-
-        try:
-            async with session as session:
-                assert session._sastoken_provider.start.await_count == 1
-                assert session._sastoken_provider.stop.await_count == 0
-                raise arbitrary_exception
-        except type(arbitrary_exception):
-            pass
-
-        assert session._sastoken_provider.start.await_count == 1
-        assert session._sastoken_provider.stop.await_count == 1
-
-    @pytest.mark.it("Can handle the case where SasTokenProvider does not exist")
-    async def test_no_sastoken_provider(self, session):
-        assert session._sastoken_provider is None
-
-        async with session as session:
-            pass
-
-        # If nothing raises here, the test passes
 
     @pytest.mark.it(
         "Creates a Task from the MQTTClient's .wait_for_disconnect() coroutine method and stores it as the `wait_for_disconnect_task` attribute upon entry into the context manager, and cancels and clears the Task upon exit"
@@ -716,47 +696,6 @@ class TestProvisioningSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Allows any errors raised while starting the SasTokenProvider during context manager entry to propagate"
-    )
-    async def test_enter_sastoken_provider_start_raises(
-        self, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._sastoken_provider.start.side_effect = arbitrary_exception
-
-        with pytest.raises(type(arbitrary_exception)) as e_info:
-            async with session as session:
-                pass
-        assert e_info.value is arbitrary_exception
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Does not start or connect the ProvisioningMQTTClient, nor create the `wait_for_disconnect_task`, if an error is raised while starting the SasTokenProvider during context manager entry"
-    )
-    async def test_enter_sastoken_provider_start_raises_cleanup(
-        self, mocker, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._sastoken_provider.start.side_effect = arbitrary_exception
-        assert session._sastoken_provider.start.await_count == 0
-        assert session._mqtt_client.start.await_count == 0
-        assert session._mqtt_client.connect.await_count == 0
-        assert session._wait_for_disconnect_task is None
-        spy_create_task = mocker.spy(asyncio, "create_task")
-
-        with pytest.raises(type(arbitrary_exception)) as e_info:
-            async with session as session:
-                pass
-        assert e_info.value is arbitrary_exception
-
-        assert session._sastoken_provider.start.await_count == 1
-        assert session._mqtt_client.start.await_count == 0
-        assert session._mqtt_client.connect.await_count == 0
-        assert session._wait_for_disconnect_task is None
-        assert spy_create_task.call_count == 0
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
         "Allows any errors raised while starting the ProvisioningMQTTClient during context manager entry to propagate"
     )
     async def test_enter_mqtt_client_start_raises(self, session, arbitrary_exception):
@@ -769,23 +708,13 @@ class TestProvisioningSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Stops the ProvisioningMQTTClient and SasTokenProvider (if present) that were previously started, and does not create the `wait_for_disconnect_task`, if an error is raised while starting the ProvisioningMQTTClient during context manager entry"
-    )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
+        "Stops the ProvisioningMQTTClient that was previously started, and does not create the `wait_for_disconnect_task`, if an error is raised while starting the ProvisioningMQTTClient during context manager entry"
     )
     async def test_enter_mqtt_client_start_raises_cleanup(
-        self, mocker, session, sastoken_provider, arbitrary_exception
+        self, mocker, session, arbitrary_exception
     ):
-        session._sastoken_provider = sastoken_provider
         session._mqtt_client.start.side_effect = arbitrary_exception
         assert session._mqtt_client.stop.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
         assert session._wait_for_disconnect_task is None
         spy_create_task = mocker.spy(asyncio, "create_task")
 
@@ -794,59 +723,8 @@ class TestProvisioningSessionContextManager:
                 pass
 
         assert session._mqtt_client.stop.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
         assert session._wait_for_disconnect_task is None
         assert spy_create_task.call_count == 0
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Stops the SasTokenProvider (if present) even if an error was raised while stopping the ProvisioningMQTTClient in response to an error raised while starting the ProvisioningMQTTClient during context manager entry"
-    )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
-    )
-    async def test_enter_mqtt_client_start_raises_then_mqtt_client_stop_raises(
-        self, session, sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = sastoken_provider
-        session._mqtt_client.start.side_effect = arbitrary_exception
-        session._mqtt_client.stop.side_effect = arbitrary_exception
-        assert session._mqtt_client.stop.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
-
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                pass
-
-        assert session._mqtt_client.stop.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Stops the ProvisioningMQTTClient even if an error was raised while stopping the SasTokenProvider in response to an error raised while starting the ProvisioningMQTTClient during context manager entry"
-    )
-    async def test_enter_mqtt_client_start_raises_then_sastoken_provider_stop_raises(
-        self, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._mqtt_client.start.side_effect = arbitrary_exception
-        session._sastoken_provider.stop.side_effect = arbitrary_exception
-        assert session._mqtt_client.stop.await_count == 0
-        assert session._sastoken_provider.stop.await_count == 0
-
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                pass
-
-        assert session._mqtt_client.stop.await_count == 1
-        assert session._sastoken_provider.stop.await_count == 1
 
     @pytest.mark.it(
         "Allows any errors raised while connecting with the ProvisioningMQTTClient during context manager entry to propagate"
@@ -867,14 +745,7 @@ class TestProvisioningSessionContextManager:
         assert e_info.value is exception
 
     @pytest.mark.it(
-        "Stops the ProvisioningMQTTClient and SasTokenProvider (if present) that were previously started, and does not create the `wait_for_disconnect_task`, if an error is raised while connecting during context manager entry"
-    )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
+        "Stops the ProvisioningMQTTClient that was previously started, and does not create the `wait_for_disconnect_task`, if an error is raised while connecting during context manager entry"
     )
     @pytest.mark.parametrize(
         "exception",
@@ -883,14 +754,9 @@ class TestProvisioningSessionContextManager:
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
-    async def test_enter_mqtt_client_connect_raises_cleanup(
-        self, mocker, session, sastoken_provider, exception
-    ):
-        session._sastoken_provider = sastoken_provider
+    async def test_enter_mqtt_client_connect_raises_cleanup(self, mocker, session, exception):
         session._mqtt_client.connect.side_effect = exception
         assert session._mqtt_client.stop.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
         assert session._wait_for_disconnect_task is None
         spy_create_task = mocker.spy(asyncio, "create_task")
 
@@ -899,77 +765,8 @@ class TestProvisioningSessionContextManager:
                 pass
 
         assert session._mqtt_client.stop.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
         assert session._wait_for_disconnect_task is None
         assert spy_create_task.call_count == 0
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Stops the SasTokenProvider (if present) even if an error was raised while stopping the ProvisioningMQTTClient in response to an error raised while connecting the ProvisioningMQTTClient during context manager entry"
-    )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
-            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
-        ],
-    )
-    async def test_enter_mqtt_client_connect_raises_then_mqtt_client_stop_raises(
-        self, session, sastoken_provider, exception, arbitrary_exception
-    ):
-        session._sastoken_provider = sastoken_provider
-        session._mqtt_client.connect.side_effect = exception  # Realistic failure
-        session._mqtt_client.stop.side_effect = arbitrary_exception  # Shouldn't happen
-        assert session._mqtt_client.stop.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
-
-        # NOTE: arbitrary_exception is raised here instead of exception - this is because it
-        # happened second, during resolution of exception, thus taking precedence
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                pass
-
-        assert session._mqtt_client.stop.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Stops the ProvisioningMQTTClient even if an error was raised while stopping the SasTokenProvider in response to an error raised while connecting the ProvisioningMQTTClient during context manager entry"
-    )
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
-            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
-        ],
-    )
-    async def test_enter_mqtt_client_connect_raises_then_sastoken_provider_stop_raises(
-        self, session, mock_sastoken_provider, exception, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._mqtt_client.connect.side_effect = exception  # Realistic failure
-        session._sastoken_provider.stop.side_effect = arbitrary_exception  # Shouldn't happen
-        assert session._mqtt_client.stop.await_count == 0
-        assert session._sastoken_provider.stop.await_count == 0
-
-        # NOTE: arbitrary_exception is raised here instead of exception - this is because it
-        # happened second, during resolution of exception, thus taking precedence
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                pass
-
-        assert session._mqtt_client.stop.await_count == 1
-        assert session._sastoken_provider.stop.await_count == 1
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
@@ -985,23 +782,11 @@ class TestProvisioningSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Stops the ProvisioningMQTTClient and SasTokenProvider (if present), and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while disconnecting the ProvisioningMQTTClient during context manager exit"
+        "Stops the ProvisioningMQTTClient and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while disconnecting the ProvisioningMQTTClient during context manager exit"
     )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
-    )
-    async def test_exit_disconnect_raises_cleanup(
-        self, session, sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = sastoken_provider
+    async def test_exit_disconnect_raises_cleanup(self, session, arbitrary_exception):
         session._mqtt_client.disconnect.side_effect = arbitrary_exception
         assert session._mqtt_client.stop.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
         assert session._wait_for_disconnect_task is None
 
         with pytest.raises(type(arbitrary_exception)):
@@ -1010,8 +795,6 @@ class TestProvisioningSessionContextManager:
                 assert not conn_drop_task.done()
 
         assert session._mqtt_client.stop.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
         await asyncio.sleep(0.1)
         assert session._wait_for_disconnect_task is None
         assert conn_drop_task.cancelled()
@@ -1030,23 +813,11 @@ class TestProvisioningSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Disconnects the ProvisioningMQTTClient and stops the SasTokenProvider (if present), and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while stopping the ProvisioningMQTTClient during context manager exit"
+        "Disconnects the ProvisioningMQTTClient and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while stopping the ProvisioningMQTTClient during context manager exit"
     )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
-    )
-    async def test_exit_mqtt_client_stop_raises_cleanup(
-        self, session, sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = sastoken_provider
+    async def test_exit_mqtt_client_stop_raises_cleanup(self, session, arbitrary_exception):
         session._mqtt_client.stop.side_effect = arbitrary_exception
         assert session._mqtt_client.disconnect.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
         assert session._wait_for_disconnect_task is None
 
         with pytest.raises(type(arbitrary_exception)):
@@ -1055,46 +826,6 @@ class TestProvisioningSessionContextManager:
                 assert not conn_drop_task.done()
 
         assert session._mqtt_client.disconnect.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
-        await asyncio.sleep(0.1)
-        assert session._wait_for_disconnect_task is None
-        assert conn_drop_task.cancelled()
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Allows any errors raised while stopping the SasTokenProvider during context manager exit to propagate"
-    )
-    async def test_exit_sastoken_provider_stop_raises(
-        self, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._sastoken_provider.stop.side_effect = arbitrary_exception
-
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                pass
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Disconnects and stops the ProvisioningMQTTClient, and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while stopping the SasTokenProvider during context manager exit"
-    )
-    async def test_exit_sastoken_provider_stop_raises_cleanup(
-        self, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._sastoken_provider.stop.side_effect = arbitrary_exception
-        assert session._mqtt_client.disconnect.await_count == 0
-        assert session._mqtt_client.stop.await_count == 0
-        assert session._wait_for_disconnect_task is None
-
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                conn_drop_task = session._wait_for_disconnect_task
-                assert not conn_drop_task.done()
-
-        assert session._mqtt_client.disconnect.await_count == 1
-        assert session._mqtt_client.stop.await_count == 1
         await asyncio.sleep(0.1)
         assert session._wait_for_disconnect_task is None
         assert conn_drop_task.cancelled()

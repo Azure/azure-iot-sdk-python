@@ -26,6 +26,12 @@ class SessionError(Exception):
     pass
 
 
+class CredentialError(Exception):
+    """Represents a failure from an invalid auth credential"""
+
+    pass
+
+
 # Service Exceptions
 class IoTHubError(Exception):
     """Represents a failure reported by IoT Hub"""

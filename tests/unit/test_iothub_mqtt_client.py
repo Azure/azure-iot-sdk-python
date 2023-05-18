@@ -219,7 +219,7 @@ class TestIoTHubMQTTClientInstantiation:
         # The expected username was derived
         assert client._username == expected_username
 
-    @pytest.mark.it("Sets the sastoken attribute to None")
+    @pytest.mark.it("Sets the `sastoken` attribute to None")
     @pytest.mark.parametrize(
         "device_id, module_id",
         [
@@ -810,6 +810,22 @@ class TestIoTHubMQTTClientConnect:
 
         assert client._mqtt_client.connect.await_count == 1
         assert client._mqtt_client.connect.await_args == mocker.call()
+
+    @pytest.mark.it("Raises CredentialError if current SasToken has expired")
+    async def test_expired_token(self, client):
+        expired_time = time.time() - 10  # 10 seconds ago
+        expired_token_str = (
+            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=expired_time
+            )
+        )
+        sastoken_obj = st.SasToken(expired_token_str)
+        assert sastoken_obj.is_expired()
+
+        client._sastoken = sastoken_obj
+
+        with pytest.raises(exc.CredentialError):
+            await client.connect()
 
     @pytest.mark.it("Allows any exceptions raised during the MQTTClient connect to propagate")
     @pytest.mark.parametrize("exception", mqtt_connect_exceptions)

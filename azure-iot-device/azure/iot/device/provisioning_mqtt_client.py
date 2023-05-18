@@ -18,9 +18,10 @@ from .custom_typing import (
 )
 from . import config, constant, user_agent
 from . import exceptions as exc
-from . import request_response as rr
 from . import mqtt_client as mqtt
 from . import mqtt_topic_provisioning as mqtt_topic
+from . import request_response as rr
+from . import sastoken as st
 
 # TODO: update docstrings with correct class paths once repo structured better
 
@@ -50,8 +51,11 @@ class ProvisioningMQTTClient:
             registration_id=self._registration_id,
         )
 
-        # SAS (Optional)
-        self._sastoken_provider = client_config.sastoken_provider
+        # SAS
+        self._sastoken: Optional[st.SasToken] = None
+        # NOTE: Because SAS tokens have a lifespan that expires, after which they need to be
+        # replaced, they are not set at instantiation, and are instead set manually via the
+        # `.set_sastoken()` method to allow for flexible higher level SAS logic.
 
         # MQTT Configuration
         self._mqtt_client = _create_mqtt_client(self._registration_id, client_config)
@@ -66,7 +70,7 @@ class ProvisioningMQTTClient:
         self._register_responses_enabled = False
 
         # Background Tasks (Will be set upon `.start()`)
-        self._process_dps_responses_task: Optional[asyncio.Task[None]] = None
+        self._process_dps_responses_bg_task: Optional[asyncio.Task[None]] = None
 
     async def _enable_dps_responses(self) -> None:
         """Enable receiving of registration or polling responses from device provisioning service"""
@@ -136,23 +140,21 @@ class ProvisioningMQTTClient:
                     )
                 )
 
+    def set_sastoken(self, sastoken: st.SasToken):
+        """Set the current SasToken being used for authentication"""
+        self._sastoken = sastoken
+        # NOTE: This actually gets set on the underlying mqtt client during a `.connect()`
+        # since credentials need to be set whether or not SasTokens are being used.
+
     async def start(self) -> None:
         """Start up the client.
 
         - Must be invoked before any other methods.
         - If already started, will not (meaningfully) do anything.
         """
-        # Set credentials
-        if self._sastoken_provider:
-            logger.debug("Using SASToken as password")
-            password = str(self._sastoken_provider.get_current_sastoken())
-        else:
-            logger.debug("No password used")
-            password = None
-        self._mqtt_client.set_credentials(self._username, password)
         # Start background tasks
-        if not self._process_dps_responses_task:
-            self._process_dps_responses_task = asyncio.create_task(self._process_dps_responses())
+        if not self._process_dps_responses_bg_task:
+            self._process_dps_responses_bg_task = asyncio.create_task(self._process_dps_responses())
 
     async def stop(self) -> None:
         """Stop the client.
@@ -165,11 +167,11 @@ class ProvisioningMQTTClient:
         cancelled_tasks = []
         logger.debug("Stopping ProvisioningMQTTClient...")
 
-        if self._process_dps_responses_task:
+        if self._process_dps_responses_bg_task:
             logger.debug("Cancelling '_process_dps_responses' background task")
-            self._process_dps_responses_task.cancel()
-            cancelled_tasks.append(self._process_dps_responses_task)
-            self._process_dps_responses_task = None
+            self._process_dps_responses_bg_task.cancel()
+            cancelled_tasks.append(self._process_dps_responses_bg_task)
+            self._process_dps_responses_bg_task = None
 
         results = await asyncio.gather(
             *cancelled_tasks, asyncio.shield(self.disconnect()), return_exceptions=True
@@ -184,7 +186,19 @@ class ProvisioningMQTTClient:
         """Connect to Device Provisioning Service
 
         :raises: MQTTConnectionFailedError if there is a failure connecting
+        :raises: CredentialError if the current SasToken has expired
         """
+        # Set credentials
+        if self._sastoken:
+            logger.debug("Using SASToken as password")
+            if self._sastoken.is_expired():
+                raise exc.CredentialError("SAS Token expired - set a new one")
+            password = str(self._sastoken)
+        else:
+            logger.debug("No password used")
+            password = None
+        self._mqtt_client.set_credentials(self._username, password)
+
         # Connect
         logger.debug("Connecting to Device Provisioning Service...")
         await self._mqtt_client.connect()

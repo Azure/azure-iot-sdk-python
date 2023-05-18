@@ -37,7 +37,7 @@ def _create_sastoken_generator(connection_string, ttl=3600):
         module_id=connection_string.get(cs.MODULE_ID),
     )
     signing_mechanism = sm.SymmetricKeySigningMechanism(key=connection_string[cs.SHARED_ACCESS_KEY])
-    sastoken_generator = st.InternalSasTokenGenerator(signing_mechanism, uri, ttl)
+    sastoken_generator = st.SasTokenGenerator(signing_mechanism, uri, ttl)
     return sastoken_generator
 
 

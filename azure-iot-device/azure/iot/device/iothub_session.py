@@ -6,6 +6,7 @@
 import asyncio
 import contextlib
 import functools
+import logging
 import ssl
 from typing import Optional, Union, AsyncGenerator, Type, TypeVar, Awaitable
 from types import TracebackType
@@ -16,6 +17,8 @@ from . import connection_string as cs
 from . import sastoken as st
 from . import config, models, custom_typing
 from . import iothub_mqtt_client as mqtt
+
+logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
 
@@ -54,7 +57,7 @@ class IoTHubSession:
         module_id: Optional[str] = None,
         ssl_context: Optional[ssl.SSLContext] = None,
         shared_access_key: Optional[str] = None,
-        sastoken_fn: Optional[custom_typing.FunctionOrCoroutine] = None,
+        sastoken: Optional[str] = None,
         sastoken_ttl: int = 3600,
         **kwargs,
     ) -> None:
@@ -67,11 +70,9 @@ class IoTHubSession:
             If not provided, a default one will be used
         :type ssl_context: :class:`ssl.SSLContext`
         :param str shared_access_key: A key that can be used to generate SAS Tokens
-        :param sastoken_fn: A function or coroutine function that takes no arguments and returns
-            a SAS token string when invoked
+        :param str sastoken: A SAS Token string to use directly as a credential
         :param sastoken_ttl: Time-to-live (in seconds) for SAS tokens generated when using
             'shared_access_key' authentication.
-            If using this auth type, a new Session will need to be created once this time expires.
             Default is 3600 seconds (1 hour).
 
         :keyword int keep_alive: Maximum period in seconds between MQTT communications. If no
@@ -84,47 +85,48 @@ class IoTHubSession:
         :keyword bool websockets: Set to 'True' to use WebSockets over MQTT. Default is 'False'
 
         :raises: ValueError if an invalid combination of parameters are provided
-        :raises: ValueError if an invalid 'symmetric_key' is provided
-        :raises: TypeError if an invalid keyword argument is provided
+        :raises: ValueError if an invalid parameter value is provided
+        :raises: TypeError if an unsupported keyword argument is provided
         """
         # Validate parameters
         _validate_kwargs(**kwargs)
-        if shared_access_key and sastoken_fn:
+        if shared_access_key and sastoken:
             raise ValueError(
-                "Incompatible authentication - cannot provide both 'shared_access_key' and 'sastoken_fn'"
+                "Incompatible authentication - cannot provide both 'shared_access_key' and 'sastoken'"
             )
-        if not shared_access_key and not sastoken_fn and not ssl_context:
+        if not shared_access_key and not sastoken and not ssl_context:
             raise ValueError(
-                "Missing authentication - must provide one of 'shared_access_key', 'sastoken_fn' or 'ssl_context'"
+                "Missing authentication - must provide one of 'shared_access_key', 'sastoken' or 'ssl_context'"
             )
 
-        # Set up SAS auth (if using)
-        generator: Optional[st.SasTokenGenerator]
-        # NOTE: Need to keep a reference to the SasTokenProvider so we can stop it during cleanup
-        self._sastoken_provider: Optional[st.SasTokenProvider]
-        if shared_access_key:
-            uri = _format_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
-            signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
-            generator = st.InternalSasTokenGenerator(
-                signing_mechanism=signing_mechanism, uri=uri, ttl=sastoken_ttl
-            )
-            self._sastoken_provider = st.SasTokenProvider(generator)
-        elif sastoken_fn:
-            generator = st.ExternalSasTokenGenerator(sastoken_fn)
-            self._sastoken_provider = st.SasTokenProvider(generator)
-        else:
-            self._sastoken_provider = None
-
-        # Create a default SSLContext if not provided
         if not ssl_context:
             ssl_context = _default_ssl_context()
+
+        # Set up SAS auth for future use (if using)
+        self._user_sastoken: Optional[st.SasToken] = None
+        self._sastoken_generator: Optional[st.SasTokenGenerator] = None
+        if shared_access_key:
+            # If using SasToken generation, we cannot generate during this __init__
+            # because .generate_sastoken() is a coroutine. The token will be generated and then
+            # set on the underlying client upon context manager entry
+            uri = _format_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
+            signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
+            self._sastoken_generator = st.SasTokenGenerator(
+                signing_mechanism=signing_mechanism, uri=uri, ttl=sastoken_ttl
+            )
+        elif sastoken:
+            # If directly using a SasToken, it is set here, and will later be set on the
+            # underlying client upon context manager entry
+            new_sas = st.SasToken(sastoken)
+            if new_sas.is_expired():
+                raise ValueError("SAS Token has already expired")
+            self._user_sastoken = new_sas
 
         # Instantiate the MQTTClient
         client_config = config.IoTHubClientConfig(
             hostname=hostname,
             device_id=device_id,
             module_id=module_id,
-            sastoken_provider=self._sastoken_provider,
             ssl_context=ssl_context,
             auto_reconnect=False,  # We do not reconnect in a Session
             **kwargs,
@@ -141,11 +143,19 @@ class IoTHubSession:
         ] = None
 
     async def __aenter__(self) -> "IoTHubSession":
-        # First, if using SAS auth, start up the provider
-        if self._sastoken_provider:
-            # NOTE: No try/except block is needed here because in the case of failure there is not
-            # yet anything that we would need to clean up.
-            await self._sastoken_provider.start()
+        """
+        Connect and begin a session with the IoTHub
+
+        :raises: MQTTConnectionFailedError if connecting fails
+        :raises: CredentialError if user-provided SAS Token has expired
+        """
+        # First, if using SAS auth, set it on the underlying client
+        if self._user_sastoken:
+            # NOTE: We don't need to validate here, because .connect() below will fail
+            # with a CredentialError if this token is already expired.
+            self._mqtt_client.set_sastoken(self._user_sastoken)
+        elif self._sastoken_generator:
+            self._mqtt_client.set_sastoken(await self._sastoken_generator.generate_sastoken())
 
         # Start/connect
         try:
@@ -153,7 +163,7 @@ class IoTHubSession:
             await self._mqtt_client.connect()
         except (Exception, asyncio.CancelledError):
             # Stop/cleanup if something goes wrong
-            await self._stop_all()
+            await self._mqtt_client.stop()
             raise
 
         self._wait_for_disconnect_task = asyncio.create_task(
@@ -168,6 +178,7 @@ class IoTHubSession:
         exc_val: Optional[BaseException],
         traceback: TracebackType,
     ) -> None:
+        """Disconnect and end a session with the IoTHub"""
         try:
             await self._mqtt_client.disconnect()
         finally:
@@ -175,14 +186,7 @@ class IoTHubSession:
             if self._wait_for_disconnect_task:
                 self._wait_for_disconnect_task.cancel()
                 self._wait_for_disconnect_task = None
-            await self._stop_all()
-
-    async def _stop_all(self) -> None:
-        try:
             await self._mqtt_client.stop()
-        finally:
-            if self._sastoken_provider:
-                await self._sastoken_provider.stop()
 
     @classmethod
     def from_connection_string(
@@ -202,7 +206,6 @@ class IoTHubSession:
             If not provided, a default one will be used
         :type ssl_context: :class:`ssl.SSLContext`
         :param sastoken_ttl: Time-to-live (in seconds) for SAS tokens used for authentication.
-            A new Session will need to be created once this time expires.
             Default is 3600 seconds (1 hour).
 
         :keyword int keep_alive: Maximum period in seconds between MQTT communications. If no
@@ -215,7 +218,7 @@ class IoTHubSession:
         :keyword bool websockets: Set to 'True' to use WebSockets over MQTT. Default is 'False'
 
         :raises: ValueError if the provided connection string is invalid
-        :raises: TypeError if an invalid keyword argument is provided
+        :raises: TypeError if an unsupported keyword argument is provided
         """
         cs_obj = cs.ConnectionString(connection_string)
         if cs_obj.get(cs.X509, "").lower() == "true" and ssl_context is None:
@@ -231,10 +234,37 @@ class IoTHubSession:
             device_id=cs_obj[cs.DEVICE_ID],
             module_id=cs_obj.get(cs.MODULE_ID),
             shared_access_key=cs_obj.get(cs.SHARED_ACCESS_KEY),
+            sastoken=cs_obj.get(cs.SHARED_ACCESS_SIGNATURE),
             ssl_context=ssl_context,
             sastoken_ttl=sastoken_ttl,
             **kwargs,
         )
+
+    def update_sastoken(self, sastoken: str) -> None:
+        """Update the current user-provided SAS token.
+
+        This SAS token will be used the next time a connection with IoT Hub is established.
+
+        :raises: SessionError if not using user-provided SAS auth
+        :raises: ValueError if the provided SAS token is expired
+        :raises: ValueError if the provided SAS token is invalid
+        """
+        if self._mqtt_client.connected:
+            logger.warning(
+                "Currently connected - Updated SAS token will not take effect until a new connection is established"
+            )
+        if not self._user_sastoken:
+            raise exc.SessionError(
+                "Cannot update SAS Token when not using user-provided SAS Token auth"
+            )
+        new_sas = st.SasToken(sastoken)
+        if new_sas.is_expired():
+            # NOTE: Use a ValueError here instead of a CredentialError.
+            # The provided value has not yet been used as a credential, so it's still just a value.
+            # Additionally, this keeps the CredentialError for just situations where there is an
+            # issue with a credential that is currently in use.
+            raise ValueError("SAS Token has already expired")
+        self._user_sastoken = new_sas
 
     @_requires_connection
     async def send_message(self, message: Union[str, models.Message]) -> None:
@@ -245,8 +275,9 @@ class IoTHubSession:
         :type message: str or :class:`Message`
 
         :raises: MQTTError if there is an error sending the Message
+        :raises: MQTTConnectionDroppedError if the connection is lost during the send attempt
+        :raises: SessionError if there is no connection
         :raises: ValueError if the size of the Message payload is too large
-        :raises: RuntimeError if not connected when invoked
         """
         if not isinstance(message, models.Message):
             message = models.Message(message)
@@ -263,6 +294,8 @@ class IoTHubSession:
         :type method_response: :class:`DirectMethodResponse`
 
         :raises: MQTTError if there is an error sending the DirectMethodResponse
+        :raises: MQTTConnectionDroppedError if the connection is lost during the send attempt
+        :raises: SessionError if there is no connection
         :raises: ValueError if the size of the DirectMethodResponse payload is too large
         """
         await self._add_disconnect_interrupt_to_coroutine(
@@ -277,6 +310,8 @@ class IoTHubSession:
 
         :raises: IoTHubError if an error response is received from IoT Hub
         :raises: MQTTError if there is an error sending the updated reported properties
+        :raises: MQTTConnectionDroppedError if the connection is lost during the send attempt
+        :raises: SessionError if there is no connection
         :raises: ValueError if the size of the the reported properties patch too large
         :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
@@ -291,6 +326,8 @@ class IoTHubSession:
 
         :raises: IoTHubError if a error response is received from IoTHub
         :raises: MQTTError if there is an error sending the request
+        :raises: MQTTConnectionDroppedError if the connection is lost during the send attempt
+        :raises: SessionError if there is no connection
         :raises: CancelledError if enabling responses from IoT Hub is cancelled by network failure
         """
         return await self._add_disconnect_interrupt_to_coroutine(self._mqtt_client.get_twin())
