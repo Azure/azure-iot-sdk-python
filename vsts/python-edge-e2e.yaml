@@ -25,8 +25,8 @@ jobs:
   variables:
     deviceId: $(devicePrefix)-$(runCount)
     dockerImageTag: $(devicePrefix)-$(runCount)
-    testModImage=$(containerRegistry).azurecr.io/python-$(pv): $(devicePrefix)-$(runCount) 
-    echoModImage=$(containerRegistry).azurecr.io/echomod:latest
+    testModImage: "$(containerRegistry).azurecr.io/python-$(pv):$(devicePrefix)-$(runCount)"
+    echoModImage: "$(containerRegistry).azurecr.io/echomod:latest"
 
   steps:
     - task: UsePythonVersion@0
