@@ -91,14 +91,14 @@ jobs:
       condition: always()
 
     - task: AzureCLI@2
-      displayName: Remove ${{ variables.dockerImageFullTag }} container
+      displayName: Remove ${{ variables.testModImage }} container
       inputs:
         azureSubscription: 'ServiceConnectionDemo'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
           az acr login -n $(containerRegistry)
-          az acr repository delete -n $(containerRegistry) -t $(dockerImageShortTag) --yes
+          az acr repository delete -n $(containerRegistry) -t $(testModImage) --yes
       condition: always()
 
     - task: PublishTestResults@2
