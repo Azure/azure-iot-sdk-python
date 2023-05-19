@@ -84,6 +84,7 @@ class ProvisioningSession:
         # Set up SAS auth for future use (if using)
         self._user_sastoken: Optional[st.SasToken] = None
         self._sastoken_generator: Optional[st.SasTokenGenerator] = None
+        self._sastoken_ttl = sastoken_ttl
         if shared_access_key:
             # If using SasToken generation, we cannot generate during this __init__
             # because .generate_sastoken() is a coroutine. The token will be generated and then
@@ -91,7 +92,7 @@ class ProvisioningSession:
             uri = _format_sas_uri(id_scope=id_scope, registration_id=registration_id)
             signing_mechanism = sm.SymmetricKeySigningMechanism(shared_access_key)
             self._sastoken_generator = st.SasTokenGenerator(
-                signing_mechanism=signing_mechanism, uri=uri, ttl=sastoken_ttl
+                signing_mechanism=signing_mechanism, uri=uri
             )
         elif sastoken:
             # If directly using a SasToken, it is set here, and will later be set on the
@@ -134,7 +135,9 @@ class ProvisioningSession:
             # with a CredentialError if this token is already expired.
             self._mqtt_client.set_sastoken(self._user_sastoken)
         elif self._sastoken_generator:
-            self._mqtt_client.set_sastoken(await self._sastoken_generator.generate_sastoken())
+            self._mqtt_client.set_sastoken(
+                await self._sastoken_generator.generate_sastoken(ttl=self._sastoken_ttl)
+            )
 
         # Start/connect
         try:

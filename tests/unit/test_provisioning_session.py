@@ -124,9 +124,15 @@ create_auth_params = [
 create_auth_params_sas = [param for param in create_auth_params if "SAS" in param.id]
 # Just the parameters where a Shared Access Key auth is used
 create_auth_params_sak = [param for param in create_auth_params if param.values[0] is not None]
-# Just the parameters where user-provided SAS token auth
+# Just the parameters where a Shared Access Key auth is NOT used
+create_auth_params_no_sak = [param for param in create_auth_params if param.values[0] is None]
+# Just the parameters where user-provided SAS token auth is used
 create_auth_params_user_token = [
     param for param in create_auth_params if param.values[1] is not None
+]
+# Just the parameters where user-provided SAS token auth is NOT used
+create_auth_params_no_user_token = [
+    param for param in create_auth_params if param.values[1] is None
 ]
 # Just the parameters where a custom SSLContext is provided
 create_auth_params_custom_ssl = [
@@ -188,10 +194,28 @@ class TestProvisioningSessionInstantiation:
         # SasTokenGenerator was created from the SymmetricKeySigningMechanism
         assert spy_st_generator_cls.call_count == 1
         assert spy_st_generator_cls.call_args == mocker.call(
-            signing_mechanism=spy_sk_sm_cls.spy_return, uri=expected_uri, ttl=3600
+            signing_mechanism=spy_sk_sm_cls.spy_return, uri=expected_uri
         )
         # SasTokenGenerator was set on the Session
         assert session._sastoken_generator is spy_st_generator_cls.spy_return
+
+    @pytest.mark.it(
+        "Does not instantiate or store any SasTokenGenerator if no `shared_access_key` is provided"
+    )
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params_no_sak)
+    async def test_no_sak_auth(self, mocker, shared_access_key, sastoken, ssl_context):
+        assert shared_access_key is None
+        spy_st_generator_cls = mocker.spy(st, "SasTokenGenerator")
+
+        session = ProvisioningSession(
+            registration_id=FAKE_REGISTRATION_ID,
+            id_scope=FAKE_ID_SCOPE,
+            sastoken=sastoken,
+            ssl_context=ssl_context,
+        )
+
+        assert spy_st_generator_cls.call_count == 0
+        assert session._sastoken_generator is None
 
     @pytest.mark.it(
         "Instantiates and stores a SasToken from the `sastoken` string, if `sastoken` is provided"
@@ -199,9 +223,60 @@ class TestProvisioningSessionInstantiation:
     @pytest.mark.parametrize(
         "shared_access_key, sastoken, ssl_context", create_auth_params_user_token
     )
-    async def test_user_sastoken_auth(self, mocker, shared_access_key, sastoken, ssl_context):
+    async def test_user_sastoken_auth(self, shared_access_key, sastoken, ssl_context):
         assert shared_access_key is None
 
+        session = ProvisioningSession(
+            registration_id=FAKE_REGISTRATION_ID,
+            id_scope=FAKE_ID_SCOPE,
+            sastoken=sastoken,
+            ssl_context=ssl_context,
+        )
+
+        assert isinstance(session._user_sastoken, st.SasToken)
+        assert str(session._user_sastoken) == sastoken
+
+    @pytest.mark.it("Does not instantiate or store any SasToken if no `sastoken` is provided")
+    @pytest.mark.parametrize(
+        "shared_access_key, sastoken, ssl_context", create_auth_params_no_user_token
+    )
+    async def test_no_user_sastoken_auth(self, mocker, shared_access_key, sastoken, ssl_context):
+        assert sastoken is None
+        spy_st_cls = mocker.spy(st, "SasToken")
+
+        session = ProvisioningSession(
+            registration_id=FAKE_REGISTRATION_ID,
+            id_scope=FAKE_ID_SCOPE,
+            shared_access_key=shared_access_key,
+            ssl_context=ssl_context,
+        )
+
+        assert spy_st_cls.call_count == 0
+        assert session._user_sastoken is None
+
+    # NOTE: It's not really valid to provide sastoken_ttl for anything other than
+    # Shared Access Signature auth, but it isn't enforced because there's no harm in setting it
+    # We test all possible cases here, not just valid ones
+    @pytest.mark.it("Stores the provided `sastoken_ttl` value, if provided")
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    async def test_sastoken_ttl_custom(self, shared_access_key, sastoken, ssl_context):
+        custom_sastoken_ttl = 4700
+        session = ProvisioningSession(
+            registration_id=FAKE_REGISTRATION_ID,
+            id_scope=FAKE_ID_SCOPE,
+            shared_access_key=shared_access_key,
+            ssl_context=ssl_context,
+            sastoken=sastoken,
+            sastoken_ttl=custom_sastoken_ttl,
+        )
+        assert session._sastoken_ttl == custom_sastoken_ttl
+
+    # NOTE: It's not really valid to provide sastoken_ttl for anything other than
+    # Shared Access Signature auth, but it isn't enforced because there's no harm in setting it
+    # We test all possible cases here, not just valid ones
+    @pytest.mark.it("Stores 3600 as the `sastoken_ttl` value, if no `sastoken_ttl` is provided")
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    async def test_sastoken_ttl_default(self, shared_access_key, sastoken, ssl_context):
         session = ProvisioningSession(
             registration_id=FAKE_REGISTRATION_ID,
             id_scope=FAKE_ID_SCOPE,
@@ -209,22 +284,7 @@ class TestProvisioningSessionInstantiation:
             ssl_context=ssl_context,
             sastoken=sastoken,
         )
-
-        assert isinstance(session._user_sastoken, st.SasToken)
-        assert str(session._user_sastoken) == sastoken
-
-    @pytest.mark.it(
-        "Sets all SAS-related attributes to None if neither `shared_access_key` nor `sastoken` are provided"
-    )
-    async def test_non_sas_auth(self, custom_ssl_context):
-        session = ProvisioningSession(
-            registration_id=FAKE_REGISTRATION_ID,
-            id_scope=FAKE_ID_SCOPE,
-            ssl_context=custom_ssl_context,
-        )
-        # No SAS-related attributes set
-        assert session._sastoken_generator is None
-        assert session._user_sastoken is None
+        assert session._sastoken_ttl == 3600
 
     @pytest.mark.it(
         "Instantiates and stores an ProvisioningMQTTClient, using a new ProvisioningClientConfig object"
@@ -531,7 +591,7 @@ class TestProvisioningSessionContextManager:
         assert session._mqtt_client.set_sastoken.call_count == 1
 
     @pytest.mark.it(
-        "Generates a SasToken using the SasTokenGenerator, and sets it on the ProvisioningMQTTClient upon entry into the context manager, if using Shared Access Key SAS auth"
+        "Generates a SasToken according to the configured TTL value, using the SasTokenGenerator, and sets it on the ProvisioningMQTTClient upon entry into the context manager, if using Shared Access Key SAS auth"
     )
     async def test_sak_generation_sas(self, mocker, session):
         session._sastoken_generator = mocker.MagicMock(spec=st.SasTokenGenerator)
@@ -540,7 +600,9 @@ class TestProvisioningSessionContextManager:
 
         async with session as session:
             assert session._sastoken_generator.generate_sastoken.await_count == 1
-            assert session._sastoken_generator.generate_sastoken.await_args == mocker.call()
+            assert session._sastoken_generator.generate_sastoken.await_args == mocker.call(
+                ttl=session._sastoken_ttl
+            )
             assert session._mqtt_client.set_sastoken.call_count == 1
             assert session._mqtt_client.set_sastoken.call_args == mocker.call(
                 session._sastoken_generator.generate_sastoken.return_value

@@ -60,7 +60,7 @@ class SasToken:
 
 
 class SasTokenGenerator:
-    def __init__(self, signing_mechanism: SigningMechanism, uri: str, ttl: int = 3600) -> None:
+    def __init__(self, signing_mechanism: SigningMechanism, uri: str) -> None:
         """An object that can generate SasTokens using provided values
 
         :param str uri: The URI of the resource you are generating a tokens to access
@@ -70,14 +70,15 @@ class SasTokenGenerator:
         """
         self.signing_mechanism = signing_mechanism
         self.uri = uri
-        self.ttl = ttl
 
-    async def generate_sastoken(self) -> SasToken:
+    async def generate_sastoken(self, ttl: int = 3600) -> SasToken:
         """Generate a new SasToken
+
+        :param int ttl: Time to live for generated token, in seconds (default 3600)
 
         :raises: SasTokenError if the token cannot be generated
         """
-        expiry_time = int(time.time()) + self.ttl
+        expiry_time = int(time.time()) + ttl
         url_encoded_uri = urllib.parse.quote(self.uri, safe="")
         message = url_encoded_uri + "\n" + str(expiry_time)
         try:

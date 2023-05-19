@@ -65,14 +65,6 @@ async def mock_signing_mechanism(mocker):
     return mock_sm
 
 
-@pytest.fixture(params=["Generator Function", "Generator Coroutine Function"])
-def mock_token_generator_fn(mocker, request, sastoken_str):
-    if request.param == "Function":
-        return mocker.MagicMock(return_value=sastoken_str)
-    else:
-        return mocker.AsyncMock(return_value=sastoken_str)
-
-
 @pytest.fixture
 def sastoken_generator(mocker, mock_signing_mechanism):
     generator = SasTokenGenerator(mock_signing_mechanism, FAKE_URI)
@@ -185,44 +177,43 @@ class TestSasToken:
 class TestSasTokenGeneratorInstantiation:
     @pytest.mark.it("Stores the provided signing mechanism as an attribute")
     def test_signing_mechanism(self, mock_signing_mechanism):
-        generator = SasTokenGenerator(
-            signing_mechanism=mock_signing_mechanism, uri=FAKE_URI, ttl=4700
-        )
+        generator = SasTokenGenerator(signing_mechanism=mock_signing_mechanism, uri=FAKE_URI)
         assert generator.signing_mechanism is mock_signing_mechanism
 
     @pytest.mark.it("Stores the provided URI as an attribute")
     def test_uri(self, mock_signing_mechanism):
-        generator = SasTokenGenerator(
-            signing_mechanism=mock_signing_mechanism, uri=FAKE_URI, ttl=4700
-        )
-        assert generator.uri == FAKE_URI
-
-    @pytest.mark.it("Stores the provided TTL as an attribute")
-    def test_ttl(self, mock_signing_mechanism):
-        generator = SasTokenGenerator(
-            signing_mechanism=mock_signing_mechanism, uri=FAKE_URI, ttl=4700
-        )
-        assert generator.ttl == 4700
-
-    @pytest.mark.it("Defaults to using 3600 as the TTL if not provided")
-    def test_ttl_default(self, mock_signing_mechanism):
         generator = SasTokenGenerator(signing_mechanism=mock_signing_mechanism, uri=FAKE_URI)
-        assert generator.ttl == 3600
+        assert generator.uri == FAKE_URI
 
 
 @pytest.mark.describe("SasTokenGenerator - .generate_sastoken()")
 class TestSasTokenGeneratorGenerateSastoken:
     @pytest.fixture
     def sastoken_generator(self, mock_signing_mechanism):
-        return SasTokenGenerator(signing_mechanism=mock_signing_mechanism, uri=FAKE_URI, ttl=4700)
+        return SasTokenGenerator(signing_mechanism=mock_signing_mechanism, uri=FAKE_URI)
 
     @pytest.mark.it(
-        "Returns a newly generated SasToken for the configured URI that is valid for TTL seconds"
+        "Returns a newly generated SasToken for the configured URI that is valid for `ttl` seconds, if `ttl` is provided"
     )
-    async def test_token_expiry(self, mocker, sastoken_generator):
+    async def test_token_expiry_custom(self, mocker, sastoken_generator):
         # Patch time.time() to return a fake time so that it's easy to check the delta with expiry
         mocker.patch.object(time, "time", return_value=FAKE_CURRENT_TIME)
-        expected_expiry = FAKE_CURRENT_TIME + sastoken_generator.ttl
+        desired_ttl = 4700
+        expected_expiry = FAKE_CURRENT_TIME + desired_ttl
+        token = await sastoken_generator.generate_sastoken(ttl=desired_ttl)
+        assert isinstance(token, SasToken)
+        assert token.expiry_time == expected_expiry
+        assert token.resource_uri == sastoken_generator.uri
+        assert token._token_info["sr"] == urllib.parse.quote(sastoken_generator.uri, safe="")
+        assert token.resource_uri != token._token_info["sr"]
+
+    @pytest.mark.it(
+        "Returns a newly generated SasToken for the configured URI that is valid for 3600 seconds, if `ttl` is not provided"
+    )
+    async def test_token_expiry_default(self, mocker, sastoken_generator):
+        # Patch time.time() to return a fake time so that it's easy to check the delta with expiry
+        mocker.patch.object(time, "time", return_value=FAKE_CURRENT_TIME)
+        expected_expiry = FAKE_CURRENT_TIME + 3600
         token = await sastoken_generator.generate_sastoken()
         assert isinstance(token, SasToken)
         assert token.expiry_time == expected_expiry
@@ -236,12 +227,13 @@ class TestSasTokenGeneratorGenerateSastoken:
     async def test_token_signature(self, mocker, sastoken_generator):
         assert sastoken_generator.signing_mechanism.await_count == 0
         mocker.patch.object(time, "time", return_value=FAKE_CURRENT_TIME)
-        expected_expiry = int(FAKE_CURRENT_TIME + sastoken_generator.ttl)
+        desired_ttl = 4700
+        expected_expiry = int(FAKE_CURRENT_TIME + desired_ttl)
         expected_data_to_sign = (
             urllib.parse.quote(sastoken_generator.uri, safe="") + "\n" + str(expected_expiry)
         )
 
-        token = await sastoken_generator.generate_sastoken()
+        token = await sastoken_generator.generate_sastoken(ttl=desired_ttl)
 
         assert sastoken_generator.signing_mechanism.sign.await_count == 1
         assert sastoken_generator.signing_mechanism.sign.await_args == mocker.call(
