@@ -17,11 +17,6 @@ if [ "${CONTAINER_REPOSITORY}" == "" ]; then
     exit 1
 fi
 
-cd ${script_dir}/echoMod
-IMAGE=${CONTAINER_REPOSITORY}/echomod:${TAG}
-docker build -t ${IMAGE} .
-docker push ${IMAGE}
-
 cd ${script_dir}/dockerfiles
 for VERSION in py310; do 
     IMAGE=${CONTAINER_REPOSITORY}/python-${VERSION}:${TAG}

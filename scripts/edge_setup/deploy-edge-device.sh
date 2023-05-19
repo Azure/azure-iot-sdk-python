@@ -5,9 +5,11 @@ script_dir=$(cd "$(dirname "$0")" && pwd)
 
 DEVICE_ID=$1
 HUB_NAME=$2
+TEST_IMAGE_NAME=$3
+ECHO_IMAGE_NAME=$4
 
-if [ "${DEVICE_ID}" == "" ] || [ "${HUB_NAME}" == "" ]; then
-    echo Usage: $0 deviceId hubName
+if [ "${DEVICE_ID}" == "" ] || [ "${HUB_NAME}" == "" ] || [ "${TEST_IMAGE_NAME}" == "" ] || [ "${ECHO_IMAGE_NAME}" == "" ]; then
+    echo Usage: $0 deviceId hubName testImageName echoImageName
     echo    hubName is without '.azure-devices.net' suffix
     exit 1
 fi
@@ -41,7 +43,7 @@ sudo iotedge config apply
 [ $? -eq 0 ] || { echo "iotedge config apply failed"; exit 1; }
 
 echo Creating deployment manifest
-${script_dir}/make-edge-manifest.sh > "${MANIFEST_LOCATION}"
+${script_dir}/make-edge-manifest.sh ${IMAGE_NAME} > "${MANIFEST_LOCATION}"
 [ $? -eq 0 ] || { echo "make-edge-manifest failed"; exit 1; }
 
 echo Applying deployment manifest

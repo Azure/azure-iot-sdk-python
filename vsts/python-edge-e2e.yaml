@@ -24,8 +24,9 @@ jobs:
 
   variables:
     deviceId: $(devicePrefix)-$(runCount)
-    dockerImageShortTag: $(devicePrefix)-$(runCount)
-    dockerImageFullTag: $(containerRegistry).azurecr.io/$(dockerImageShortTag)
+    dockerImageTag: $(devicePrefix)-$(runCount)
+    testModImage=$(containerRegistry).azurecr.io/python-$(pv): $(devicePrefix)-$(runCount) 
+    echoModImage=$(containerRegistry).azurecr.io/echomod:latest
 
   steps:
     - task: UsePythonVersion@0
@@ -49,9 +50,10 @@ jobs:
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-          cd $(Build.SourcesDirectory)
+          cd $(scriptDirectory}
           az acr login -n $(containerRegistry)
-          docker build -t $(dockerImageFullTag) . -f $(scriptDirectory)/dockerfiles/Dockerfile.$(pv)
+          ./build-echomod-container $(containerRegistry).azurecr.io latest
+          ./build-test-containers $(containerRegistry).azurecr.io $(dockerImageShortTag)
           docker push $(dockerImageFullTag)
 
     - task: AzureCLI@2
@@ -64,7 +66,7 @@ jobs:
           export IOTHUB_E2E_REPO_ADDRESS=$(IOTHUB-E2E-REPO-ADDRESS)
           export IOTHUB_E2E_REPO_USER=$(IOTHUB-E2E-REPO-USER)
           export IOTHUB_E2E_REPO_PASSWORD=$(IOTHUB-E2E-REPO-PASSWORD)
-          $(scriptDirectory)/deploy-edge-device.sh $(deviceId) $(hubName)
+        $(scriptDirectory)/deploy-edge-device.sh $(deviceId) $(hubName) $(containerRegistry).azurecr.io/python-$(pv) $(containerRegistry).azurecr.io/echomod:latest
 
     - task: Bash@3
       displayName: "Wait for container to start"
