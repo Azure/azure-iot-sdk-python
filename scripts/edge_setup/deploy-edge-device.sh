@@ -43,7 +43,7 @@ sudo iotedge config apply
 [ $? -eq 0 ] || { echo "iotedge config apply failed"; exit 1; }
 
 echo Creating deployment manifest
-${script_dir}/make-edge-manifest.sh ${IMAGE_NAME} > "${MANIFEST_LOCATION}"
+${script_dir}/make-edge-manifest.sh ${TEST_IMAGE_NAME} ${ECHO_IMAGE_NAME} > "${MANIFEST_LOCATION}"
 [ $? -eq 0 ] || { echo "make-edge-manifest failed"; exit 1; }
 
 echo Applying deployment manifest

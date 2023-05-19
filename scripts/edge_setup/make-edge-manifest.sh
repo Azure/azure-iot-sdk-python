@@ -6,7 +6,7 @@ script_dir=$(cd "$(dirname "$0")" && pwd)
 TEST_IMAGE_NAME=$1
 ECHO_IMAGE_NAME=$2
 
-if [ "${TEST_IMAGE_NAME}" == "" ] || [ "${ECHO_IMAGE_NAME} == "" ]; then
+if [ "${TEST_IMAGE_NAME}" == "" ] || [ "${ECHO_IMAGE_NAME}" == "" ]; then
     echo Usage: $0 testImageName echoImageName
     exit 1
 fi
