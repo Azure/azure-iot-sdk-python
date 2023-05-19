@@ -22,6 +22,7 @@ from azure.iot.device import signing_mechanism as sm
 FAKE_DEVICE_ID = "fake_device_id"
 FAKE_MODULE_ID = "fake_module_id"
 FAKE_HOSTNAME = "fake.hostname"
+FAKE_GATEWAY_HOSTNAME = "fake.gateway.hostname"
 FAKE_URI = "fake/resource/location"
 FAKE_SHARED_ACCESS_KEY = "Zm9vYmFy"
 FAKE_SIGNATURE = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
@@ -38,6 +39,17 @@ def get_expected_uri(hostname, device_id, module_id):
         return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
 
 
+def create_fake_sastoken_str(expiry_time=None):
+    # NOTE: Different tests may need tokens with different expiries, so using a helper
+    # makes more sense than a fixture
+    if not expiry_time:
+        expiry_time = time.time() + 3600
+    expiry_time = int(expiry_time)
+    return "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+        resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=expiry_time
+    )
+
+
 # ~~~~~ Fixtures ~~~~~~
 
 # Mock out the underlying client in order to not do network operations
@@ -49,13 +61,6 @@ def mock_mqtt_iothub_client(mocker):
     # Use a HangingAsyncMock here so that the coroutine does not return until we want it to
     mock_client.wait_for_disconnect = custom_mock.HangingAsyncMock()
     return mock_client
-
-
-@pytest.fixture
-def sastoken_str():
-    return "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-        resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=str(int(time.time()) + 3600)
-    )
 
 
 @pytest.fixture
@@ -114,13 +119,13 @@ create_auth_params = [
     ),
     pytest.param(
         None,
-        lazy_fixture("sastoken_str"),
+        create_fake_sastoken_str(),
         None,
         id="User-Provided SAS Token Auth + Default SSLContext",
     ),
     pytest.param(
         None,
-        lazy_fixture("sastoken_str"),
+        create_fake_sastoken_str(),
         lazy_fixture("custom_ssl_context"),
         id="User-Provided SAS Token Auth + Custom SSLContext",
     ),
@@ -474,7 +479,8 @@ class TestIoTHubSessionInstantiation:
         "Raises ValueError if both `shared_access_key` and `sastoken` are provided as parameters"
     )
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
-    async def test_conflicting_auth(self, device_id, module_id, sastoken_str, optional_ssl_context):
+    async def test_conflicting_auth(self, device_id, module_id, optional_ssl_context):
+        sastoken_str = create_fake_sastoken_str()
         with pytest.raises(ValueError):
             IoTHubSession(
                 hostname=FAKE_HOSTNAME,
@@ -488,12 +494,7 @@ class TestIoTHubSessionInstantiation:
     @pytest.mark.it("Raises ValueError if the provided `sastoken` is already expired")
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_expired_sastoken(self, device_id, module_id, optional_ssl_context):
-        expired_sastoken_str = (
-            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-                resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=str(int(time.time()) - 10)
-            )
-        )
-
+        expired_sastoken_str = create_fake_sastoken_str(expiry_time=(time.time() - 10))
         with pytest.raises(ValueError):
             IoTHubSession(
                 hostname=FAKE_HOSTNAME,
@@ -542,11 +543,14 @@ class TestIoTHubSessionInstantiation:
         assert e_info.value is exception
 
 
-@pytest.mark.describe("IoTHubSession - .from_connection_string")
+@pytest.mark.describe("IoTHubSession - .from_connection_string()")
 class TestIoTHubSessionFromConnectionString:
+    # NOTE: "Gateway Device" or "Gateway Module" refer to a device or module that connects via a
+    # gateway hostname. In practice, a "Gateway Device" is very likely to be an Edge Leaf Device,
+    # but technically doesn't have to be. "Gateway Modules" are not a well defined scenario
+    # ("Edge Leaf Modules" aren't really a thing - those are probably just Edge Modules, which
+    # ought to be using a different Session object altogether), but could theoretically exist.
     factory_params = [
-        # TODO: once Edge support is decided upon, either re-enable, or remove the commented Edge parameters
-        # TODO: Do we want gateway hostname tests that are non-Edge? probably?
         pytest.param(
             "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key}".format(
                 hostname=FAKE_HOSTNAME,
@@ -565,26 +569,24 @@ class TestIoTHubSessionFromConnectionString:
             lazy_fixture("custom_ssl_context"),
             id="Standard Device Connection String w/ SharedAccessKey + Custom SSLContext",
         ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         shared_access_key=FAKE_SHARED_ACCESS_KEY,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     None,
-        #     id="Edge Device Connection String w/ SharedAccessKey + Default SSLContext",
-        # ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         shared_access_key=FAKE_SHARED_ACCESS_KEY,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     lazy_fixture("custom_ssl_context"),
-        #     id="Edge Device Connection String w/ SharedAccessKey + Custom SSLContext",
-        # ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessSignature={shared_access_signature}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+            ),
+            None,
+            id="Standard Device Connection String w/ SharedAccessSignature + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessSignature={shared_access_signature}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Standard Device Connection String w/ SharedAccessSignature + Custom SSLContext",
+        ),
         # NOTE: X509 certs imply use of custom SSLContext
         pytest.param(
             "HostName={hostname};DeviceId={device_id};x509=true".format(
@@ -594,15 +596,56 @@ class TestIoTHubSessionFromConnectionString:
             lazy_fixture("custom_ssl_context"),
             id="Standard Device Connection String w/ X509",
         ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};GatewayHostName={gateway_hostname};x509=true".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     lazy_fixture("custom_ssl_context"),
-        #     id="Edge Device Connection String w/ X509",
-        # ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_key=FAKE_SHARED_ACCESS_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            None,
+            id="Gateway Device Connection String w/ SharedAccessKey + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_key=FAKE_SHARED_ACCESS_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Device Connection String w/ SharedAccessKey + Custom SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessSignature={shared_access_signature};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            None,
+            id="Gateway Device Connection String w/ SharedAccessSignature + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessSignature={shared_access_signature};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Device Connection String w/ SharedAccessSignature + Custom SSLContext",
+        ),
+        # NOTE: X509 certs imply use of custom SSLContext
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};GatewayHostName={gateway_hostname};x509=true".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Device Connection String w/ X509",
+        ),
         pytest.param(
             "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key}".format(
                 hostname=FAKE_HOSTNAME,
@@ -623,28 +666,26 @@ class TestIoTHubSessionFromConnectionString:
             lazy_fixture("custom_ssl_context"),
             id="Standard Module Connection String w/ SharedAccessKey + Custom SSLContext",
         ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         module_id=FAKE_MODULE_ID,
-        #         shared_access_key=FAKE_SHARED_ACCESS_KEY,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     None,
-        #     id="Edge Module Connection String w/ SharedAccessKey + Default SSLContext",
-        # ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         module_id=FAKE_MODULE_ID,
-        #         shared_access_key=FAKE_SHARED_ACCESS_KEY,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     lazy_fixture("custom_ssl_context"),
-        #     id="Edge Module Connection String w/ SharedAccessKey + Custom SSLContext",
-        # ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessSignature={shared_access_signature}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+            ),
+            None,
+            id="Standard Module Connection String w/ SharedAccessSignature + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessSignature={shared_access_signature}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Standard Module Connection String w/ SharedAccessSignature + Custom SSLContext",
+        ),
         # NOTE: X509 certs imply use of custom SSLContext
         pytest.param(
             "HostName={hostname};DeviceId={device_id};ModuleId={module_id};x509=true".format(
@@ -655,16 +696,60 @@ class TestIoTHubSessionFromConnectionString:
             lazy_fixture("custom_ssl_context"),
             id="Standard Module Connection String w/ X509",
         ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};ModuleId={module_id};GatewayHostName={gateway_hostname};x509=true".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         module_id=FAKE_MODULE_ID,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     lazy_fixture("custom_ssl_context"),
-        #     id="Edge Module Connection String w/ X509",
-        # ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_key=FAKE_SHARED_ACCESS_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            None,
+            id="Gateway Module Connection String w/ SharedAccessKey + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_key=FAKE_SHARED_ACCESS_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Module Connection String w/ SharedAccessKey + Custom SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessSignature={shared_access_signature};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            None,
+            id="Gateway Module Connection String w/ SharedAccessSignature + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessSignature={shared_access_signature};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Module Connection String w/ SharedAccessSignature + Custom SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};GatewayHostName={gateway_hostname};x509=true".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Module Connection String w/ X509",
+        ),
     ]
     # Just the parameters for using standard connection strings
     factory_params_no_gateway = [
@@ -674,18 +759,8 @@ class TestIoTHubSessionFromConnectionString:
     factory_params_gateway = [
         param for param in factory_params if cs.GATEWAY_HOST_NAME in param.values[0]
     ]
-    # # Just the parameters where a custom SSLContext is provided
-    # factory_params_custom_ssl = [param for param in factory_params if param.values[1] is not None]
-    # # Just the parameters where a custom SSLContext is NOT provided
-    # factory_params_default_ssl = [param for param in factory_params if param.values[1] is None]
-    # # Just the parameters for using SharedAccessKeys
-    # factory_params_sak = [
-    #     param for param in factory_params if cs.SHARED_ACCESS_KEY in param.values[0]
-    # ]
-    # Just the parameters for NOT using SharedAccessKeys
-    factory_params_no_sak = [
-        param for param in factory_params if cs.SHARED_ACCESS_KEY not in param.values[0]
-    ]
+    # Just the parameters for X509
+    factory_params_x509 = [param for param in factory_params if cs.X509 in param.values[0]]
 
     @pytest.mark.it("Returns a new IoTHubSession instance")
     @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
@@ -694,10 +769,10 @@ class TestIoTHubSessionFromConnectionString:
         assert isinstance(session, IoTHubSession)
 
     @pytest.mark.it(
-        "Extracts the `DeviceId`, `ModuleId` and `SharedAccessKey` values from the connection string (if present), passing them to the IoTHubSession initializer"
+        "Extracts the `DeviceId`, `ModuleId`, `SharedAccessKey` and `SharedAccessSignature` values from the connection string (if present), passing them to the IoTHubSession initializer"
     )
     @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
-    async def test_extracts_values(self, mocker, connection_string, ssl_context):
+    async def test_extracts_id_values(self, mocker, connection_string, ssl_context):
         spy_session_init = mocker.spy(IoTHubSession, "__init__")
         cs_obj = cs.ConnectionString(connection_string)
 
@@ -709,6 +784,7 @@ class TestIoTHubSessionFromConnectionString:
         assert spy_session_init.call_args[1]["shared_access_key"] == cs_obj.get(
             cs.SHARED_ACCESS_KEY
         )
+        assert spy_session_init.call_args[1]["sastoken"] == cs_obj.get(cs.SHARED_ACCESS_SIGNATURE)
 
     @pytest.mark.it(
         "Extracts the `HostName` value from the connection string and passes it to the IoTHubSession initializer as the `hostname`, if no `GatewayHostName` value is present in the connection string"
@@ -766,7 +842,7 @@ class TestIoTHubSessionFromConnectionString:
     @pytest.mark.it(
         "Raises ValueError if `x509=true` is present in the connection string, but no `ssl_context` is provided"
     )
-    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_no_sak)
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_x509)
     async def test_x509_true_no_ssl(self, connection_string, ssl_context):
         # Ignore the ssl_context provided by the parametrization
         with pytest.raises(ValueError):
@@ -851,7 +927,8 @@ class TestIoTHubSessionContextManager:
     @pytest.mark.it(
         "Sets the user-provided SasToken on the IoTHubMQTTClient upon entry into the context manager, if using user-provided SAS auth"
     )
-    async def test_user_provided_sas(self, mocker, session, sastoken_str):
+    async def test_user_provided_sas(self, mocker, session):
+        sastoken_str = create_fake_sastoken_str()
         session._user_sastoken = st.SasToken(sastoken_str)
         assert session._mqtt_client.set_sastoken.call_count == 0
 
@@ -1173,15 +1250,14 @@ class TestIoTHubSessionUpdateSastoken:
     @pytest.fixture(autouse=True)
     def modify_session(self, session):
         # Session needs to be configured with an existing SasToken
-        old_sastoken = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-            resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=str(int(time.time()) + 30)
-        )
+        old_sastoken = create_fake_sastoken_str(expiry_time=time.time() + 300)
         session._user_sastoken = st.SasToken(old_sastoken)
 
     @pytest.mark.it(
         "Instantiates and stores a SasToken from the `sastoken` string, if already using user-provided SAS auth"
     )
-    async def test_updates_sastoken(self, session, sastoken_str):
+    async def test_updates_sastoken(self, session):
+        sastoken_str = create_fake_sastoken_str()
         assert session._user_sastoken is not None
         assert str(session._user_sastoken) != sastoken_str
 
@@ -1193,8 +1269,9 @@ class TestIoTHubSessionUpdateSastoken:
     @pytest.mark.it(
         "Raises SessionError if the IoTHubSession is not already using user-provided SAS auth"
     )
-    async def test_not_user_sas(self, session, sastoken_str):
+    async def test_not_user_sas(self, session):
         session._user_sastoken = None
+        sastoken_str = create_fake_sastoken_str()
 
         with pytest.raises(exc.SessionError):
             session.update_sastoken(sastoken_str)
@@ -1202,11 +1279,7 @@ class TestIoTHubSessionUpdateSastoken:
     @pytest.mark.it("Raises ValueError if the provided `sastoken` is already expired")
     async def test_expired_sastoken(self, session):
         assert session._user_sastoken is not None
-        expired_sastoken_str = (
-            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-                resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=str(int(time.time()) - 10)
-            )
-        )
+        expired_sastoken_str = create_fake_sastoken_str(expiry_time=time.time() - 10)
 
         with pytest.raises(ValueError):
             session.update_sastoken(expired_sastoken_str)
