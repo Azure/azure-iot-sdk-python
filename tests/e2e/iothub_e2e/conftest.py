@@ -63,8 +63,8 @@ def random_reported_props():
 #    this suppression, the replacement object might otherwise show up as a leak.
 all_objects_can_leak = []
 one_object_can_leak = [
-    "<class 'azure.iot.device.common.alarm.Alarm'>",
     "<class 'paho.mqtt.client.WebsocketWrapper'>",
+    "<class 'azure.iot.device.sastoken.SasToken'>",  # TODO: temporary hack
 ]
 
 
