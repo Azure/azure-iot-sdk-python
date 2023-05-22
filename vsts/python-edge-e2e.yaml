@@ -14,7 +14,7 @@ jobs:
     maxParallel: 4
     matrix:
       linux_edge_py310_mqtt:
-        pv: 'py310'
+        languageVersion: 'py310'
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
         consumerGroup: 'cg6'
@@ -23,9 +23,9 @@ jobs:
     vmImage: $(imageName)
 
   variables:
-    deviceId: $(pv)-$(runCount)
-    dockerImageTag: $(pv)-$(runCount)
-    testModImage: "python-$(pv):$(runCount)"
+    deviceId: $(languageVersion)-$(runCount)
+    dockerImageTag: $(runCount)
+    testModImage: "python-$(languageVersion):$(runCount)"
     echoModImage: "echomod:latest"
 
   steps:
