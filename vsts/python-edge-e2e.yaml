@@ -3,7 +3,8 @@ name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName)
 variables:
   hubName: 'iotsdk-python-horton-hub'
   runCount: $[counter(0,100)]
-  containerRegistry: iotsdke2e
+  containerRegistryShortName: iotsdke2e
+  containerRegistry: iotsdke2e.azurecr.io
   scriptDirectory: $(Build.SourcesDirectory)/scripts/edge_setup 
 
 jobs:
@@ -17,16 +18,15 @@ jobs:
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
         consumerGroup: 'cg6'
-        devicePrefix: "mqtt-py310"
 
   pool:
     vmImage: $(imageName)
 
   variables:
-    deviceId: $(devicePrefix)-$(runCount)
-    dockerImageTag: $(devicePrefix)-$(runCount)
-    testModImage: "$(containerRegistry).azurecr.io/python-$(pv):$(devicePrefix)-$(runCount)"
-    echoModImage: "$(containerRegistry).azurecr.io/echomod:latest"
+    deviceId: $(pv)-$(runCount)
+    dockerImageTag: $(pv)-$(runCount)
+    testModImage: "python-$(pv):$(runCount)"
+    echoModImage: "echomod:latest"
 
   steps:
     - task: UsePythonVersion@0
@@ -52,8 +52,8 @@ jobs:
         inlineScript: |
           cd $(scriptDirectory)
           az acr login -n $(containerRegistry)
-          ./build-echomod-container.sh $(containerRegistry).azurecr.io latest
-          ./build-test-containers.sh $(containerRegistry).azurecr.io $(dockerImageTag)
+          ./build-echomod-container.sh $(containerRegistry) latest
+          ./build-test-containers.sh $(containerRegistry) $(dockerImageTag)
 
     - task: AzureCLI@2
       displayName: Create and configure edge device ${{ variables.deviceId }}
@@ -65,7 +65,7 @@ jobs:
           export IOTHUB_E2E_REPO_ADDRESS=$(IOTHUB-E2E-REPO-ADDRESS)
           export IOTHUB_E2E_REPO_USER=$(IOTHUB-E2E-REPO-USER)
           export IOTHUB_E2E_REPO_PASSWORD=$(IOTHUB-E2E-REPO-PASSWORD)
-          $(scriptDirectory)/deploy-edge-device.sh $(deviceId) $(hubName) $(testModImage) $(echoModImage)
+          $(scriptDirectory)/deploy-edge-device.sh $(deviceId) $(hubName) $(containerRegistry)/$(testModImage) $(containerRegistry)/$(echoModImage)
 
     - task: Bash@3
       displayName: "Wait for container to start"
@@ -97,8 +97,8 @@ jobs:
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-          az acr login -n $(containerRegistry)
-          az acr repository delete -n $(containerRegistry) -t $(testModImage) --yes
+          az acr login -n $(containerRegistryShortName)
+          az acr repository delete -n $(containerRegistryShortName) -t $(testModImage) --yes
       condition: always()
 
     - task: PublishTestResults@2
