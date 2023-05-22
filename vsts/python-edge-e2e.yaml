@@ -52,8 +52,8 @@ jobs:
         inlineScript: |
           cd $(scriptDirectory)
           az acr login -n $(containerRegistry)
-          ./build-echomod-container.sh $(containerRegistry) latest
-          ./build-test-containers.sh $(containerRegistry) $(dockerImageTag)
+          ./build-echomod-container.sh $(containerRegistry)/$(echoModImage)
+          ./build-test-containers.sh Dockerfile.$(languageVersion) $(containerRegistry)/$(testModImage)
 
     - task: AzureCLI@2
       displayName: Create and configure edge device ${{ variables.deviceId }}

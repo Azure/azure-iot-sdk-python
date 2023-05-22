@@ -1,26 +1,22 @@
 # Copyright (c) Microsoft. All rights reserved.
 # Licensed under the MIT license. See LICENSE file in the project root for full license information.
-set -exo pipefail
-trap 'echo ERROR on line ${LINENO}' ERR
 script_dir=$(cd "$(dirname "$0")" && pwd)
 root_dir=$(cd "${script_dir}/../.." && pwd)
 
-CONTAINER_REPOSITORY=$1
-TAG=$2
+DOCKERFILE_NAME=$1
+IMAGE_NAME=$2
 
-if [ "${TAG}" == "" ]; then
-    TAG=latest
-fi
-
-if [ "${CONTAINER_REPOSITORY}" == "" ]; then
-    echo Usage: $0 containerRepository [tag]
+if [ "${DOCKERFILE_NAME}" == "" ] || [ "${IMAGE_NAME}" = "" ]; then
+    echo Usage: $0 dockerfileName imageName 
+    echo eg. $f Dockerfile.py310 localhost:5000/python-e2e-py310:latest
     exit 1
 fi
 
 cd ${script_dir}/dockerfiles
-for VERSION in py310; do 
-    IMAGE=${CONTAINER_REPOSITORY}/python-${VERSION}:${TAG}
-    docker build -t ${IMAGE} ${root_dir} -f Dockerfile.${VERSION}
-    docker push ${IMAGE}
-done
+
+docker build -t ${IMAGE_NAME} ${root_dir} -f ${DOCKERFILE_NAME}
+[ $? -eq 0 ] || { echo "docker build failed"; exit 1; }
+
+docker push ${IMAGE_NAME}
+[ $? -eq 0 ] || { echo "docker push failed"; exit 1; }
 
