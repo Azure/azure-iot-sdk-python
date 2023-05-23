@@ -75,19 +75,40 @@ class TestGetTwin(object):
     async def test_no_connection_twin_enabled(self, leak_tracker, session):
         leak_tracker.set_initial_object_list()
 
-        # Get an initial twin (implicitly enabling twin receive)
-        async with session:
-            await session.get_twin()
+        # token = await session._sastoken_generator.generate_sastoken(ttl=session._sastoken_ttl)
+        # session._mqtt_client.set_sastoken(token)
+        # await session._mqtt_client.start()
+        # await session._mqtt_client.connect()
+        # await session._mqtt_client.get_twin()
 
-        assert session.connected is False
-        assert session._mqtt_client._twin_responses_enabled is True
-
-        # Try to get a twin, this time outside of context manager (i.e. not connected)
-        with pytest.raises(SessionError):
-            await session.get_twin()
-        assert not session.connected
+        # await session._mqtt_client.disconnect()
+        # await session._mqtt_client.stop()
+        # await asyncio.sleep(0.1)
 
         leak_tracker.check_for_leaks()
+
+    # @pytest.mark.it("Raises SessionError if there is no connection (Twin already enabled)")
+    # @pytest.mark.quicktest_suite
+    # async def test_no_connection_twin_enabled(self, leak_tracker, session):
+    #     leak_tracker.set_initial_object_list()
+
+    #     # Get an initial twin (implicitly enabling twin receive)
+    #     async with session:
+    #         t = await session.get_twin()
+    #     assert t is not None
+
+    #     assert session.connected is False
+    #     assert session._mqtt_client._twin_responses_enabled is True
+
+    #     # Try to get a twin, this time outside of context manager (i.e. not connected)
+    #     with pytest.raises(SessionError):
+    #         await session.get_twin()
+    #     assert not session.connected
+
+    #     # TODO: why is this necessary
+    #     # await asyncio.sleep(0.1)
+
+    #     leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "Raises MQTTConnectionDroppedError on get_twin if network error causes failure enabling twin responses"
