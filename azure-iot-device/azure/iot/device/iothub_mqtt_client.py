@@ -219,6 +219,13 @@ class IoTHubMQTTClient:
             # BaseException in Python 3.7
             if isinstance(result, Exception) and not isinstance(result, asyncio.CancelledError):
                 raise result
+        # TODO: Find a way to remove this sleep.
+        # Not having it causes leak in some E2E tests. It appears that for some reason the
+        # IoTHubMQTTClient is holding some object references slightly longer than it should be,
+        # causing a spurious memory leak (the memory is freed, just not immediately).
+        # This only occurs when using operations that rely on the request/response infrastructure
+        # (e.g. twin). Presumably it has something to do with the ._process_twin_responses_bg_task
+        await asyncio.sleep(0.1)
 
     async def connect(self) -> None:
         """Connect to IoTHub
