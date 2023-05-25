@@ -59,12 +59,18 @@ def random_reported_props():
 # `all_objects_can_leak` lists types which are allowed to leak an arbitrary number of objects.
 # `one_object_can_leak` lists types where a single object is allowed to leak.
 #    These are typically cases where an object that is in the initial object list gets replaced
-#    during the run, such as a new `Alarm` being set to replace a previous `Alarm` object. Without
-#    this suppression, the replacement object might otherwise show up as a leak.
+#    during the run. Without this suppression, the replacement object might otherwise show up as
+#    a leak.
 all_objects_can_leak = []
 one_object_can_leak = [
     "<class 'paho.mqtt.client.WebsocketWrapper'>",
-    "<class 'azure.iot.device.sastoken.SasToken'>",  # TODO: temporary hack
+    # TODO: add explanation for WebsocketWrapper
+    "<class 'azure.iot.device.sastoken.SasToken'>",
+    # SasToken can have a single leak, because when the Session is created there is no SasToken
+    # object set on the underlying IoTHubMQTTClient. The Session upon being used to connect,
+    # will set the SasToken object. But the object never gets unset, because there isn't a means
+    # to do so, and the semantics around it seem at least questionable for now. If that changes,
+    # this suppression will no longer be necessary.
 ]
 
 

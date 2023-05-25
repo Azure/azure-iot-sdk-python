@@ -156,6 +156,12 @@ class IoTHubSession:
         elif self._sastoken_generator:
             self._mqtt_client.set_sastoken(
                 await self._sastoken_generator.generate_sastoken(ttl=self._sastoken_ttl)
+                # NOTE: Because the SasToken is generated here, rather than at object instantiation
+                # (which it has to be, due to using a coroutine), this creates an issue with E2E
+                # tests, where the SasToken errantly shows up as a memory leak. This has been
+                # suppressed for now, but un-setting the SasToken upon context manager exit
+                # (or failed entry) may be a preferable long term solution, although it has
+                # drawbacks in terms of complexity surrounding error cases.
             )
 
         # Start/connect

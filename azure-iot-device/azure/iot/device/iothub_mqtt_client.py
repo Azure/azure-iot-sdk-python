@@ -181,6 +181,10 @@ class IoTHubMQTTClient:
         self._sastoken = sastoken
         # NOTE: This actually gets set on the underlying mqtt client during a `.connect()`
         # since credentials need to be set whether or not SasTokens are being used.
+        #
+        # NOTE: There isn't currently a defined path to "un-set" the token - it could be added
+        # by allowing for 'None' to be passed through, although that may not be desirable
+        # semantics.
 
     async def start(self) -> None:
         """Start up the client.
