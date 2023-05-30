@@ -98,7 +98,6 @@ class ClientConfig:
         self.proxy_options = proxy_options
 
         # Auth
-        self.sastoken_provider = sastoken_provider
         self.ssl_context = ssl_context
 
         # MQTT

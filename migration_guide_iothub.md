@@ -169,7 +169,7 @@ Several types of IoT Hub authentication use SAS (Shared Access Signature) tokens
 Connection string based SAS authentication functions the same as it did before, although the factory method has been renamed. Use `.from_connection_string()` with V3 instead of the old `.create_from_connection_string()` method.
 
 ### Shared Access Key / Symmetric Key
-Creating a client that uses a shared access key to authenticate is now done via the `IoTHubSession` constructor directly, instead of the old `.create_from_symmetric_key()` method.
+Providing a shared access key to authenticate is now done via the `IoTHubSession` constructor directly, instead of the old `.create_from_symmetric_key()` method.
 
 #### V2
 ```python
@@ -194,7 +194,28 @@ session = IoTHubSession(
 ```
 
 ### Custom SAS Token
-This feature is currently not yet fully supported on V3. It will be soon.
+Providing a custom SAS token to authenticate is now done via the `IoTHubSession` constructor directly, instead of the old `create_from_sastoken()` method.
+
+#### V2
+```python
+
+client = IoTHubDeviceClient.create_from_sastoken(
+    sastoken="<Your SAS Token String>"
+)
+```
+
+#### V3
+```python
+from azure.iot.device import IoTHubSession
+
+session = IoTHubSession(
+    hostname="<Your Hostname>",
+    device_id="<Your Device ID>",
+    sastoken="<Your SAS Token String>",
+)
+```
+
+Additionally, when using custom SAS authentication, the `IoTHubSession` will raise a `CredentialError` when trying to connect while the provided token is expired.
 
 ### SAS Token expiration
 

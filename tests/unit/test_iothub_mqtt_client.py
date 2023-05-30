@@ -80,19 +80,6 @@ def sastoken():
 
 
 @pytest.fixture
-def mock_sastoken_provider(mocker, sastoken):
-    provider = mocker.MagicMock(spec=st.SasTokenProvider)
-    provider.get_current_sastoken.return_value = sastoken
-    # Use a HangingAsyncMock so that it isn't constantly returning
-    provider.wait_for_new_sastoken = custom_mock.HangingAsyncMock()
-    provider.wait_for_new_sastoken.return_value = sastoken
-    # NOTE: Technically, this mock just always returns the same SasToken,
-    # even after an "update", but for the purposes of testing at this level,
-    # it doesn't matter
-    return provider
-
-
-@pytest.fixture
 def client_config():
     """Defaults to Device Configuration. Required values only.
     Customize in test if you need specific options (incl. Module)"""
@@ -232,14 +219,7 @@ class TestIoTHubMQTTClientInstantiation:
         # The expected username was derived
         assert client._username == expected_username
 
-    @pytest.mark.it("Stores the `sastoken_provider` from the IoTHubClientConfig as an attribute")
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="No SasTokenProvider present"),
-        ],
-    )
+    @pytest.mark.it("Sets the `sastoken` attribute to None")
     @pytest.mark.parametrize(
         "device_id, module_id",
         [
@@ -247,13 +227,11 @@ class TestIoTHubMQTTClientInstantiation:
             pytest.param(FAKE_DEVICE_ID, FAKE_MODULE_ID, id="Module Configuration"),
         ],
     )
-    async def test_sastoken_provider(self, client_config, sastoken_provider, device_id, module_id):
+    async def test_sastoken(self, client_config, device_id, module_id):
         client_config.device_id = device_id
         client_config.module_id = module_id
-        client_config.sastoken_provider = sastoken_provider
-
         client = IoTHubMQTTClient(client_config)
-        assert client._sastoken_provider is sastoken_provider
+        assert client._sastoken is None
 
     @pytest.mark.it(
         "Creates an MQTTClient instance based on the configuration of IoTHubClientConfig and stores it as an attribute"
@@ -565,38 +543,27 @@ class TestIoTHubMQTTClientInstantiation:
         assert client._process_twin_responses_bg_task is None
 
 
+@pytest.mark.describe("IoTHubMQTTClient - .set_sastoken()")
+class TestIoTHubMQTTClientSetSastoken:
+    @pytest.mark.it(
+        "Sets the provided SasToken as the `sastoken` attribute on the  if there is no current SasToken"
+    )
+    def test_sets_sastoken_new(self, client, sastoken):
+        assert client._sastoken is None
+        client.set_sastoken(sastoken)
+        assert client._sastoken is sastoken
+
+    @pytest.mark.it(
+        "Replaces the current SasToken with the provided SasToken if there is already a current SasToken"
+    )
+    def test_sets_sastoken_replace(self, mocker, client, sastoken):
+        client._sastoken = mocker.MagicMock()
+        client.set_sastoken(sastoken)
+        assert client._sastoken is sastoken
+
+
 @pytest.mark.describe("IoTHubMQTTClient - .start()")
 class TestIoTHubMQTTClientStart:
-    @pytest.mark.it(
-        "Sets the credentials on the MQTTClient, using the stored `username` as the username and no password, when not using SAS authentication"
-    )
-    async def test_mqtt_client_credentials_no_sas(self, mocker, client):
-        assert client._sastoken_provider is None
-        assert client._mqtt_client.set_credentials.call_count == 0
-
-        await client.start()
-
-        assert client._mqtt_client.set_credentials.call_count == 1
-        assert client._mqtt_client.set_credentials.call_args == mocker.call(client._username, None)
-
-        # Cleanup
-        await client.stop()
-
-    @pytest.mark.it(
-        "Sets the credentials on the MQTTClient, using the stored `username` as the username and the string-converted current SasToken from the SasTokenProvider as the password, when using SAS authentication"
-    )
-    async def test_mqtt_client_credentials_with_sas(self, mocker, client, mock_sastoken_provider):
-        client._sastoken_provider = mock_sastoken_provider
-        fake_sastoken = mock_sastoken_provider.get_current_sastoken.return_value
-        assert client._mqtt_client.set_credentials.call_count == 0
-
-        await client.start()
-
-        assert client._mqtt_client.set_credentials.call_count == 1
-        assert client._mqtt_client.set_credentials.call_args(client._username, str(fake_sastoken))
-
-        await client.stop()
-
     # NOTE: For testing the functionality of this task, see the corresponding test suite (TestIoTHubMQTTClientIncomingTwinResponse)
     @pytest.mark.it(
         "Begins running the ._process_twin_responses() coroutine method as a background task, storing it as an attribute"
@@ -617,37 +584,19 @@ class TestIoTHubMQTTClientStart:
         # Cleanup
         await client.stop()
 
-    @pytest.mark.it(
-        "Does not alter any background tasks if already started, but does reset the credentials with the same values"
-    )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SAS Auth"),
-            pytest.param(None, id="No SAS auth"),
-        ],
-    )
-    async def test_already_started(self, client, sastoken_provider):
-        client._sastoken_provider = sastoken_provider
-        assert client._mqtt_client.set_credentials.call_count == 0
-
+    @pytest.mark.it("Does not alter any background tasks if already started")
+    async def test_already_started(self, client):
         # Start
         await client.start()
 
         # Current tasks
         current_process_twin_responses_task = client._process_twin_responses_bg_task
-        # Credentials set
-        assert client._mqtt_client.set_credentials.call_count == 1
-        credential_args = client._mqtt_client.set_credentials.call_args
 
         # Start again
         await client.start()
 
         # Tasks unchanged
         assert client._process_twin_responses_bg_task is current_process_twin_responses_task
-        # Credentials set again (the same values as before)
-        assert client._mqtt_client.set_credentials.call_count == 2
-        assert client._mqtt_client.set_credentials.call_args == credential_args
 
         # Cleanup
         await client.stop()
@@ -656,8 +605,7 @@ class TestIoTHubMQTTClientStart:
 @pytest.mark.describe("IoTHubMQTTClient - .stop()")
 class TestIoTHubMQTTClientStop:
     @pytest.fixture(autouse=True)
-    async def modify_client(self, client, mock_sastoken_provider):
-        client._sastoken_provider = mock_sastoken_provider
+    async def modify_client(self, client):
         # Need to start the client so we can stop it.
         await client.start()
 
@@ -830,6 +778,30 @@ class TestIoTHubMQTTClientStop:
 
 @pytest.mark.describe("IoTHubMQTTClient - .connect()")
 class TestIoTHubMQTTClientConnect:
+    @pytest.mark.it(
+        "Sets the credentials on the MQTTClient, using the stored `username` as the username and no password, when not using SAS authentication"
+    )
+    async def test_mqtt_client_credentials_no_sas(self, mocker, client):
+        assert client._sastoken is None
+        assert client._mqtt_client.set_credentials.call_count == 0
+
+        await client.connect()
+
+        assert client._mqtt_client.set_credentials.call_count == 1
+        assert client._mqtt_client.set_credentials.call_args == mocker.call(client._username, None)
+
+    @pytest.mark.it(
+        "Sets the credentials on the MQTTClient, using the stored `username` as the username and the string-converted current SasToken as the password, when using SAS authentication"
+    )
+    async def test_mqtt_client_credentials_with_sas(self, sastoken, client):
+        client._sastoken = sastoken
+        assert client._mqtt_client.set_credentials.call_count == 0
+
+        await client.connect()
+
+        assert client._mqtt_client.set_credentials.call_count == 1
+        assert client._mqtt_client.set_credentials.call_args(client._username, str(sastoken))
+
     @pytest.mark.it("Awaits a connect using the MQTTClient")
     async def test_mqtt_connect(self, mocker, client):
         assert client._mqtt_client.connect.await_count == 0
@@ -838,6 +810,22 @@ class TestIoTHubMQTTClientConnect:
 
         assert client._mqtt_client.connect.await_count == 1
         assert client._mqtt_client.connect.await_args == mocker.call()
+
+    @pytest.mark.it("Raises CredentialError if current SasToken has expired")
+    async def test_expired_token(self, client):
+        expired_time = time.time() - 10  # 10 seconds ago
+        expired_token_str = (
+            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=expired_time
+            )
+        )
+        sastoken_obj = st.SasToken(expired_token_str)
+        assert sastoken_obj.is_expired()
+
+        client._sastoken = sastoken_obj
+
+        with pytest.raises(exc.CredentialError):
+            await client.connect()
 
     @pytest.mark.it("Allows any exceptions raised during the MQTTClient connect to propagate")
     @pytest.mark.parametrize("exception", mqtt_connect_exceptions)

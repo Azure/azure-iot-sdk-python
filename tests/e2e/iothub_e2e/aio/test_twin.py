@@ -70,17 +70,20 @@ class TestGetTwin(object):
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Raises SessionError if there is no connection (Twin enabled)")
+    @pytest.mark.it("Raises SessionError if there is no connection (Twin already enabled)")
     @pytest.mark.quicktest_suite
     async def test_no_connection_twin_enabled(self, leak_tracker, session):
         leak_tracker.set_initial_object_list()
 
+        # Get an initial twin (implicitly enabling twin receive)
         async with session:
-            await session.get_twin()
+            t = await session.get_twin()
+        assert t is not None
 
         assert session.connected is False
         assert session._mqtt_client._twin_responses_enabled is True
 
+        # Try to get a twin, this time outside of context manager (i.e. not connected)
         with pytest.raises(SessionError):
             await session.get_twin()
         assert not session.connected

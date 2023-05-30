@@ -30,14 +30,14 @@ async def create_client_config(cs_str):
     )
 
 
-def _create_sastoken_generator(connection_string, ttl=3600):
+def _create_sastoken_generator(connection_string):
     uri = _form_sas_uri(
         hostname=connection_string[cs.HOST_NAME],
         device_id=connection_string[cs.DEVICE_ID],
         module_id=connection_string.get(cs.MODULE_ID),
     )
     signing_mechanism = sm.SymmetricKeySigningMechanism(key=connection_string[cs.SHARED_ACCESS_KEY])
-    sastoken_generator = st.InternalSasTokenGenerator(signing_mechanism, uri, ttl)
+    sastoken_generator = st.SasTokenGenerator(signing_mechanism, uri)
     return sastoken_generator
 
 

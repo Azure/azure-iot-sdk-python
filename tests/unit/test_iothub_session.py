@@ -22,17 +22,12 @@ from azure.iot.device import signing_mechanism as sm
 FAKE_DEVICE_ID = "fake_device_id"
 FAKE_MODULE_ID = "fake_module_id"
 FAKE_HOSTNAME = "fake.hostname"
+FAKE_GATEWAY_HOSTNAME = "fake.gateway.hostname"
 FAKE_URI = "fake/resource/location"
 FAKE_SHARED_ACCESS_KEY = "Zm9vYmFy"
 FAKE_SIGNATURE = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
 
 # ~~~~~ Helpers ~~~~~~
-
-
-def sastoken_generator_fn():
-    return "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-        resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=str(int(time.time()) + 3600)
-    )
 
 
 def get_expected_uri(hostname, device_id, module_id):
@@ -42,6 +37,17 @@ def get_expected_uri(hostname, device_id, module_id):
         )
     else:
         return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
+
+
+def create_fake_sastoken_str(expiry_time=None):
+    # NOTE: Different tests may need tokens with different expiries, so using a helper
+    # makes more sense than a fixture
+    if not expiry_time:
+        expiry_time = time.time() + 3600
+    expiry_time = int(expiry_time)
+    return "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+        resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=expiry_time
+    )
 
 
 # ~~~~~ Fixtures ~~~~~~
@@ -55,11 +61,6 @@ def mock_mqtt_iothub_client(mocker):
     # Use a HangingAsyncMock here so that the coroutine does not return until we want it to
     mock_client.wait_for_disconnect = custom_mock.HangingAsyncMock()
     return mock_client
-
-
-@pytest.fixture(autouse=True)
-def mock_sastoken_provider(mocker):
-    return mocker.patch.object(st, "SasTokenProvider", spec=st.SasTokenProvider).return_value
 
 
 @pytest.fixture
@@ -106,7 +107,7 @@ def disconnected_session(custom_ssl_context):
 # NOTE: Do NOT combine this with the SSL fixtures above. This parametrization contains
 # ssl contexts where necessary
 create_auth_params = [
-    # Provide args in form 'shared_access_key, sastoken_fn, ssl_context'
+    # Provide args in form 'shared_access_key, sastoken, ssl_context'
     pytest.param(
         FAKE_SHARED_ACCESS_KEY, None, None, id="Shared Access Key SAS Auth + Default SSLContext"
     ),
@@ -118,13 +119,13 @@ create_auth_params = [
     ),
     pytest.param(
         None,
-        sastoken_generator_fn,
+        create_fake_sastoken_str(),
         None,
         id="User-Provided SAS Token Auth + Default SSLContext",
     ),
     pytest.param(
         None,
-        sastoken_generator_fn,
+        create_fake_sastoken_str(),
         lazy_fixture("custom_ssl_context"),
         id="User-Provided SAS Token Auth + Custom SSLContext",
     ),
@@ -134,8 +135,16 @@ create_auth_params = [
 create_auth_params_sas = [param for param in create_auth_params if "SAS" in param.id]
 # Just the parameters where a Shared Access Key auth is used
 create_auth_params_sak = [param for param in create_auth_params if param.values[0] is not None]
-# Just the parameters where SAS callback auth is used
-create_auth_params_token_cb = [param for param in create_auth_params if param.values[1] is not None]
+# Just the parameters where a Shared Access Key auth is NOT used
+create_auth_params_no_sak = [param for param in create_auth_params if param.values[0] is None]
+# Just the parameters where user-provided SAS token auth is used
+create_auth_params_user_token = [
+    param for param in create_auth_params if param.values[1] is not None
+]
+# Just the parameters where user-provided SAS token auth is NOT used
+create_auth_params_no_user_token = [
+    param for param in create_auth_params if param.values[1] is None
+]
 # Just the parameters where a custom SSLContext is provided
 create_auth_params_custom_ssl = [
     param for param in create_auth_params if param.values[2] is not None
@@ -146,7 +155,6 @@ create_auth_params_default_ssl = [param for param in create_auth_params if param
 
 # Covers all option kwargs shared across client factory methods
 factory_kwargs = [
-    # pytest.param("auto_reconnect", False, id="auto_reconnect"),
     pytest.param("keep_alive", 34, id="keep_alive"),
     pytest.param("product_info", "fake-product-info", id="product_info"),
     pytest.param(
@@ -160,6 +168,7 @@ sk_sm_create_exceptions = [
     pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
 ]
 
+# TODO: Do these params and associated tests need to be replicated for Provisioning?
 # Does the session exit gracefully or because of error?
 graceful_exit_params = [
     pytest.param(True, id="graceful exit"),
@@ -176,17 +185,16 @@ class TestIoTHubSessionInstantiation:
     ]
 
     @pytest.mark.it(
-        "Instantiates and stores a SasTokenProvider that uses symmetric key-based token generation, if `shared_access_key` is provided"
+        "Instantiates and stores a SasTokenGenerator using the `shared_access_key`, if `shared_access_key` is provided"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params_sak)
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params_sak)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_sak_auth(
-        self, mocker, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
+        self, mocker, device_id, module_id, shared_access_key, sastoken, ssl_context
     ):
-        assert sastoken_fn is None
+        assert sastoken is None
         spy_sk_sm_cls = mocker.spy(sm, "SymmetricKeySigningMechanism")
-        spy_st_generator_cls = mocker.spy(st, "InternalSasTokenGenerator")
-        spy_st_provider_cls = mocker.spy(st, "SasTokenProvider")
+        spy_st_generator_cls = mocker.spy(st, "SasTokenGenerator")
         expected_uri = get_expected_uri(FAKE_HOSTNAME, device_id, module_id)
 
         session = IoTHubSession(
@@ -200,73 +208,129 @@ class TestIoTHubSessionInstantiation:
         # SymmetricKeySigningMechanism was created from the shared access key
         assert spy_sk_sm_cls.call_count == 1
         assert spy_sk_sm_cls.call_args == mocker.call(shared_access_key)
-        # InternalSasTokenGenerator was created from the SymmetricKeySigningMechanism
+        # SasTokenGenerator was created from the SymmetricKeySigningMechanism
         assert spy_st_generator_cls.call_count == 1
         assert spy_st_generator_cls.call_args == mocker.call(
-            signing_mechanism=spy_sk_sm_cls.spy_return, uri=expected_uri, ttl=3600
+            signing_mechanism=spy_sk_sm_cls.spy_return, uri=expected_uri
         )
-        # SasTokenProvider was created from the InternalSasTokenGenerator
-        assert spy_st_provider_cls.call_count == 1
-        assert spy_st_provider_cls.call_args == mocker.call(spy_st_generator_cls.spy_return)
-        # SasTokenProvider was set on the Session
-        assert session._sastoken_provider is spy_st_provider_cls.spy_return
+        # SasTokenGenerator was set on the Session
+        assert session._sastoken_generator is spy_st_generator_cls.spy_return
 
     @pytest.mark.it(
-        "Instantiates and stores a SasTokenProvider that uses callback-based token generation, if `sastoken_fn` is provided"
+        "Does not instantiate or store any SasTokenGenerator if no `shared_access_key` is provided"
     )
-    @pytest.mark.parametrize(
-        "shared_access_key, sastoken_fn, ssl_context", create_auth_params_token_cb
-    )
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params_no_sak)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
-    async def test_token_callback_auth(
-        self, mocker, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
+    async def test_no_sak_auth(
+        self, mocker, device_id, module_id, shared_access_key, sastoken, ssl_context
     ):
         assert shared_access_key is None
-        spy_st_generator_cls = mocker.spy(st, "ExternalSasTokenGenerator")
-        spy_st_provider_cls = mocker.spy(st, "SasTokenProvider")
+        spy_st_generator_cls = mocker.spy(st, "SasTokenGenerator")
 
         session = IoTHubSession(
             hostname=FAKE_HOSTNAME,
             device_id=device_id,
             module_id=module_id,
-            sastoken_fn=sastoken_fn,
+            shared_access_key=shared_access_key,
+            sastoken=sastoken,
             ssl_context=ssl_context,
         )
 
-        # ExternalSasTokenGenerator was created from the sastoken_fn
-        assert spy_st_generator_cls.call_count == 1
-        assert spy_st_generator_cls.call_args == mocker.call(sastoken_fn)
-        # SasTokenProvider was created from the ExternalSasTokenGenerator
-        assert spy_st_provider_cls.call_count == 1
-        assert spy_st_provider_cls.call_args == mocker.call(spy_st_generator_cls.spy_return)
-        # SasTokenProvider was set on the Session
-        assert session._sastoken_provider is spy_st_provider_cls.spy_return
+        assert spy_st_generator_cls.call_count == 0
+        assert session._sastoken_generator is None
 
     @pytest.mark.it(
-        "Does not instantiate or store any SasTokenProvider if neither `shared_access_key` nor `sastoken_fn` are provided"
+        "Instantiates and stores a SasToken from the `sastoken` string, if `sastoken` is provided"
+    )
+    @pytest.mark.parametrize(
+        "shared_access_key, sastoken, ssl_context", create_auth_params_user_token
     )
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
-    async def test_non_sas_auth(self, mocker, device_id, module_id, custom_ssl_context):
-        spy_st_provider_cls = mocker.spy(st, "SasTokenProvider")
+    async def test_user_sastoken_auth(
+        self, device_id, module_id, shared_access_key, sastoken, ssl_context
+    ):
+        assert shared_access_key is None
 
         session = IoTHubSession(
             hostname=FAKE_HOSTNAME,
             device_id=device_id,
             module_id=module_id,
-            ssl_context=custom_ssl_context,
+            sastoken=sastoken,
+            ssl_context=ssl_context,
         )
 
-        # No SasTokenProvider
-        assert session._sastoken_provider is None
-        assert spy_st_provider_cls.call_count == 0
+        assert isinstance(session._user_sastoken, st.SasToken)
+        assert str(session._user_sastoken) == sastoken
+
+    @pytest.mark.it("Does not instantiate or store any SasToken if no `sastoken` is provided")
+    @pytest.mark.parametrize(
+        "shared_access_key, sastoken, ssl_context", create_auth_params_no_user_token
+    )
+    @pytest.mark.parametrize("device_id, module_id", create_id_params)
+    async def test_no_user_sastoken_auth(
+        self, mocker, device_id, module_id, shared_access_key, sastoken, ssl_context
+    ):
+        assert sastoken is None
+        spy_st_cls = mocker.spy(st, "SasToken")
+
+        session = IoTHubSession(
+            hostname=FAKE_HOSTNAME,
+            device_id=device_id,
+            module_id=module_id,
+            shared_access_key=shared_access_key,
+            ssl_context=ssl_context,
+        )
+
+        assert spy_st_cls.call_count == 0
+        assert session._user_sastoken is None
+
+    # NOTE: It's not really valid to provide sastoken_ttl for anything other than
+    # Shared Access Signature auth, but it isn't enforced because there's no harm in setting it
+    # We test all possible cases here, not just valid ones
+    @pytest.mark.it("Stores the provided `sastoken_ttl` value, if provided")
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("device_id, module_id", create_id_params)
+    async def test_sastoken_ttl_custom(
+        self, device_id, module_id, shared_access_key, sastoken, ssl_context
+    ):
+        custom_sastoken_ttl = 4700
+        session = IoTHubSession(
+            hostname=FAKE_HOSTNAME,
+            device_id=device_id,
+            module_id=module_id,
+            shared_access_key=shared_access_key,
+            sastoken=sastoken,
+            ssl_context=ssl_context,
+            sastoken_ttl=custom_sastoken_ttl,
+        )
+        assert session._sastoken_ttl == custom_sastoken_ttl
+
+    # NOTE: It's not really valid to provide sastoken_ttl for anything other than
+    # Shared Access Signature auth, but it isn't enforced because there's no harm in setting it
+    # We test all possible cases here, not just valid ones
+    @pytest.mark.it("Stores 3600 as the `sastoken_ttl` value, if no `sastoken_ttl` is provided")
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("device_id, module_id", create_id_params)
+    async def test_sastoken_ttl_default(
+        self, device_id, module_id, shared_access_key, sastoken, ssl_context
+    ):
+        session = IoTHubSession(
+            hostname=FAKE_HOSTNAME,
+            device_id=device_id,
+            module_id=module_id,
+            shared_access_key=shared_access_key,
+            sastoken=sastoken,
+            ssl_context=ssl_context,
+        )
+        assert session._sastoken_ttl == 3600
 
     @pytest.mark.it(
         "Instantiates and stores an IoTHubMQTTClient, using a new IoTHubClientConfig object"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_mqtt_client(
-        self, mocker, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
+        self, mocker, device_id, module_id, shared_access_key, sastoken, ssl_context
     ):
         spy_config_cls = mocker.spy(config, "IoTHubClientConfig")
         spy_mqtt_cls = mocker.spy(mqtt, "IoTHubMQTTClient")
@@ -278,7 +342,7 @@ class TestIoTHubSessionInstantiation:
             device_id=device_id,
             module_id=module_id,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
             ssl_context=ssl_context,
         )
 
@@ -290,10 +354,10 @@ class TestIoTHubSessionInstantiation:
     @pytest.mark.it(
         "Sets the provided `hostname` on the IoTHubClientConfig used to create the IoTHubMQTTClient"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_hostname(
-        self, mocker, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
+        self, mocker, device_id, module_id, shared_access_key, sastoken, ssl_context
     ):
         spy_mqtt_cls = mocker.spy(mqtt, "IoTHubMQTTClient")
 
@@ -302,7 +366,7 @@ class TestIoTHubSessionInstantiation:
             device_id=device_id,
             module_id=module_id,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
             ssl_context=ssl_context,
         )
 
@@ -312,10 +376,10 @@ class TestIoTHubSessionInstantiation:
     @pytest.mark.it(
         "Sets the provided `device_id` and `module_id` values on the IoTHubClientConfig used to create the IoTHubMQTTClient"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_ids(
-        self, mocker, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
+        self, mocker, device_id, module_id, shared_access_key, sastoken, ssl_context
     ):
         spy_mqtt_cls = mocker.spy(mqtt, "IoTHubMQTTClient")
 
@@ -324,7 +388,7 @@ class TestIoTHubSessionInstantiation:
             device_id=device_id,
             module_id=module_id,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
             ssl_context=ssl_context,
         )
 
@@ -336,11 +400,11 @@ class TestIoTHubSessionInstantiation:
         "Sets the provided `ssl_context` on the IoTHubClientConfig used to create the IoTHubMQTTClient, if provided"
     )
     @pytest.mark.parametrize(
-        "shared_access_key, sastoken_fn, ssl_context", create_auth_params_custom_ssl
+        "shared_access_key, sastoken, ssl_context", create_auth_params_custom_ssl
     )
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_custom_ssl_context(
-        self, mocker, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
+        self, mocker, device_id, module_id, shared_access_key, sastoken, ssl_context
     ):
         spy_mqtt_cls = mocker.spy(mqtt, "IoTHubMQTTClient")
 
@@ -349,7 +413,7 @@ class TestIoTHubSessionInstantiation:
             device_id=device_id,
             module_id=module_id,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
             ssl_context=ssl_context,
         )
 
@@ -360,11 +424,11 @@ class TestIoTHubSessionInstantiation:
         "Sets a default SSLContext on the IoTHubClientConfig used to create the IoTHubMQTTClient, if `ssl_context` is not provided"
     )
     @pytest.mark.parametrize(
-        "shared_access_key, sastoken_fn, ssl_context", create_auth_params_default_ssl
+        "shared_access_key, sastoken, ssl_context", create_auth_params_default_ssl
     )
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_default_ssl_context(
-        self, mocker, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
+        self, mocker, device_id, module_id, shared_access_key, sastoken, ssl_context
     ):
         assert ssl_context is None
         spy_mqtt_cls = mocker.spy(mqtt, "IoTHubMQTTClient")
@@ -390,7 +454,7 @@ class TestIoTHubSessionInstantiation:
             device_id=device_id,
             module_id=module_id,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
         )
 
         cfg = spy_mqtt_cls.call_args[0][0]
@@ -404,34 +468,12 @@ class TestIoTHubSessionInstantiation:
         assert ctx.minimum_version == ssl.TLSVersion.TLSv1_2
 
     @pytest.mark.it(
-        "Sets the stored SasTokenProvider (if any) on the IoTHubClientConfig used to create the IoTHubMQTTClient"
-    )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
-    @pytest.mark.parametrize("device_id, module_id", create_id_params)
-    async def test_sastoken_provider_cfg(
-        self, mocker, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
-    ):
-        spy_mqtt_cls = mocker.spy(mqtt, "IoTHubMQTTClient")
-
-        session = IoTHubSession(
-            hostname=FAKE_HOSTNAME,
-            device_id=device_id,
-            module_id=module_id,
-            shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
-            ssl_context=ssl_context,
-        )
-
-        cfg = spy_mqtt_cls.call_args[0][0]
-        assert cfg.sastoken_provider is session._sastoken_provider
-
-    @pytest.mark.it(
         "Sets `auto_reconnect` to False on the IoTHubClientConfig used to create the IoTHubMQTTClient"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_auto_reconnect_cfg(
-        self, mocker, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
+        self, mocker, device_id, module_id, shared_access_key, sastoken, ssl_context
     ):
         spy_mqtt_cls = mocker.spy(mqtt, "IoTHubMQTTClient")
 
@@ -440,7 +482,7 @@ class TestIoTHubSessionInstantiation:
             device_id=device_id,
             module_id=module_id,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
             ssl_context=ssl_context,
         )
 
@@ -450,7 +492,7 @@ class TestIoTHubSessionInstantiation:
     @pytest.mark.it(
         "Sets any provided optional keyword arguments on the IoTHubClientConfig used to create the IoTHubMQTTClient"
     )
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
     @pytest.mark.parametrize("kwarg_name, kwarg_value", factory_kwargs)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_kwargs(
@@ -459,7 +501,7 @@ class TestIoTHubSessionInstantiation:
         device_id,
         module_id,
         shared_access_key,
-        sastoken_fn,
+        sastoken,
         ssl_context,
         kwarg_name,
         kwarg_value,
@@ -472,7 +514,7 @@ class TestIoTHubSessionInstantiation:
             device_id=device_id,
             module_id=module_id,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
             ssl_context=ssl_context,
             **kwargs
         )
@@ -481,23 +523,23 @@ class TestIoTHubSessionInstantiation:
         assert getattr(cfg, kwarg_name) == kwarg_value
 
     @pytest.mark.it("Sets the `wait_for_disconnect_task` attribute to None")
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_wait_for_disconnect_task(
-        self, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
+        self, device_id, module_id, shared_access_key, sastoken, ssl_context
     ):
         session = IoTHubSession(
             hostname=FAKE_HOSTNAME,
             device_id=device_id,
             module_id=module_id,
             shared_access_key=shared_access_key,
-            sastoken_fn=sastoken_fn,
+            sastoken=sastoken,
             ssl_context=ssl_context,
         )
         assert session._wait_for_disconnect_task is None
 
     @pytest.mark.it(
-        "Raises ValueError if neither `shared_access_key`, `sastoken_fn` nor `ssl_context` are provided as parameters"
+        "Raises ValueError if neither `shared_access_key`, `sastoken` nor `ssl_context` are provided as parameters"
     )
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_no_auth(self, device_id, module_id):
@@ -509,33 +551,45 @@ class TestIoTHubSessionInstantiation:
             )
 
     @pytest.mark.it(
-        "Raises ValueError if both `shared_access_key` and `sastoken_fn` are provided as parameters"
+        "Raises ValueError if both `shared_access_key` and `sastoken` are provided as parameters"
     )
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_conflicting_auth(self, device_id, module_id, optional_ssl_context):
+        sastoken_str = create_fake_sastoken_str()
         with pytest.raises(ValueError):
             IoTHubSession(
                 hostname=FAKE_HOSTNAME,
                 device_id=device_id,
                 module_id=module_id,
                 shared_access_key=FAKE_SHARED_ACCESS_KEY,
-                sastoken_fn=sastoken_generator_fn,
+                sastoken=sastoken_str,
+                ssl_context=optional_ssl_context,
+            )
+
+    @pytest.mark.it("Raises ValueError if the provided `sastoken` is already expired")
+    @pytest.mark.parametrize("device_id, module_id", create_id_params)
+    async def test_expired_sastoken(self, device_id, module_id, optional_ssl_context):
+        expired_sastoken_str = create_fake_sastoken_str(expiry_time=(time.time() - 10))
+        with pytest.raises(ValueError):
+            IoTHubSession(
+                hostname=FAKE_HOSTNAME,
+                device_id=device_id,
+                module_id=module_id,
+                sastoken=expired_sastoken_str,
                 ssl_context=optional_ssl_context,
             )
 
     @pytest.mark.it("Raises TypeError if an invalid keyword argument is provided")
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params)
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
-    async def test_bad_kwarg(
-        self, device_id, module_id, shared_access_key, sastoken_fn, ssl_context
-    ):
+    async def test_bad_kwarg(self, device_id, module_id, shared_access_key, sastoken, ssl_context):
         with pytest.raises(TypeError):
             IoTHubSession(
                 hostname=FAKE_HOSTNAME,
                 device_id=device_id,
                 module_id=module_id,
                 shared_access_key=shared_access_key,
-                sastoken_fn=sastoken_fn,
+                sastoken=sastoken,
                 ssl_context=ssl_context,
                 invalid_argument="some value",
             )
@@ -544,13 +598,13 @@ class TestIoTHubSessionInstantiation:
         "Allows any exceptions raised when creating a SymmetricKeySigningMechanism to propagate"
     )
     @pytest.mark.parametrize("exception", sk_sm_create_exceptions)
-    @pytest.mark.parametrize("shared_access_key, sastoken_fn, ssl_context", create_auth_params_sak)
+    @pytest.mark.parametrize("shared_access_key, sastoken, ssl_context", create_auth_params_sak)
     @pytest.mark.parametrize("device_id, module_id", create_id_params)
     async def test_sksm_raises(
-        self, mocker, device_id, module_id, shared_access_key, sastoken_fn, ssl_context, exception
+        self, mocker, device_id, module_id, shared_access_key, sastoken, ssl_context, exception
     ):
         mocker.patch.object(sm, "SymmetricKeySigningMechanism", side_effect=exception)
-        assert sastoken_fn is None
+        assert sastoken is None
 
         with pytest.raises(type(exception)) as e_info:
             IoTHubSession(
@@ -558,17 +612,20 @@ class TestIoTHubSessionInstantiation:
                 device_id=device_id,
                 module_id=module_id,
                 shared_access_key=shared_access_key,
-                sastoken_fn=sastoken_fn,
+                sastoken=sastoken,
                 ssl_context=ssl_context,
             )
         assert e_info.value is exception
 
 
-@pytest.mark.describe("IoTHubSession - .from_connection_string")
+@pytest.mark.describe("IoTHubSession - .from_connection_string()")
 class TestIoTHubSessionFromConnectionString:
+    # NOTE: "Gateway Device" or "Gateway Module" refer to a device or module that connects via a
+    # gateway hostname. In practice, a "Gateway Device" is very likely to be an Edge Leaf Device,
+    # but technically doesn't have to be. "Gateway Modules" are not a well defined scenario
+    # ("Edge Leaf Modules" aren't really a thing - those are probably just Edge Modules, which
+    # ought to be using a different Session object altogether), but could theoretically exist.
     factory_params = [
-        # TODO: once Edge support is decided upon, either re-enable, or remove the commented Edge parameters
-        # TODO: Do we want gateway hostname tests that are non-Edge? probably?
         pytest.param(
             "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key}".format(
                 hostname=FAKE_HOSTNAME,
@@ -587,26 +644,24 @@ class TestIoTHubSessionFromConnectionString:
             lazy_fixture("custom_ssl_context"),
             id="Standard Device Connection String w/ SharedAccessKey + Custom SSLContext",
         ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         shared_access_key=FAKE_SHARED_ACCESS_KEY,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     None,
-        #     id="Edge Device Connection String w/ SharedAccessKey + Default SSLContext",
-        # ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         shared_access_key=FAKE_SHARED_ACCESS_KEY,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     lazy_fixture("custom_ssl_context"),
-        #     id="Edge Device Connection String w/ SharedAccessKey + Custom SSLContext",
-        # ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessSignature={shared_access_signature}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+            ),
+            None,
+            id="Standard Device Connection String w/ SharedAccessSignature + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessSignature={shared_access_signature}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Standard Device Connection String w/ SharedAccessSignature + Custom SSLContext",
+        ),
         # NOTE: X509 certs imply use of custom SSLContext
         pytest.param(
             "HostName={hostname};DeviceId={device_id};x509=true".format(
@@ -616,15 +671,56 @@ class TestIoTHubSessionFromConnectionString:
             lazy_fixture("custom_ssl_context"),
             id="Standard Device Connection String w/ X509",
         ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};GatewayHostName={gateway_hostname};x509=true".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     lazy_fixture("custom_ssl_context"),
-        #     id="Edge Device Connection String w/ X509",
-        # ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_key=FAKE_SHARED_ACCESS_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            None,
+            id="Gateway Device Connection String w/ SharedAccessKey + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_key=FAKE_SHARED_ACCESS_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Device Connection String w/ SharedAccessKey + Custom SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessSignature={shared_access_signature};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            None,
+            id="Gateway Device Connection String w/ SharedAccessSignature + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};SharedAccessSignature={shared_access_signature};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Device Connection String w/ SharedAccessSignature + Custom SSLContext",
+        ),
+        # NOTE: X509 certs imply use of custom SSLContext
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};GatewayHostName={gateway_hostname};x509=true".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Device Connection String w/ X509",
+        ),
         pytest.param(
             "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key}".format(
                 hostname=FAKE_HOSTNAME,
@@ -645,28 +741,26 @@ class TestIoTHubSessionFromConnectionString:
             lazy_fixture("custom_ssl_context"),
             id="Standard Module Connection String w/ SharedAccessKey + Custom SSLContext",
         ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         module_id=FAKE_MODULE_ID,
-        #         shared_access_key=FAKE_SHARED_ACCESS_KEY,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     None,
-        #     id="Edge Module Connection String w/ SharedAccessKey + Default SSLContext",
-        # ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         module_id=FAKE_MODULE_ID,
-        #         shared_access_key=FAKE_SHARED_ACCESS_KEY,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     lazy_fixture("custom_ssl_context"),
-        #     id="Edge Module Connection String w/ SharedAccessKey + Custom SSLContext",
-        # ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessSignature={shared_access_signature}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+            ),
+            None,
+            id="Standard Module Connection String w/ SharedAccessSignature + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessSignature={shared_access_signature}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Standard Module Connection String w/ SharedAccessSignature + Custom SSLContext",
+        ),
         # NOTE: X509 certs imply use of custom SSLContext
         pytest.param(
             "HostName={hostname};DeviceId={device_id};ModuleId={module_id};x509=true".format(
@@ -677,16 +771,60 @@ class TestIoTHubSessionFromConnectionString:
             lazy_fixture("custom_ssl_context"),
             id="Standard Module Connection String w/ X509",
         ),
-        # pytest.param(
-        #     "HostName={hostname};DeviceId={device_id};ModuleId={module_id};GatewayHostName={gateway_hostname};x509=true".format(
-        #         hostname=FAKE_HOSTNAME,
-        #         device_id=FAKE_DEVICE_ID,
-        #         module_id=FAKE_MODULE_ID,
-        #         gateway_hostname=FAKE_GATEWAY_HOSTNAME,
-        #     ),
-        #     lazy_fixture("custom_ssl_context"),
-        #     id="Edge Module Connection String w/ X509",
-        # ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_key=FAKE_SHARED_ACCESS_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            None,
+            id="Gateway Module Connection String w/ SharedAccessKey + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_key=FAKE_SHARED_ACCESS_KEY,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Module Connection String w/ SharedAccessKey + Custom SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessSignature={shared_access_signature};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            None,
+            id="Gateway Module Connection String w/ SharedAccessSignature + Default SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessSignature={shared_access_signature};GatewayHostName={gateway_hostname}".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                shared_access_signature=create_fake_sastoken_str(),
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Module Connection String w/ SharedAccessSignature + Custom SSLContext",
+        ),
+        pytest.param(
+            "HostName={hostname};DeviceId={device_id};ModuleId={module_id};GatewayHostName={gateway_hostname};x509=true".format(
+                hostname=FAKE_HOSTNAME,
+                device_id=FAKE_DEVICE_ID,
+                module_id=FAKE_MODULE_ID,
+                gateway_hostname=FAKE_GATEWAY_HOSTNAME,
+            ),
+            lazy_fixture("custom_ssl_context"),
+            id="Gateway Module Connection String w/ X509",
+        ),
     ]
     # Just the parameters for using standard connection strings
     factory_params_no_gateway = [
@@ -696,18 +834,8 @@ class TestIoTHubSessionFromConnectionString:
     factory_params_gateway = [
         param for param in factory_params if cs.GATEWAY_HOST_NAME in param.values[0]
     ]
-    # # Just the parameters where a custom SSLContext is provided
-    # factory_params_custom_ssl = [param for param in factory_params if param.values[1] is not None]
-    # # Just the parameters where a custom SSLContext is NOT provided
-    # factory_params_default_ssl = [param for param in factory_params if param.values[1] is None]
-    # # Just the parameters for using SharedAccessKeys
-    # factory_params_sak = [
-    #     param for param in factory_params if cs.SHARED_ACCESS_KEY in param.values[0]
-    # ]
-    # Just the parameters for NOT using SharedAccessKeys
-    factory_params_no_sak = [
-        param for param in factory_params if cs.SHARED_ACCESS_KEY not in param.values[0]
-    ]
+    # Just the parameters for X509
+    factory_params_x509 = [param for param in factory_params if cs.X509 in param.values[0]]
 
     @pytest.mark.it("Returns a new IoTHubSession instance")
     @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
@@ -716,10 +844,10 @@ class TestIoTHubSessionFromConnectionString:
         assert isinstance(session, IoTHubSession)
 
     @pytest.mark.it(
-        "Extracts the `DeviceId`, `ModuleId` and `SharedAccessKey` values from the connection string (if present), passing them to the IoTHubSession initializer"
+        "Extracts the `DeviceId`, `ModuleId`, `SharedAccessKey` and `SharedAccessSignature` values from the connection string (if present), passing them to the IoTHubSession initializer"
     )
     @pytest.mark.parametrize("connection_string, ssl_context", factory_params)
-    async def test_extracts_values(self, mocker, connection_string, ssl_context):
+    async def test_extracts_id_values(self, mocker, connection_string, ssl_context):
         spy_session_init = mocker.spy(IoTHubSession, "__init__")
         cs_obj = cs.ConnectionString(connection_string)
 
@@ -731,6 +859,7 @@ class TestIoTHubSessionFromConnectionString:
         assert spy_session_init.call_args[1]["shared_access_key"] == cs_obj.get(
             cs.SHARED_ACCESS_KEY
         )
+        assert spy_session_init.call_args[1]["sastoken"] == cs_obj.get(cs.SHARED_ACCESS_SIGNATURE)
 
     @pytest.mark.it(
         "Extracts the `HostName` value from the connection string and passes it to the IoTHubSession initializer as the `hostname`, if no `GatewayHostName` value is present in the connection string"
@@ -745,8 +874,6 @@ class TestIoTHubSessionFromConnectionString:
         assert spy_session_init.call_count == 1
         assert spy_session_init.call_args[1]["hostname"] == cs_obj[cs.HOST_NAME]
 
-    # TODO: This test is currently being skipped because test data does not include such values
-    # Get clarity on how we want to handle Edge, and then clear this up.
     @pytest.mark.it(
         "Extracts the `GatewayHostName` value from the connection string and passes it to the IoTHubSession initializer as the `hostname`, if present in the connection string"
     )
@@ -788,7 +915,7 @@ class TestIoTHubSessionFromConnectionString:
     @pytest.mark.it(
         "Raises ValueError if `x509=true` is present in the connection string, but no `ssl_context` is provided"
     )
-    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_no_sak)
+    @pytest.mark.parametrize("connection_string, ssl_context", factory_params_x509)
     async def test_x509_true_no_ssl(self, connection_string, ssl_context):
         # Ignore the ssl_context provided by the parametrization
         with pytest.raises(ValueError):
@@ -871,6 +998,54 @@ class TestIoTHubSessionContextManager:
         return disconnected_session
 
     @pytest.mark.it(
+        "Sets the user-provided SasToken on the IoTHubMQTTClient upon entry into the context manager, if using user-provided SAS auth"
+    )
+    async def test_user_provided_sas(self, mocker, session):
+        sastoken_str = create_fake_sastoken_str()
+        session._user_sastoken = st.SasToken(sastoken_str)
+        assert session._mqtt_client.set_sastoken.call_count == 0
+
+        async with session as session:
+            assert session._mqtt_client.set_sastoken.call_count == 1
+            assert session._mqtt_client.set_sastoken.call_args == mocker.call(
+                session._user_sastoken
+            )
+
+        assert session._mqtt_client.set_sastoken.call_count == 1
+
+    @pytest.mark.it(
+        "Generates a SasToken according to the configured TTL value, using the SasTokenGenerator, and sets it on the IoTHubMQTTClient upon entry into the context manager, if using Shared Access Key SAS auth"
+    )
+    async def test_sak_generation_sas(self, mocker, session):
+        session._sastoken_generator = mocker.MagicMock(spec=st.SasTokenGenerator)
+        assert session._sastoken_generator.generate_sastoken.await_count == 0
+        assert session._mqtt_client.set_sastoken.call_count == 0
+
+        async with session as session:
+            assert session._sastoken_generator.generate_sastoken.await_count == 1
+            assert session._sastoken_generator.generate_sastoken.await_args == mocker.call(
+                ttl=session._sastoken_ttl
+            )
+            assert session._mqtt_client.set_sastoken.call_count == 1
+            assert session._mqtt_client.set_sastoken.call_args == mocker.call(
+                session._sastoken_generator.generate_sastoken.return_value
+            )
+
+        assert session._sastoken_generator.generate_sastoken.call_count == 1
+        assert session._mqtt_client.set_sastoken.call_count == 1
+
+    @pytest.mark.it("Does not set any SasToken on the IoTHubMQTTClient if not using SAS auth")
+    async def test_no_sas(self, session):
+        assert session._user_sastoken is None
+        assert session._sastoken_generator is None
+        assert session._mqtt_client.set_sastoken.call_count == 0
+
+        async with session as session:
+            assert session._mqtt_client.set_sastoken.call_count == 0
+
+        assert session._mqtt_client.set_sastoken.call_count == 0
+
+    @pytest.mark.it(
         "Starts the IoTHubMQTTClient upon entry into the context manager, and stops it upon exit"
     )
     async def test_mqtt_client_start_stop(self, session):
@@ -933,51 +1108,6 @@ class TestIoTHubSessionContextManager:
 
         assert session._mqtt_client.connect.await_count == 1
         assert session._mqtt_client.disconnect.await_count == 1
-
-    @pytest.mark.it(
-        "Starts the SasTokenProvider upon entry into the context manager, and stops it upon exit, if one exists"
-    )
-    async def test_sastoken_provider_start_stop(self, session, mock_sastoken_provider):
-        session._sastoken_provider = mock_sastoken_provider
-        assert session._sastoken_provider.start.await_count == 0
-        assert session._sastoken_provider.stop.await_count == 0
-
-        async with session as session:
-            assert session._sastoken_provider.start.await_count == 1
-            assert session._sastoken_provider.stop.await_count == 0
-
-        assert session._sastoken_provider.start.await_count == 1
-        assert session._sastoken_provider.stop.await_count == 1
-
-    @pytest.mark.it(
-        "Stops the SasTokenProvider upon exit, even if an error was raised within the block inside the context manager"
-    )
-    async def test_sastoken_provider_start_stop_with_failure(
-        self, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        assert session._sastoken_provider.start.await_count == 0
-        assert session._sastoken_provider.stop.await_count == 0
-
-        try:
-            async with session as session:
-                assert session._sastoken_provider.start.await_count == 1
-                assert session._sastoken_provider.stop.await_count == 0
-                raise arbitrary_exception
-        except type(arbitrary_exception):
-            pass
-
-        assert session._sastoken_provider.start.await_count == 1
-        assert session._sastoken_provider.stop.await_count == 1
-
-    @pytest.mark.it("Can handle the case where SasTokenProvider does not exist")
-    async def test_no_sastoken_provider(self, session):
-        assert session._sastoken_provider is None
-
-        async with session as session:
-            pass
-
-        # If nothing raises here, the test passes
 
     @pytest.mark.it(
         "Creates a Task from the MQTTClient's .wait_for_disconnect() coroutine method and stores it as the `wait_for_disconnect_task` attribute upon entry into the context manager, and cancels and clears the Task upon exit"
@@ -1051,47 +1181,6 @@ class TestIoTHubSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Allows any errors raised while starting the SasTokenProvider during context manager entry to propagate"
-    )
-    async def test_enter_sastoken_provider_start_raises(
-        self, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._sastoken_provider.start.side_effect = arbitrary_exception
-
-        with pytest.raises(type(arbitrary_exception)) as e_info:
-            async with session as session:
-                pass
-        assert e_info.value is arbitrary_exception
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Does not start or connect the IoTHubMQTTClient, nor create the `wait_for_disconnect_task`, if an error is raised while starting the SasTokenProvider during context manager entry"
-    )
-    async def test_enter_sastoken_provider_start_raises_cleanup(
-        self, mocker, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._sastoken_provider.start.side_effect = arbitrary_exception
-        assert session._sastoken_provider.start.await_count == 0
-        assert session._mqtt_client.start.await_count == 0
-        assert session._mqtt_client.connect.await_count == 0
-        assert session._wait_for_disconnect_task is None
-        spy_create_task = mocker.spy(asyncio, "create_task")
-
-        with pytest.raises(type(arbitrary_exception)) as e_info:
-            async with session as session:
-                pass
-        assert e_info.value is arbitrary_exception
-
-        assert session._sastoken_provider.start.await_count == 1
-        assert session._mqtt_client.start.await_count == 0
-        assert session._mqtt_client.connect.await_count == 0
-        assert session._wait_for_disconnect_task is None
-        assert spy_create_task.call_count == 0
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
         "Allows any errors raised while starting the IoTHubMQTTClient during context manager entry to propagate"
     )
     async def test_enter_mqtt_client_start_raises(self, session, arbitrary_exception):
@@ -1104,23 +1193,13 @@ class TestIoTHubSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Stops the IoTHubMQTTClient and SasTokenProvider (if present) that were previously started, and does not create the `wait_for_disconnect_task`, if an error is raised while starting the IoTHubMQTTClient during context manager entry"
-    )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
+        "Stops the IoTHubMQTTClient that was previously started, and does not create the `wait_for_disconnect_task`, if an error is raised while starting the IoTHubMQTTClient during context manager entry"
     )
     async def test_enter_mqtt_client_start_raises_cleanup(
-        self, mocker, session, sastoken_provider, arbitrary_exception
+        self, mocker, session, arbitrary_exception
     ):
-        session._sastoken_provider = sastoken_provider
         session._mqtt_client.start.side_effect = arbitrary_exception
         assert session._mqtt_client.stop.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
         assert session._wait_for_disconnect_task is None
         spy_create_task = mocker.spy(asyncio, "create_task")
 
@@ -1129,59 +1208,8 @@ class TestIoTHubSessionContextManager:
                 pass
 
         assert session._mqtt_client.stop.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
         assert session._wait_for_disconnect_task is None
         assert spy_create_task.call_count == 0
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Stops the SasTokenProvider (if present) even if an error was raised while stopping the IoTHubMQTTClient in response to an error raised while starting the IoTHubMQTTClient during context manager entry"
-    )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
-    )
-    async def test_enter_mqtt_client_start_raises_then_mqtt_client_stop_raises(
-        self, session, sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = sastoken_provider
-        session._mqtt_client.start.side_effect = arbitrary_exception
-        session._mqtt_client.stop.side_effect = arbitrary_exception
-        assert session._mqtt_client.stop.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
-
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                pass
-
-        assert session._mqtt_client.stop.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Stops the IoTHubMQTTClient even if an error was raised while stopping the SasTokenProvider in response to an error raised while starting the IoTHubMQTTClient during context manager entry"
-    )
-    async def test_enter_mqtt_client_start_raises_then_sastoken_provider_stop_raises(
-        self, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._mqtt_client.start.side_effect = arbitrary_exception
-        session._sastoken_provider.stop.side_effect = arbitrary_exception
-        assert session._mqtt_client.stop.await_count == 0
-        assert session._sastoken_provider.stop.await_count == 0
-
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                pass
-
-        assert session._mqtt_client.stop.await_count == 1
-        assert session._sastoken_provider.stop.await_count == 1
 
     @pytest.mark.it(
         "Allows any errors raised while connecting with the IoTHubMQTTClient during context manager entry to propagate"
@@ -1190,6 +1218,7 @@ class TestIoTHubSessionContextManager:
         "exception",
         [
             pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
+            pytest.param(exc.CredentialError(), id="CredentialError"),
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
@@ -1202,14 +1231,7 @@ class TestIoTHubSessionContextManager:
         assert e_info.value is exception
 
     @pytest.mark.it(
-        "Stops the IoTHubMQTTClient and SasTokenProvider (if present) that were previously started, and does not create the `wait_for_disconnect_task`, if an error is raised while connecting during context manager entry"
-    )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
+        "Stops the IoTHubMQTTClient that was previously started, and does not create the `wait_for_disconnect_task`, if an error is raised while connecting during context manager entry"
     )
     @pytest.mark.parametrize(
         "exception",
@@ -1218,14 +1240,9 @@ class TestIoTHubSessionContextManager:
             pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
         ],
     )
-    async def test_enter_mqtt_client_connect_raises_cleanup(
-        self, mocker, session, sastoken_provider, exception
-    ):
-        session._sastoken_provider = sastoken_provider
+    async def test_enter_mqtt_client_connect_raises_cleanup(self, mocker, session, exception):
         session._mqtt_client.connect.side_effect = exception
         assert session._mqtt_client.stop.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
         assert session._wait_for_disconnect_task is None
         spy_create_task = mocker.spy(asyncio, "create_task")
 
@@ -1234,77 +1251,8 @@ class TestIoTHubSessionContextManager:
                 pass
 
         assert session._mqtt_client.stop.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
         assert session._wait_for_disconnect_task is None
         assert spy_create_task.call_count == 0
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Stops the SasTokenProvider (if present) even if an error was raised while stopping the IoTHubMQTTClient in response to an error raised while connecting the IoTHubMQTTClient during context manager entry"
-    )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
-            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
-        ],
-    )
-    async def test_enter_mqtt_client_connect_raises_then_mqtt_client_stop_raises(
-        self, session, sastoken_provider, exception, arbitrary_exception
-    ):
-        session._sastoken_provider = sastoken_provider
-        session._mqtt_client.connect.side_effect = exception  # Realistic failure
-        session._mqtt_client.stop.side_effect = arbitrary_exception  # Shouldn't happen
-        assert session._mqtt_client.stop.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
-
-        # NOTE: arbitrary_exception is raised here instead of exception - this is because it
-        # happened second, during resolution of exception, thus taking precedence
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                pass
-
-        assert session._mqtt_client.stop.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Stops the IoTHubMQTTClient even if an error was raised while stopping the SasTokenProvider in response to an error raised while connecting the IoTHubMQTTClient during context manager entry"
-    )
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(exc.MQTTConnectionFailedError(), id="MQTTConnectionFailedError"),
-            pytest.param(lazy_fixture("arbitrary_exception"), id="Unexpected Exception"),
-        ],
-    )
-    async def test_enter_mqtt_client_connect_raises_then_sastoken_provider_stop_raises(
-        self, session, mock_sastoken_provider, exception, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._mqtt_client.connect.side_effect = exception  # Realistic failure
-        session._sastoken_provider.stop.side_effect = arbitrary_exception  # Shouldn't happen
-        assert session._mqtt_client.stop.await_count == 0
-        assert session._sastoken_provider.stop.await_count == 0
-
-        # NOTE: arbitrary_exception is raised here instead of exception - this is because it
-        # happened second, during resolution of exception, thus taking precedence
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                pass
-
-        assert session._mqtt_client.stop.await_count == 1
-        assert session._sastoken_provider.stop.await_count == 1
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
@@ -1320,23 +1268,11 @@ class TestIoTHubSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Stops the IoTHubMQTTClient and SasTokenProvider (if present), and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while disconnecting the IoTHubMQTTClient during context manager exit"
+        "Stops the IoTHubMQTTClient and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while disconnecting the IoTHubMQTTClient during context manager exit"
     )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
-    )
-    async def test_exit_disconnect_raises_cleanup(
-        self, session, sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = sastoken_provider
+    async def test_exit_disconnect_raises_cleanup(self, session, arbitrary_exception):
         session._mqtt_client.disconnect.side_effect = arbitrary_exception
         assert session._mqtt_client.stop.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
         assert session._wait_for_disconnect_task is None
 
         with pytest.raises(type(arbitrary_exception)):
@@ -1345,8 +1281,6 @@ class TestIoTHubSessionContextManager:
                 assert not conn_drop_task.done()
 
         assert session._mqtt_client.stop.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
         await asyncio.sleep(0.1)
         assert session._wait_for_disconnect_task is None
         assert conn_drop_task.cancelled()
@@ -1365,23 +1299,11 @@ class TestIoTHubSessionContextManager:
 
     # NOTE: This shouldn't happen, but we test it anyway
     @pytest.mark.it(
-        "Disconnects the IoTHubMQTTClient and stops the SasTokenProvider (if present), and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while stopping the IoTHubMQTTClient during context manager exit"
+        "Disconnects the IoTHubMQTTClient, and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while stopping the IoTHubMQTTClient during context manager exit"
     )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="SasTokenProvider not present"),
-        ],
-    )
-    async def test_exit_mqtt_client_stop_raises_cleanup(
-        self, session, sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = sastoken_provider
+    async def test_exit_mqtt_client_stop_raises_cleanup(self, session, arbitrary_exception):
         session._mqtt_client.stop.side_effect = arbitrary_exception
         assert session._mqtt_client.disconnect.await_count == 0
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 0
         assert session._wait_for_disconnect_task is None
 
         with pytest.raises(type(arbitrary_exception)):
@@ -1390,52 +1312,52 @@ class TestIoTHubSessionContextManager:
                 assert not conn_drop_task.done()
 
         assert session._mqtt_client.disconnect.await_count == 1
-        if session._sastoken_provider:
-            assert session._sastoken_provider.stop.await_count == 1
-        await asyncio.sleep(0.1)
-        assert session._wait_for_disconnect_task is None
-        assert conn_drop_task.cancelled()
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Allows any errors raised while stopping the SasTokenProvider during context manager exit to propagate"
-    )
-    async def test_exit_sastoken_provider_stop_raises(
-        self, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._sastoken_provider.stop.side_effect = arbitrary_exception
-
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                pass
-
-    # NOTE: This shouldn't happen, but we test it anyway
-    @pytest.mark.it(
-        "Disconnects and stops the IoTHubMQTTClient, and cancels and clears the `wait_for_disconnect_task`, even if an error was raised while stopping the SasTokenProvider during context manager exit"
-    )
-    async def test_exit_sastoken_provider_stop_raises_cleanup(
-        self, session, mock_sastoken_provider, arbitrary_exception
-    ):
-        session._sastoken_provider = mock_sastoken_provider
-        session._sastoken_provider.stop.side_effect = arbitrary_exception
-        assert session._mqtt_client.disconnect.await_count == 0
-        assert session._mqtt_client.stop.await_count == 0
-        assert session._wait_for_disconnect_task is None
-
-        with pytest.raises(type(arbitrary_exception)):
-            async with session as session:
-                conn_drop_task = session._wait_for_disconnect_task
-                assert not conn_drop_task.done()
-
-        assert session._mqtt_client.disconnect.await_count == 1
-        assert session._mqtt_client.stop.await_count == 1
         await asyncio.sleep(0.1)
         assert session._wait_for_disconnect_task is None
         assert conn_drop_task.cancelled()
 
     # TODO: consider adding detailed cancellation tests
     # Not sure how cancellation would work in a context manager situation, needs more investigation
+
+
+@pytest.mark.describe("IoTHubSession - .update_sastoken()")
+class TestIoTHubSessionUpdateSastoken:
+    @pytest.fixture(autouse=True)
+    def modify_session(self, session):
+        # Session needs to be configured with an existing SasToken
+        old_sastoken = create_fake_sastoken_str(expiry_time=time.time() + 300)
+        session._user_sastoken = st.SasToken(old_sastoken)
+
+    @pytest.mark.it(
+        "Instantiates and stores a SasToken from the `sastoken` string, if already using user-provided SAS auth"
+    )
+    async def test_updates_sastoken(self, session):
+        sastoken_str = create_fake_sastoken_str()
+        assert session._user_sastoken is not None
+        assert str(session._user_sastoken) != sastoken_str
+
+        session.update_sastoken(sastoken_str)
+
+        assert isinstance(session._user_sastoken, st.SasToken)
+        assert str(session._user_sastoken) == sastoken_str
+
+    @pytest.mark.it(
+        "Raises SessionError if the IoTHubSession is not already using user-provided SAS auth"
+    )
+    async def test_not_user_sas(self, session):
+        session._user_sastoken = None
+        sastoken_str = create_fake_sastoken_str()
+
+        with pytest.raises(exc.SessionError):
+            session.update_sastoken(sastoken_str)
+
+    @pytest.mark.it("Raises ValueError if the provided `sastoken` is already expired")
+    async def test_expired_sastoken(self, session):
+        assert session._user_sastoken is not None
+        expired_sastoken_str = create_fake_sastoken_str(expiry_time=time.time() - 10)
+
+        with pytest.raises(ValueError):
+            session.update_sastoken(expired_sastoken_str)
 
 
 @pytest.mark.describe("IoTHubSession - .send_message()")

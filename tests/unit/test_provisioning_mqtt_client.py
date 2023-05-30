@@ -86,19 +86,6 @@ def sastoken():
 
 
 @pytest.fixture
-def mock_sastoken_provider(mocker, sastoken):
-    provider = mocker.MagicMock(spec=st.SasTokenProvider)
-    provider.get_current_sastoken.return_value = sastoken
-    # Use a HangingAsyncMock so that it isn't constantly returning
-    provider.wait_for_new_sastoken = custom_mock.HangingAsyncMock()
-    provider.wait_for_new_sastoken.return_value = sastoken
-    # NOTE: Technically, this mock just always returns the same SasToken,
-    # even after an "update", but for the purposes of testing at this level,
-    # it doesn't matter
-    return provider
-
-
-@pytest.fixture
 def client_config():
     """Defaults to DPS Configuration. Required values only.
     Customize in test if you need specific options"""
@@ -137,10 +124,7 @@ class TestProvisioningMQTTClientInstantiation:
         assert client._registration_id == client_config.registration_id
 
     @pytest.mark.it("Derives the `username` and stores the result as an attribute")
-    async def test_username(
-        self,
-        client_config,
-    ):
+    async def test_username(self, client_config):
         client_config.registration_id = FAKE_REGISTRATION_ID
         client_config.id_scope = FAKE_ID_SCOPE
 
@@ -158,22 +142,12 @@ class TestProvisioningMQTTClientInstantiation:
         # The expected username was derived
         assert client._username == expected_username
 
-    @pytest.mark.it(
-        "Stores the `sastoken_provider` from the ProvisioningClientConfig as an attribute"
-    )
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="No SasTokenProvider present"),
-        ],
-    )
-    async def test_sastoken_provider(self, client_config, sastoken_provider):
+    @pytest.mark.it("Sets the `sastoken` attribute to None")
+    async def test_sastoken(self, client_config):
         client_config.registration_id = FAKE_REGISTRATION_ID
-        client_config.sastoken_provider = sastoken_provider
-
+        client_config.id_scope = FAKE_ID_SCOPE
         client = ProvisioningMQTTClient(client_config)
-        assert client._sastoken_provider is sastoken_provider
+        assert client._sastoken is None
 
     @pytest.mark.it(
         "Creates an MQTTClient instance based on the configuration of ProvisioningClientConfig and stores it as an attribute"
@@ -252,58 +226,62 @@ class TestProvisioningMQTTClientInstantiation:
     async def test_bg_tasks(self, client_config):
         client_config.registration_id = FAKE_REGISTRATION_ID
         client = ProvisioningMQTTClient(client_config)
-        assert client._process_dps_responses_task is None
+        assert client._process_dps_responses_bg_task is None
+
+
+@pytest.mark.describe("ProvisioningMQTTClient - .set_sastoken()")
+class TestProvisioningMQTTClientSetSastoken:
+    @pytest.mark.it(
+        "Sets the provided SasToken as the `sastoken` attribute on the  if there is no current SasToken"
+    )
+    def test_sets_sastoken_new(self, client, sastoken):
+        assert client._sastoken is None
+        client.set_sastoken(sastoken)
+        assert client._sastoken is sastoken
+
+    @pytest.mark.it(
+        "Replaces the current SasToken with the provided SasToken if there is already a current SasToken"
+    )
+    def test_sets_sastoken_replace(self, mocker, client, sastoken):
+        client._sastoken = mocker.MagicMock()
+        client.set_sastoken(sastoken)
+        assert client._sastoken is sastoken
 
 
 @pytest.mark.describe("ProvisioningMQTTClient - .start()")
 class TestProvisioningMQTTClientStart:
     @pytest.mark.it(
-        "Sets the credentials on the MQTTClient, using the stored `username` as the username and no password, "
-        "when not using SAS authentication"
+        "Begins running the ._process_dps_responses_bg_task() coroutine method as a background task, storing it as an attribute"
     )
-    async def test_mqtt_client_credentials_no_sas(self, mocker, client):
-        assert client._sastoken_provider is None
-        assert client._mqtt_client.set_credentials.call_count == 0
+    async def test_process_dps_responses_bg_task(self, client):
+        assert client._process_dps_responses_bg_task is None
 
         await client.start()
 
-        assert client._mqtt_client.set_credentials.call_count == 1
-        assert client._mqtt_client.set_credentials.call_args == mocker.call(client._username, None)
+        assert isinstance(client._process_dps_responses_bg_task, asyncio.Task)
+        assert not client._process_dps_responses_bg_task.done()
+        if sys.version_info > (3, 8):
+            # NOTE: There isn't a way to validate the contents of a task until 3.8
+            # as far as I can tell.
+            task_coro = client._process_dps_responses_bg_task.get_coro()
+            assert task_coro.__qualname__ == "ProvisioningMQTTClient._process_dps_responses"
 
         # Cleanup
         await client.stop()
 
-    @pytest.mark.it(
-        "Sets the credentials on the MQTTClient, using the stored `username` as the username and the string-converted "
-        "current SasToken from the SasTokenProvider as the password, when using SAS authentication"
-    )
-    async def test_mqtt_client_credentials_with_sas(self, client, mock_sastoken_provider):
-        client._sastoken_provider = mock_sastoken_provider
-        fake_sastoken = mock_sastoken_provider.get_current_sastoken.return_value
-        assert client._mqtt_client.set_credentials.call_count == 0
-
+    @pytest.mark.it("Does not alter any background tasks if already started")
+    async def test_already_started(self, client):
+        # Start
         await client.start()
 
-        assert client._mqtt_client.set_credentials.call_count == 1
-        assert client._mqtt_client.set_credentials.call_args(client._username, str(fake_sastoken))
+        # Current tasks
+        current_process_dps_responses_bg_task = client._process_dps_responses_bg_task
 
-        await client.stop()
-
-    @pytest.mark.it(
-        "Begins running the ._process_dps_responses_task() coroutine method as a background task, storing it as an attribute"
-    )
-    async def test_process_dps_responses_bg_task(self, client):
-        assert client._process_dps_responses_task is None
-
+        # Start again
         await client.start()
 
-        assert isinstance(client._process_dps_responses_task, asyncio.Task)
-        assert not client._process_dps_responses_task.done()
-        if sys.version_info > (3, 8):
-            # NOTE: There isn't a way to validate the contents of a task until 3.8
-            # as far as I can tell.
-            task_coro = client._process_dps_responses_task.get_coro()
-            assert task_coro.__qualname__ == "ProvisioningMQTTClient._process_dps_responses"
+        # Tasks unchanged
+        assert client._process_dps_responses_bg_task is current_process_dps_responses_bg_task
 
         # Cleanup
         await client.stop()
@@ -312,8 +290,7 @@ class TestProvisioningMQTTClientStart:
 @pytest.mark.describe("ProvisioningMQTTClient - .stop()")
 class TestProvisioningMQTTClientStop:
     @pytest.fixture(autouse=True)
-    async def modify_client(self, client, mock_sastoken_provider):
-        client._sastoken_provider = mock_sastoken_provider
+    async def modify_client(self, client):
         # Need to start the client so we can stop it.
         await client.start()
 
@@ -338,23 +315,23 @@ class TestProvisioningMQTTClientStop:
         "Cancels the 'process_dps_responses' background task and removes it, if it exists"
     )
     async def test_process_dps_responses_bg_task(self, client):
-        assert isinstance(client._process_dps_responses_task, asyncio.Task)
-        t = client._process_dps_responses_task
+        assert isinstance(client._process_dps_responses_bg_task, asyncio.Task)
+        t = client._process_dps_responses_bg_task
         assert not t.done()
 
         await client.stop()
 
         assert t.done()
         assert t.cancelled()
-        assert client._process_dps_responses_task is None
+        assert client._process_dps_responses_bg_task is None
 
     # NOTE: Currently this is an invalid scenario. This shouldn't happen, but test it anyway.
     @pytest.mark.it("Handles the case where no 'process_dps_responses' background task exists")
     async def test_process_dps_responses_bg_task_no_exist(self, client):
         # The task is already running, so cancel and remove it
-        assert isinstance(client._process_dps_responses_task, asyncio.Task)
-        client._process_dps_responses_task.cancel()
-        client._process_dps_responses_task = None
+        assert isinstance(client._process_dps_responses_bg_task, asyncio.Task)
+        client._process_dps_responses_bg_task.cancel()
+        client._process_dps_responses_bg_task = None
 
         await client.stop()
         # No AttributeError means success!
@@ -370,7 +347,7 @@ class TestProvisioningMQTTClientStop:
         original_disconnect = client.disconnect
         client.disconnect = mocker.AsyncMock(side_effect=exception)
         try:
-            process_dps_responses_bg_task = client._process_dps_responses_task
+            process_dps_responses_bg_task = client._process_dps_responses_bg_task
             assert not process_dps_responses_bg_task.done()
 
             with pytest.raises(type(exception)) as e_info:
@@ -381,7 +358,7 @@ class TestProvisioningMQTTClientStop:
             assert process_dps_responses_bg_task.done()
             assert process_dps_responses_bg_task.cancelled()
             # And they were unset too
-            assert client._process_dps_responses_task is None
+            assert client._process_dps_responses_bg_task is None
         finally:
             # Unset the mock so that tests can clean up
             client.disconnect = original_disconnect
@@ -398,12 +375,12 @@ class TestProvisioningMQTTClientStop:
 
             # Stop
             await client.stop()
-            assert client._process_dps_responses_task is None
+            assert client._process_dps_responses_bg_task is None
             assert client.disconnect.await_count == 1
 
             # Stop again
             await client.stop()
-            assert client._process_dps_responses_task is None
+            assert client._process_dps_responses_bg_task is None
             assert client.disconnect.await_count == 2
 
         finally:
@@ -421,7 +398,7 @@ class TestProvisioningMQTTClientStop:
         client.disconnect = custom_mock.HangingAsyncMock()
         try:
 
-            process_dps_responses_bg_task = client._process_dps_responses_task
+            process_dps_responses_bg_task = client._process_dps_responses_bg_task
             assert not process_dps_responses_bg_task.done()
 
             t = asyncio.create_task(client.stop())
@@ -442,7 +419,7 @@ class TestProvisioningMQTTClientStop:
             assert process_dps_responses_bg_task.done()
             assert process_dps_responses_bg_task.cancelled()
             # And they were unset too
-            assert client._process_dps_responses_task is None
+            assert client._process_dps_responses_bg_task is None
         finally:
             # Unset the mock so that tests can clean up.
             client.disconnect = original_disconnect
@@ -454,10 +431,10 @@ class TestProvisioningMQTTClientStop:
         original_gather = asyncio.gather
         asyncio.gather = custom_mock.HangingAsyncMock()
         spy_register_dps_response_bg_task_cancel = mocker.spy(
-            client._process_dps_responses_task, "cancel"
+            client._process_dps_responses_bg_task, "cancel"
         )
         try:
-            process_dps_responses_bg_task = client._process_dps_responses_task
+            process_dps_responses_bg_task = client._process_dps_responses_bg_task
             assert not process_dps_responses_bg_task.done()
 
             t = asyncio.create_task(client.stop())
@@ -479,7 +456,7 @@ class TestProvisioningMQTTClientStop:
             assert process_dps_responses_bg_task.done()
             assert process_dps_responses_bg_task.cancelled()
             # And they were unset too
-            assert client._process_dps_responses_task is None
+            assert client._process_dps_responses_bg_task is None
         finally:
             # Unset the mock so that tests can clean up.
             asyncio.gather = original_gather
@@ -487,6 +464,30 @@ class TestProvisioningMQTTClientStop:
 
 @pytest.mark.describe("ProvisioningMQTTClient - .connect()")
 class TestProvisioningMQTTClientConnect:
+    @pytest.mark.it(
+        "Sets the credentials on the MQTTClient, using the stored `username` as the username and no password, when not using SAS authentication"
+    )
+    async def test_mqtt_client_credentials_no_sas(self, mocker, client):
+        assert client._sastoken is None
+        assert client._mqtt_client.set_credentials.call_count == 0
+
+        await client.connect()
+
+        assert client._mqtt_client.set_credentials.call_count == 1
+        assert client._mqtt_client.set_credentials.call_args == mocker.call(client._username, None)
+
+    @pytest.mark.it(
+        "Sets the credentials on the MQTTClient, using the stored `username` as the username and the string-converted current SasToken as the password, when using SAS authentication"
+    )
+    async def test_mqtt_client_credentials_with_sas(self, sastoken, client):
+        client._sastoken = sastoken
+        assert client._mqtt_client.set_credentials.call_count == 0
+
+        await client.connect()
+
+        assert client._mqtt_client.set_credentials.call_count == 1
+        assert client._mqtt_client.set_credentials.call_args(client._username, str(sastoken))
+
     @pytest.mark.it("Awaits a connect using the MQTTClient")
     async def test_mqtt_connect(self, mocker, client):
         assert client._mqtt_client.connect.await_count == 0
@@ -495,6 +496,22 @@ class TestProvisioningMQTTClientConnect:
 
         assert client._mqtt_client.connect.await_count == 1
         assert client._mqtt_client.connect.await_args == mocker.call()
+
+    @pytest.mark.it("Raises CredentialError if current SasToken has expired")
+    async def test_expired_token(self, client):
+        expired_time = time.time() - 10  # 10 seconds ago
+        expired_token_str = (
+            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=FAKE_URI, signature=FAKE_SIGNATURE, expiry=expired_time
+            )
+        )
+        sastoken_obj = st.SasToken(expired_token_str)
+        assert sastoken_obj.is_expired()
+
+        client._sastoken = sastoken_obj
+
+        with pytest.raises(exc.CredentialError):
+            await client.connect()
 
     @pytest.mark.it("Allows any exceptions raised during the MQTTClient connect to propagate")
     @pytest.mark.parametrize("exception", mqtt_connect_exceptions)

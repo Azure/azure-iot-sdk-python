@@ -55,9 +55,12 @@ def create_session(device_identity, client_kwargs):
             "Creating session using create_from_sastoken with kwargs={}".format(client_kwargs)
         )
 
-        # client = ClientClass.create_from_sastoken(device_identity.sas_token, **client_kwargs)
-
-        raise Exception("{} Auth not yet implemented".format(test_config.config.auth))
+        session = IoTHubSession(
+            sastoken=device_identity.sas_token,
+            hostname=test_env.IOTHUB_HOSTNAME,
+            device_id=device_identity.device_id,
+            **client_kwargs
+        )
 
     elif test_config.config.auth in test_config.AUTH_CHOICES:
         # need to implement

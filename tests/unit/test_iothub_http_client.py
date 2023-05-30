@@ -50,13 +50,6 @@ def sastoken():
     return st.SasToken(sastoken_str)
 
 
-@pytest.fixture
-def mock_sastoken_provider(mocker, sastoken):
-    provider = mocker.MagicMock(spec=st.SasTokenProvider)
-    provider.get_current_sastoken.return_value = sastoken
-    return provider
-
-
 @pytest.fixture(autouse=True)
 def mock_session(mocker):
     mock_session = mocker.MagicMock(spec=aiohttp.ClientSession)
@@ -254,24 +247,32 @@ class TestIoTHubHTTPClientInstantiation:
 
         await client.shutdown()
 
-    @pytest.mark.it("Stores the `sastoken_provider` from the IoTHubClientConfig as an attribute")
+    @pytest.mark.it("Sets the `sastoken` attribute to None")
     @pytest.mark.parametrize("device_id, module_id", configurations)
-    @pytest.mark.parametrize(
-        "sastoken_provider",
-        [
-            pytest.param(lazy_fixture("mock_sastoken_provider"), id="SasTokenProvider present"),
-            pytest.param(None, id="No SasTokenProvider present"),
-        ],
-    )
-    async def test_sastoken_provider(self, client_config, device_id, module_id, sastoken_provider):
+    async def test_sastoken(self, client_config, device_id, module_id):
         client_config.device_id = device_id
         client_config.module_id = module_id
-        client_config.sastoken_provider = sastoken_provider
-
         client = IoTHubHTTPClient(client_config)
-        assert client._sastoken_provider is client_config.sastoken_provider
+        assert client._sastoken is None
 
-        await client.shutdown()
+
+@pytest.mark.describe("IoTHubHTTPClient - .set_sastoken()")
+class TestIoTHubHTTPClientSetSastoken:
+    @pytest.mark.it(
+        "Sets the provided SasToken as the `sastoken` attribute on the  if there is no current SasToken"
+    )
+    def test_sets_sastoken_new(self, client, sastoken):
+        assert client._sastoken is None
+        client.set_sastoken(sastoken)
+        assert client._sastoken is sastoken
+
+    @pytest.mark.it(
+        "Replaces the current SasToken with the provided SasToken if there is already a current SasToken"
+    )
+    def test_sets_sastoken_replace(self, mocker, client, sastoken):
+        client._sastoken = mocker.MagicMock()
+        client.set_sastoken(sastoken)
+        assert client._sastoken is sastoken
 
 
 @pytest.mark.describe("IoTHubHTTPClient - .shutdown()")
@@ -481,16 +482,19 @@ class TestIoTHubHTTPClientInvokeDirectMethod:
         assert headers["x-ms-edge-moduleId"] == client._edge_module_id
 
     @pytest.mark.it(
-        "Sets the 'Authorization' HTTP header on the POST request to the current SAS Token string from the SasTokenProvider stored on the client, if it exists"
+        "Sets the 'Authorization' HTTP header on the POST request to the current SAS Token string stored on the client, if it exists"
     )
     @pytest.mark.parametrize("target_device_id, target_module_id", targets)
     async def test_post_authorization_header_sas(
-        self, client, target_device_id, target_module_id, method_params, mock_sastoken_provider
+        self,
+        client,
+        target_device_id,
+        target_module_id,
+        method_params,
+        sastoken,
     ):
         assert client._session.post.call_count == 0
-        client._sastoken_provider = mock_sastoken_provider
-        assert mock_sastoken_provider.get_current_sastoken.call_count == 0
-        expected_sastoken_string = str(mock_sastoken_provider.get_current_sastoken.return_value)
+        client._sastoken = sastoken
 
         await client.invoke_direct_method(
             device_id=target_device_id, module_id=target_module_id, method_params=method_params
@@ -498,7 +502,7 @@ class TestIoTHubHTTPClientInvokeDirectMethod:
 
         assert client._session.post.call_count == 1
         headers = client._session.post.call_args[1]["headers"]
-        assert headers["Authorization"] == expected_sastoken_string
+        assert headers["Authorization"] == str(sastoken)
 
     @pytest.mark.it(
         "Does not include an 'Authorization' HTTP header on the POST request if not using SAS Token authentication"
@@ -508,7 +512,7 @@ class TestIoTHubHTTPClientInvokeDirectMethod:
         self, client, target_device_id, target_module_id, method_params
     ):
         assert client._session.post.call_count == 0
-        assert client._sastoken_provider is None
+        assert client._sastoken is None
 
         await client.invoke_direct_method(
             device_id=target_device_id, module_id=target_module_id, method_params=method_params
@@ -727,26 +731,24 @@ class TestIoTHubHTTPClientGetStorageInfoForBlob:
         assert headers["User-Agent"] == expected_user_agent
 
     @pytest.mark.it(
-        "Sets the 'Authorization' HTTP header on the POST request to the current SAS Token string from the SasTokenProvider stored on the client, if it exists"
+        "Sets the 'Authorization' HTTP header on the POST request to the current SAS Token stored on the client, if it exists"
     )
-    async def test_post_authorization_header_sas(self, client, mock_sastoken_provider):
+    async def test_post_authorization_header_sas(self, client, sastoken):
         assert client._session.post.call_count == 0
-        client._sastoken_provider = mock_sastoken_provider
-        assert mock_sastoken_provider.get_current_sastoken.call_count == 0
-        expected_sastoken_string = str(mock_sastoken_provider.get_current_sastoken.return_value)
+        client._sastoken = sastoken
 
         await client.get_storage_info_for_blob(blob_name="fake_blob")
 
         assert client._session.post.call_count == 1
         headers = client._session.post.call_args[1]["headers"]
-        assert headers["Authorization"] == expected_sastoken_string
+        assert headers["Authorization"] == str(sastoken)
 
     @pytest.mark.it(
         "Does not include an 'Authorization' HTTP header on the POST request if not using SAS Token authentication"
     )
     async def test_post_authorization_header_no_sas(self, client):
         assert client._session.post.call_count == 0
-        assert client._sastoken_provider is None
+        assert client._sastoken is None
 
         await client.get_storage_info_for_blob(blob_name="fake_blob")
 
@@ -947,26 +949,24 @@ class TestIoTHubHTTPClientNotifyBlobUploadStatus:
         assert headers["User-Agent"] == expected_user_agent
 
     @pytest.mark.it(
-        "Sets the 'Authorization' HTTP header on the POST request to the current SAS Token string from the SasTokenProvider stored on the client, if it exists"
+        "Sets the 'Authorization' HTTP header on the POST request to the current SAS Token stored on the client, if it exists"
     )
-    async def test_post_authorization_header_sas(self, client, kwargs, mock_sastoken_provider):
+    async def test_post_authorization_header_sas(self, client, kwargs, sastoken):
         assert client._session.post.call_count == 0
-        client._sastoken_provider = mock_sastoken_provider
-        assert mock_sastoken_provider.get_current_sastoken.call_count == 0
-        expected_sastoken_string = str(mock_sastoken_provider.get_current_sastoken.return_value)
+        client._sastoken = sastoken
 
         await client.notify_blob_upload_status(**kwargs)
 
         assert client._session.post.call_count == 1
         headers = client._session.post.call_args[1]["headers"]
-        assert headers["Authorization"] == expected_sastoken_string
+        assert headers["Authorization"] == str(sastoken)
 
     @pytest.mark.it(
         "Does not include an 'Authorization' HTTP header on the POST request if not using SAS Token authentication"
     )
     async def test_post_authorization_header_no_sas(self, client, kwargs):
         assert client._session.post.call_count == 0
-        assert client._sastoken_provider is None
+        assert client._sastoken is None
 
         await client.notify_blob_upload_status(**kwargs)
 

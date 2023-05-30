@@ -30,8 +30,6 @@ _valid_keys = [
     X509,
 ]
 
-# TODO: does this module need revision for V3?
-
 
 class ConnectionString(object):
     """Key/value mappings for connection details.
@@ -93,18 +91,25 @@ def _parse_connection_string(connection_string):
 def _validate_keys(d):
     """Raise ValueError if incorrect combination of keys in dict d"""
     host_name = d.get(HOST_NAME)
-    shared_access_key_name = d.get(SHARED_ACCESS_KEY_NAME)
     shared_access_key = d.get(SHARED_ACCESS_KEY)
+    shared_access_signature = d.get(SHARED_ACCESS_SIGNATURE)
     device_id = d.get(DEVICE_ID)
     x509 = d.get(X509)
 
-    if shared_access_key and x509 and x509.lower() == "true":
-        raise ValueError("Invalid Connection String - Mixed authentication scheme")
+    # Validate only one type of auth included
+    auth_count = 0
+    if shared_access_key:
+        auth_count += 1
+    if x509 and x509.lower() == "true":
+        auth_count += 1
+    if shared_access_signature:
+        auth_count += 1
 
-    # This logic could be expanded to return the category of ConnectionString
-    if host_name and device_id and (shared_access_key or x509):
-        pass
-    elif host_name and shared_access_key and shared_access_key_name:
-        pass
-    else:
-        raise ValueError("Invalid Connection String - Incomplete")
+    if auth_count > 1:
+        raise ValueError("Invalid Connection String - Mixed authentication scheme")
+    elif auth_count < 1:
+        raise ValueError("Invalid Connection String - No authentication scheme")
+
+    # Validate connection details
+    if not host_name or not device_id:
+        raise ValueError("Invalid Connection String - Missing connection details")
