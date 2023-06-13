@@ -3,11 +3,11 @@
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 
-DEVICE_ID=$1
-HUB_NAME=$2
+HUB_NAME=$1
+DEVICE_ID=$2
 
-if [ "${DEVICE_ID}" == "" ] || [ "${HUB_NAME}" == "" ];  then
-    echo Usage: $0 deviceId hubName
+if [ "${HUB_NAME}" == "" ] || [ "${DEVICE_ID}" == "" ];  then
+    echo Usage: $0 hubName deviceId
     echo    hubName is without '.azure-devices.net' suffix
     exit 1
 fi

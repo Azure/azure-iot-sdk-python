@@ -65,8 +65,8 @@ jobs:
           export IOTHUB_E2E_REPO_ADDRESS=$(IOTHUB-E2E-REPO-ADDRESS)
           export IOTHUB_E2E_REPO_USER=$(IOTHUB-E2E-REPO-USER)
           export IOTHUB_E2E_REPO_PASSWORD=$(IOTHUB-E2E-REPO-PASSWORD)
-          $(scriptDirectory)/create-edge-device.sh $(deviceId) $(hubName)
-          $(scriptDirectory)/deploy-edge-modules.sh $(deviceId) $(hubName) $(containerRegistry)/$(testModImage) $(containerRegistry)/$(echoModImage)
+          $(scriptDirectory)/create-edge-device.sh $(hubName) $(deviceId)
+          $(scriptDirectory)/deploy-edge-modules.sh $(hubName) $(deviceId) $(containerRegistry)/$(testModImage) $(containerRegistry)/$(echoModImage)
 
     - task: Bash@3
       displayName: "Wait for container to start"
