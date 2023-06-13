@@ -2,7 +2,7 @@
 # Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
-source ${scrips_dir}/_deployment_helpers.sh
+source ${script_dir}/_deployment-helpers.sh
 
 HUB_NAME=$1
 DEVICE_ID=$2
@@ -73,13 +73,12 @@ EOF
 
 
 
-echo ${BASE} | jq . - |\
-    jq "${PATH_SYSTEM_MODULES}.edgeAgent.settings.createOptions |= tojson" |\
-    jq "${PATH_SYSTEM_MODULES}.edgeHub.settings.createOptions |= tojson" \
+echo ${BASE} | jq . - \
+    | jq "${PATH_SYSTEM_MODULES}.edgeAgent.settings.createOptions |= tojson" \
+    | jq "${PATH_SYSTEM_MODULES}.edgeHub.settings.createOptions |= tojson" \
     > ${TEMPFILE}
 
-
-echo Applying deployment manifest
+echo Applying base manifest
 az iot edge set-modules --device-id ${DEVICE_ID} --hub-name ${HUB_NAME} --content ${TEMPFILE}
 [ $? -eq 0 ] || { echo "az iot edge set-modules failed"; exit 1; }
 

@@ -47,13 +47,8 @@ EOF
 # Use jq to populate the deployment manifest using the variables we set above.
 #
 cat ${script_dir}/deployment.template.json |\
-    jq "${PATH_SYSTEM_MODULES}.edgeAgent.settings.image = \"${EDGE_AGENT_IMAGE_NAME}\"" |\
-    jq "${PATH_SYSTEM_MODULES}.edgeHub.settings.image = \"${EDGE_HUB_IMAGE_NAME}\"" |\
     jq "${PATH_MODULES}.echoMod.settings.image = \"${ECHO_IMAGE_NAME}\"" |\
     jq "${PATH_MODULES}.testMod.settings.image = \"${TEST_IMAGE_NAME}\"" |\
-    jq "${PATH_SYSTEM_MODULES}.edgeAgent.settings.createOptions |= tojson" |\
-    jq "${PATH_SYSTEM_MODULES}.edgeHub.settings.createOptions |= tojson" |\
     jq "${PATH_MODULES}.echoMod.settings.createOptions |= tojson" |\
     jq "${PATH_MODULES}.testMod.settings.createOptions |= tojson" |\
-    jq "${PATH_REGISTRY_CREDENTIALS} = ${REGISTRY_BLOCK}"
 
