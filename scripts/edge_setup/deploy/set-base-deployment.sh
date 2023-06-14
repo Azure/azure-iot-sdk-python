@@ -13,6 +13,7 @@ if [ "${HUB_NAME}" == "" ] || [ "${DEVICE_ID}" == "" ]; then
     exit 1
 fi
 
+echo Creating base manifest json
 TEMPFILE=$(mktemp)
 
 read -d '' BASE << EOF
@@ -77,9 +78,10 @@ echo ${BASE} | jq . - \
     | jq "${PATH_SYSTEM_MODULES}.edgeAgent.settings.createOptions |= tojson" \
     | jq "${PATH_SYSTEM_MODULES}.edgeHub.settings.createOptions |= tojson" \
     > ${TEMPFILE}
+[ $? -eq 0 ] || { "jq failed"; exit 1; }  
 
-echo Applying base manifest
-az iot edge set-modules --device-id ${DEVICE_ID} --hub-name ${HUB_NAME} --content ${TEMPFILE}
+echo Applying base manifest json
+az iot edge set-modules --device-id ${DEVICE_ID} --hub-name ${HUB_NAME} --content ${TEMPFILE} > /dev/null
 [ $? -eq 0 ] || { echo "az iot edge set-modules failed"; exit 1; }
 
 rm ${TEMPFILE} || true

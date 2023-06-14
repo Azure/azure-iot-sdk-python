@@ -18,6 +18,7 @@ if [ "${IOTHUB_E2E_REPO_USER}" == "" ] || [ "${IOTHUB_E2E_REPO_ADDRESS}" == "" ]
     exit 0
 fi
 
+echo Creating manifest json with private registry
 TEMPFILE=$(mktemp)
 
 BASE=$(az iot edge export-modules --device-id ${DEVICE_ID} --hub-name ${HUB_NAME} --query content)
@@ -39,9 +40,10 @@ EOF
 echo ${BASE} | jq . - \
     | jq "${PATH_REGISTRY_CREDENTIALS} = ${REGISTRY_BLOCK}" \
     > ${TEMPFILE}
+[ $? -eq 0 ] || { "jq failed"; exit 1; }  
 
-echo Adding private registry to deployment manifest
-az iot edge set-modules --device-id ${DEVICE_ID} --hub-name ${HUB_NAME} --content ${TEMPFILE}
+echo Applying manifest json with private registry
+az iot edge set-modules --device-id ${DEVICE_ID} --hub-name ${HUB_NAME} --content ${TEMPFILE} &> /dev/null
 [ $? -eq 0 ] || { echo "az iot edge set-modules failed"; exit 1; }
 
 rm ${TEMPFILE} || true

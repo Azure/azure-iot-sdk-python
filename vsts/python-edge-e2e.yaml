@@ -40,7 +40,7 @@ jobs:
         azureSubscription: 'ServiceConnectionDemo'
         scriptType: bash
         scriptLocation: scriptPath
-        scriptPath: $(scriptDirectory)/install-prereqs.sh
+        scriptPath: $(scriptDirectory)/install/install-prereqs.sh
 
 
     - task: AzureCLI@2
@@ -50,7 +50,7 @@ jobs:
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-          cd $(scriptDirectory)
+          cd $(scriptDirectory)/build/
           az acr login -n $(containerRegistry)
           ./build-echomod-container.sh $(containerRegistry)/$(echoModImage)
           ./build-test-containers.sh Dockerfile.$(languageVersion) $(containerRegistry)/$(testModImage)
@@ -62,11 +62,12 @@ jobs:
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
+          cd $(scriptDirectory)/deploy/
           export IOTHUB_E2E_REPO_ADDRESS=$(IOTHUB-E2E-REPO-ADDRESS)
           export IOTHUB_E2E_REPO_USER=$(IOTHUB-E2E-REPO-USER)
           export IOTHUB_E2E_REPO_PASSWORD=$(IOTHUB-E2E-REPO-PASSWORD)
-          $(scriptDirectory)/create-edge-device.sh $(hubName) $(deviceId)
-          $(scriptDirectory)/deploy-edge-modules.sh $(hubName) $(deviceId) $(containerRegistry)/$(testModImage) $(containerRegistry)/$(echoModImage)
+          ./create-edge-device.sh $(hubName) $(deviceId)
+          ./deploy-edge-modules.sh $(hubName) $(deviceId) $(containerRegistry)/$(testModImage) $(containerRegistry)/$(echoModImage)
 
     - task: Bash@3
       displayName: "Wait for container to start"
