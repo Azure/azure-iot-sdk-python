@@ -50,8 +50,8 @@ jobs:
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-          cd $(scriptDirectory)/build/
           az acr login -n $(containerRegistry)
+          cd $(scriptDirectory)/docker-build/
           ./build-echomod-container.sh $(containerRegistry)/$(echoModImage)
           ./build-test-containers.sh Dockerfile.$(languageVersion) $(containerRegistry)/$(testModImage)
 
