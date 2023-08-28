@@ -40,7 +40,7 @@ async def reboot_handler(values):
     global min_temp
     global avg_temp_list
     global target_temperature
-    if values and type(values) == int:
+    if isinstance(values, int):
         print("Rebooting after delay of {delay} secs".format(delay=values))
         asyncio.sleep(values)
     max_temp = None

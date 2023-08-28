@@ -252,7 +252,7 @@ class ServiceHelperSync(object):
                     if device_id == self.device_id and module_id == self.module_id:
 
                         converted_event = self._convert_incoming_event(event)
-                        if type(converted_event) == EventhubEvent:
+                        if isinstance(converted_event, EventhubEvent):
                             if "message-id" in converted_event.system_properties:
                                 logger.info(
                                     "Received event with msgid={}".format(
