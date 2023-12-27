@@ -99,7 +99,6 @@ async def main(fuzz_type):
     paho_fuzz_hook.add_paho_logging_hook(device_client)
 
     try:
-
         # Connect the device client.
         print("connecting")
         await device_client.connect()

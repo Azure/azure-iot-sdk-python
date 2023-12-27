@@ -36,7 +36,9 @@ def create_custom_config():
     list_of_lines = list()
     ca_default_regex = re.compile(r"\s*\[\s*CA_default\s*\]\s*")
     ca_default_section_found = False
-    policy_regex = re.compile(r"\s*\s*(policy\s*=\s*policy_strict|policy\s*=\s*policy_match)")
+    policy_regex = re.compile(
+        r"\s*\s*(policy\s*=\s*policy_strict|policy\s*=\s*policy_match)"
+    )
     with open(config_path, "r") as change_openssl_config:
         for line in change_openssl_config:
             if not ca_default_section_found and re.search(ca_default_regex, line):
@@ -53,13 +55,14 @@ def create_custom_config():
 
 
 def create_verification_cert(nonce, root_verify):
-
     print("Done generating verification key")
     subject = "//C=US/CN=" + nonce
 
     if not root_verify:
         os.system(
-            "openssl genrsa -out demoCA/private/verification_inter_key.pem" + " " + str(key_size)
+            "openssl genrsa -out demoCA/private/verification_inter_key.pem"
+            + " "
+            + str(key_size)
         )
         os.system(
             "openssl req -key demoCA/private/verification_inter_key.pem"
@@ -83,7 +86,9 @@ def create_verification_cert(nonce, root_verify):
 
     else:
         os.system(
-            "openssl genrsa -out demoCA/private/verification_root_key.pem" + " " + str(key_size)
+            "openssl genrsa -out demoCA/private/verification_root_key.pem"
+            + " "
+            + str(key_size)
         )
         os.system(
             "openssl req -key demoCA/private/verification_root_key.pem"
@@ -172,7 +177,6 @@ def create_certificate_chain(
 
 
 def create_leaf_certificates(index, device_password):
-
     key_file_name = "device_key" + str(index) + ".pem"
     csr_file_name = "device_csr" + str(index) + ".pem"
     cert_file_name = "device_cert" + str(index) + ".pem"
@@ -227,9 +231,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "-d", "--days", type=int, help="Validity time in days. Default is 30 (1 month)."
     )
-    parser.add_argument("--common-name", type=str, help="Common name. Default is the domain.")
     parser.add_argument(
-        "--ca-password", type=str, help="CA key password. If omitted it will be prompted."
+        "--common-name", type=str, help="Common name. Default is the domain."
+    )
+    parser.add_argument(
+        "--ca-password",
+        type=str,
+        help="CA key password. If omitted it will be prompted.",
     )
     parser.add_argument(
         "--intermediate-password",
@@ -237,11 +245,15 @@ if __name__ == "__main__":
         help="intermediate key password. If omitted it will be prompted.",
     )
     parser.add_argument(
-        "--device-password", type=str, help="device key password. If omitted it will be prompted."
+        "--device-password",
+        type=str,
+        help="device key password. If omitted it will be prompted.",
     )
 
     parser.add_argument(
-        "--device-count", type=str, help="Number of devices that present in a group. Default is 1."
+        "--device-count",
+        type=str,
+        help="Number of devices that present in a group. Default is 1.",
     )
 
     parser.add_argument(
@@ -297,7 +309,9 @@ if __name__ == "__main__":
         if args.intermediate_password:
             intermediate_password = args.intermediate_password
         else:
-            intermediate_password = getpass.getpass("Enter pass phrase for intermediate key: ")
+            intermediate_password = getpass.getpass(
+                "Enter pass phrase for intermediate key: "
+            )
         if args.device_password:
             device_password = args.device_password
         else:

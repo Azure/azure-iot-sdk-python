@@ -197,7 +197,9 @@ class MQTTTransport(object):
                     logger.warning("Unexpected error calling on_mqtt_connected_handler")
                     logger.warning(traceback.format_exc())
             else:
-                logger.debug("No event handler callback set for on_mqtt_connected_handler")
+                logger.debug(
+                    "No event handler callback set for on_mqtt_connected_handler"
+                )
 
         def on_disconnect(client, userdata, rc):
             this = self_weakref()
@@ -222,10 +224,14 @@ class MQTTTransport(object):
                     try:
                         this.on_mqtt_disconnected_handler(cause)
                     except Exception:
-                        logger.warning("Unexpected error calling on_mqtt_disconnected_handler")
+                        logger.warning(
+                            "Unexpected error calling on_mqtt_disconnected_handler"
+                        )
                         logger.warning(traceback.format_exc())
                 else:
-                    logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
+                    logger.warning(
+                        "No event handler callback set for on_mqtt_disconnected_handler"
+                    )
 
         def on_subscribe(client, userdata, mid, granted_qos):
             this = self_weakref()
@@ -254,9 +260,13 @@ class MQTTTransport(object):
 
             if this.on_mqtt_message_received_handler:
                 try:
-                    this.on_mqtt_message_received_handler(mqtt_message.topic, mqtt_message.payload)
+                    this.on_mqtt_message_received_handler(
+                        mqtt_message.topic, mqtt_message.payload
+                    )
                 except Exception:
-                    logger.warning("Unexpected error calling on_mqtt_message_received_handler")
+                    logger.warning(
+                        "Unexpected error calling on_mqtt_message_received_handler"
+                    )
                     logger.warning(traceback.format_exc())
             else:
                 logger.debug(
@@ -292,7 +302,9 @@ class MQTTTransport(object):
         (so far) and making our own would be more complex than is currently justified.
         """
 
-        logger.info("Forcing paho disconnect to prevent it from automatically reconnecting")
+        logger.info(
+            "Forcing paho disconnect to prevent it from automatically reconnecting"
+        )
 
         # Note: We are calling this inside our on_disconnect() handler, so we might be inside the
         # Paho thread at this point. This is perfectly valid.  Comments in Paho's client.py
@@ -421,7 +433,9 @@ class MQTTTransport(object):
         except Exception as e:
             self._force_transport_disconnect_and_cleanup()
 
-            raise exceptions.ProtocolClientError("Unexpected Paho failure during connect") from e
+            raise exceptions.ProtocolClientError(
+                "Unexpected Paho failure during connect"
+            ) from e
 
         logger.debug("_mqtt_client.connect returned rc={}".format(rc))
         if rc:
@@ -442,7 +456,9 @@ class MQTTTransport(object):
         try:
             rc = self._mqtt_client.disconnect()
         except Exception as e:
-            raise exceptions.ProtocolClientError("Unexpected Paho failure during disconnect") from e
+            raise exceptions.ProtocolClientError(
+                "Unexpected Paho failure during disconnect"
+            ) from e
         finally:
             self._mqtt_client.loop_stop()
 
@@ -485,7 +501,9 @@ class MQTTTransport(object):
         except ValueError:
             raise
         except Exception as e:
-            raise exceptions.ProtocolClientError("Unexpected Paho failure during subscribe") from e
+            raise exceptions.ProtocolClientError(
+                "Unexpected Paho failure during subscribe"
+            ) from e
         logger.debug("_mqtt_client.subscribe returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
@@ -546,7 +564,9 @@ class MQTTTransport(object):
         except TypeError:
             raise
         except Exception as e:
-            raise exceptions.ProtocolClientError("Unexpected Paho failure during publish") from e
+            raise exceptions.ProtocolClientError(
+                "Unexpected Paho failure during publish"
+            ) from e
         logger.debug("_mqtt_client.publish returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
@@ -581,7 +601,6 @@ class OperationManager(object):
             # Check to see if a response was already received for this MID before this method was
             # able to be called due to threading shenanigans
             if mid in self._unknown_operation_completions:
-
                 # Clear the recorded unknown response now that it has been resolved
                 del self._unknown_operation_completions[mid]
 
@@ -597,13 +616,17 @@ class OperationManager(object):
         # go ahead and trigger it now.
         if trigger_callback:
             logger.debug(
-                "Response for MID: {} was received early - triggering callback".format(mid)
+                "Response for MID: {} was received early - triggering callback".format(
+                    mid
+                )
             )
             if callback:
                 try:
                     callback()
                 except Exception:
-                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug(
+                        "Unexpected error calling callback for MID: {}".format(mid)
+                    )
                     logger.debug(traceback.format_exc())
             else:
                 # Not entirely unexpected because of QOS=1
@@ -621,7 +644,6 @@ class OperationManager(object):
         with self._lock:
             # If the mid is associated with an established pending operation, trigger the associated callback
             if mid in self._pending_operation_callbacks:
-
                 # Retrieve the callback, and clear the pending operation now that it has been completed
                 callback = self._pending_operation_callbacks[mid]
                 del self._pending_operation_callbacks[mid]
@@ -640,13 +662,17 @@ class OperationManager(object):
         # go ahead and trigger it now.
         if trigger_callback:
             logger.debug(
-                "Response received for recognized MID: {} - triggering callback".format(mid)
+                "Response received for recognized MID: {} - triggering callback".format(
+                    mid
+                )
             )
             if callback:
                 try:
                     callback()
                 except Exception:
-                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug(
+                        "Unexpected error calling callback for MID: {}".format(mid)
+                    )
                     logger.debug(traceback.format_exc())
             else:
                 # fully expected.  QOS=1 means we might get 2 PUBACKs
@@ -676,7 +702,9 @@ class OperationManager(object):
                 try:
                     callback(cancelled=True)
                 except Exception:
-                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug(
+                        "Unexpected error calling callback for MID: {}".format(mid)
+                    )
                     logger.debug(traceback.format_exc())
             else:
                 logger.debug("Cancelling {} - No callback set for MID".format(mid))

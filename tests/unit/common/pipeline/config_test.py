@@ -92,7 +92,9 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
         config = config_cls(sastoken=sastoken, **required_kwargs)
         assert config.keep_alive == DEFAULT_KEEPALIVE
 
-    @pytest.mark.it("Raises TypeError if the provided 'keep_alive' parameter is not numeric")
+    @pytest.mark.it(
+        "Raises TypeError if the provided 'keep_alive' parameter is not numeric"
+    )
     @pytest.mark.parametrize(
         "keep_alive",
         [
@@ -102,11 +104,15 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
             pytest.param(object(), id="object"),
         ],
     )
-    def test_keep_alive_invalid_type(self, config_cls, required_kwargs, sastoken, keep_alive):
+    def test_keep_alive_invalid_type(
+        self, config_cls, required_kwargs, sastoken, keep_alive
+    ):
         with pytest.raises(TypeError):
             config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
 
-    @pytest.mark.it("Raises ValueError if the provided 'keep_alive' parameter has an invalid value")
+    @pytest.mark.it(
+        "Raises ValueError if the provided 'keep_alive' parameter has an invalid value"
+    )
     @pytest.mark.parametrize(
         "keep_alive",
         [
@@ -135,7 +141,9 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
         config = config_cls(x509=x509, **required_kwargs)
         assert config.sastoken is None
 
-    @pytest.mark.it("Instantiates with the 'x509' attribute set to the provided 'x509' parameter")
+    @pytest.mark.it(
+        "Instantiates with the 'x509' attribute set to the provided 'x509' parameter"
+    )
     def test_x509_set(self, config_cls, required_kwargs, x509):
         config = config_cls(x509=x509, **required_kwargs)
         assert config.x509 is x509
@@ -154,7 +162,9 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
         with pytest.raises(ValueError):
             config_cls(**required_kwargs)
 
-    @pytest.mark.it("Raises a ValueError if both the 'sastoken' and 'x509' parameters are provided")
+    @pytest.mark.it(
+        "Raises a ValueError if both the 'sastoken' and 'x509' parameters are provided"
+    )
     def test_both_auths_provided(self, config_cls, required_kwargs, sastoken, x509):
         with pytest.raises(ValueError):
             config_cls(sastoken=sastoken, x509=x509, **required_kwargs)
@@ -164,13 +174,17 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
     )
     def test_server_verification_cert_set(self, config_cls, required_kwargs, sastoken):
         svc = "fake_server_verification_cert"
-        config = config_cls(sastoken=sastoken, server_verification_cert=svc, **required_kwargs)
+        config = config_cls(
+            sastoken=sastoken, server_verification_cert=svc, **required_kwargs
+        )
         assert config.server_verification_cert == svc
 
     @pytest.mark.it(
         "Instantiates with the 'server_verification_cert' attribute set to 'None' if no 'server_verification_cert' parameter is provided"
     )
-    def test_server_verification_cert_default(self, config_cls, required_kwargs, sastoken):
+    def test_server_verification_cert_default(
+        self, config_cls, required_kwargs, sastoken
+    ):
         config = config_cls(sastoken=sastoken, **required_kwargs)
         assert config.server_verification_cert is None
 
@@ -223,7 +237,11 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
                 id="Single cipher suite, in a list, with '-' delimited algorithms/protocols",
             ),
             pytest.param(
-                ["DHE-RSA-AES128-SHA", "DHE-RSA-AES256-SHA", "ECDHE-ECDSA-AES128-GCM-SHA256"],
+                [
+                    "DHE-RSA-AES128-SHA",
+                    "DHE-RSA-AES256-SHA",
+                    "ECDHE-ECDSA-AES128-GCM-SHA256",
+                ],
                 "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256",
                 id="Multiple cipher suites, in a list, with '-' delimited algorithms/protocols",
             ),
@@ -233,13 +251,19 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
                 id="Single cipher suite, in a list, with '_' delimited algorithms/protocols",
             ),
             pytest.param(
-                ["DHE_RSA_AES128_SHA", "DHE_RSA_AES256_SHA", "ECDHE_ECDSA_AES128_GCM_SHA256"],
+                [
+                    "DHE_RSA_AES128_SHA",
+                    "DHE_RSA_AES256_SHA",
+                    "ECDHE_ECDSA_AES128_GCM_SHA256",
+                ],
                 "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256",
                 id="Multiple cipher suites, in a list, with '_' delimited algorithms/protocols",
             ),
         ],
     )
-    def test_cipher(self, config_cls, required_kwargs, sastoken, cipher_input, expected_cipher):
+    def test_cipher(
+        self, config_cls, required_kwargs, sastoken, cipher_input, expected_cipher
+    ):
         config = config_cls(sastoken=sastoken, cipher=cipher_input, **required_kwargs)
         assert config.cipher == expected_cipher
 
@@ -251,7 +275,8 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
         [
             pytest.param(123, id="int"),
             pytest.param(
-                {"cipher1": "DHE-RSA-AES128-SHA", "cipher2": "DHE_RSA_AES256_SHA"}, id="dict"
+                {"cipher1": "DHE-RSA-AES128-SHA", "cipher2": "DHE_RSA_AES256_SHA"},
+                id="dict",
             ),
             pytest.param(object(), id="complex object"),
         ],
@@ -271,8 +296,12 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
         "Instantiates with the 'proxy_options' attribute set to the ProxyOptions object provided in the 'proxy_options' parameter"
     )
     def test_proxy_options(self, mocker, required_kwargs, config_cls, sastoken):
-        proxy_options = ProxyOptions(proxy_type=1, proxy_addr="127.0.0.1", proxy_port=8888)
-        config = config_cls(sastoken=sastoken, proxy_options=proxy_options, **required_kwargs)
+        proxy_options = ProxyOptions(
+            proxy_type=1, proxy_addr="127.0.0.1", proxy_port=8888
+        )
+        config = config_cls(
+            sastoken=sastoken, proxy_options=proxy_options, **required_kwargs
+        )
         assert config.proxy_options is proxy_options
 
     @pytest.mark.it(
@@ -300,7 +329,9 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
         "Instantiates with the 'connection_retry' attribute set to the provided 'connection_retry' parameter"
     )
     def test_connection_retry_set(self, config_cls, required_kwargs, sastoken):
-        config = config_cls(sastoken=sastoken, connection_retry=False, **required_kwargs)
+        config = config_cls(
+            sastoken=sastoken, connection_retry=False, **required_kwargs
+        )
         assert config.connection_retry is False
 
     @pytest.mark.it(
@@ -329,14 +360,16 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
         config = config_cls(
             sastoken=sastoken,
             connection_retry_interval=connection_retry_interval,
-            **required_kwargs
+            **required_kwargs,
         )
         assert config.connection_retry_interval == int(connection_retry_interval)
 
     @pytest.mark.it(
         "Instantiates with the 'connection_retry_interval' attribute set to 10 if no 'connection_retry_interval' parameter is provided"
     )
-    def test_connection_retry_interval_default(self, config_cls, required_kwargs, sastoken):
+    def test_connection_retry_interval_default(
+        self, config_cls, required_kwargs, sastoken
+    ):
         config = config_cls(sastoken=sastoken, **required_kwargs)
         assert config.connection_retry_interval == 10
 
@@ -359,7 +392,7 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
             config_cls(
                 sastoken=sastoken,
                 connection_retry_interval=connection_retry_interval,
-                **required_kwargs
+                **required_kwargs,
             )
 
     @pytest.mark.it(
@@ -380,5 +413,5 @@ class PipelineConfigInstantiationTestBase(abc.ABC):
             config_cls(
                 sastoken=sastoken,
                 connection_retry_interval=connection_retry_interval,
-                **required_kwargs
+                **required_kwargs,
             )

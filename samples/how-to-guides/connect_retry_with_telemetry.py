@@ -158,7 +158,9 @@ async def connect_with_retry(device_client, number_of_tries=None):
                 )
                 await asyncio.sleep(ATTEMPT_INTERVAL)
             else:
-                print("Failed to connect the device client due to not-retryable error....")
+                print(
+                    "Failed to connect the device client due to not-retryable error...."
+                )
                 return False
 
 

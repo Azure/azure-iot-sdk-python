@@ -56,14 +56,23 @@ class JobResponse(Model):
         "created_time": {"key": "createdTime", "type": "iso-8601"},
         "start_time": {"key": "startTime", "type": "iso-8601"},
         "end_time": {"key": "endTime", "type": "iso-8601"},
-        "max_execution_time_in_seconds": {"key": "maxExecutionTimeInSeconds", "type": "long"},
+        "max_execution_time_in_seconds": {
+            "key": "maxExecutionTimeInSeconds",
+            "type": "long",
+        },
         "type": {"key": "type", "type": "str"},
-        "cloud_to_device_method": {"key": "cloudToDeviceMethod", "type": "CloudToDeviceMethod"},
+        "cloud_to_device_method": {
+            "key": "cloudToDeviceMethod",
+            "type": "CloudToDeviceMethod",
+        },
         "update_twin": {"key": "updateTwin", "type": "Twin"},
         "status": {"key": "status", "type": "str"},
         "failure_reason": {"key": "failureReason", "type": "str"},
         "status_message": {"key": "statusMessage", "type": "str"},
-        "device_job_statistics": {"key": "deviceJobStatistics", "type": "DeviceJobStatistics"},
+        "device_job_statistics": {
+            "key": "deviceJobStatistics",
+            "type": "DeviceJobStatistics",
+        },
     }
 
     def __init__(

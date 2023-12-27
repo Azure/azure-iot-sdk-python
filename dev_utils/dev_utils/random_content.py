@@ -15,7 +15,9 @@ def get_random_string(length, random_length=False):
     if random_length:
         length = random.randint(0, length)
 
-    return "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(length))
+    return "".join(
+        random.choice(string.ascii_uppercase + string.digits) for _ in range(length)
+    )
 
 
 def get_random_dict(total_payload_length=0):

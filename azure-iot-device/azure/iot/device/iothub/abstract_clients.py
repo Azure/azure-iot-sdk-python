@@ -76,7 +76,9 @@ def _form_sas_uri(hostname, device_id, module_id=None):
             hostname=hostname, device_id=device_id, module_id=module_id
         )
     else:
-        return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
+        return "{hostname}/devices/{device_id}".format(
+            hostname=hostname, device_id=device_id
+        )
 
 
 def _extract_sas_uri_values(uri):
@@ -309,7 +311,7 @@ class AbstractIoTHubClient(abc.ABC):
             hostname=connection_string[cs.HOST_NAME],
             gateway_hostname=connection_string.get(cs.GATEWAY_HOST_NAME),
             sastoken=sastoken,
-            **config_kwargs
+            **config_kwargs,
         )
         if cls.__name__ == "IoTHubDeviceClient":
             pipeline_configuration.blob_upload = True
@@ -381,10 +383,12 @@ class AbstractIoTHubClient(abc.ABC):
             module_id=vals["module_id"],
             hostname=vals["hostname"],
             sastoken=sastoken_o,
-            **config_kwargs
+            **config_kwargs,
         )
         if cls.__name__ == "IoTHubDeviceClient":
-            pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
+            pipeline_configuration.blob_upload = (
+                True  # Blob Upload is a feature on Device Clients
+            )
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
@@ -518,7 +522,9 @@ class AbstractIoTHubClient(abc.ABC):
     @on_twin_desired_properties_patch_received.setter
     def on_twin_desired_properties_patch_received(self, value):
         self._generic_receive_handler_setter(
-            "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
+            "on_twin_desired_properties_patch_received",
+            pipeline_constant.TWIN_PATCHES,
+            value,
         )
 
 
@@ -576,7 +582,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         pipeline_configuration = pipeline.IoTHubPipelineConfig(
             device_id=device_id, hostname=hostname, x509=x509, **config_kwargs
         )
-        pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
+        pipeline_configuration.blob_upload = (
+            True  # Blob Upload is a feature on Device Clients
+        )
         pipeline_configuration.ensure_desired_properties = True
 
         # Pipeline setup
@@ -647,7 +655,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         pipeline_configuration = pipeline.IoTHubPipelineConfig(
             device_id=device_id, hostname=hostname, sastoken=sastoken, **config_kwargs
         )
-        pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
+        pipeline_configuration.blob_upload = (
+            True  # Blob Upload is a feature on Device Clients
+        )
         pipeline_configuration.ensure_desired_properties = True
 
         # Pipeline setup
@@ -809,7 +819,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             gateway_hostname=gateway_hostname,
             sastoken=sastoken,
             server_verification_cert=server_verification_cert,
-            **config_kwargs
+            **config_kwargs,
         )
         pipeline_configuration.ensure_desired_properties = True
 
@@ -824,7 +834,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
-    def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
+    def create_from_x509_certificate(
+        cls, x509, hostname, device_id, module_id, **kwargs
+    ):
         """
         Instantiate a client using X509 certificate authentication.
 
@@ -875,7 +887,11 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         # Pipeline Config setup
         config_kwargs = _get_config_kwargs(**kwargs)
         pipeline_configuration = pipeline.IoTHubPipelineConfig(
-            device_id=device_id, module_id=module_id, hostname=hostname, x509=x509, **config_kwargs
+            device_id=device_id,
+            module_id=module_id,
+            hostname=hostname,
+            x509=x509,
+            **config_kwargs,
         )
         pipeline_configuration.ensure_desired_properties = True
 

@@ -41,9 +41,15 @@ class Module(Model):
         "generation_id": {"key": "generationId", "type": "str"},
         "etag": {"key": "etag", "type": "str"},
         "connection_state": {"key": "connectionState", "type": "str"},
-        "connection_state_updated_time": {"key": "connectionStateUpdatedTime", "type": "iso-8601"},
+        "connection_state_updated_time": {
+            "key": "connectionStateUpdatedTime",
+            "type": "iso-8601",
+        },
         "last_activity_time": {"key": "lastActivityTime", "type": "iso-8601"},
-        "cloud_to_device_message_count": {"key": "cloudToDeviceMessageCount", "type": "int"},
+        "cloud_to_device_message_count": {
+            "key": "cloudToDeviceMessageCount",
+            "type": "int",
+        },
         "authentication": {"key": "authentication", "type": "AuthenticationMechanism"},
     }
 

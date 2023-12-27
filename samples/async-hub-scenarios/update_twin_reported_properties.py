@@ -19,7 +19,9 @@ async def main():
 
     # update the reported properties
     reported_properties = {"temperature": random.randint(320, 800) / 10}
-    print("Setting reported temperature to {}".format(reported_properties["temperature"]))
+    print(
+        "Setting reported temperature to {}".format(reported_properties["temperature"])
+    )
     await device_client.patch_twin_reported_properties(reported_properties)
 
     # Finally, shut down the client

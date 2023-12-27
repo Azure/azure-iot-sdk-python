@@ -59,7 +59,9 @@ def nucleus(mocker, pipeline_connected_mock):
     """
     # Need to use a mock for pipeline config because we don't know
     # what type of config is being used since these are common
-    nucleus = pipeline_nucleus.PipelineNucleus(pipeline_configuration=mocker.MagicMock())
+    nucleus = pipeline_nucleus.PipelineNucleus(
+        pipeline_configuration=mocker.MagicMock()
+    )
 
     # By default, set the connected mock to return the real connected value
     # (this can be overridden by changing the return value of pipeline_connected_mock)

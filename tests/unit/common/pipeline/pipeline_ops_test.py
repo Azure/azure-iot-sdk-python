@@ -70,7 +70,9 @@ def add_operation_tests(
             op = cls_type(**init_kwargs)
             assert op.needs_connection is False
 
-        @pytest.mark.it("Initializes 'callback_stack' list attribute with the provided callback")
+        @pytest.mark.it(
+            "Initializes 'callback_stack' list attribute with the provided callback"
+        )
         def test_callback_added_to_list(self, cls_type, init_kwargs):
             op = cls_type(**init_kwargs)
             assert len(op.callback_stack) == 1
@@ -95,7 +97,10 @@ def add_operation_tests(
     @pytest.mark.describe("{} - .add_callback()".format(op_class_under_test.__name__))
     class OperationAddCallbackTests(OperationTestConfigClass):
         @pytest.fixture(
-            params=["Currently completing with no error", "Currently completing with error"]
+            params=[
+                "Currently completing with no error",
+                "Currently completing with error",
+            ]
         )
         def error(self, request, arbitrary_exception):
             if request.param == "Currently completing with no error":
@@ -146,7 +151,9 @@ def add_operation_tests(
 
             assert mock_cb.call_count == 1
 
-    @pytest.mark.describe("{} - .spawn_worker_op()".format(op_class_under_test.__name__))
+    @pytest.mark.describe(
+        "{} - .spawn_worker_op()".format(op_class_under_test.__name__)
+    )
     class OperationSpawnWorkerOpTests(OperationTestConfigClass):
         @pytest.fixture
         def worker_op_type(self):
@@ -171,7 +178,9 @@ def add_operation_tests(
         @pytest.mark.it(
             "Instantiates the returned worker operation using the provided **kwargs parameters (not including 'callback')"
         )
-        def test_creates_worker_op_with_provided_kwargs(self, mocker, op, worker_op_kwargs):
+        def test_creates_worker_op_with_provided_kwargs(
+            self, mocker, op, worker_op_kwargs
+        ):
             mock_instance = mocker.MagicMock()
             mock_type = mocker.MagicMock(return_value=mock_instance)
             mock_type.__name__ = "mock type"  # this is needed for log statements
@@ -202,11 +211,15 @@ def add_operation_tests(
             assert mock_type.call_count == 1
 
             # The callback used for instantiating the worker operation is NOT the callback provided in **kwargs
-            assert mock_type.call_args[1]["callback"] is not worker_op_kwargs["callback"]
+            assert (
+                mock_type.call_args[1]["callback"] is not worker_op_kwargs["callback"]
+            )
 
             # The callback provided in **kwargs is applied after instantiation
             assert mock_instance.add_callback.call_count == 1
-            assert mock_instance.add_callback.call_args == mocker.call(worker_op_kwargs["callback"])
+            assert mock_instance.add_callback.call_args == mocker.call(
+                worker_op_kwargs["callback"]
+            )
 
         @pytest.mark.it(
             "Raises TypeError if the provided **kwargs parameters do not match the constructor for the class provided in the 'worker_op_type' parameter"
@@ -221,10 +234,17 @@ def add_operation_tests(
             "Returns a worker operation, which, when completed, completes the operation that spawned it with the same error status"
         )
         @pytest.mark.parametrize(
-            "use_error", [pytest.param(False, id="No Error"), pytest.param(True, id="With Error")]
+            "use_error",
+            [pytest.param(False, id="No Error"), pytest.param(True, id="With Error")],
         )
         def test_worker_op_completes_original_op(
-            self, mocker, use_error, arbitrary_exception, op, worker_op_type, worker_op_kwargs
+            self,
+            mocker,
+            use_error,
+            arbitrary_exception,
+            op,
+            worker_op_type,
+            worker_op_kwargs,
         ):
             original_op = op
 
@@ -250,10 +270,17 @@ def add_operation_tests(
             "Returns a worker operation, which, when completed, triggers the 'callback' optionally provided in the **kwargs parameter, prior to completing the operation that spawned it"
         )
         @pytest.mark.parametrize(
-            "use_error", [pytest.param(False, id="No Error"), pytest.param(True, id="With Error")]
+            "use_error",
+            [pytest.param(False, id="No Error"), pytest.param(True, id="With Error")],
         )
         def test_worker_op_triggers_own_callback_and_then_completes_original_op(
-            self, mocker, use_error, arbitrary_exception, op, worker_op_type, worker_op_kwargs
+            self,
+            mocker,
+            use_error,
+            arbitrary_exception,
+            op,
+            worker_op_type,
+            worker_op_kwargs,
         ):
             original_op = op
 
@@ -614,10 +641,15 @@ def add_operation_tests(
             # Callback was called passing 'None' as the error
             assert cb_mock.call_args == mocker.call(op=op, error=None)
 
-    @pytest.mark.describe("{} - .halt_completion()".format(op_class_under_test.__name__))
+    @pytest.mark.describe(
+        "{} - .halt_completion()".format(op_class_under_test.__name__)
+    )
     class OperationHaltCompletionTests(OperationTestConfigClass):
         @pytest.fixture(
-            params=["Currently completing with no error", "Currently completing with error"]
+            params=[
+                "Currently completing with no error",
+                "Currently completing with error",
+            ]
         )
         def error(self, request, arbitrary_exception):
             if request.param == "Currently completing with no error":
@@ -688,7 +720,9 @@ def add_operation_tests(
         OperationInstantiationTests,
     )
     setattr(
-        test_module, "Test{}Complete".format(op_class_under_test.__name__), OperationCompleteTests
+        test_module,
+        "Test{}Complete".format(op_class_under_test.__name__),
+        OperationCompleteTests,
     )
     setattr(
         test_module,

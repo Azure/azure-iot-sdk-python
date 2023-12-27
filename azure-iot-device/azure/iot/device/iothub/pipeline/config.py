@@ -20,7 +20,7 @@ class IoTHubPipelineConfig(BasePipelineConfig):
         module_id=None,
         product_info="",
         ensure_desired_properties=True,
-        **kwargs
+        **kwargs,
     ):
         """Initializer for IoTHubPipelineConfig which passes all unrecognized keyword-args down to BasePipelineConfig
         to be evaluated. This stacked options setting is to allow for unique configuration options to exist between the

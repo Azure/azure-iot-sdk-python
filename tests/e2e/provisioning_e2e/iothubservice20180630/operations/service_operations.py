@@ -24,7 +24,6 @@ class ServiceOperations(object):
     models = models
 
     def __init__(self, client, config, serializer, deserializer):
-
         self._client = client
         self._serialize = serializer
         self._deserialize = deserializer
@@ -68,7 +67,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -87,7 +88,13 @@ class ServiceOperations(object):
     get_configuration.metadata = {"url": "/configurations/{id}"}
 
     def create_or_update_configuration(
-        self, id, configuration, if_match=None, custom_headers=None, raw=False, **operation_config
+        self,
+        id,
+        configuration,
+        if_match=None,
+        custom_headers=None,
+        raw=False,
+        **operation_config,
     ):
         """Create or update the configuration for devices or modules of an IoT
         hub. An ETag must not be specified for the create operation. An ETag
@@ -128,7 +135,9 @@ class ServiceOperations(object):
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters["If-Match"] = self._serialize.header(
+                "if_match", if_match, "str"
+            )
 
         # Construct body
         body_content = self._serialize.body(configuration, "Configuration")
@@ -201,11 +210,15 @@ class ServiceOperations(object):
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters["If-Match"] = self._serialize.header(
+                "if_match", if_match, "str"
+            )
 
         # Construct and send request
         request = self._client.delete(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [204]:
             raise HttpOperationError(self._deserialize, response)
@@ -216,7 +229,9 @@ class ServiceOperations(object):
 
     delete_configuration.metadata = {"url": "/configurations/{id}"}
 
-    def get_configurations(self, top=None, custom_headers=None, raw=False, **operation_config):
+    def get_configurations(
+        self, top=None, custom_headers=None, raw=False, **operation_config
+    ):
         """Get multiple configurations for devices or modules of an IoT Hub.
         Returns the specified number of configurations for Iot Hub. Pagination
         is not supported.
@@ -253,7 +268,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -271,7 +288,9 @@ class ServiceOperations(object):
 
     get_configurations.metadata = {"url": "/configurations"}
 
-    def test_configuration_queries(self, input, custom_headers=None, raw=False, **operation_config):
+    def test_configuration_queries(
+        self, input, custom_headers=None, raw=False, **operation_config
+    ):
         """Validates the target condition query and custom metric queries for a
         configuration.
 
@@ -322,7 +341,9 @@ class ServiceOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("ConfigurationQueriesTestResponse", response)
+            deserialized = self._deserialize(
+                "ConfigurationQueriesTestResponse", response
+            )
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
@@ -332,7 +353,9 @@ class ServiceOperations(object):
 
     test_configuration_queries.metadata = {"url": "/configurations/testQueries"}
 
-    def get_device_registry_statistics(self, custom_headers=None, raw=False, **operation_config):
+    def get_device_registry_statistics(
+        self, custom_headers=None, raw=False, **operation_config
+    ):
         """Retrieves statistics about device identities in the IoT hub’s identity
         registry.
 
@@ -364,7 +387,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -382,7 +407,9 @@ class ServiceOperations(object):
 
     get_device_registry_statistics.metadata = {"url": "/statistics/devices"}
 
-    def get_service_statistics(self, custom_headers=None, raw=False, **operation_config):
+    def get_service_statistics(
+        self, custom_headers=None, raw=False, **operation_config
+    ):
         """Retrieves service statistics for this IoT hub’s identity registry.
 
         :param dict custom_headers: headers that will be added to the request
@@ -413,7 +440,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -471,7 +500,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -660,7 +691,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -679,7 +712,13 @@ class ServiceOperations(object):
     get_device.metadata = {"url": "/devices/{id}"}
 
     def create_or_update_device(
-        self, id, device, if_match=None, custom_headers=None, raw=False, **operation_config
+        self,
+        id,
+        device,
+        if_match=None,
+        custom_headers=None,
+        raw=False,
+        **operation_config,
     ):
         """Create or update the identity of a device in the identity registry of
         an IoT hub.
@@ -723,7 +762,9 @@ class ServiceOperations(object):
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters["If-Match"] = self._serialize.header(
+                "if_match", if_match, "str"
+            )
 
         # Construct body
         body_content = self._serialize.body(device, "Device")
@@ -750,7 +791,9 @@ class ServiceOperations(object):
 
     create_or_update_device.metadata = {"url": "/devices/{id}"}
 
-    def delete_device(self, id, if_match=None, custom_headers=None, raw=False, **operation_config):
+    def delete_device(
+        self, id, if_match=None, custom_headers=None, raw=False, **operation_config
+    ):
         """Delete the identity of a device from the identity registry of an IoT
         hub.
 
@@ -795,11 +838,15 @@ class ServiceOperations(object):
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters["If-Match"] = self._serialize.header(
+                "if_match", if_match, "str"
+            )
 
         # Construct and send request
         request = self._client.delete(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [204]:
             raise HttpOperationError(self._deserialize, response)
@@ -873,9 +920,13 @@ class ServiceOperations(object):
 
         return deserialized
 
-    apply_configuration_on_edge_device.metadata = {"url": "/devices/{id}/applyConfigurationContent"}
+    apply_configuration_on_edge_device.metadata = {
+        "url": "/devices/{id}/applyConfigurationContent"
+    }
 
-    def create_job(self, job_properties, custom_headers=None, raw=False, **operation_config):
+    def create_job(
+        self, job_properties, custom_headers=None, raw=False, **operation_config
+    ):
         """Create a new import/export job on an IoT hub.
 
         Create a new import/export job on an IoT hub. See
@@ -970,7 +1021,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -1027,7 +1080,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -1083,7 +1138,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.delete(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200, 204]:
             raise HttpOperationError(self._deserialize, response)
@@ -1101,7 +1158,9 @@ class ServiceOperations(object):
 
     cancel_job.metadata = {"url": "/jobs/{id}"}
 
-    def purge_command_queue(self, id, custom_headers=None, raw=False, **operation_config):
+    def purge_command_queue(
+        self, id, custom_headers=None, raw=False, **operation_config
+    ):
         """Deletes all the pending commands for this device from the IoT hub.
 
         Deletes all the pending commands for this device from the IoT hub.
@@ -1138,7 +1197,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.delete(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -1195,7 +1256,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -1220,7 +1283,7 @@ class ServiceOperations(object):
         if_match=None,
         custom_headers=None,
         raw=False,
-        **operation_config
+        **operation_config,
     ):
         """Replaces tags and desired properties of a device twin.
 
@@ -1262,7 +1325,9 @@ class ServiceOperations(object):
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters["If-Match"] = self._serialize.header(
+                "if_match", if_match, "str"
+            )
 
         # Construct body
         body_content = self._serialize.body(device_twin_info, "Twin")
@@ -1296,7 +1361,7 @@ class ServiceOperations(object):
         if_match=None,
         custom_headers=None,
         raw=False,
-        **operation_config
+        **operation_config,
     ):
         """Updates tags and desired properties of a device twin.
 
@@ -1338,7 +1403,9 @@ class ServiceOperations(object):
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters["If-Match"] = self._serialize.header(
+                "if_match", if_match, "str"
+            )
 
         # Construct body
         body_content = self._serialize.body(device_twin_info, "Twin")
@@ -1365,7 +1432,9 @@ class ServiceOperations(object):
 
     update_twin.metadata = {"url": "/twins/{id}"}
 
-    def get_module_twin(self, id, mid, custom_headers=None, raw=False, **operation_config):
+    def get_module_twin(
+        self, id, mid, custom_headers=None, raw=False, **operation_config
+    ):
         """Gets a module twin.
 
         Gets a module twin. See
@@ -1409,7 +1478,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -1435,7 +1506,7 @@ class ServiceOperations(object):
         if_match=None,
         custom_headers=None,
         raw=False,
-        **operation_config
+        **operation_config,
     ):
         """Replaces tags and desired properties of a module twin.
 
@@ -1482,7 +1553,9 @@ class ServiceOperations(object):
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters["If-Match"] = self._serialize.header(
+                "if_match", if_match, "str"
+            )
 
         # Construct body
         body_content = self._serialize.body(device_twin_info, "Twin")
@@ -1517,7 +1590,7 @@ class ServiceOperations(object):
         if_match=None,
         custom_headers=None,
         raw=False,
-        **operation_config
+        **operation_config,
     ):
         """Updates tags and desired properties of a module twin.
 
@@ -1564,7 +1637,9 @@ class ServiceOperations(object):
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters["If-Match"] = self._serialize.header(
+                "if_match", if_match, "str"
+            )
 
         # Construct body
         body_content = self._serialize.body(device_twin_info, "Twin")
@@ -1630,7 +1705,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -1648,7 +1725,9 @@ class ServiceOperations(object):
 
     get_job1.metadata = {"url": "/jobs/v2/{id}"}
 
-    def create_job1(self, id, job_request, custom_headers=None, raw=False, **operation_config):
+    def create_job1(
+        self, id, job_request, custom_headers=None, raw=False, **operation_config
+    ):
         """Creates a new job to schedule update twins or device direct methods on
         an IoT hub at a scheduled time.
 
@@ -1753,7 +1832,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.post(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -1772,7 +1853,12 @@ class ServiceOperations(object):
     cancel_job1.metadata = {"url": "/jobs/v2/{id}/cancel"}
 
     def query_jobs(
-        self, job_type=None, job_status=None, custom_headers=None, raw=False, **operation_config
+        self,
+        job_type=None,
+        job_status=None,
+        custom_headers=None,
+        raw=False,
+        **operation_config,
     ):
         """Query an IoT hub to retrieve information regarding jobs using the IoT
         Hub query language.
@@ -1804,9 +1890,13 @@ class ServiceOperations(object):
         # Construct parameters
         query_parameters = {}
         if job_type is not None:
-            query_parameters["jobType"] = self._serialize.query("job_type", job_type, "str")
+            query_parameters["jobType"] = self._serialize.query(
+                "job_type", job_type, "str"
+            )
         if job_status is not None:
-            query_parameters["jobStatus"] = self._serialize.query("job_status", job_status, "str")
+            query_parameters["jobStatus"] = self._serialize.query(
+                "job_status", job_status, "str"
+            )
         query_parameters["api-version"] = self._serialize.query(
             "self.api_version", self.api_version, "str"
         )
@@ -1819,7 +1909,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -1837,7 +1929,9 @@ class ServiceOperations(object):
 
     query_jobs.metadata = {"url": "/jobs/v2/query"}
 
-    def get_modules_on_device(self, id, custom_headers=None, raw=False, **operation_config):
+    def get_modules_on_device(
+        self, id, custom_headers=None, raw=False, **operation_config
+    ):
         """Retrieve all the module identities on the device.
 
         :param id: Device ID.
@@ -1872,7 +1966,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -1930,7 +2026,9 @@ class ServiceOperations(object):
 
         # Construct and send request
         request = self._client.get(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
@@ -1949,7 +2047,14 @@ class ServiceOperations(object):
     get_module.metadata = {"url": "/devices/{id}/modules/{mid}"}
 
     def create_or_update_module(
-        self, id, mid, module, if_match=None, custom_headers=None, raw=False, **operation_config
+        self,
+        id,
+        mid,
+        module,
+        if_match=None,
+        custom_headers=None,
+        raw=False,
+        **operation_config,
     ):
         """Create or update the module identity for device in IoT hub. An ETag
         must not be specified for the create operation. An ETag must be
@@ -1995,7 +2100,9 @@ class ServiceOperations(object):
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters["If-Match"] = self._serialize.header(
+                "if_match", if_match, "str"
+            )
 
         # Construct body
         body_content = self._serialize.body(module, "Module")
@@ -2073,11 +2180,15 @@ class ServiceOperations(object):
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters["If-Match"] = self._serialize.header(
+                "if_match", if_match, "str"
+            )
 
         # Construct and send request
         request = self._client.delete(url, query_parameters)
-        response = self._client.send(request, header_parameters, stream=False, **operation_config)
+        response = self._client.send(
+            request, header_parameters, stream=False, **operation_config
+        )
 
         if response.status_code not in [204]:
             raise HttpOperationError(self._deserialize, response)
@@ -2089,7 +2200,12 @@ class ServiceOperations(object):
     delete_module.metadata = {"url": "/devices/{id}/modules/{mid}"}
 
     def invoke_device_method(
-        self, deviceid, direct_method_request, custom_headers=None, raw=False, **operation_config
+        self,
+        deviceid,
+        direct_method_request,
+        custom_headers=None,
+        raw=False,
+        **operation_config,
     ):
         """Invoke a direct method on a device.
 
@@ -2115,7 +2231,9 @@ class ServiceOperations(object):
         """
         # Construct URL
         url = self.invoke_device_method.metadata["url"]
-        path_format_arguments = {"deviceid": self._serialize.url("deviceid", deviceid, "str")}
+        path_format_arguments = {
+            "deviceid": self._serialize.url("deviceid", deviceid, "str")
+        }
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
@@ -2131,7 +2249,9 @@ class ServiceOperations(object):
             header_parameters.update(custom_headers)
 
         # Construct body
-        body_content = self._serialize.body(direct_method_request, "CloudToDeviceMethod")
+        body_content = self._serialize.body(
+            direct_method_request, "CloudToDeviceMethod"
+        )
 
         # Construct and send request
         request = self._client.post(url, query_parameters)
@@ -2162,7 +2282,7 @@ class ServiceOperations(object):
         direct_method_request,
         custom_headers=None,
         raw=False,
-        **operation_config
+        **operation_config,
     ):
         """Invoke a direct method on a module of a device.
 
@@ -2209,7 +2329,9 @@ class ServiceOperations(object):
             header_parameters.update(custom_headers)
 
         # Construct body
-        body_content = self._serialize.body(direct_method_request, "CloudToDeviceMethod")
+        body_content = self._serialize.body(
+            direct_method_request, "CloudToDeviceMethod"
+        )
 
         # Construct and send request
         request = self._client.post(url, query_parameters)

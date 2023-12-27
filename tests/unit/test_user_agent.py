@@ -6,7 +6,11 @@
 import pytest
 from azure.iot.device import user_agent
 import platform
-from azure.iot.device.constant import VERSION, IOTHUB_IDENTIFIER, PROVISIONING_IDENTIFIER
+from azure.iot.device.constant import (
+    VERSION,
+    IOTHUB_IDENTIFIER,
+    PROVISIONING_IDENTIFIER,
+)
 
 
 check_agent_format = (

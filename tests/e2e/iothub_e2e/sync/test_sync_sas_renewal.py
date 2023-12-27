@@ -22,7 +22,9 @@ class TestSasRenewal(object):
     @pytest.mark.it("Renews and reconnects before expiry")
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
-    def test_sync_sas_renews(self, client, service_helper, random_message, leak_tracker):
+    def test_sync_sas_renews(
+        self, client, service_helper, random_message, leak_tracker
+    ):
         leak_tracker.set_initial_object_list()
 
         connected_event = threading.Event()
@@ -33,7 +35,9 @@ class TestSasRenewal(object):
 
         def handle_on_connection_state_change():
             nonlocal token_at_connect_time
-            logger.info("handle_on_connection_state_change: {}".format(client.connected))
+            logger.info(
+                "handle_on_connection_state_change: {}".format(client.connected)
+            )
             if client.connected:
                 token_at_connect_time = str(token_object)
                 logger.info("saving token: {}".format(token_at_connect_time))

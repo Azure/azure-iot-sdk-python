@@ -36,7 +36,9 @@ class SharedProvisioningClientInstantiationTests(object):
     @pytest.mark.it(
         "Sets the pipeline's `on_background_exception` handler to the `handle_background_exception` function from the `handle_exceptions` module"
     )
-    def test_pipeline_on_background_exception(self, client_class, provisioning_pipeline):
+    def test_pipeline_on_background_exception(
+        self, client_class, provisioning_pipeline
+    ):
         client = client_class(provisioning_pipeline)
         assert (
             client._pipeline.on_background_exception
@@ -60,7 +62,9 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
         self, client_create_method, create_method_args, mock_pipeline_init
     ):
         server_verification_cert = "fake_server_verification_cert"
-        client_create_method(*create_method_args, server_verification_cert=server_verification_cert)
+        client_create_method(
+            *create_method_args, server_verification_cert=server_verification_cert
+        )
 
         # Get configuration object
         assert mock_pipeline_init.call_count == 1
@@ -103,9 +107,12 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
     # TODO: Show that input in the wrong format is formatted to the correct one. This test exists
     # in the ProvisioningPipelineConfig object already, but we do not currently show that this is felt
     # from the API level.
-    @pytest.mark.it("Sets the 'cipher' user option parameter on the PipelineConfig, if provided")
-    def test_cipher_option(self, client_create_method, create_method_args, mock_pipeline_init):
-
+    @pytest.mark.it(
+        "Sets the 'cipher' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_cipher_option(
+        self, client_create_method, create_method_args, mock_pipeline_init
+    ):
         cipher = "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256"
         client_create_method(*create_method_args, cipher=cipher)
 
@@ -116,9 +123,15 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
 
         assert config.cipher == cipher
 
-    @pytest.mark.it("Sets the 'proxy_options' user option parameter on the PipelineConfig")
-    def test_proxy_options(self, client_create_method, create_method_args, mock_pipeline_init):
-        proxy_options = ProxyOptions(proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888)
+    @pytest.mark.it(
+        "Sets the 'proxy_options' user option parameter on the PipelineConfig"
+    )
+    def test_proxy_options(
+        self, client_create_method, create_method_args, mock_pipeline_init
+    ):
+        proxy_options = ProxyOptions(
+            proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888
+        )
         client_create_method(*create_method_args, proxy_options=proxy_options)
 
         # Get configuration object
@@ -131,7 +144,9 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
     @pytest.mark.it(
         "Sets the 'keep_alive' user option parameter on the PipelineConfig, if provided"
     )
-    def test_keep_alive_options(self, client_create_method, create_method_args, mock_pipeline_init):
+    def test_keep_alive_options(
+        self, client_create_method, create_method_args, mock_pipeline_init
+    ):
         keepalive_value = 60
         client_create_method(*create_method_args, keep_alive=keepalive_value)
 
@@ -142,7 +157,9 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
 
         assert config.keep_alive == keepalive_value
 
-    @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
+    @pytest.mark.it(
+        "Raises a TypeError if an invalid user option parameter is provided"
+    )
     def test_invalid_option(
         self, mocker, client_create_method, create_method_args, mock_pipeline_init
     ):
@@ -179,7 +196,12 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
 
     @pytest.fixture
     def create_method_args(self):
-        return [fake_provisioning_host, fake_registration_id, fake_id_scope, fake_symmetric_key]
+        return [
+            fake_provisioning_host,
+            fake_registration_id,
+            fake_id_scope,
+            fake_symmetric_key,
+        ]
 
     @pytest.mark.it(
         "Creates a SasToken that uses a SymmetricKeySigningMechanism, from the values provided in parameters"
@@ -252,7 +274,9 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
 
         # Verify pipeline was created with a ProvisioningPipelineConfig
         assert mock_pipeline_init.call_count == 1
-        assert isinstance(mock_pipeline_init.call_args[0][0], ProvisioningPipelineConfig)
+        assert isinstance(
+            mock_pipeline_init.call_args[0][0], ProvisioningPipelineConfig
+        )
 
         # Verify the ProvisioningPipelineConfig is constructed as expected
         config = mock_pipeline_init.call_args[0][0]
@@ -298,7 +322,9 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
             pytest.param("", id="Empty Registration Id provided"),
         ],
     )
-    @pytest.mark.it("Raises a ValueError if an invalid 'registration_id' parameter is provided")
+    @pytest.mark.it(
+        "Raises a ValueError if an invalid 'registration_id' parameter is provided"
+    )
     def test_invalid_registration_id(self, client_class, registration_id):
         with pytest.raises(ValueError):
             client_class.create_from_symmetric_key(
@@ -334,7 +360,9 @@ class SharedProvisioningClientCreateFromX509CertificateTests(
 
         # Verify pipeline created with a ProvisioningPipelineConfig
         assert mock_pipeline_init.call_count == 1
-        assert isinstance(mock_pipeline_init.call_args[0][0], ProvisioningPipelineConfig)
+        assert isinstance(
+            mock_pipeline_init.call_args[0][0], ProvisioningPipelineConfig
+        )
 
         # Verify the ProvisioningPipelineConfig is constructed as expected
         config = mock_pipeline_init.call_args[0][0]
@@ -358,7 +386,9 @@ class SharedProvisioningClientCreateFromX509CertificateTests(
         assert isinstance(client, client_class)
         assert client._pipeline is mock_pipeline_init.return_value
 
-    @pytest.mark.it("Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user")
+    @pytest.mark.it(
+        "Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user"
+    )
     def test_sastoken_ttl(self, client_class, x509):
         with pytest.raises(TypeError):
             client_class.create_from_x509_certificate(
@@ -377,7 +407,9 @@ class SharedProvisioningClientCreateFromX509CertificateTests(
             pytest.param("", id="Empty Registration Id provided"),
         ],
     )
-    @pytest.mark.it("Raises a ValueError if an invalid 'registration_id' parameter is provided")
+    @pytest.mark.it(
+        "Raises a ValueError if an invalid 'registration_id' parameter is provided"
+    )
     def test_invalid_registration_id(self, client_class, registration_id, x509):
         with pytest.raises(ValueError):
             client_class.create_from_x509_certificate(

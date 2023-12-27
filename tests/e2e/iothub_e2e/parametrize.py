@@ -14,7 +14,9 @@ all_method_payload_options = [
         ),
         pytest.param(True, False, id="with request payload and no response payload"),
         pytest.param(False, True, id="with response payload and no request payload "),
-        pytest.param(False, False, id="with no request payload and no response payload"),
+        pytest.param(
+            False, False, id="with no request payload and no response payload"
+        ),
     ],
 ]
 

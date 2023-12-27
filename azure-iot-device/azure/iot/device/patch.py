@@ -51,7 +51,9 @@ def add_shims_for_inherited_methods(target_class):
     # Import the class we're adding methods to, so that functions defined in this scope can use super()
     class_module = inspect.getmodule(target_class)
     import_cmdstr = "from {module} import {target_class} as {alias}".format(
-        module=class_module.__name__, target_class=target_class.__name__, alias=classname_alias
+        module=class_module.__name__,
+        target_class=target_class.__name__,
+        alias=classname_alias,
     )
     logger.debug("exec: " + import_cmdstr)
     # exec(import_cmdstr, shim_scope)
@@ -60,13 +62,14 @@ def add_shims_for_inherited_methods(target_class):
         method_name = method[0]
         method_obj = method[1]
         # We can index on 0 here because the list comprehension will always be exactly 1 element
-        method_attribute = [att for att in class_attributes if att.name == method_name][0]
+        method_attribute = [att for att in class_attributes if att.name == method_name][
+            0
+        ]
         # The object of the class where the method was originally defined.
         originating_class_obj = method_attribute.defining_class
 
         # Create a shim method for all public methods inherited from a parent class
         if method_name[0] != "_" and originating_class_obj != target_class:
-
             method_sig = inspect.signature(method_obj)
             sig_params = method_sig.parameters
 
@@ -94,8 +97,12 @@ def add_shims_for_inherited_methods(target_class):
             if inspect.ismethod(method_obj):
                 obj_or_type = "cls"  # Use 'cls' to invoke super() for classmethods
             else:
-                obj_or_type = "self"  # Use 'self' to invoke super() for instance methods
-            if inspect.iscoroutine(method_obj) or inspect.iscoroutinefunction(method_obj):
+                obj_or_type = (
+                    "self"  # Use 'self' to invoke super() for instance methods
+                )
+            if inspect.iscoroutine(method_obj) or inspect.iscoroutinefunction(
+                method_obj
+            ):
                 def_syntax = "async def"  # Define coroutine function/method
                 ret_syntax = "return await"
             else:
@@ -116,23 +123,25 @@ def add_shims_for_inherited_methods(target_class):
             # exec(fn_def_cmdstr, shim_scope)
 
             # Copy the docstring from the method to the shim function
-            set_doc_cmdstr = "{method_name}.__doc__ = {leaf_class}.{method_name}.__doc__".format(
-                method_name=method_name, leaf_class=classname_alias
+            set_doc_cmdstr = (
+                "{method_name}.__doc__ = {leaf_class}.{method_name}.__doc__".format(
+                    method_name=method_name, leaf_class=classname_alias
+                )
             )
             logger.debug("exec: " + set_doc_cmdstr)
             # exec(set_doc_cmdstr, shim_scope)
 
             # Add shim function to leaf/child class as a classmethod if the method being shimmed is a classmethod
             if inspect.ismethod(method_obj):
-                attach_shim_cmdstr = (
-                    "setattr({leaf_class}, '{method_name}', classmethod({method_name}))".format(
-                        leaf_class=classname_alias, method_name=method_name
-                    )
+                attach_shim_cmdstr = "setattr({leaf_class}, '{method_name}', classmethod({method_name}))".format(
+                    leaf_class=classname_alias, method_name=method_name
                 )
             # Add shim function to leaf/child class as a method if the method being shimmed is an instance method
             else:
-                attach_shim_cmdstr = "setattr({leaf_class}, '{method_name}', {method_name})".format(
-                    leaf_class=classname_alias, method_name=method_name
+                attach_shim_cmdstr = (
+                    "setattr({leaf_class}, '{method_name}', {method_name})".format(
+                        leaf_class=classname_alias, method_name=method_name
+                    )
                 )
             logger.debug("exec: " + attach_shim_cmdstr)
             # exec(attach_shim_cmdstr, shim_scope)
@@ -148,20 +157,22 @@ def add_shims_for_inherited_methods(target_class):
     # We do this because properties, while defined syntactically via methods, actually are not
     # methods directly on a class, but form a "property" object, which itself contains the
     # get and set logic. Thus our strategy for methods can't really work here.
-    class_properties = inspect.getmembers(target_class, predicate=inspect.isdatadescriptor)
+    class_properties = inspect.getmembers(
+        target_class, predicate=inspect.isdatadescriptor
+    )
     for prop in class_properties:
         property_name = prop[0]
         # We can index on 0 here because the list comprehension will always be exactly 1 element
-        property_attribute = [att for att in class_attributes if att.name == property_name][0]
+        property_attribute = [
+            att for att in class_attributes if att.name == property_name
+        ][0]
         # The object of the class where the property was originally defined.
         originating_class_obj = property_attribute.defining_class
 
         # Simply redefine the same property on the leaf class if it was defined on a parent
         if property_name[0] != "_" and originating_class_obj != target_class:
-            attach_property_cmdstr = (
-                "setattr({leaf_class}, '{property_name}', {leaf_class}.{property_name})".format(
-                    leaf_class=classname_alias, property_name=property_name
-                )
+            attach_property_cmdstr = "setattr({leaf_class}, '{property_name}', {leaf_class}.{property_name})".format(
+                leaf_class=classname_alias, property_name=property_name
             )
             logger.debug("exec: " + attach_property_cmdstr)
             # exec(attach_property_cmdstr, shim_scope)

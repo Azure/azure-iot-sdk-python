@@ -102,7 +102,9 @@ class TestAsyncClientInboxGet(object):
             assert retrieved_item is item
 
         async def insert_item():
-            await asyncio.sleep(1)  # wait before adding item to ensure the above coroutine is first
+            await asyncio.sleep(
+                1
+            )  # wait before adding item to ensure the above coroutine is first
             inbox.put(item)
 
         await asyncio.gather(wait_for_item(), insert_item())

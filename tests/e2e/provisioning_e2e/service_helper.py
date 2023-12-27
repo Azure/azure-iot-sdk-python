@@ -27,7 +27,9 @@ def connection_string_to_sas_token(conn_str):
     signature that can be used to connect to the given hub
     """
     conn_str_obj = ConnectionString(conn_str)
-    signing_mechanism = SymmetricKeySigningMechanism(conn_str_obj.get("SharedAccessKey"))
+    signing_mechanism = SymmetricKeySigningMechanism(
+        conn_str_obj.get("SharedAccessKey")
+    )
     sas_token = RenewableSasToken(
         uri=conn_str_obj.get("HostName"),
         signing_mechanism=signing_mechanism,
@@ -73,7 +75,9 @@ def run_with_retry(fun, args, kwargs):
 class Helper:
     def __init__(self, service_connection_string):
         self.cn = connection_string_to_sas_token(service_connection_string)
-        self.service = IotHubGatewayServiceAPIs20180630("https://" + self.cn["host"]).service
+        self.service = IotHubGatewayServiceAPIs20180630(
+            "https://" + self.cn["host"]
+        ).service
 
     def headers(self):
         return {
@@ -90,7 +94,9 @@ class Helper:
 
     def get_module(self, device_id, module_id):
         module = run_with_retry(
-            self.service.get_module, (device_id, module_id), {"custom_headers": self.headers()}
+            self.service.get_module,
+            (device_id, module_id),
+            {"custom_headers": self.headers()},
         )
         return module
 
@@ -111,7 +117,9 @@ class Helper:
 
     def get_module_connection_string(self, device_id, module_id):
         module = run_with_retry(
-            self.service.get_module, (device_id, module_id), {"custom_headers": self.headers()}
+            self.service.get_module,
+            (device_id, module_id),
+            {"custom_headers": self.headers()},
         )
 
         primary_key = module.authentication.symmetric_key.primary_key

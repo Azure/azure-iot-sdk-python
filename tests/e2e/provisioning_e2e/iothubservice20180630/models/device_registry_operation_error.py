@@ -103,7 +103,12 @@ class DeviceRegistryOperationError(Model):
     }
 
     def __init__(
-        self, device_id=None, error_code=None, error_status=None, module_id=None, operation=None
+        self,
+        device_id=None,
+        error_code=None,
+        error_status=None,
+        module_id=None,
+        operation=None,
     ):
         super(DeviceRegistryOperationError, self).__init__()
         self.device_id = device_id

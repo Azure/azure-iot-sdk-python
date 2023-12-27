@@ -74,7 +74,9 @@ async def upload_via_storage_blob(blob_info):
 
     # Create a file in local Documents directory to upload and download
     local_file_name = "data/quickstart" + str(uuid.uuid4()) + ".txt"
-    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), local_file_name)
+    filename = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), local_file_name
+    )
 
     # Write text to the file
     if not os.path.exists(os.path.dirname(filename)):
@@ -95,7 +97,9 @@ async def upload_via_storage_blob(blob_info):
 async def main():
     hostname = IOTHUB_HOSTNAME
     device_id = IOTHUB_DEVICE_ID
-    x509 = X509(cert_file=X509_CERT_FILE, key_file=X509_KEY_FILE, pass_phrase=X509_PASS_PHRASE)
+    x509 = X509(
+        cert_file=X509_CERT_FILE, key_file=X509_KEY_FILE, pass_phrase=X509_PASS_PHRASE
+    )
 
     # Create the Device Client.
     device_client = IoTHubDeviceClient.create_from_x509_certificate(
@@ -131,7 +135,10 @@ async def main():
     pp.pprint(result)
     if result["status_code"] == 200:
         await device_client.notify_blob_upload_status(
-            storage_info["correlationId"], True, result["status_code"], result["status_description"]
+            storage_info["correlationId"],
+            True,
+            result["status_code"],
+            result["status_description"],
         )
     else:
         await device_client.notify_blob_upload_status(

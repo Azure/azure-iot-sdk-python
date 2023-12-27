@@ -34,7 +34,6 @@ class HTTPTransportStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
-
             # If there is a gateway hostname, use that as the hostname for connection,
             # rather than the hostname itself
             if self.nucleus.pipeline_configuration.gateway_hostname:
@@ -84,9 +83,13 @@ class HTTPTransportStage(PipelineStage):
                     op.complete(error=error)
                 else:
                     logger.debug(
-                        "{}({}): Request completed. Completing op.".format(self.name, op.name)
+                        "{}({}): Request completed. Completing op.".format(
+                            self.name, op.name
+                        )
                     )
-                    logger.debug("HTTP Response Status: {}".format(response["status_code"]))
+                    logger.debug(
+                        "HTTP Response Status: {}".format(response["status_code"])
+                    )
                     logger.debug("HTTP Response: {}".format(response["resp"]))
                     op.response_body = response["resp"]
                     op.status_code = response["status_code"]
@@ -98,7 +101,9 @@ class HTTPTransportStage(PipelineStage):
             # and not a good practice.
             http_headers = copy.deepcopy(op.headers)
             if self.nucleus.pipeline_configuration.sastoken:
-                http_headers["Authorization"] = str(self.nucleus.pipeline_configuration.sastoken)
+                http_headers["Authorization"] = str(
+                    self.nucleus.pipeline_configuration.sastoken
+                )
 
             self.transport.request(
                 method=op.method,

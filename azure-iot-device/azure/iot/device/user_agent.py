@@ -6,7 +6,11 @@
 """This module is for creating agent strings for all clients"""
 
 import platform
-from azure.iot.device.constant import VERSION, IOTHUB_IDENTIFIER, PROVISIONING_IDENTIFIER
+from azure.iot.device.constant import (
+    VERSION,
+    IOTHUB_IDENTIFIER,
+    PROVISIONING_IDENTIFIER,
+)
 
 python_runtime = platform.python_version()
 os_type = platform.system()
@@ -37,5 +41,7 @@ def get_provisioning_user_agent():
     Create the user agent for Provisioning
     """
     return "{provisioning_iden}/{version}{common}".format(
-        provisioning_iden=PROVISIONING_IDENTIFIER, version=VERSION, common=_get_common_user_agent()
+        provisioning_iden=PROVISIONING_IDENTIFIER,
+        version=VERSION,
+        common=_get_common_user_agent(),
     )

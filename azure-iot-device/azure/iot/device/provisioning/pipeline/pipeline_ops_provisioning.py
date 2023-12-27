@@ -14,7 +14,9 @@ class RegisterOperation(PipelineOperation):
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """
 
-    def __init__(self, request_payload, registration_id, callback, registration_result=None):
+    def __init__(
+        self, request_payload, registration_id, callback, registration_result=None
+    ):
         """
         Initializer for RegisterOperation objects.
 
@@ -41,7 +43,9 @@ class PollStatusOperation(PipelineOperation):
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """
 
-    def __init__(self, operation_id, request_payload, callback, registration_result=None):
+    def __init__(
+        self, operation_id, request_payload, callback, registration_result=None
+    ):
         """
         Initializer for PollStatusOperation objects.
 

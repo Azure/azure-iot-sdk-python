@@ -225,7 +225,6 @@ def get_method_request_id_from_topic(topic):
     """
     parts = topic.split("/")
     if is_method_topic(topic) and len(parts) >= 4:
-
         properties = _extract_properties(topic.split("?")[1])
         return properties["rid"]
     else:
@@ -387,7 +386,8 @@ def encode_message_properties_in_topic(message_to_send, topic):
         # resulting ordering in the topic string is consistent across versions of Python.
         # Convert to the properties to strings for safety.
         custom_prop_seq = [
-            (str(i[0]), str(i[1])) for i in list(message_to_send.custom_properties.items())
+            (str(i[0]), str(i[1]))
+            for i in list(message_to_send.custom_properties.items())
         ]
         custom_prop_seq.sort()
 

@@ -45,14 +45,15 @@ class TestEmulateAsync(object):
         assert mock_function.call_args == mocker.call(dummy_value)
         assert result == mock_function.return_value
 
-    @pytest.mark.it("Copies the input function docstring to resulting coroutine function")
+    @pytest.mark.it(
+        "Copies the input function docstring to resulting coroutine function"
+    )
     async def test_coroutine_has_input_function_docstring(self, mock_function):
         async_fn = async_adapter.emulate_async(mock_function)
         assert async_fn.__doc__ == mock_function.__doc__
 
     @pytest.mark.it("Can be applied as a decorator")
     async def test_applied_as_decorator(self):
-
         # Define a function with emulate_async applied as a decorator
         @async_adapter.emulate_async
         def some_function():

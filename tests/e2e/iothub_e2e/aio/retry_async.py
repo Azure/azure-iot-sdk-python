@@ -126,7 +126,9 @@ async def retry_exponential_backoff_with_jitter(client, func, *args, **kwargs):
             logger.info("retry: call {} successful".format(call_id))
 
             if attempt > 1:
-                increment_retry_stat_count("success_after_{}_retries".format(attempt - 1))
+                increment_retry_stat_count(
+                    "success_after_{}_retries".format(attempt - 1)
+                )
             return result
 
         except (
@@ -173,7 +175,9 @@ async def retry_exponential_backoff_with_jitter(client, func, *args, **kwargs):
             # This a "non-retryable" error. Don't retry. Just fail.
             increment_retry_stat_count("non_retryable_error_{}".format(type(e)))
             logger.info(
-                "retry: Call {} raised non-retryable error {}".format(call_id, str(e) or type(e))
+                "retry: Call {} raised non-retryable error {}".format(
+                    call_id, str(e) or type(e)
+                )
             )
 
             raise e

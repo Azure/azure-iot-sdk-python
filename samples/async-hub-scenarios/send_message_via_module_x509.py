@@ -47,7 +47,9 @@ async def main():
         await module_client.send_message(msg)
         print("done sending message #" + str(i))
 
-    await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
+    await asyncio.gather(
+        *[send_test_message(i) for i in range(1, messages_to_send + 1)]
+    )
 
     # Finally, shut down the client
     await module_client.shutdown()

@@ -19,13 +19,19 @@ class Dropper(object):
         self.transport = transport
 
     def disconnect_outgoing(self, disconnect_type):
-        iptables.disconnect_output_port(disconnect_type, self.transport, test_env.IOTHUB_HOSTNAME)
+        iptables.disconnect_output_port(
+            disconnect_type, self.transport, test_env.IOTHUB_HOSTNAME
+        )
 
     def drop_outgoing(self):
-        iptables.disconnect_output_port("DROP", self.transport, test_env.IOTHUB_HOSTNAME)
+        iptables.disconnect_output_port(
+            "DROP", self.transport, test_env.IOTHUB_HOSTNAME
+        )
 
     def reject_outgoing(self):
-        iptables.disconnect_output_port("REJECT", self.transport, test_env.IOTHUB_HOSTNAME)
+        iptables.disconnect_output_port(
+            "REJECT", self.transport, test_env.IOTHUB_HOSTNAME
+        )
 
     def restore_all(self):
         iptables.reconnect_all(self.transport, test_env.IOTHUB_HOSTNAME)

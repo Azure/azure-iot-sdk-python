@@ -18,7 +18,10 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_events_base,
 )
-from tests.unit.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
+from tests.unit.common.pipeline.helpers import (
+    StageRunOpTestBase,
+    StageHandlePipelineEventTestBase,
+)
 from tests.unit.common.pipeline import pipeline_stage_test
 
 logging.basicConfig(level=logging.DEBUG)
@@ -78,7 +81,9 @@ class EnsureDesiredPropertiesStageTestConfig(object):
         return stage
 
 
-class EnsureDesiredPropertiesStageInstantiationTests(EnsureDesiredPropertiesStageTestConfig):
+class EnsureDesiredPropertiesStageInstantiationTests(
+    EnsureDesiredPropertiesStageTestConfig
+):
     @pytest.mark.it("Initializes 'last_version_seen' None")
     def test_last_version_seen(self, init_kwargs):
         stage = pipeline_stages_iothub.EnsureDesiredPropertiesStage(**init_kwargs)
@@ -110,7 +115,9 @@ class TestEnsureDesiredPropertiesStageRunOpWithEnableFeatureOperationWithEnsureD
             feature_name="fake_feature_name", callback=mocker.MagicMock()
         )
 
-    @pytest.mark.it("Sets `last_version_seen` to -1 if `op.feature_name` is 'twin_patches'")
+    @pytest.mark.it(
+        "Sets `last_version_seen` to -1 if `op.feature_name` is 'twin_patches'"
+    )
     def test_sets_last_version_seen(self, mocker, stage, op):
         op.feature_name = pipeline_constants.TWIN_PATCHES
         assert stage.nucleus.pipeline_configuration.ensure_desired_properties
@@ -292,7 +299,9 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceivedWithEnsureDesire
         stage.handle_pipeline_event(event)
 
         assert stage.send_op_down.call_count == 1
-        assert isinstance(stage.send_op_down.call_args[0][0], pipeline_ops_iothub.GetTwinOperation)
+        assert isinstance(
+            stage.send_op_down.call_args[0][0], pipeline_ops_iothub.GetTwinOperation
+        )
 
     @pytest.mark.it(
         "Does not send a GetTwinOperation if last version seen is set and there is already a pending GetTwinOperation"
@@ -351,7 +360,9 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceivedWithEnsureDesire
     def event(self):
         return pipeline_events_base.ConnectedEvent()
 
-    @pytest.mark.it("Does not send a GetTwinOperation if Ensure_Desired_Properties is disabled")
+    @pytest.mark.it(
+        "Does not send a GetTwinOperation if Ensure_Desired_Properties is disabled"
+    )
     def test_no_get_twin_op(self, stage, event):
         assert stage.nucleus.pipeline_configuration.ensure_desired_properties is False
         stage.last_version_seen = None
@@ -383,9 +394,13 @@ class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceive
 
     @pytest.fixture
     def event(self, version):
-        return pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(patch={"$version": version})
+        return pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
+            patch={"$version": version}
+        )
 
-    @pytest.mark.it("Saves the `$version` attribute of the patch into `last_version_seen`")
+    @pytest.mark.it(
+        "Saves the `$version` attribute of the patch into `last_version_seen`"
+    )
     def test_saves_the_last_version_seen(self, mocker, stage, event, version):
         assert stage.nucleus.pipeline_configuration.ensure_desired_properties
         stage.last_version_seen = mocker.MagicMock()
@@ -425,7 +440,9 @@ class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceive
 
     @pytest.fixture
     def event(self, version):
-        return pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(patch={"$version": version})
+        return pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
+            patch={"$version": version}
+        )
 
     @pytest.mark.it("Does not change `last_version_seen`")
     def test_doesnt_save_the_last_version_seen(self, mocker, stage, event, version):
@@ -549,7 +566,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletesConnected(
     def new_twin(self, new_version):
         return {"desired": {"$version": new_version}, "reported": {}}
 
-    @pytest.mark.it("Does not send a new GetTwinOperation if the op completes with success")
+    @pytest.mark.it(
+        "Does not send a new GetTwinOperation if the op completes with success"
+    )
     def test_does_not_send_new_get_twin_operation_on_success(
         self, stage, get_twin_op, new_twin, pipeline_connected_mock
     ):
@@ -559,7 +578,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletesConnected(
 
         assert stage.send_op_down.call_count == 0
 
-    @pytest.mark.it("Sets `pending_get_request` to None if the op completes with success")
+    @pytest.mark.it(
+        "Sets `pending_get_request` to None if the op completes with success"
+    )
     def test_sets_pending_request_to_none_on_success(
         self, mocker, stage, get_twin_op, new_twin, pipeline_connected_mock
     ):
@@ -580,7 +601,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletesConnected(
         get_twin_op.complete(error=arbitrary_exception)
 
         assert stage.send_op_down.call_count == 1
-        assert isinstance(stage.send_op_down.call_args[0][0], pipeline_ops_iothub.GetTwinOperation)
+        assert isinstance(
+            stage.send_op_down.call_args[0][0], pipeline_ops_iothub.GetTwinOperation
+        )
 
     @pytest.mark.it(
         "Sets `pending_get_request` to the new GetTwinOperation if the op completes with an error"
@@ -595,7 +618,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletesConnected(
         get_twin_op.complete(error=arbitrary_exception)
 
         assert stage.pending_get_request is not old_get_request
-        assert isinstance(stage.pending_get_request, pipeline_ops_iothub.GetTwinOperation)
+        assert isinstance(
+            stage.pending_get_request, pipeline_ops_iothub.GetTwinOperation
+        )
 
     @pytest.mark.it(
         "Does not send a `TwinDesiredPropertiesPatchEvent` if the op completes with an error"
@@ -722,7 +747,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletesNotConnected(
     def new_twin(self, new_version):
         return {"desired": {"$version": new_version}, "reported": {}}
 
-    @pytest.mark.it("Does not send a new GetTwinOperation if the op completes with success")
+    @pytest.mark.it(
+        "Does not send a new GetTwinOperation if the op completes with success"
+    )
     def test_does_not_send_new_get_twin_operation_on_success(
         self, stage, get_twin_op, new_twin, pipeline_connected_mock
     ):
@@ -732,7 +759,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletesNotConnected(
 
         assert stage.send_op_down.call_count == 0
 
-    @pytest.mark.it("Sets `pending_get_request` to None if the op completes with success")
+    @pytest.mark.it(
+        "Sets `pending_get_request` to None if the op completes with success"
+    )
     def test_sets_pending_request_to_none_on_success(
         self, mocker, stage, get_twin_op, new_twin, pipeline_connected_mock
     ):
@@ -744,7 +773,9 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletesNotConnected(
 
         assert stage.pending_get_request is None
 
-    @pytest.mark.it("Does not send a new GetTwinOperation if the op completes with an error")
+    @pytest.mark.it(
+        "Does not send a new GetTwinOperation if the op completes with an error"
+    )
     def test_doesnt_send_new_get_twin_operation_on_failure(
         self, stage, get_twin_op, arbitrary_exception, pipeline_connected_mock
     ):
@@ -795,7 +826,9 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 )
 
 
-@pytest.mark.describe("TwinRequestResponseStage - .run_op() -- Called with GetTwinOperation")
+@pytest.mark.describe(
+    "TwinRequestResponseStage - .run_op() -- Called with GetTwinOperation"
+)
 class TestTwinRequestResponseStageRunOpWithGetTwinOperation(
     StageRunOpTestBase, TwinRequestResponseStageTestConfig
 ):
@@ -824,7 +857,9 @@ class TestTwinRequestResponseStageRunOpWithGetTwinOperation(
 class TestTwinRequestResponseStageRunOpWithPatchTwinReportedPropertiesOperation(
     StageRunOpTestBase, TwinRequestResponseStageTestConfig
 ):
-    @pytest.fixture(params=["Dictionary Patch", "String Patch", "Integer Patch", "None Patch"])
+    @pytest.fixture(
+        params=["Dictionary Patch", "String Patch", "Integer Patch", "None Patch"]
+    )
     def json_patch(self, request):
         if request.param == "Dictionary Patch":
             return {"json_key": "json_val"}
@@ -912,7 +947,9 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperat
         "Completes the GetTwinOperation unsuccessfully, with the error from the RequestAndResponseOperation, if the RequestAndResponseOperation is completed unsuccessfully"
     )
     @pytest.mark.parametrize(
-        "has_response_body", [True, False], ids=["With Response Body", "No Response Body"]
+        "has_response_body",
+        [True, False],
+        ids=["With Response Body", "No Response Body"],
     )
     @pytest.mark.parametrize(
         "status_code",
@@ -954,7 +991,9 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperat
         "Completes the GetTwinOperation unsuccessfully with a ServiceError if the RequestAndResponseOperation is completed successfully with a status code indicating an unsuccessful result from the service"
     )
     @pytest.mark.parametrize(
-        "has_response_body", [True, False], ids=["With Response Body", "No Response Body"]
+        "has_response_body",
+        [True, False],
+        ids=["With Response Body", "No Response Body"],
     )
     @pytest.mark.parametrize(
         "status_code",
@@ -965,7 +1004,12 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperat
         ],
     )
     def test_request_and_response_op_completed_success_with_bad_code(
-        self, stage, get_twin_op, request_and_response_op, status_code, has_response_body
+        self,
+        stage,
+        get_twin_op,
+        request_and_response_op,
+        status_code,
+        has_response_body,
     ):
         assert not get_twin_op.completed
         assert not request_and_response_op.completed
@@ -989,11 +1033,16 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperat
         "response_body, expected_twin",
         [
             pytest.param(b'{"key": "value"}', {"key": "value"}, id="Twin 1"),
-            pytest.param(b'{"key1": {"key2": "value"}}', {"key1": {"key2": "value"}}, id="Twin 2"),
+            pytest.param(
+                b'{"key1": {"key2": "value"}}', {"key1": {"key2": "value"}}, id="Twin 2"
+            ),
             pytest.param(
                 b'{"key1": {"key2": {"key3": "value1", "key4": "value2"}, "key5": "value3"}, "key6": {"key7": "value4"}, "key8": "value5"}',
                 {
-                    "key1": {"key2": {"key3": "value1", "key4": "value2"}, "key5": "value3"},
+                    "key1": {
+                        "key2": {"key3": "value1", "key4": "value2"},
+                        "key5": "value3",
+                    },
                     "key6": {"key7": "value4"},
                     "key8": "value5",
                 },
@@ -1099,7 +1148,11 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromPatchTwinRepo
         ],
     )
     def test_request_and_response_op_completed_success_with_bad_code(
-        self, stage, patch_twin_reported_properties_op, request_and_response_op, status_code
+        self,
+        stage,
+        patch_twin_reported_properties_op,
+        request_and_response_op,
+        status_code,
     ):
         assert not patch_twin_reported_properties_op.completed
         assert not request_and_response_op.completed

@@ -111,7 +111,9 @@ class RegistrationState(object):
 
     @property
     def response_payload(self):
-        return json.dumps(self._response_payload, default=lambda o: o.__dict__, sort_keys=True)
+        return json.dumps(
+            self._response_payload, default=lambda o: o.__dict__, sort_keys=True
+        )
 
     def __str__(self):
         return "\n".join(

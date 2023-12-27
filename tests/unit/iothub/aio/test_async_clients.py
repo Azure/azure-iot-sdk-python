@@ -109,7 +109,9 @@ class SharedClientShutdownTests(object):
     @pytest.mark.it(
         "Waits for the completion of the 'shutdown' pipeline operation before returning"
     )
-    async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline):
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline
+    ):
         # mock out implicit disconnect
         client.disconnect = mocker.MagicMock()
         client.disconnect.return_value = await create_completed_future(None)
@@ -136,7 +138,9 @@ class SharedClientShutdownTests(object):
                 id="OperationCancelled -> OperationCancelled",
             ),
             # The only other expected errors are unexpected ones.
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
@@ -186,8 +190,12 @@ class SharedClientConnectTests(object):
         await client.connect()
         assert mqtt_pipeline.connect.call_count == 1
 
-    @pytest.mark.it("Waits for the completion of the 'connect' pipeline operation before returning")
-    async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline):
+    @pytest.mark.it(
+        "Waits for the completion of the 'connect' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline
+    ):
         cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
         cb_mock.completion.return_value = await create_completed_future(None)
 
@@ -244,7 +252,9 @@ class SharedClientConnectTests(object):
                 client_exceptions.OperationTimeout,
                 id="OperationTimeout->OperationTimeout",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
@@ -284,7 +294,9 @@ class SharedClientDisconnectTests(object):
     @pytest.mark.it(
         "Waits for the completion of both 'disconnect' pipeline operations before returning"
     )
-    async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline):
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline
+    ):
         # Make a mock that returns two different objects (since there are two AwaitableCallbacks used)
         cb_mock1 = mocker.MagicMock()
         cb_mock2 = mocker.MagicMock()
@@ -307,7 +319,9 @@ class SharedClientDisconnectTests(object):
         # Give the AwaitableCallback mock a standardized return value again, since
         # .disconnect() will be called in cleanup
         cb_mock_init.side_effect = None
-        cb_mock_init.return_value.completion.return_value = await create_completed_future(None)
+        cb_mock_init.return_value.completion.return_value = (
+            await create_completed_future(None)
+        )
 
     @pytest.mark.it(
         "Raises a client error if the `disconnect` pipeline operation calls back with a pipeline error"
@@ -325,7 +339,9 @@ class SharedClientDisconnectTests(object):
                 client_exceptions.OperationCancelled,
                 id="OperationCancelled -> OperationCancelled",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
@@ -391,10 +407,12 @@ class SharedClientUpdateSasTokenTests(object):
     def new_sas_token_string(self, uri):
         # New SASToken String that matches old device id, module_id and hostname
         signature = "AvCQCS7uVk8Lxau7rBs/jek4iwENIwLwpEV7NIJySc0="
-        new_token_string = "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}".format(
-            uri=urllib.parse.quote(uri, safe=""),
-            signature=urllib.parse.quote(signature, safe=""),
-            expiry=int(time.time()) + 3600,
+        new_token_string = (
+            "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}".format(
+                uri=urllib.parse.quote(uri, safe=""),
+                signature=urllib.parse.quote(signature, safe=""),
+                expiry=int(time.time()) + 3600,
+            )
         )
         return new_token_string
 
@@ -402,17 +420,21 @@ class SharedClientUpdateSasTokenTests(object):
         "Creates a new NonRenewableSasToken and sets it on the PipelineConfig, if the new SAS Token string matches the existing SAS Token's information"
     )
     async def test_updates_token_if_match_vals(self, sas_client, new_sas_token_string):
-        old_sas_token_string = str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken)
+        old_sas_token_string = str(
+            sas_client._mqtt_pipeline.pipeline_configuration.sastoken
+        )
 
         # Update to new token
         await sas_client.update_sastoken(new_sas_token_string)
 
         # Sastoken was updated
         assert (
-            str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken) == new_sas_token_string
+            str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken)
+            == new_sas_token_string
         )
         assert (
-            str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken) != old_sas_token_string
+            str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken)
+            != old_sas_token_string
         )
 
     @pytest.mark.it("Begins a 'reauthorize connection' pipeline operation")
@@ -484,11 +506,19 @@ class SharedClientUpdateSasTokenTests(object):
                 client_exceptions.OperationTimeout,
                 id="OperationTimeout->OperationTimeout",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
-        self, mocker, sas_client, mqtt_pipeline, new_sas_token_string, client_error, pipeline_error
+        self,
+        mocker,
+        sas_client,
+        mqtt_pipeline,
+        new_sas_token_string,
+        client_error,
+        pipeline_error,
     ):
         # NOTE: If/When the MQTT pipeline is updated so that the reauthorize op waits for
         # reconnection in order to return (currently it just waits for the disconnect),
@@ -520,10 +550,14 @@ class SharedClientUpdateSasTokenTests(object):
     @pytest.mark.it(
         "Raises a ClientError if the client was created with a renewable, non-user provided SAS (e.g. from connection string, symmetric key, etc.)"
     )
-    async def test_created_with_renewable_sas(self, mocker, sas_client, uri, new_sas_token_string):
+    async def test_created_with_renewable_sas(
+        self, mocker, sas_client, uri, new_sas_token_string
+    ):
         # Modify client to seem as if created with renewable SAS
         mock_signing_mechanism = mocker.MagicMock()
-        mock_signing_mechanism.sign.return_value = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
+        mock_signing_mechanism.sign.return_value = (
+            "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
+        )
         renewable_token = st.RenewableSasToken(uri, mock_signing_mechanism)
         sas_client._mqtt_pipeline.pipeline_configuration.sastoken = renewable_token
 
@@ -531,7 +565,9 @@ class SharedClientUpdateSasTokenTests(object):
         with pytest.raises(client_exceptions.ClientError):
             await sas_client.update_sastoken(new_sas_token_string)
 
-    @pytest.mark.it("Raises a ValueError if there is an error creating a new NonRenewableSasToken")
+    @pytest.mark.it(
+        "Raises a ValueError if there is an error creating a new NonRenewableSasToken"
+    )
     async def test_token_error(self, mocker, sas_client, new_sas_token_string):
         # NOTE: specific inputs that could cause this are tested in the sastoken test module
         sastoken_mock = mocker.patch.object(st.NonRenewableSasToken, "__init__")
@@ -542,12 +578,18 @@ class SharedClientUpdateSasTokenTests(object):
             await sas_client.update_sastoken(new_sas_token_string)
         assert e_info.value.__cause__ is token_err
 
-    @pytest.mark.it("Raises ValueError if the provided SAS token string has already expired")
+    @pytest.mark.it(
+        "Raises ValueError if the provided SAS token string has already expired"
+    )
     async def test_expired_token(self, mocker, sas_client, uri):
-        sastoken_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-            resource=urllib.parse.quote(uri, safe=""),
-            signature=urllib.parse.quote("ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""),
-            expiry=int(time.time() - 3600),  # expired
+        sastoken_str = (
+            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=urllib.parse.quote(uri, safe=""),
+                signature=urllib.parse.quote(
+                    "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""
+                ),
+                expiry=int(time.time() - 3600),  # expired
+            )
         )
 
         with pytest.raises(ValueError):
@@ -558,21 +600,31 @@ class SharedClientUpdateSasTokenTests(object):
     )
     async def test_nonmatching_uri_in_new_token(self, sas_client, nonmatching_uri):
         signature = "AvCQCS7uVk8Lxau7rBs/jek4iwENIwLwpEV7NIJySc0="
-        sastoken_str = "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}".format(
-            uri=urllib.parse.quote(nonmatching_uri, safe=""),
-            signature=urllib.parse.quote(signature),
-            expiry=int(time.time()) + 3600,
+        sastoken_str = (
+            "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}".format(
+                uri=urllib.parse.quote(nonmatching_uri, safe=""),
+                signature=urllib.parse.quote(signature),
+                expiry=int(time.time()) + 3600,
+            )
         )
 
         with pytest.raises(ValueError):
             await sas_client.update_sastoken(sastoken_str)
 
-    @pytest.mark.it("Raises ValueError if the provided SAS token string has an invalid URI")
-    async def test_raises_value_error_invalid_uri(self, mocker, sas_client, invalid_uri):
-        sastoken_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-            resource=urllib.parse.quote(invalid_uri, safe=""),
-            signature=urllib.parse.quote("ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""),
-            expiry=int(time.time() + 3600),
+    @pytest.mark.it(
+        "Raises ValueError if the provided SAS token string has an invalid URI"
+    )
+    async def test_raises_value_error_invalid_uri(
+        self, mocker, sas_client, invalid_uri
+    ):
+        sastoken_str = (
+            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=urllib.parse.quote(invalid_uri, safe=""),
+                signature=urllib.parse.quote(
+                    "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""
+                ),
+                expiry=int(time.time() + 3600),
+            )
         )
 
         with pytest.raises(ValueError):
@@ -589,7 +641,9 @@ class SharedClientSendD2CMessageTests(object):
     @pytest.mark.it(
         "Waits for the completion of the 'send_message' pipeline operation before returning"
     )
-    async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline, message):
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline, message
+    ):
         cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
         cb_mock.completion.return_value = await create_completed_future(None)
 
@@ -641,7 +695,9 @@ class SharedClientSendD2CMessageTests(object):
                 client_exceptions.OperationTimeout,
                 id="OperationTimeout -> OperationTimeout",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
@@ -682,7 +738,9 @@ class SharedClientSendD2CMessageTests(object):
         assert sent_message.data == message_input
 
     @pytest.mark.it("Raises error when message data size is greater than 256 KB")
-    async def test_raises_error_when_message_data_greater_than_256(self, client, mqtt_pipeline):
+    async def test_raises_error_when_message_data_greater_than_256(
+        self, client, mqtt_pipeline
+    ):
         data_input = "serpensortia" * 256000
         message = Message(data_input)
         with pytest.raises(ValueError) as e_info:
@@ -691,7 +749,9 @@ class SharedClientSendD2CMessageTests(object):
         assert mqtt_pipeline.send_message.call_count == 0
 
     @pytest.mark.it("Raises error when message size is greater than 256 KB")
-    async def test_raises_error_when_message_size_greater_than_256(self, client, mqtt_pipeline):
+    async def test_raises_error_when_message_size_greater_than_256(
+        self, client, mqtt_pipeline
+    ):
         data_input = "serpensortia"
         message = Message(data_input)
         message.custom_properties["spell"] = data_input * 256000
@@ -701,7 +761,9 @@ class SharedClientSendD2CMessageTests(object):
         assert mqtt_pipeline.send_message.call_count == 0
 
     @pytest.mark.it("Does not raises error when message data size is equal to 256 KB")
-    async def test_raises_error_when_message_data_equal_to_256(self, client, mqtt_pipeline):
+    async def test_raises_error_when_message_data_equal_to_256(
+        self, client, mqtt_pipeline
+    ):
         data_input = "a" * 262095
         message = Message(data_input)
         # This check was put as message class may undergo the default content type encoding change
@@ -721,7 +783,10 @@ class SharedClientReceiveMethodRequestTests(object):
     @pytest.mark.it("Implicitly enables methods feature if not already enabled")
     @pytest.mark.parametrize(
         "method_name",
-        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+        [
+            pytest.param(None, id="Generic Method"),
+            pytest.param("method_x", id="Named Method"),
+        ],
     )
     async def test_enables_methods_only_if_not_already_enabled(
         self, mocker, client, mqtt_pipeline, method_name
@@ -754,7 +819,9 @@ class SharedClientReceiveMethodRequestTests(object):
     async def test_called_without_method_name_returns_method_request_from_generic_method_inbox(
         self, mocker, client
     ):
-        request = MethodRequest(request_id="1", name="some_method", payload={"key": "value"})
+        request = MethodRequest(
+            request_id="1", name="some_method", payload={"key": "value"}
+        )
         inbox_mock = mocker.MagicMock(autospec=AsyncClientInbox)
         inbox_mock.get.return_value = await create_completed_future(request)
         manager_get_inbox_mock = mocker.patch.object(
@@ -776,7 +843,9 @@ class SharedClientReceiveMethodRequestTests(object):
         self, mocker, client
     ):
         method_name = "some_method"
-        request = MethodRequest(request_id="1", name=method_name, payload={"key": "value"})
+        request = MethodRequest(
+            request_id="1", name=method_name, payload={"key": "value"}
+        )
         inbox_mock = mocker.MagicMock(autospec=AsyncClientInbox)
         inbox_mock.get.return_value = await create_completed_future(request)
         manager_get_inbox_mock = mocker.patch.object(
@@ -791,10 +860,15 @@ class SharedClientReceiveMethodRequestTests(object):
         assert inbox_mock.get.call_count == 1
         assert received_request is received_request
 
-    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    @pytest.mark.it(
+        "Locks the client to API Receive Mode if the receive mode has not yet been set"
+    )
     @pytest.mark.parametrize(
         "method_name",
-        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+        [
+            pytest.param(None, id="Generic Method"),
+            pytest.param("method_x", id="Named Method"),
+        ],
     )
     async def test_receive_mode_not_set(self, mocker, client, method_name):
         # patch this so receive_method_request won't block
@@ -811,7 +885,10 @@ class SharedClientReceiveMethodRequestTests(object):
     )
     @pytest.mark.parametrize(
         "method_name",
-        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+        [
+            pytest.param(None, id="Generic Method"),
+            pytest.param("method_x", id="Named Method"),
+        ],
     )
     async def test_receive_mode_set_api(self, mocker, client, method_name):
         # patch this so receive_method_request won't block
@@ -828,9 +905,14 @@ class SharedClientReceiveMethodRequestTests(object):
     )
     @pytest.mark.parametrize(
         "method_name",
-        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+        [
+            pytest.param(None, id="Generic Method"),
+            pytest.param("method_x", id="Named Method"),
+        ],
     )
-    async def test_receive_mode_set_handler(self, mocker, client, method_name, mqtt_pipeline):
+    async def test_receive_mode_set_handler(
+        self, mocker, client, method_name, mqtt_pipeline
+    ):
         # patch this so receive_method_request won't block
         inbox_get_mock = mocker.patch.object(
             AsyncClientInbox, "get", return_value=(await create_completed_future(None))
@@ -914,18 +996,28 @@ class SharedClientSendMethodResponseTests(object):
                 client_exceptions.OperationTimeout,
                 id="OperationTimeout -> OperationTimeout",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
-        self, mocker, client, mqtt_pipeline, method_response, pipeline_error, client_error
+        self,
+        mocker,
+        client,
+        mqtt_pipeline,
+        method_response,
+        pipeline_error,
+        client_error,
     ):
         my_pipeline_error = pipeline_error()
 
         def fail_send_method_response(response, callback):
             callback(error=my_pipeline_error)
 
-        mqtt_pipeline.send_method_response = mocker.MagicMock(side_effect=fail_send_method_response)
+        mqtt_pipeline.send_method_response = mocker.MagicMock(
+            side_effect=fail_send_method_response
+        )
         with pytest.raises(client_error) as e_info:
             await client.send_method_response(method_response)
         assert e_info.value.__cause__ is my_pipeline_error
@@ -944,7 +1036,9 @@ class SharedClientGetTwinTests(object):
         mocker.patch.object(mqtt_pipeline, "get_twin", side_effect=immediate_callback)
 
         # Verify twin enabled if not enabled
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
+            False  # twin will appear disabled
+        )
         await client.get_twin()
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN
@@ -952,12 +1046,16 @@ class SharedClientGetTwinTests(object):
         mqtt_pipeline.enable_feature.reset_mock()
 
         # Verify twin not enabled if already enabled
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
+            True  # twin will appear enabled
+        )
         await client.get_twin()
         assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Begins a 'get_twin' pipeline operation")
-    async def test_get_twin_calls_pipeline(self, client, mqtt_pipeline, mocker, fake_twin):
+    async def test_get_twin_calls_pipeline(
+        self, client, mqtt_pipeline, mocker, fake_twin
+    ):
         def immediate_callback(callback):
             callback(twin=fake_twin)
 
@@ -968,10 +1066,14 @@ class SharedClientGetTwinTests(object):
     @pytest.mark.it(
         "Waits for the completion of the 'get_twin' pipeline operation before returning"
     )
-    async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline):
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline
+    ):
         cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
         cb_mock.completion.return_value = await create_completed_future(None)
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
+            True  # twin will appear enabled
+        )
 
         await client.get_twin()
 
@@ -1021,7 +1123,9 @@ class SharedClientGetTwinTests(object):
                 client_exceptions.OperationTimeout,
                 id="OperationTimeout -> OperationTimeout",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
@@ -1039,8 +1143,9 @@ class SharedClientGetTwinTests(object):
         assert mqtt_pipeline.get_twin.call_count == 1
 
     @pytest.mark.it("Returns the twin that the pipeline returned")
-    async def test_verifies_twin_returned(self, mocker, client, mqtt_pipeline, fake_twin):
-
+    async def test_verifies_twin_returned(
+        self, mocker, client, mqtt_pipeline, fake_twin
+    ):
         # make the pipeline the twin
         def immediate_callback(callback):
             callback(twin=fake_twin)
@@ -1061,11 +1166,15 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
             callback()
 
         mocker.patch.object(
-            mqtt_pipeline, "patch_twin_reported_properties", side_effect=immediate_callback
+            mqtt_pipeline,
+            "patch_twin_reported_properties",
+            side_effect=immediate_callback,
         )
 
         # Verify twin enabled if not enabled
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
+            False  # twin will appear disabled
+        )
         await client.patch_twin_reported_properties(twin_patch_reported)
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN
@@ -1073,7 +1182,9 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
         mqtt_pipeline.enable_feature.reset_mock()
 
         # Verify twin not enabled if already enabled
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
+            True  # twin will appear enabled
+        )
         await client.patch_twin_reported_properties(twin_patch_reported)
         assert mqtt_pipeline.enable_feature.call_count == 0
 
@@ -1096,12 +1207,17 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
     ):
         cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
         cb_mock.completion.return_value = await create_completed_future(None)
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
+            True  # twin will appear enabled
+        )
 
         await client.patch_twin_reported_properties(twin_patch_reported)
 
         # Assert callback is sent to pipeline
-        assert mqtt_pipeline.patch_twin_reported_properties.call_args[1]["callback"] is cb_mock
+        assert (
+            mqtt_pipeline.patch_twin_reported_properties.call_args[1]["callback"]
+            is cb_mock
+        )
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
 
@@ -1146,11 +1262,19 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
                 client_exceptions.OperationTimeout,
                 id="OperationTimeout -> OperationTimeout",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
-        self, mocker, client, mqtt_pipeline, twin_patch_reported, pipeline_error, client_error
+        self,
+        mocker,
+        client,
+        mqtt_pipeline,
+        twin_patch_reported,
+        pipeline_error,
+        client_error,
     ):
         my_pipeline_error = pipeline_error()
 
@@ -1167,7 +1291,9 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
 
 
 class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
-    @pytest.mark.it("Implicitly enables twin patch messaging feature if not already enabled")
+    @pytest.mark.it(
+        "Implicitly enables twin patch messaging feature if not already enabled"
+    )
     async def test_enables_c2d_messaging_only_if_not_already_enabled(
         self, mocker, client, mqtt_pipeline
     ):
@@ -1182,7 +1308,10 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         )
         await client.receive_twin_desired_properties_patch()
         assert mqtt_pipeline.enable_feature.call_count == 1
-        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN_PATCHES
+        assert (
+            mqtt_pipeline.enable_feature.call_args[0][0]
+            == pipeline_constant.TWIN_PATCHES
+        )
 
         mqtt_pipeline.enable_feature.reset_mock()
 
@@ -1194,7 +1323,9 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a message from the twin patch inbox, if available")
-    async def test_returns_message_from_twin_patch_inbox(self, mocker, client, twin_patch_desired):
+    async def test_returns_message_from_twin_patch_inbox(
+        self, mocker, client, twin_patch_desired
+    ):
         inbox_mock = mocker.MagicMock(autospec=AsyncClientInbox)
         inbox_mock.get.return_value = await create_completed_future(twin_patch_desired)
         manager_get_inbox_mock = mocker.patch.object(
@@ -1206,7 +1337,9 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert inbox_mock.get.call_count == 1
         assert received_patch is twin_patch_desired
 
-    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    @pytest.mark.it(
+        "Locks the client to API Receive Mode if the receive mode has not yet been set"
+    )
     async def test_receive_mode_not_set(self, mocker, client):
         # patch this so API won't block
         mocker.patch.object(
@@ -1292,11 +1425,14 @@ class TestIoTHubDeviceClientInstantiation(
 
         assert client._mqtt_pipeline.on_c2d_message_received is not None
         assert (
-            client._mqtt_pipeline.on_c2d_message_received == client._inbox_manager.route_c2d_message
+            client._mqtt_pipeline.on_c2d_message_received
+            == client._inbox_manager.route_c2d_message
         )
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_connection_string()")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - .create_from_connection_string()"
+)
 class TestIoTHubDeviceClientCreateFromConnectionString(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientCreateFromConnectionStringTests
 ):
@@ -1310,22 +1446,29 @@ class TestIoTHubDeviceClientCreateFromSastoken(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_symmetric_key()")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - .create_from_symmetric_key()"
+)
 class TestConfigurationCreateIoTHubDeviceClientFromSymmetricKey(
     IoTHubDeviceClientTestsConfig, SharedIoTHubDeviceClientCreateFromSymmetricKeyTests
 ):
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_x509_certificate()")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - .create_from_x509_certificate()"
+)
 class TestIoTHubDeviceClientCreateFromX509Certificate(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubDeviceClientCreateFromX509CertificateTests
+    IoTHubDeviceClientTestsConfig,
+    SharedIoTHubDeviceClientCreateFromX509CertificateTests,
 ):
     pass
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .shutdown()")
-class TestIoTHubDeviceClientShutdown(IoTHubDeviceClientTestsConfig, SharedClientShutdownTests):
+class TestIoTHubDeviceClientShutdown(
+    IoTHubDeviceClientTestsConfig, SharedClientShutdownTests
+):
     @pytest.fixture
     def client(self, mqtt_pipeline, http_pipeline):
         """Override the client so that it doesn't shutdown during cleanup.
@@ -1346,12 +1489,16 @@ class TestIoTHubDeviceClientUpdateSasToken(
         token_uri_pieces = sastoken.resource_uri.split("/")
         hostname = token_uri_pieces[0]
         device_id = token_uri_pieces[2]
-        sas_config = IoTHubPipelineConfig(hostname=hostname, device_id=device_id, sastoken=sastoken)
+        sas_config = IoTHubPipelineConfig(
+            hostname=hostname, device_id=device_id, sastoken=sastoken
+        )
         return sas_config
 
     @pytest.fixture
     def uri(self, hostname, device_id):
-        return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
+        return "{hostname}/devices/{device_id}".format(
+            hostname=hostname, device_id=device_id
+        )
 
     @pytest.fixture(params=["Nonmatching Device ID", "Nonmatching Hostname"])
     def nonmatching_uri(self, request, device_id, hostname):
@@ -1363,10 +1510,17 @@ class TestIoTHubDeviceClientUpdateSasToken(
         if request.param == "Nonmatching Device ID":
             return uri_format.format(hostname=hostname, device_id="nonmatching_device")
         else:
-            return uri_format.format(hostname="nonmatching_hostname", device_id=device_id)
+            return uri_format.format(
+                hostname="nonmatching_hostname", device_id=device_id
+            )
 
     @pytest.fixture(
-        params=["Too short", "Too long", "Incorrectly formatted device notation", "Module URI"]
+        params=[
+            "Too short",
+            "Too long",
+            "Incorrectly formatted device notation",
+            "Module URI",
+        ]
     )
     def invalid_uri(self, request, device_id, hostname):
         # NOTE: As in the nonmatching_uri fixture above, this is a workaround for parametrization
@@ -1387,12 +1541,16 @@ class TestIoTHubDeviceClientUpdateSasToken(
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .connect()")
-class TestIoTHubDeviceClientConnect(IoTHubDeviceClientTestsConfig, SharedClientConnectTests):
+class TestIoTHubDeviceClientConnect(
+    IoTHubDeviceClientTestsConfig, SharedClientConnectTests
+):
     pass
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .disconnect()")
-class TestIoTHubDeviceClientDisconnect(IoTHubDeviceClientTestsConfig, SharedClientDisconnectTests):
+class TestIoTHubDeviceClientDisconnect(
+    IoTHubDeviceClientTestsConfig, SharedClientDisconnectTests
+):
     pass
 
 
@@ -1415,7 +1573,9 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
         )
 
         # Verify C2D Messaging enabled if not enabled
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # C2D will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
+            False  # C2D will appear disabled
+        )
         await client.receive_message()
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.C2D_MSG
@@ -1423,7 +1583,9 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
         mqtt_pipeline.enable_feature.reset_mock()
 
         # Verify C2D Messaging not enabled if already enabled
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
+            True  # C2D will appear enabled
+        )
         await client.receive_message()
         assert mqtt_pipeline.enable_feature.call_count == 0
 
@@ -1440,7 +1602,9 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
         assert inbox_mock.get.call_count == 1
         assert received_message is message
 
-    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    @pytest.mark.it(
+        "Locks the client to API Receive Mode if the receive mode has not yet been set"
+    )
     async def test_receive_mode_not_set(self, mocker, client):
         # patch this so API won't block
         mocker.patch.object(
@@ -1500,11 +1664,15 @@ class TestIoTHubDeviceClientSendMethodResponse(
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .get_twin()")
-class TestIoTHubDeviceClientGetTwin(IoTHubDeviceClientTestsConfig, SharedClientGetTwinTests):
+class TestIoTHubDeviceClientGetTwin(
+    IoTHubDeviceClientTestsConfig, SharedClientGetTwinTests
+):
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .patch_twin_reported_properties()")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - .patch_twin_reported_properties()"
+)
 class TestIoTHubDeviceClientPatchTwinReportedProperties(
     IoTHubDeviceClientTestsConfig, SharedClientPatchTwinReportedPropertiesTests
 ):
@@ -1520,19 +1688,28 @@ class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .get_storage_info_for_blob()")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - .get_storage_info_for_blob()"
+)
 class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Begins a 'get_storage_info_for_blob' HTTPPipeline operation")
-    async def test_calls_pipeline_get_storage_info_for_blob(self, client, http_pipeline):
+    async def test_calls_pipeline_get_storage_info_for_blob(
+        self, client, http_pipeline
+    ):
         fake_blob_name = "__fake_blob_name__"
         await client.get_storage_info_for_blob(fake_blob_name)
         assert http_pipeline.get_storage_info_for_blob.call_count == 1
-        assert http_pipeline.get_storage_info_for_blob.call_args[1]["blob_name"] is fake_blob_name
+        assert (
+            http_pipeline.get_storage_info_for_blob.call_args[1]["blob_name"]
+            is fake_blob_name
+        )
 
     @pytest.mark.it(
         "Waits for the completion of the 'get_storage_info_for_blob' pipeline operation before returning"
     )
-    async def test_waits_for_pipeline_op_completion(self, mocker, client, http_pipeline):
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, http_pipeline
+    ):
         fake_blob_name = "__fake_blob_name__"
         cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
         cb_mock.completion.return_value = await create_completed_future(None)
@@ -1540,7 +1717,9 @@ class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
         await client.get_storage_info_for_blob(fake_blob_name)
 
         # Assert callback is sent to pipeline
-        assert http_pipeline.get_storage_info_for_blob.call_args[1]["callback"] is cb_mock
+        assert (
+            http_pipeline.get_storage_info_for_blob.call_args[1]["callback"] is cb_mock
+        )
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
 
@@ -1560,7 +1739,9 @@ class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
                 client_exceptions.OperationCancelled,
                 id="OperationCancelled -> OperationCancelled",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
@@ -1587,7 +1768,10 @@ class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
         fake_storage_info = "__fake_storage_info__"
         received_storage_info = await client.get_storage_info_for_blob(fake_blob_name)
         assert http_pipeline.get_storage_info_for_blob.call_count == 1
-        assert http_pipeline.get_storage_info_for_blob.call_args[1]["blob_name"] is fake_blob_name
+        assert (
+            http_pipeline.get_storage_info_for_blob.call_args[1]["blob_name"]
+            is fake_blob_name
+        )
 
         assert (
             received_storage_info is fake_storage_info
@@ -1597,7 +1781,9 @@ class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) -.notify_blob_upload_status()")
 class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Begins a 'notify_blob_upload_status' HTTPPipeline operation")
-    async def test_calls_pipeline_notify_blob_upload_status(self, client, http_pipeline):
+    async def test_calls_pipeline_notify_blob_upload_status(
+        self, client, http_pipeline
+    ):
         correlation_id = "__fake_correlation_id__"
         is_success = "__fake_is_success__"
         status_code = "__fake_status_code__"
@@ -1615,7 +1801,9 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig
     @pytest.mark.it(
         "Waits for the completion of the 'notify_blob_upload_status' pipeline operation before returning"
     )
-    async def test_waits_for_pipeline_op_completion(self, mocker, client, http_pipeline):
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, http_pipeline
+    ):
         correlation_id = "__fake_correlation_id__"
         is_success = "__fake_is_success__"
         status_code = "__fake_status_code__"
@@ -1627,7 +1815,9 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig
         )
 
         # Assert callback is sent to pipeline
-        assert http_pipeline.notify_blob_upload_status.call_args[1]["callback"] is cb_mock
+        assert (
+            http_pipeline.notify_blob_upload_status.call_args[1]["callback"] is cb_mock
+        )
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
 
@@ -1642,7 +1832,9 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
@@ -1670,7 +1862,9 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig
             assert e_info.value.__cause__ is my_pipeline_error
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_message_received")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_message_received"
+)
 class TestIoTHubDeviceClientPROPERTYOnMessageReceivedHandler(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
@@ -1683,7 +1877,9 @@ class TestIoTHubDeviceClientPROPERTYOnMessageReceivedHandler(
         return pipeline_constant.C2D_MSG
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_method_request_received")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_method_request_received"
+)
 class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
@@ -1711,7 +1907,9 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         return pipeline_constant.TWIN_PATCHES
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_connection_state_change")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_connection_state_change"
+)
 class TestIoTHubDeviceClientPROPERTYOnConnectionStateChangeHandler(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
 ):
@@ -1720,7 +1918,9 @@ class TestIoTHubDeviceClientPROPERTYOnConnectionStateChangeHandler(
         return "on_connection_state_change"
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_new_sastoken_required")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_new_sastoken_required"
+)
 class TestIoTHubDeviceClientPROPERTYOnNewSastokenRequiredHandler(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
 ):
@@ -1729,7 +1929,9 @@ class TestIoTHubDeviceClientPROPERTYOnNewSastokenRequiredHandler(
         return "on_new_sastoken_required"
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_background_exception")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_background_exception"
+)
 class TestIoTHubDeviceClientPROPERTYOnBackgroundExceptionHandler(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
 ):
@@ -1759,14 +1961,18 @@ class TestIoTHubDeviceClientOCCURRENCEDisconnect(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURRENCE: New Sastoken Required")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Synchronous) - OCCURRENCE: New Sastoken Required"
+)
 class TestIoTHubDeviceClientOCCURRENCENewSastokenRequired(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCENewSastokenRequired
 ):
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - OCCURRENCE: Background Exception")
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - OCCURRENCE: Background Exception"
+)
 class TestIoTHubDeviceClientOCCURRENCEBackgroundException(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCEBackgroundException
 ):
@@ -1819,7 +2025,9 @@ class TestIoTHubModuleClientInstantiation(
         )
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_connection_string()")
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - .create_from_connection_string()"
+)
 class TestIoTHubModuleClientCreateFromConnectionString(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientCreateFromConnectionStringTests
 ):
@@ -1853,15 +2061,20 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_x509_certificate()")
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - .create_from_x509_certificate()"
+)
 class TestIoTHubModuleClientCreateFromX509Certificate(
-    IoTHubModuleClientTestsConfig, SharedIoTHubModuleClientCreateFromX509CertificateTests
+    IoTHubModuleClientTestsConfig,
+    SharedIoTHubModuleClientCreateFromX509CertificateTests,
 ):
     pass
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .shutdown()")
-class TestIoTHubModuleClientShutdown(IoTHubModuleClientTestsConfig, SharedClientShutdownTests):
+class TestIoTHubModuleClientShutdown(
+    IoTHubModuleClientTestsConfig, SharedClientShutdownTests
+):
     @pytest.fixture
     def client(self, mqtt_pipeline, http_pipeline):
         """Override the client so that it doesn't shutdown during cleanup.
@@ -1891,7 +2104,11 @@ class TestIoTHubModuleClientUpdateSasToken(
         )
 
     @pytest.fixture(
-        params=["Nonmatching Device ID", "Nonmatching Module ID", "Nonmatching Hostname"]
+        params=[
+            "Nonmatching Device ID",
+            "Nonmatching Module ID",
+            "Nonmatching Hostname",
+        ]
     )
     def nonmatching_uri(self, request, device_id, module_id, hostname):
         # NOTE: It would be preferable to have this as a parametrization on a test rather than a
@@ -1909,7 +2126,9 @@ class TestIoTHubModuleClientUpdateSasToken(
             )
         else:
             return uri_format.format(
-                hostname="nonmatching_hostname", device_id=device_id, module_id=module_id
+                hostname="nonmatching_hostname",
+                device_id=device_id,
+                module_id=module_id,
             )
 
     @pytest.fixture(
@@ -1930,7 +2149,9 @@ class TestIoTHubModuleClientUpdateSasToken(
             return "{}/devices/{}/modules".format(hostname, device_id)
         elif request.param == "Too long":
             # Extraneous value at the end
-            return "{}/devices/{}/modules/{}/somethingElse".format(hostname, device_id, module_id)
+            return "{}/devices/{}/modules/{}/somethingElse".format(
+                hostname, device_id, module_id
+            )
         elif request.param == "Incorrectly formatted device notation":
             # Doesn't have '/devices/'
             return "{}/not-devices/{}/modules/{}".format(hostname, device_id, module_id)
@@ -1950,18 +2171,25 @@ class TestIoTHubModuleClientUpdateSasToken(
         device_id = token_uri_pieces[2]
         module_id = token_uri_pieces[4]
         sas_config = IoTHubPipelineConfig(
-            hostname=hostname, device_id=device_id, module_id=module_id, sastoken=sastoken
+            hostname=hostname,
+            device_id=device_id,
+            module_id=module_id,
+            sastoken=sastoken,
         )
         return sas_config
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .connect()")
-class TestIoTHubModuleClientConnect(IoTHubModuleClientTestsConfig, SharedClientConnectTests):
+class TestIoTHubModuleClientConnect(
+    IoTHubModuleClientTestsConfig, SharedClientConnectTests
+):
     pass
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .disconnect()")
-class TestIoTHubModuleClientDisconnect(IoTHubModuleClientTestsConfig, SharedClientDisconnectTests):
+class TestIoTHubModuleClientDisconnect(
+    IoTHubModuleClientTestsConfig, SharedClientDisconnectTests
+):
     pass
 
 
@@ -1975,7 +2203,9 @@ class TestIoTHubNModuleClientSendD2CMessage(
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_message_to_output()")
 class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Begins a 'send_output_message' pipeline operation")
-    async def test_calls_pipeline_send_message_to_output(self, client, mqtt_pipeline, message):
+    async def test_calls_pipeline_send_message_to_output(
+        self, client, mqtt_pipeline, message
+    ):
         output_name = "some_output"
         await client.send_message_to_output(message, output_name)
         assert mqtt_pipeline.send_output_message.call_count == 1
@@ -1985,7 +2215,9 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
     @pytest.mark.it(
         "Waits for the completion of the 'send_output_message' pipeline operation before returning"
     )
-    async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline, message):
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline, message
+    ):
         cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
         cb_mock.completion.return_value = await create_completed_future(None)
 
@@ -2038,7 +2270,9 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
                 client_exceptions.OperationTimeout,
                 id="OperationTimeout -> OperationTimeout",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
@@ -2049,7 +2283,9 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         def fail_send_output_message(message, callback):
             callback(error=my_pipeline_error)
 
-        mqtt_pipeline.send_output_message = mocker.MagicMock(side_effect=fail_send_output_message)
+        mqtt_pipeline.send_output_message = mocker.MagicMock(
+            side_effect=fail_send_output_message
+        )
         with pytest.raises(client_error) as e_info:
             output_name = "some_output"
             await client.send_message_to_output(message, output_name)
@@ -2143,7 +2379,9 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         )
         await client.receive_message_on_input(input_name)
         assert mqtt_pipeline.enable_feature.call_count == 1
-        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.INPUT_MSG
+        assert (
+            mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.INPUT_MSG
+        )
 
         mqtt_pipeline.enable_feature.reset_mock()
 
@@ -2169,7 +2407,9 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         assert inbox_mock.get.call_count == 1
         assert received_message is message
 
-    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    @pytest.mark.it(
+        "Locks the client to API Receive Mode if the receive mode has not yet been set"
+    )
     async def test_receive_mode_not_set(self, mocker, client):
         # patch this so API won't block
         mocker.patch.object(
@@ -2229,11 +2469,15 @@ class TestIoTHubModuleClientSendMethodResponse(
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .get_twin()")
-class TestIoTHubModuleClientGetTwin(IoTHubModuleClientTestsConfig, SharedClientGetTwinTests):
+class TestIoTHubModuleClientGetTwin(
+    IoTHubModuleClientTestsConfig, SharedClientGetTwinTests
+):
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .patch_twin_reported_properties()")
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - .patch_twin_reported_properties()"
+)
 class TestIoTHubModuleClientPatchTwinReportedProperties(
     IoTHubModuleClientTestsConfig, SharedClientPatchTwinReportedPropertiesTests
 ):
@@ -2251,8 +2495,12 @@ class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) -.invoke_method()")
 class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
-    @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a device")
-    async def test_calls_pipeline_invoke_method_for_device(self, mocker, client, http_pipeline):
+    @pytest.mark.it(
+        "Begins a 'invoke_method' HTTPPipeline operation where the target is a device"
+    )
+    async def test_calls_pipeline_invoke_method_for_device(
+        self, mocker, client, http_pipeline
+    ):
         method_params = {"methodName": "__fake_method_name__"}
         device_id = "__fake_device_id__"
         await client.invoke_method(method_params, device_id)
@@ -2261,8 +2509,12 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
             device_id, method_params, callback=mocker.ANY, module_id=None
         )
 
-    @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a module")
-    async def test_calls_pipeline_invoke_method_for_module(self, mocker, client, http_pipeline):
+    @pytest.mark.it(
+        "Begins a 'invoke_method' HTTPPipeline operation where the target is a module"
+    )
+    async def test_calls_pipeline_invoke_method_for_module(
+        self, mocker, client, http_pipeline
+    ):
         method_params = {"methodName": "__fake_method_name__"}
         device_id = "__fake_device_id__"
         module_id = "__fake_module_id__"
@@ -2277,7 +2529,9 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
     @pytest.mark.it(
         "Waits for the completion of the 'invoke_method' pipeline operation before returning"
     )
-    async def test_waits_for_pipeline_op_completion(self, mocker, client, http_pipeline):
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, http_pipeline
+    ):
         method_params = {"methodName": "__fake_method_name__"}
         device_id = "__fake_device_id__"
         module_id = "__fake_module_id__"
@@ -2307,7 +2561,9 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
                 client_exceptions.OperationCancelled,
                 id="OperationCancelled -> OperationCancelled",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
@@ -2329,7 +2585,9 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
         assert e_info.value.__cause__ is my_pipeline_error
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_message_received")
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - PROPERTY .on_message_received"
+)
 class TestIoTHubModuleClientPROPERTYOnMessageReceivedHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
@@ -2342,7 +2600,9 @@ class TestIoTHubModuleClientPROPERTYOnMessageReceivedHandler(
         return pipeline_constant.INPUT_MSG
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_method_request_received")
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - PROPERTY .on_method_request_received"
+)
 class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
@@ -2370,7 +2630,9 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         return pipeline_constant.TWIN_PATCHES
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_connection_state_change")
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - PROPERTY .on_connection_state_change"
+)
 class TestIoTHubModuleClientPROPERTYOnConnectionStateChangeHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
 ):
@@ -2379,7 +2641,9 @@ class TestIoTHubModuleClientPROPERTYOnConnectionStateChangeHandler(
         return "on_connection_state_change"
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_new_sastoken_required")
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - PROPERTY .on_new_sastoken_required"
+)
 class TestIoTHubModuleClientPROPERTYOnNewSastokenRequiredHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
 ):
@@ -2388,7 +2652,9 @@ class TestIoTHubModuleClientPROPERTYOnNewSastokenRequiredHandler(
         return "on_new_sastoken_required"
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_background_exception")
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - PROPERTY .on_background_exception"
+)
 class TestIoTHubModuleClientPROPERTYOnBackgroundExceptionHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
 ):
@@ -2418,14 +2684,18 @@ class TestIoTHubModuleClientOCCURRENCEDisconnect(
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - OCCURRENCE: New Sastoken Required")
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - OCCURRENCE: New Sastoken Required"
+)
 class TestIoTHubModuleClientOCCURRENCENewSastokenRequired(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCENewSastokenRequired
 ):
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - OCCURRENCE: Background Exception")
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - OCCURRENCE: Background Exception"
+)
 class TestIoTHubModuleClientOCCURRENCEBackgroundException(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCEBackgroundException
 ):

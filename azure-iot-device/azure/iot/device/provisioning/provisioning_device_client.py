@@ -24,17 +24,23 @@ def handle_result(callback):
     try:
         return callback.wait_for_completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
-        raise exceptions.ConnectionDroppedError("Lost connection to the provisioning server") from e
+        raise exceptions.ConnectionDroppedError(
+            "Lost connection to the provisioning server"
+        ) from e
     except pipeline_exceptions.ConnectionFailedError as e:
         raise exceptions.ConnectionFailedError(
             "Could not connect to the provisioning server"
         ) from e
     except pipeline_exceptions.UnauthorizedError as e:
-        raise exceptions.CredentialError("Credentials invalid, could not connect") from e
+        raise exceptions.CredentialError(
+            "Credentials invalid, could not connect"
+        ) from e
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError("Error in the provisioning client") from e
     except pipeline_exceptions.OperationTimeout as e:
-        raise exceptions.OperationTimeout("Could not complete operation before timeout") from e
+        raise exceptions.OperationTimeout(
+            "Could not complete operation before timeout"
+        ) from e
     except pipeline_exceptions.PipelineNotRunning as e:
         raise exceptions.ClientError("Client has already been shut down") from e
     except Exception as e:
@@ -79,7 +85,9 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         # Register
         register_complete = EventedCallback(return_arg_name="result")
-        self._pipeline.register(payload=self._provisioning_payload, callback=register_complete)
+        self._pipeline.register(
+            payload=self._provisioning_payload, callback=register_complete
+        )
         result = handle_result(register_complete)
 
         log_on_register_complete(result)
@@ -101,11 +109,15 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         has been enabled.
 
         """
-        logger.info("Enabling reception of response from Device Provisioning Service...")
+        logger.info(
+            "Enabling reception of response from Device Provisioning Service..."
+        )
 
         subscription_complete = EventedCallback()
         self._pipeline.enable_responses(callback=subscription_complete)
 
         handle_result(subscription_complete)
 
-        logger.info("Successfully subscribed to Device Provisioning Service to receive responses")
+        logger.info(
+            "Successfully subscribed to Device Provisioning Service to receive responses"
+        )

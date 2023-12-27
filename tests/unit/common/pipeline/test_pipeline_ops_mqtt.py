@@ -21,7 +21,11 @@ class MQTTPublishOperationTestConfig(object):
 
     @pytest.fixture
     def init_kwargs(self, mocker):
-        kwargs = {"topic": "some_topic", "payload": "some_payload", "callback": mocker.MagicMock()}
+        kwargs = {
+            "topic": "some_topic",
+            "payload": "some_payload",
+            "callback": mocker.MagicMock(),
+        }
         return kwargs
 
 
@@ -31,7 +35,9 @@ class MQTTPublishOperationInstantiationTests(MQTTPublishOperationTestConfig):
         op = cls_type(**init_kwargs)
         assert op.topic == init_kwargs["topic"]
 
-    @pytest.mark.it("Initializes 'payload' attribute with the provided 'payload' parameter")
+    @pytest.mark.it(
+        "Initializes 'payload' attribute with the provided 'payload' parameter"
+    )
     def test_payload(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.payload == init_kwargs["payload"]

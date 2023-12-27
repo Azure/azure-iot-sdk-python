@@ -61,7 +61,11 @@ class IoTEdgeHsm(SigningMechanism):
         r = requests.get(
             self.workload_uri + "trust-bundle",
             params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())},
+            headers={
+                "User-Agent": urllib.parse.quote_plus(
+                    user_agent.get_iothub_user_agent()
+                )
+            },
         )
         # Validate that the request was successful
         try:
@@ -95,14 +99,24 @@ class IoTEdgeHsm(SigningMechanism):
         encoded_data_str = base64.b64encode(data_str.encode("utf-8")).decode()
 
         path = "{workload_uri}modules/{module_id}/genid/{gen_id}/sign".format(
-            workload_uri=self.workload_uri, module_id=self.module_id, gen_id=self.generation_id
+            workload_uri=self.workload_uri,
+            module_id=self.module_id,
+            gen_id=self.generation_id,
         )
-        sign_request = {"keyId": "primary", "algo": "HMACSHA256", "data": encoded_data_str}
+        sign_request = {
+            "keyId": "primary",
+            "algo": "HMACSHA256",
+            "data": encoded_data_str,
+        }
 
         r = requests.post(  # can we use json field instead of data?
             url=path,
             params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote(user_agent.get_iothub_user_agent(), safe="")},
+            headers={
+                "User-Agent": urllib.parse.quote(
+                    user_agent.get_iothub_user_agent(), safe=""
+                )
+            },
             data=json.dumps(sign_request),
         )
         try:

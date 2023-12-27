@@ -41,11 +41,19 @@ class TestRegistrationResult(object):
         assert registration_result.registration_state.device_id == fake_device_id
         assert registration_result.registration_state.assigned_hub == fake_assigned_hub
         assert registration_result.registration_state.sub_status == fake_sub_status
-        assert registration_result.registration_state.created_date_time == fake_created_dttm
-        assert registration_result.registration_state.last_update_date_time == fake_last_update_dttm
+        assert (
+            registration_result.registration_state.created_date_time
+            == fake_created_dttm
+        )
+        assert (
+            registration_result.registration_state.last_update_date_time
+            == fake_last_update_dttm
+        )
         assert registration_result.registration_state.etag == fake_etag
 
-    @pytest.mark.it("Has a to string representation composed of registration state and status")
+    @pytest.mark.it(
+        "Has a to string representation composed of registration state and status"
+    )
     def test_registration_result_to_string(self):
         fake_registration_state = create_registration_state()
         registration_result = create_registration_result(fake_registration_state)
@@ -56,7 +64,9 @@ class TestRegistrationResult(object):
     @pytest.mark.parametrize(
         "input_setter_code",
         [
-            pytest.param('registration_result.operation_id = "NewOperationId"', id="Operation Id"),
+            pytest.param(
+                'registration_result.operation_id = "NewOperationId"', id="Operation Id"
+            ),
             pytest.param('registration_result.status = "NewStatus"', id="Status"),
             pytest.param(
                 'registration_result.registration_state = "NewRegistrationState"',
@@ -73,9 +83,15 @@ class TestRegistrationResult(object):
     @pytest.mark.parametrize(
         "input_setter_code",
         [
-            pytest.param('registration_state.device_id = "NewDeviceId"', id="Device Id"),
-            pytest.param('registration_state.assigned_hub = "NewHub"', id="Assigned Hub"),
-            pytest.param('registration_state.sub_status = "NewSubStatus"', id="Substatus"),
+            pytest.param(
+                'registration_state.device_id = "NewDeviceId"', id="Device Id"
+            ),
+            pytest.param(
+                'registration_state.assigned_hub = "NewHub"', id="Assigned Hub"
+            ),
+            pytest.param(
+                'registration_state.sub_status = "NewSubStatus"', id="Substatus"
+            ),
             pytest.param('registration_state.etag = "NewEtag"', id="Etag"),
             pytest.param(
                 "registration_state.created_date_time = datetime.datetime(3000, 10, 17)",
@@ -103,7 +119,9 @@ class TestRegistrationResult(object):
         # Helpful for all sorts of complex objects.
         json_payload = json.dumps(None, default=lambda o: o.__dict__, sort_keys=True)
 
-        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, json_payload])
+        string_repr = "\n".join(
+            [fake_device_id, fake_assigned_hub, fake_sub_status, json_payload]
+        )
         assert str(registration_state) == string_repr
 
     @pytest.mark.it(
@@ -111,9 +129,13 @@ class TestRegistrationResult(object):
     )
     def test_registration_state_to_string_with_payload(self):
         registration_state = create_registration_state(fake_payload)
-        json_payload = json.dumps(fake_payload, default=lambda o: o.__dict__, sort_keys=True)
+        json_payload = json.dumps(
+            fake_payload, default=lambda o: o.__dict__, sort_keys=True
+        )
 
-        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, json_payload])
+        string_repr = "\n".join(
+            [fake_device_id, fake_assigned_hub, fake_sub_status, json_payload]
+        )
         assert str(registration_state) == string_repr
 
 

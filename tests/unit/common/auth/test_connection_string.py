@@ -98,7 +98,9 @@ class TestConnectionString(object):
         cs = ConnectionString(string)
         assert str(cs) == string
 
-    @pytest.mark.it("Supports indexing syntax to return the stored value for a given key")
+    @pytest.mark.it(
+        "Supports indexing syntax to return the stored value for a given key"
+    )
     def test_indexing_key_returns_corresponding_value(self):
         cs = ConnectionString(
             "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
@@ -107,7 +109,9 @@ class TestConnectionString(object):
         assert cs["SharedAccessKeyName"] == "mykeyname"
         assert cs["SharedAccessKey"] == "Zm9vYmFy"
 
-    @pytest.mark.it("Raises KeyError if indexing on a key not contained in the ConnectionString")
+    @pytest.mark.it(
+        "Raises KeyError if indexing on a key not contained in the ConnectionString"
+    )
     def test_indexing_key_raises_key_error_if_key_not_in_string(self):
         with pytest.raises(KeyError):
             cs = ConnectionString(
@@ -132,8 +136,12 @@ class TestConnectionStringGet(object):
         )
         assert cs.get("invalidkey") is None
 
-    @pytest.mark.it("Returns an optionally provided default value if the given key is invalid")
-    def test_calling_get_with_invalid_key_and_a_default_value_returns_default_value(self):
+    @pytest.mark.it(
+        "Returns an optionally provided default value if the given key is invalid"
+    )
+    def test_calling_get_with_invalid_key_and_a_default_value_returns_default_value(
+        self,
+    ):
         cs = ConnectionString(
             "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
         )

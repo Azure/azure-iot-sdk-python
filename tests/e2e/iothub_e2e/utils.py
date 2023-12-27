@@ -19,16 +19,17 @@ fault_injection_types = {
 
 def get_fault_injection_message(fault_injection_type):
     fault_message = Message(" ")
-    fault_message.custom_properties["AzIoTHub_FaultOperationType"] = fault_injection_type
-    fault_message.custom_properties["AzIoTHub_FaultOperationCloseReason"] = fault_injection_types[
-        fault_injection_type
-    ]
+    fault_message.custom_properties[
+        "AzIoTHub_FaultOperationType"
+    ] = fault_injection_type
+    fault_message.custom_properties[
+        "AzIoTHub_FaultOperationCloseReason"
+    ] = fault_injection_types[fault_injection_type]
     fault_message.custom_properties["AzIoTHub_FaultOperationDelayInSecs"] = 5
     return fault_message
 
 
 def create_client_object(device_identity, client_kwargs, DeviceClass, ModuleClass):
-
     if test_config.config.identity in [
         test_config.IDENTITY_DEVICE,
         test_config.IDENTITY_EDGE_LEAF_DEVICE,
@@ -63,7 +64,7 @@ def create_client_object(device_identity, client_kwargs, DeviceClass, ModuleClas
             device_identity.primary_key,
             test_env.IOTHUB_HOSTNAME,
             device_identity.device_id,
-            **client_kwargs
+            **client_kwargs,
         )
     elif test_config.config.auth == test_config.AUTH_SAS_TOKEN:
         logger.info(
@@ -72,7 +73,9 @@ def create_client_object(device_identity, client_kwargs, DeviceClass, ModuleClas
             )
         )
 
-        client = ClientClass.create_from_sastoken(device_identity.sas_token, **client_kwargs)
+        client = ClientClass.create_from_sastoken(
+            device_identity.sas_token, **client_kwargs
+        )
 
     elif test_config.config.auth in test_config.AUTH_CHOICES:
         # need to implement

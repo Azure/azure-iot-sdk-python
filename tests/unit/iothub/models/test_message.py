@@ -32,7 +32,9 @@ class TestMessage(object):
         msg = Message("some message", message_id)
         assert msg.message_id == message_id
 
-    @pytest.mark.it("Instantiates with optional provided content type and content encoding")
+    @pytest.mark.it(
+        "Instantiates with optional provided content type and content encoding"
+    )
     def test_instantiates_with_optional_contenttype_encoding(self):
         ctype = "application/json"
         encoding = "utf-16"
@@ -76,12 +78,16 @@ class TestMessage(object):
         msg = Message("some message")
         assert msg.ack is None
 
-    @pytest.mark.it("Instantiates with no set iothub_interface_id (i.e. not as a security message)")
+    @pytest.mark.it(
+        "Instantiates with no set iothub_interface_id (i.e. not as a security message)"
+    )
     def test_default_security_msg_status(self):
         msg = Message("some message")
         assert msg.iothub_interface_id is None
 
-    @pytest.mark.it("Maintains iothub_interface_id (security message) as a read-only property")
+    @pytest.mark.it(
+        "Maintains iothub_interface_id (security message) as a read-only property"
+    )
     def test_read_only_iothub_interface_id(self):
         msg = Message("some message")
         with pytest.raises(AttributeError):

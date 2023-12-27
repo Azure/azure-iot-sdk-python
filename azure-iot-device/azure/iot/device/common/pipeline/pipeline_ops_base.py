@@ -112,7 +112,9 @@ class PipelineOperation(object):
 
         if self.completed or self.completing:
             raise pipeline_exceptions.OperationError(
-                "Attempting to complete an already-completed operation: {}".format(self.name)
+                "Attempting to complete an already-completed operation: {}".format(
+                    self.name
+                )
             )
         else:
             # Operation is now in the process of completing
@@ -138,7 +140,9 @@ class PipelineOperation(object):
                     callback(op=self, error=error)
                 except Exception as e:
                     logger.warning(
-                        "Unhandled error while triggering callback for {}".format(self.name)
+                        "Unhandled error while triggering callback for {}".format(
+                            self.name
+                        )
                     )
                     self.halt_completion()
                     raise pipeline_exceptions.OperationError(
@@ -188,11 +192,17 @@ class PipelineOperation(object):
 
         :returns: A new worker operation of the type specified in the worker_op_type parameter.
         """
-        logger.debug("{}: creating worker op of type {}".format(self.name, worker_op_type.__name__))
+        logger.debug(
+            "{}: creating worker op of type {}".format(
+                self.name, worker_op_type.__name__
+            )
+        )
 
         @pipeline_thread.runs_on_pipeline_thread
         def on_worker_op_complete(op, error):
-            logger.debug("{}: Worker op ({}) has been completed".format(self.name, op.name))
+            logger.debug(
+                "{}: Worker op ({}) has been completed".format(self.name, op.name)
+            )
             self.complete(error=error)
 
         if "callback" in kwargs:
@@ -265,7 +275,9 @@ class DisconnectOperation(PipelineOperation):
     """
 
     def __init__(self, callback):
-        self.hard = True  # Indicates if this is a "hard" disconnect that kills in-flight ops
+        self.hard = (
+            True  # Indicates if this is a "hard" disconnect that kills in-flight ops
+        )
         super().__init__(callback)
 
 
@@ -347,7 +359,13 @@ class RequestAndResponseOperation(PipelineOperation):
     """
 
     def __init__(
-        self, request_type, method, resource_location, request_body, callback, query_params=None
+        self,
+        request_type,
+        method,
+        resource_location,
+        request_body,
+        callback,
+        query_params=None,
     ):
         """
         Initializer for RequestAndResponseOperation objects

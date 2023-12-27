@@ -7,4 +7,10 @@ as a Device or Module.
 from .sync_clients import IoTHubDeviceClient, IoTHubModuleClient
 from .models import Message, MethodRequest, MethodResponse
 
-__all__ = ["IoTHubDeviceClient", "IoTHubModuleClient", "Message", "MethodRequest", "MethodResponse"]
+__all__ = [
+    "IoTHubDeviceClient",
+    "IoTHubModuleClient",
+    "Message",
+    "MethodRequest",
+    "MethodResponse",
+]

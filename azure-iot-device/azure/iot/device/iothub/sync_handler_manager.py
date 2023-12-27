@@ -147,7 +147,9 @@ class AbstractHandlerManager(abc.ABC):
         curr_handler = getattr(self, handler_name)
         if new_handler is not None and curr_handler is None:
             # Create runner, set handler
-            logger.debug("Creating new handler runner for handler: {}".format(handler_name))
+            logger.debug(
+                "Creating new handler runner for handler: {}".format(handler_name)
+            )
             setattr(self, handler_name, new_handler)
             self._start_handler_runner(handler_name)
         elif new_handler is None and curr_handler is not None:
@@ -186,7 +188,9 @@ class AbstractHandlerManager(abc.ABC):
                     handle_exceptions.handle_background_exception(new_err)
                 else:
                     logger.debug(
-                        "HANDLER ({}): Successfully completed invocation".format(handler_name)
+                        "HANDLER ({}): Successfully completed invocation".format(
+                            handler_name
+                        )
                     )
 
         return handler_callback
@@ -375,7 +379,9 @@ class SyncHandlerManager(AbstractHandlerManager):
                 del event
             else:
                 logger.debug(
-                    "No handler for event {} set. Skipping handler invocation".format(event)
+                    "No handler for event {} set. Skipping handler invocation".format(
+                        event
+                    )
                 )
 
     def _start_handler_runner(self, handler_name):

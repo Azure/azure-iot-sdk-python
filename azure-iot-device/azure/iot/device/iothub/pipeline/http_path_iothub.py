@@ -21,7 +21,9 @@ def get_method_invoke_path(device_id, module_id=None):
             module_id=urllib.parse.quote_plus(module_id),
         )
     else:
-        return "twins/{device_id}/methods".format(device_id=urllib.parse.quote_plus(device_id))
+        return "twins/{device_id}/methods".format(
+            device_id=urllib.parse.quote_plus(device_id)
+        )
 
 
 def get_storage_info_for_blob_path(device_id):

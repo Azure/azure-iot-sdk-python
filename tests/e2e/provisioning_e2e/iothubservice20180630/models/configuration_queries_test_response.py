@@ -19,7 +19,10 @@ class ConfigurationQueriesTestResponse(Model):
 
     _attribute_map = {
         "target_condition_error": {"key": "targetConditionError", "type": "str"},
-        "custom_metric_query_errors": {"key": "customMetricQueryErrors", "type": "{str}"},
+        "custom_metric_query_errors": {
+            "key": "customMetricQueryErrors",
+            "type": "{str}",
+        },
     }
 
     def __init__(self, target_condition_error=None, custom_metric_query_errors=None):

@@ -24,7 +24,9 @@ async def main():
         "connectTimeoutInSeconds": 2,
     }
     response = await module_client.invoke_method(
-        device_id="fakeDeviceId", module_id="fakeModuleId", method_params=fake_method_params
+        device_id="fakeDeviceId",
+        module_id="fakeModuleId",
+        method_params=fake_method_params,
     )
     print("Method Response: {}".format(response))
 

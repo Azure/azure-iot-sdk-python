@@ -110,7 +110,9 @@ class TestInboxManagerGetInputMessageInbox(object):
         input_inbox = manager.get_input_message_inbox(input_name)
         assert isinstance(input_inbox, inbox_type)
 
-    @pytest.mark.it("Returns the same inbox when called multiple times with the same input name")
+    @pytest.mark.it(
+        "Returns the same inbox when called multiple times with the same input name"
+    )
     def test_get_input_message_inbox_called_multiple_times_with_same_input_name_returns_same_inbox(
         self, manager
     ):
@@ -150,11 +152,15 @@ class TestInboxManagerGetMethodRequestInbox(object):
             pytest.param(None, id="Called with no method name"),
         ],
     )
-    def test_get_method_request_inbox_returns_inbox(self, manager, method_name, inbox_type):
+    def test_get_method_request_inbox_returns_inbox(
+        self, manager, method_name, inbox_type
+    ):
         method_request_inbox = manager.get_method_request_inbox(method_name)
         assert isinstance(method_request_inbox, inbox_type)
 
-    @pytest.mark.it("Returns the same inbox when called multiple times with the same method name")
+    @pytest.mark.it(
+        "Returns the same inbox when called multiple times with the same method name"
+    )
     @pytest.mark.parametrize(
         "method_name",
         [
@@ -227,20 +233,26 @@ class TestInboxManagerClearAllMethodRequests(object):
     def test_clears_generic_method_request_inbox(self, manager):
         generic_method_request_inbox = manager.get_method_request_inbox()
         assert generic_method_request_inbox.empty()
-        manager.route_method_request(MethodRequest("id", "unrecognized_method_name", "payload"))
+        manager.route_method_request(
+            MethodRequest("id", "unrecognized_method_name", "payload")
+        )
         assert not generic_method_request_inbox.empty()
 
         manager.clear_all_method_requests()
         assert generic_method_request_inbox.empty()
 
     @pytest.mark.it("Clears all specific method request inboxes")
-    def test_clear_all_method_requests_clears_named_method_request_inboxes(self, manager):
+    def test_clear_all_method_requests_clears_named_method_request_inboxes(
+        self, manager
+    ):
         method_request_inbox1 = manager.get_method_request_inbox("some_method")
         method_request_inbox2 = manager.get_method_request_inbox("some_other_method")
         assert method_request_inbox1.empty()
         assert method_request_inbox2.empty()
         manager.route_method_request(MethodRequest("id1", "some_method", "payload"))
-        manager.route_method_request(MethodRequest("id2", "some_other_method", "payload"))
+        manager.route_method_request(
+            MethodRequest("id2", "some_other_method", "payload")
+        )
         assert not method_request_inbox1.empty()
         assert not method_request_inbox2.empty()
 
@@ -340,7 +352,9 @@ class TestInboxManagerRouteInputMessageUnified(object):
         assert not um_inbox.empty()
         assert message in um_inbox
 
-    @pytest.mark.it("Does NOT add Message to a specific input message inbox, even if one exists")
+    @pytest.mark.it(
+        "Does NOT add Message to a specific input message inbox, even if one exists"
+    )
     def test_DOES_NOT_add_message_to_input_inbox(self, manager_unified_mode, message):
         manager = manager_unified_mode
         input_name = "some_input"

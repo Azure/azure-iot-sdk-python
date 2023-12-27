@@ -125,7 +125,9 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 
 
 @pytest.mark.describe("RegistrationStage - .run_op() -- called with RegisterOperation")
-class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, RegistrationStageConfig):
+class TestRegistrationStageWithRegisterOperation(
+    StageRunOpTestBase, RegistrationStageConfig
+):
     @pytest.fixture(params=[" ", fake_payload], ids=["empty payload", "some payload"])
     def request_payload(self, request):
         return request.param
@@ -166,8 +168,12 @@ class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, Registratio
         assert new_op.request_body == request_body
 
 
-@pytest.mark.describe("RegistrationStage - .run_op() -- Called with other arbitrary operation")
-class TestRegistrationStageWithArbitraryOperation(StageRunOpTestBase, RegistrationStageConfig):
+@pytest.mark.describe(
+    "RegistrationStage - .run_op() -- Called with other arbitrary operation"
+)
+class TestRegistrationStageWithArbitraryOperation(
+    StageRunOpTestBase, RegistrationStageConfig
+):
     @pytest.fixture
     def op(self, arbitrary_op):
         return arbitrary_op
@@ -242,7 +248,9 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         ],
     )
     @pytest.mark.parametrize(
-        "has_response_body", [True, False], ids=["With Response Body", "No Response Body"]
+        "has_response_body",
+        [True, False],
+        ids=["With Response Body", "No Response Body"],
     )
     def test_request_and_response_op_completed_with_err(
         self,
@@ -273,7 +281,9 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         "Completes the RegisterOperation unsuccessfully with a ServiceError if the RequestAndResponseOperation is completed with a status code >= 300 and less than 429"
     )
     @pytest.mark.parametrize(
-        "has_response_body", [True, False], ids=["With Response Body", "No Response Body"]
+        "has_response_body",
+        [True, False],
+        ids=["With Response Body", "No Response Body"],
     )
     @pytest.mark.parametrize(
         "status_code",
@@ -284,7 +294,12 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         ],
     )
     def test_request_and_response_op_completed_success_with_bad_code(
-        self, stage, send_registration_op, request_and_response_op, status_code, has_response_body
+        self,
+        stage,
+        send_registration_op,
+        request_and_response_op,
+        status_code,
+        has_response_body,
     ):
         assert not send_registration_op.completed
         assert not request_and_response_op.completed
@@ -380,7 +395,12 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         "Decodes, deserializes the response from RequestAndResponseOperation and creates another op if the status code < 300 and if status is 'assigning'"
     )
     def test_spawns_another_op_request_and_response_op_completed_success_with_status_assigning(
-        self, mocker, stage, request_payload, send_registration_op, request_and_response_op
+        self,
+        mocker,
+        stage,
+        request_payload,
+        send_registration_op,
+        request_and_response_op,
     ):
         mock_timer = mocker.patch(
             "azure.iot.device.provisioning.pipeline.pipeline_stages_provisioning.Timer"
@@ -409,7 +429,8 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         assert not send_registration_op.completed
         assert send_registration_op.error is None
         assert (
-            send_registration_op.spawn_worker_op.call_args[1]["operation_id"] == fake_operation_id
+            send_registration_op.spawn_worker_op.call_args[1]["operation_id"]
+            == fake_operation_id
         )
 
 
@@ -428,7 +449,9 @@ class RetryStageConfig(object):
         return stage
 
 
-@pytest.mark.describe("RegistrationStage - .run_op() -- retried again with RegisterOperation")
+@pytest.mark.describe(
+    "RegistrationStage - .run_op() -- retried again with RegisterOperation"
+)
 class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
     @pytest.fixture(params=[" ", fake_payload], ids=["empty payload", "some payload"])
     def request_payload(self, request):
@@ -530,7 +553,9 @@ class TestRegistrationStageWithTimeoutOfRegisterOperation(
         stage.run_op(op)
 
         assert mock_timer.call_count == 1
-        assert mock_timer.call_args == mocker.call(constant.DEFAULT_TIMEOUT_INTERVAL, mocker.ANY)
+        assert mock_timer.call_args == mocker.call(
+            constant.DEFAULT_TIMEOUT_INTERVAL, mocker.ANY
+        )
         assert op.provisioning_timeout_timer is mock_timer.return_value
         assert op.provisioning_timeout_timer.start.call_count == 1
         assert op.provisioning_timeout_timer.start.call_args == mocker.call()
@@ -548,7 +573,9 @@ class TestRegistrationStageWithTimeoutOfRegisterOperation(
 
         assert op.provisioning_timeout_timer is mock_timer.return_value
 
-    @pytest.mark.it("Completes the operation unsuccessfully, with a ServiceError due to timeout")
+    @pytest.mark.it(
+        "Completes the operation unsuccessfully, with a ServiceError due to timeout"
+    )
     def test_not_complete_timeout(self, mocker, stage, op, mock_timer):
         # Apply the timer
         stage.run_op(op)
@@ -613,8 +640,12 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 )
 
 
-@pytest.mark.describe("PollingStatusStage - .run_op() -- called with PollStatusOperation")
-class TestPollingStatusStageWithPollStatusOperation(StageRunOpTestBase, PollingStageConfig):
+@pytest.mark.describe(
+    "PollingStatusStage - .run_op() -- called with PollStatusOperation"
+)
+class TestPollingStatusStageWithPollStatusOperation(
+    StageRunOpTestBase, PollingStageConfig
+):
     @pytest.fixture
     def op(self, stage, mocker):
         op = pipeline_ops_provisioning.PollStatusOperation(
@@ -645,8 +676,12 @@ class TestPollingStatusStageWithPollStatusOperation(StageRunOpTestBase, PollingS
         assert new_op.request_body == " "
 
 
-@pytest.mark.describe("PollingStatusStage - .run_op() -- Called with other arbitrary operation")
-class TestPollingStatusStageWithArbitraryOperation(StageRunOpTestBase, PollingStageConfig):
+@pytest.mark.describe(
+    "PollingStatusStage - .run_op() -- Called with other arbitrary operation"
+)
+class TestPollingStatusStageWithArbitraryOperation(
+    StageRunOpTestBase, PollingStageConfig
+):
     @pytest.fixture
     def op(self, arbitrary_op):
         return arbitrary_op
@@ -711,7 +746,9 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
         ],
     )
     @pytest.mark.parametrize(
-        "has_response_body", [True, False], ids=["With Response Body", "No Response Body"]
+        "has_response_body",
+        [True, False],
+        ids=["With Response Body", "No Response Body"],
     )
     def test_request_and_response_op_completed_with_err(
         self,
@@ -742,7 +779,9 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
         "Completes the PollStatusOperation unsuccessfully with a ServiceError if the RequestAndResponseOperation is completed with a status code >= 300 and less than 429"
     )
     @pytest.mark.parametrize(
-        "has_response_body", [True, False], ids=["With Response Body", "No Response Body"]
+        "has_response_body",
+        [True, False],
+        ids=["With Response Body", "No Response Body"],
     )
     @pytest.mark.parametrize(
         "status_code",
@@ -753,7 +792,12 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
         ],
     )
     def test_request_and_response_op_completed_success_with_bad_code(
-        self, stage, send_query_op, request_and_response_op, status_code, has_response_body
+        self,
+        stage,
+        send_query_op,
+        request_and_response_op,
+        status_code,
+        has_response_body,
     ):
         assert not send_query_op.completed
         assert not request_and_response_op.completed
@@ -846,7 +890,9 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
         assert "invalid registration status" in str(send_query_op.error)
 
 
-@pytest.mark.describe("PollingStatusStage - .run_op() -- retried again with PollStatusOperation")
+@pytest.mark.describe(
+    "PollingStatusStage - .run_op() -- retried again with PollStatusOperation"
+)
 class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
     @pytest.fixture
     def cls_type(self):
@@ -906,7 +952,9 @@ class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
     @pytest.mark.it(
         "Decodes, deserializes the response from RequestAndResponseOperation and retries the op if the status code < 300 and if status is 'assigning'"
     )
-    def test_stage_retries_op_if_next_stage_responds_with_status_assigning(self, mocker, stage, op):
+    def test_stage_retries_op_if_next_stage_responds_with_status_assigning(
+        self, mocker, stage, op
+    ):
         mock_timer = mocker.patch(
             "azure.iot.device.provisioning.pipeline.pipeline_stages_provisioning.Timer"
         )
@@ -941,7 +989,9 @@ class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
 @pytest.mark.describe(
     "RegistrationStage - .run_op() -- Called with register request operation eligible for timeout"
 )
-class TestPollingStageWithTimeoutOfQueryOperation(StageRunOpTestBase, PollingStageConfig):
+class TestPollingStageWithTimeoutOfQueryOperation(
+    StageRunOpTestBase, PollingStageConfig
+):
     @pytest.fixture
     def op(self, stage, mocker):
         op = pipeline_ops_provisioning.PollStatusOperation(
@@ -970,7 +1020,9 @@ class TestPollingStageWithTimeoutOfQueryOperation(StageRunOpTestBase, PollingSta
         stage.run_op(op)
 
         assert mock_timer.call_count == 1
-        assert mock_timer.call_args == mocker.call(constant.DEFAULT_TIMEOUT_INTERVAL, mocker.ANY)
+        assert mock_timer.call_args == mocker.call(
+            constant.DEFAULT_TIMEOUT_INTERVAL, mocker.ANY
+        )
         assert op.provisioning_timeout_timer is mock_timer.return_value
         assert op.provisioning_timeout_timer.start.call_count == 1
         assert op.provisioning_timeout_timer.start.call_args == mocker.call()
@@ -988,7 +1040,9 @@ class TestPollingStageWithTimeoutOfQueryOperation(StageRunOpTestBase, PollingSta
 
         assert op.provisioning_timeout_timer is mock_timer.return_value
 
-    @pytest.mark.it("Completes the operation unsuccessfully, with a ServiceError due to timeout")
+    @pytest.mark.it(
+        "Completes the operation unsuccessfully, with a ServiceError due to timeout"
+    )
     def test_not_complete_timeout(self, mocker, stage, op, mock_timer):
         # Apply the timer
         stage.run_op(op)

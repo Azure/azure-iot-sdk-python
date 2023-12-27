@@ -20,7 +20,9 @@ logging.basicConfig(level=logging.ERROR)
 # User has to know these values as these may change and user can
 # choose to implement different interfaces.
 thermostat_digital_twin_model_identifier = "dtmi:com:example:Thermostat;1"
-device_info_digital_twin_model_identifier = "dtmi:azure:DeviceManagement:DeviceInformation;1"
+device_info_digital_twin_model_identifier = (
+    "dtmi:azure:DeviceManagement:DeviceInformation;1"
+)
 
 # The device "TemperatureController" that is getting implemented using the above interfaces.
 # This id can change according to the company the user is from
@@ -46,7 +48,6 @@ THERMOSTAT_2 = None
 
 class Thermostat(object):
     def __init__(self, name, moving_win=10):
-
         self.moving_window = moving_win
         self.records = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.index = 0
@@ -88,7 +89,9 @@ class Thermostat(object):
         response_dict["minTemp"] = self.min
         response_dict["avgTemp"] = self.avg
         response_dict["startTime"] = (
-            (datetime.now() - timedelta(0, self.moving_window * 8)).astimezone().isoformat()
+            (datetime.now() - timedelta(0, self.moving_window * 8))
+            .astimezone()
+            .isoformat()
         )
         response_dict["endTime"] = datetime.now().astimezone().isoformat()
         return response_dict
@@ -147,7 +150,9 @@ def create_max_min_report_response(thermostat_name):
 # TELEMETRY TASKS
 
 
-async def send_telemetry_from_temp_controller(device_client, telemetry_msg, component_name=None):
+async def send_telemetry_from_temp_controller(
+    device_client, telemetry_msg, component_name=None
+):
     msg = pnp_helper.create_telemetry(telemetry_msg, component_name)
     await device_client.send_message(msg)
     print("Sent message")
@@ -198,8 +203,13 @@ async def execute_command_listener(
         else:
             print("No handler provided to execute")
 
-        (response_status, response_payload) = pnp_helper.create_response_payload_with_status(
-            command_request, method_name, create_user_response=create_user_response_handler
+        (
+            response_status,
+            response_payload,
+        ) = pnp_helper.create_response_payload_with_status(
+            command_request,
+            method_name,
+            create_user_response=create_user_response_handler,
         )
 
         command_response = MethodResponse.create_from_method_request(
@@ -209,7 +219,9 @@ async def execute_command_listener(
         try:
             await device_client.send_method_response(command_response)
         except Exception:
-            print("responding to the {command} command failed".format(command=method_name))
+            print(
+                "responding to the {command} command failed".format(command=method_name)
+            )
 
 
 #####################################################
@@ -218,7 +230,9 @@ async def execute_command_listener(
 
 async def execute_property_listener(device_client):
     while True:
-        patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
+        patch = (
+            await device_client.receive_twin_desired_properties_patch()
+        )  # blocking call
         print(patch)
         properties_dict = pnp_helper.create_reported_properties_from_desired(patch)
 
@@ -246,7 +260,9 @@ def stdin_listener():
 
 #####################################################
 # MAIN STARTS
-async def provision_device(provisioning_host, id_scope, registration_id, symmetric_key, model_id):
+async def provision_device(
+    provisioning_host, id_scope, registration_id, symmetric_key, model_id
+):
     provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
         provisioning_host=provisioning_host,
         registration_id=registration_id,

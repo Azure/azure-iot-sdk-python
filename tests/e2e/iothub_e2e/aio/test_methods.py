@@ -67,7 +67,9 @@ class TestMethods(object):
         await asyncio.sleep(1)  # wait for subscribe, etc, to complete
 
         # invoke the method call
-        method_response = await service_helper.invoke_method(method_name, request_payload)
+        method_response = await service_helper.invoke_method(
+            method_name, request_payload
+        )
 
         # verify that the method request arrived correctly
         assert actual_request.name == method_name

@@ -27,7 +27,8 @@ pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 @pytest.fixture
 def mock_transport(mocker):
     return mocker.patch(
-        "azure.iot.device.common.pipeline.pipeline_stages_http.HTTPTransport", autospec=True
+        "azure.iot.device.common.pipeline.pipeline_stages_http.HTTPTransport",
+        autospec=True,
     )
 
 
@@ -76,7 +77,9 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 )
 
 
-@pytest.mark.describe("HTTPTransportStage - .run_op() -- Called with InitializePipelineOperation")
+@pytest.mark.describe(
+    "HTTPTransportStage - .run_op() -- Called with InitializePipelineOperation"
+)
 class TestHTTPTransportStageRunOpCalledWithInitializePipelineOperation(
     HTTPTransportStageTestConfig, StageRunOpTestBase
 ):
@@ -95,7 +98,9 @@ class TestHTTPTransportStageRunOpCalledWithInitializePipelineOperation(
             pytest.param(None, id="Not using Gateway Hostname"),
         ],
     )
-    def test_creates_transport(self, mocker, stage, op, mock_transport, gateway_hostname):
+    def test_creates_transport(
+        self, mocker, stage, op, mock_transport, gateway_hostname
+    ):
         # Setup pipeline config
         stage.nucleus.pipeline_configuration.gateway_hostname = gateway_hostname
 
@@ -199,7 +204,9 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
         # Need to get the headers sent to the transport, not provided by the op, due to a
         # deep copy that occurs
         headers = stage.transport.request.call_args[1]["headers"]
-        assert headers["Authorization"] == str(stage.nucleus.pipeline_configuration.sastoken)
+        assert headers["Authorization"] == str(
+            stage.nucleus.pipeline_configuration.sastoken
+        )
 
     @pytest.mark.it(
         "Does NOT add the 'Authorization' header to the request if NOT using SAS-based authentication"
@@ -264,8 +271,12 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
     @pytest.mark.it(
         "Completes the operation with an error if the request invokes the provided callback with the same error"
     )
-    def test_completes_callback_with_error(self, mocker, stage, op, arbitrary_exception):
-        def mock_on_response_complete(method, path, headers, query_params, body, callback):
+    def test_completes_callback_with_error(
+        self, mocker, stage, op, arbitrary_exception
+    ):
+        def mock_on_response_complete(
+            method, path, headers, query_params, body, callback
+        ):
             return callback(error=arbitrary_exception)
 
         stage.transport.request.side_effect = mock_on_response_complete
@@ -276,7 +287,9 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
 
 # NOTE: This is not something that should ever happen in correct program flow
 # There should be no operations that make it to the HTTPTransportStage that are not handled by it
-@pytest.mark.describe("HTTPTransportStage - .run_op() -- called with arbitrary other operation")
+@pytest.mark.describe(
+    "HTTPTransportStage - .run_op() -- called with arbitrary other operation"
+)
 class TestHTTPTransportStageRunOpCalledWithArbitraryOperation(
     HTTPTransportStageTestConfigComplex, StageRunOpTestBase
 ):

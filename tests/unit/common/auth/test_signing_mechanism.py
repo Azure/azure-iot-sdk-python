@@ -61,7 +61,10 @@ class TestSymmetricKeySigningMechanismInstantiation(object):
     @pytest.mark.it("Raises a ValueError if the provided symmetric key is invalid")
     @pytest.mark.parametrize(
         "key",
-        [pytest.param("not a key", id="Not a key"), pytest.param("YWJjx", id="Incomplete key")],
+        [
+            pytest.param("not a key", id="Not a key"),
+            pytest.param("YWJjx", id="Incomplete key"),
+        ],
     )
     def test_invalid_key(self, key):
         with pytest.raises(ValueError):
@@ -72,7 +75,9 @@ class TestSymmetricKeySigningMechanismInstantiation(object):
 class TestSymmetricKeySigningMechanismSign(object):
     @pytest.fixture
     def signing_mechanism(self):
-        return SymmetricKeySigningMechanism("NMgJDvdKTxjLi+xBxxkDDEwDJxEvOE5u8BiT0mVgPeg=")
+        return SymmetricKeySigningMechanism(
+            "NMgJDvdKTxjLi+xBxxkDDEwDJxEvOE5u8BiT0mVgPeg="
+        )
 
     @pytest.mark.it(
         "Generates an HMAC message digest from the signing key and provided data string, using the HMAC-SHA256 algorithm"
@@ -104,17 +109,23 @@ class TestSymmetricKeySigningMechanismSign(object):
         data_string = "sign this message"
         signature = signing_mechanism.sign(data_string)
 
-        assert signature == base64.b64encode(hmac_digest_mock.return_value).decode("utf-8")
+        assert signature == base64.b64encode(hmac_digest_mock.return_value).decode(
+            "utf-8"
+        )
 
     @pytest.mark.it("Supports data strings in both string and byte formats")
     @pytest.mark.parametrize(
         "data_string, expected_signature",
         [
             pytest.param(
-                "sign this message", "8NJRMT83CcplGrAGaUVIUM/md5914KpWVNngSVoF9/M=", id="String"
+                "sign this message",
+                "8NJRMT83CcplGrAGaUVIUM/md5914KpWVNngSVoF9/M=",
+                id="String",
             ),
             pytest.param(
-                b"sign this message", "8NJRMT83CcplGrAGaUVIUM/md5914KpWVNngSVoF9/M=", id="Bytes"
+                b"sign this message",
+                "8NJRMT83CcplGrAGaUVIUM/md5914KpWVNngSVoF9/M=",
+                id="Bytes",
             ),
         ],
     )

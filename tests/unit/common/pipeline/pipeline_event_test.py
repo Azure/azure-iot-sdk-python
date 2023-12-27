@@ -26,7 +26,9 @@ def get_next_fake_value():
 base_event_defaults = {}
 
 
-def add_event_test(cls, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}):
+def add_event_test(
+    cls, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}
+):
     """
     Add a test class to test the given PipelineOperation class.  The class that
     we're testing is passed in the cls parameter, and the different initialization
@@ -46,7 +48,12 @@ def add_event_test(cls, module, extra_defaults={}, positional_arguments=[], keyw
 
 
 def add_instantiation_test(
-    cls, module, defaults, extra_defaults={}, positional_arguments=[], keyword_arguments={}
+    cls,
+    module,
+    defaults,
+    extra_defaults={},
+    positional_arguments=[],
+    keyword_arguments={},
 ):
     """
     internal function that takes the class and attribute details and adds a test class which
@@ -104,7 +111,12 @@ def add_instantiation_test(
 
         @pytest.mark.it(
             "Has the following default attributes: {}".format(
-                ", ".join(["{}={}".format(key, repr(all_defaults[key])) for key in all_defaults])
+                ", ".join(
+                    [
+                        "{}={}".format(key, repr(all_defaults[key]))
+                        for key in all_defaults
+                    ]
+                )
             )
         )
         def test_defaults(self):

@@ -47,7 +47,9 @@ def workaround_github_990():
     # This is a customer workaround for github issue 990. It should not be necessary
     # but I"m leaving this here unused for reference.
     try:
-        stage = azure.iot.device.common.pipeline.pipeline_stages_base.ConnectionStateStage
+        stage = (
+            azure.iot.device.common.pipeline.pipeline_stages_base.ConnectionStateStage
+        )
     except AttributeError:
         stage = azure.iot.device.common.pipeline.pipeline_stages_base.ReconnectStage
 
@@ -84,7 +86,11 @@ def hack_paho_to_disconnect_after_publish(
         2. `fail_sock_send_until_reconnect` tells `sock_send` to stop sending outgoing packets, thus simulating a broken socket.
         3. `raise_on_next_reconnect` tells `reconnect` to fail by raising `exception_to_raise_on_reconnect`
         """
-        nonlocal fail_sock_send_until_reconnect, first_publish, raise_on_next_reconnect, block_next_puback
+        nonlocal \
+            fail_sock_send_until_reconnect, \
+            first_publish, \
+            raise_on_next_reconnect, \
+            block_next_puback
 
         if first_publish:
             block_next_puback = True
@@ -105,7 +111,9 @@ def hack_paho_to_disconnect_after_publish(
 
         if block_next_puback:
             result = old_sock_recv(1024)  # flush the buffer
-            log_func("---------- BLOCKING PUBACK = {} bytes dropped".format(len(result)))
+            log_func(
+                "---------- BLOCKING PUBACK = {} bytes dropped".format(len(result))
+            )
             block_next_puback = False
             raise BlockingIOError()
         else:
@@ -186,7 +194,9 @@ async def run_test(
         )
         logging_hook.hook_device_client(device_client)
 
-        hack_paho_to_disconnect_after_publish(device_client, exception_to_raise_on_reconnect)
+        hack_paho_to_disconnect_after_publish(
+            device_client, exception_to_raise_on_reconnect
+        )
 
         # Connect the device client.
         await device_client.connect()

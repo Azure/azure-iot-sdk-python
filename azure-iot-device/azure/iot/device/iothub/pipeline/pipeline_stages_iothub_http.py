@@ -26,9 +26,13 @@ def map_http_error(error, http_op):
     if error:
         return error
     elif http_op.status_code >= 300:
-        translated_error = http_map_error.translate_error(http_op.status_code, http_op.reason)
+        translated_error = http_map_error.translate_error(
+            http_op.status_code, http_op.reason
+        )
         return exceptions.ServiceError(
-            "HTTP operation returned: {} {}".format(http_op.status_code, translated_error)
+            "HTTP operation returned: {} {}".format(
+                http_op.status_code, translated_error
+            )
         )
 
 
@@ -42,7 +46,9 @@ class IoTHubHTTPTranslationStage(PipelineStage):
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_iothub_http.MethodInvokeOperation):
             logger.debug(
-                "{}({}): Translating Method Invoke Operation for HTTP.".format(self.name, op.name)
+                "{}({}): Translating Method Invoke Operation for HTTP.".format(
+                    self.name, op.name
+                )
             )
             query_params = "api-version={apiVersion}".format(
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
@@ -50,7 +56,9 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             #  if the target is a module.
 
             body = json.dumps(op.method_params)
-            path = http_path_iothub.get_method_invoke_path(op.target_device_id, op.target_module_id)
+            path = http_path_iothub.get_method_invoke_path(
+                op.target_device_id, op.target_module_id
+            )
             # NOTE: we do not add the sas Authorization header here. Instead we add it later on in
             # the HTTPTransportStage
             x_ms_edge_string = "{deviceId}/{moduleId}".format(
@@ -73,11 +81,15 @@ class IoTHubHTTPTranslationStage(PipelineStage):
 
             def on_request_response(op, error):
                 logger.debug(
-                    "{}({}): Got response for MethodInvokeOperation".format(self.name, op.name)
+                    "{}({}): Got response for MethodInvokeOperation".format(
+                        self.name, op.name
+                    )
                 )
                 error = map_http_error(error=error, http_op=op)
                 if not error:
-                    op_waiting_for_response.method_response = json.loads(op.response_body or 'null')
+                    op_waiting_for_response.method_response = json.loads(
+                        op.response_body or "null"
+                    )
                 op_waiting_for_response.complete(error=error)
 
             self.send_op_down(
@@ -93,7 +105,9 @@ class IoTHubHTTPTranslationStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_iothub_http.GetStorageInfoOperation):
             logger.debug(
-                "{}({}): Translating Get Storage Info Operation to HTTP.".format(self.name, op.name)
+                "{}({}): Translating Get Storage Info Operation to HTTP.".format(
+                    self.name, op.name
+                )
             )
             query_params = "api-version={apiVersion}".format(
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
@@ -118,11 +132,15 @@ class IoTHubHTTPTranslationStage(PipelineStage):
 
             def on_request_response(op, error):
                 logger.debug(
-                    "{}({}): Got response for GetStorageInfoOperation".format(self.name, op.name)
+                    "{}({}): Got response for GetStorageInfoOperation".format(
+                        self.name, op.name
+                    )
                 )
                 error = map_http_error(error=error, http_op=op)
                 if not error:
-                    op_waiting_for_response.storage_info = json.loads(op.response_body or 'null')
+                    op_waiting_for_response.storage_info = json.loads(
+                        op.response_body or "null"
+                    )
                 op_waiting_for_response.complete(error=error)
 
             self.send_op_down(
@@ -138,7 +156,9 @@ class IoTHubHTTPTranslationStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_iothub_http.NotifyBlobUploadStatusOperation):
             logger.debug(
-                "{}({}): Translating Get Storage Info Operation to HTTP.".format(self.name, op.name)
+                "{}({}): Translating Get Storage Info Operation to HTTP.".format(
+                    self.name, op.name
+                )
             )
             query_params = "api-version={apiVersion}".format(
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
@@ -171,7 +191,9 @@ class IoTHubHTTPTranslationStage(PipelineStage):
 
             def on_request_response(op, error):
                 logger.debug(
-                    "{}({}): Got response for GetStorageInfoOperation".format(self.name, op.name)
+                    "{}({}): Got response for GetStorageInfoOperation".format(
+                        self.name, op.name
+                    )
                 )
                 error = map_http_error(error=error, http_op=op)
                 op_waiting_for_response.complete(error=error)

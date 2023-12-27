@@ -103,7 +103,6 @@ def profile(func):
 
 class Application(object):
     async def initiate(self):
-
         self.message_queue = asyncio.Queue()
         self.device_client = None
         self.exit_app_event = asyncio.Event()
@@ -117,12 +116,18 @@ class Application(object):
     async def create_client(self, conn_str):
         try:
             # Create a Device Client
-            self.device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
+            self.device_client = IoTHubDeviceClient.create_from_connection_string(
+                conn_str
+            )
             # Attach the connection state handler
-            self.device_client.on_connection_state_change = self.handle_on_connection_state_change
+            self.device_client.on_connection_state_change = (
+                self.handle_on_connection_state_change
+            )
         except Exception as e:
             self.log_error_and_print(
-                "Caught exception while trying to attach handler : {}".format(get_type_name(e))
+                "Caught exception while trying to attach handler : {}".format(
+                    get_type_name(e)
+                )
             )
             raise Exception(
                 "Caught exception while trying to attach handler.Will exit application..."
@@ -159,7 +164,9 @@ class Application(object):
             self.log_info_and_print("Created a message...")
             self.message_queue.put_nowait(msg)
             # time between 10 seconds and less than 30 minutes.
-            randint = random.randint(UPPER_LIMIT_OF_ENQUEUEING, UPPER_LIMIT_OF_ENQUEUEING)
+            randint = random.randint(
+                UPPER_LIMIT_OF_ENQUEUEING, UPPER_LIMIT_OF_ENQUEUEING
+            )
             self.log_info_and_print(
                 "Will sleep for {} seconds and then enqueue messages".format(randint)
             )
@@ -169,7 +176,9 @@ class Application(object):
 
     async def do_all_tasks_and_disconnect(self):
         task_list = []
-        self.log_info_and_print("Current qsize is: {}".format(self.message_queue.qsize()))
+        self.log_info_and_print(
+            "Current qsize is: {}".format(self.message_queue.qsize())
+        )
         while not self.message_queue.empty():
             msg = await self.message_queue.get()
             task = asyncio.create_task(self.device_client.send_message(msg))
@@ -198,15 +207,23 @@ class Application(object):
                 if not self.device_client.connected:
                     try:
                         self.log_info_and_print(
-                            "Attempting to connect the device client try number {}....".format(i)
+                            "Attempting to connect the device client try number {}....".format(
+                                i
+                            )
                         )
                         await self.device_client.connect()
-                        self.log_info_and_print("Successfully connected the device client...")
+                        self.log_info_and_print(
+                            "Successfully connected the device client..."
+                        )
                         await self.do_all_tasks_and_disconnect()
                         break
                     except Exception as e:
-                        sleep_time = pow(self.sleep_time_between_conns, self.retry_increase_factor)
-                        self.log_error_and_print("Caught exception while trying to connect...")
+                        sleep_time = pow(
+                            self.sleep_time_between_conns, self.retry_increase_factor
+                        )
+                        self.log_error_and_print(
+                            "Caught exception while trying to connect..."
+                        )
                         self.log_error_and_print(
                             "Failed to connect the device client due to error :{}.Sleeping and retrying after {} seconds".format(
                                 get_type_name(e), sleep_time
@@ -233,7 +250,9 @@ class Application(object):
             for item in gc_counts:
                 self.log_info_and_print("collections -> {}".format(item["collections"]))
                 self.log_info_and_print("collected -> {}".format(item["collected"]))
-                self.log_info_and_print("uncollectable -> {}".format(item["uncollectable"]))
+                self.log_info_and_print(
+                    "uncollectable -> {}".format(item["uncollectable"])
+                )
 
             self.log_info_and_print(
                 "Will sleep for {} seconds and then collect memory stats....".format(
@@ -258,12 +277,16 @@ class Application(object):
 
         pending = []
         try:
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+            done, pending = await asyncio.wait(
+                tasks, return_when=asyncio.FIRST_EXCEPTION
+            )
             await asyncio.gather(*done)
         except KeyboardInterrupt:
             self.log_error_and_print("IoTHubClient sample stopped by user")
         except Exception as e:
-            self.log_error_and_print("Exception in main loop: {}".format(get_type_name(e)))
+            self.log_error_and_print(
+                "Exception in main loop: {}".format(get_type_name(e))
+            )
         finally:
             self.log_info_and_print("Exiting app")
             self.exit_app_event.set()
@@ -271,7 +294,9 @@ class Application(object):
             await asyncio.wait_for(
                 asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED), timeout=5
             )
-            self.log_info_and_print("Shutting down IoTHubClient and exiting Application")
+            self.log_info_and_print(
+                "Shutting down IoTHubClient and exiting Application"
+            )
             await self.device_client.shutdown()
 
 

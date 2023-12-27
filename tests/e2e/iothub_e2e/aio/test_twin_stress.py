@@ -43,7 +43,8 @@ def wrap_as_reported_property(value, key=None):
 @pytest.mark.parametrize(*parametrize.connection_retry_disabled)
 class TestTwinStress(object):
     @pytest.mark.parametrize(
-        "iteration_count", [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")]
+        "iteration_count",
+        [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")],
     )
     @pytest.mark.it("Can send continuous reported property updates, one-at-a-time")
     async def test_stress_serial_reported_property_updates(
@@ -57,7 +58,9 @@ class TestTwinStress(object):
 
         leak_tracker.set_initial_object_list()
 
-        await call_with_retry(client, client.patch_twin_reported_properties, reset_reported_props)
+        await call_with_retry(
+            client, client.patch_twin_reported_properties, reset_reported_props
+        )
 
         for i in range(iteration_count):
             logger.info("Iteration {} of {}".format(i, iteration_count))
@@ -78,7 +81,9 @@ class TestTwinStress(object):
                     received = True
                 else:
                     logger.info(
-                        "Wrong patch received. Expecting {}, got {}".format(patch, received_patch)
+                        "Wrong patch received. Expecting {}, got {}".format(
+                            patch, received_patch
+                        )
                     )
 
         leak_tracker.check_for_leaks()
@@ -103,11 +108,14 @@ class TestTwinStress(object):
 
         leak_tracker.set_initial_object_list()
 
-        await call_with_retry(client, client.patch_twin_reported_properties, reset_reported_props)
+        await call_with_retry(
+            client, client.patch_twin_reported_properties, reset_reported_props
+        )
 
         for _ in range(0, iteration_count, batch_size):
             props = {
-                "key_{}".format(k): get_random_property_value() for k in range(0, iteration_count)
+                "key_{}".format(k): get_random_property_value()
+                for k in range(0, iteration_count)
             }
 
             # Do overlapped calls to update `batch_size` properties.
@@ -127,8 +135,12 @@ class TestTwinStress(object):
             # wait for these properties to arrive at the service
             count_received = 0
             while count_received < batch_size:
-                received_patch = await service_helper.get_next_reported_patch_arrival(timeout=60)
-                received_test_content = received_patch[const.REPORTED][const.TEST_CONTENT] or {}
+                received_patch = await service_helper.get_next_reported_patch_arrival(
+                    timeout=60
+                )
+                received_test_content = (
+                    received_patch[const.REPORTED][const.TEST_CONTENT] or {}
+                )
                 logger.info("received {}".format(received_test_content))
 
                 if isinstance(received_test_content, dict):
@@ -137,7 +149,9 @@ class TestTwinStress(object):
                     # This can happen if if the tests are running fast and the reported
                     # property updates are being processed slowly.
                     for key in received_test_content.keys():
-                        logger.info("Received {} = {}".format(key, received_test_content[key]))
+                        logger.info(
+                            "Received {} = {}".format(key, received_test_content[key])
+                        )
                         if key in props:
                             if received_test_content[key] == props[key]:
                                 logger.info("Key {} received as expected.".format(key))
@@ -154,9 +168,12 @@ class TestTwinStress(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.parametrize(
-        "iteration_count", [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")]
+        "iteration_count",
+        [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")],
     )
-    @pytest.mark.it("Can receive continuous desired property updates that were sent one-at-a-time")
+    @pytest.mark.it(
+        "Can receive continuous desired property updates that were sent one-at-a-time"
+    )
     async def test_stress_serial_desired_property_updates(
         self, client, service_helper, toxic, iteration_count, event_loop, leak_tracker
     ):
@@ -201,7 +218,14 @@ class TestTwinStress(object):
         "Can receive continuous desired property updates that may have been sent in parallel"
     )
     async def test_stress_parallel_desired_property_updates(
-        self, client, service_helper, toxic, iteration_count, batch_size, event_loop, leak_tracker
+        self,
+        client,
+        service_helper,
+        toxic,
+        iteration_count,
+        batch_size,
+        event_loop,
+        leak_tracker,
     ):
         """
         Update desired properties in batches. Each batch updates `batch_size` properties,
@@ -224,11 +248,15 @@ class TestTwinStress(object):
         await service_helper.set_desired_properties({const.TEST_CONTENT: None})
 
         for _ in range(0, iteration_count, batch_size):
-
             # update `batch_size` properties, each with a call to `set_desired_properties`
-            props = {"key_{}".format(k): get_random_property_value() for k in range(0, batch_size)}
+            props = {
+                "key_{}".format(k): get_random_property_value()
+                for k in range(0, batch_size)
+            }
             tasks = [
-                service_helper.set_desired_properties({const.TEST_CONTENT: {key: props[key]}})
+                service_helper.set_desired_properties(
+                    {const.TEST_CONTENT: {key: props[key]}}
+                )
                 for key in props.keys()
             ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -243,7 +271,9 @@ class TestTwinStress(object):
                 received_test_content = received_patch[const.TEST_CONTENT] or {}
 
                 for key in received_test_content:
-                    logger.info("Received {} = {}".format(key, received_test_content[key]))
+                    logger.info(
+                        "Received {} = {}".format(key, received_test_content[key])
+                    )
                     if key in props:
                         if received_test_content[key] == props[key]:
                             logger.info("Key {} received as expected.".format(key))
@@ -260,7 +290,8 @@ class TestTwinStress(object):
         leak_tracker.check_for_leaks()
 
     @pytest.mark.parametrize(
-        "iteration_count", [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")]
+        "iteration_count",
+        [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")],
     )
     @pytest.mark.it("Can continuously call get_twin and get valid property values")
     async def test_stress_serial_get_twin_calls(
@@ -317,7 +348,9 @@ class TestTwinStress(object):
             pytest.param(1000, 50, id="1000 updates, 50 at a time"),
         ],
     )
-    @pytest.mark.it("Can continuously make overlapped get_twin calls and get valid property values")
+    @pytest.mark.it(
+        "Can continuously make overlapped get_twin calls and get valid property values"
+    )
     async def test_stress_parallel_get_twin_calls(
         self, client, service_helper, toxic, iteration_count, batch_size, leak_tracker
     ):
@@ -340,7 +373,10 @@ class TestTwinStress(object):
 
         while not ready_to_test:
             twin = await call_with_retry(client, client.get_twin)
-            if twin[const.REPORTED].get(const.TEST_CONTENT, "") == current_property_value:
+            if (
+                twin[const.REPORTED].get(const.TEST_CONTENT, "")
+                == current_property_value
+            ):
                 logger.info("Initial value set")
                 ready_to_test = True
             else:
@@ -362,7 +398,9 @@ class TestTwinStress(object):
 
             # Call `get_twin` many times overlapped and verify that we get either
             # the old property value (if we know it), or the new property value.
-            tasks = [call_with_retry(client, client.get_twin) for _ in range(batch_size)]
+            tasks = [
+                call_with_retry(client, client.get_twin) for _ in range(batch_size)
+            ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
             got_a_match = False
 
@@ -377,7 +415,9 @@ class TestTwinStress(object):
                     got_a_match = True
                 elif last_property_value:
                     # if it's not the current value, then it _must_ be the last value
-                    assert twin[const.REPORTED][const.TEST_CONTENT] == last_property_value
+                    assert (
+                        twin[const.REPORTED][const.TEST_CONTENT] == last_property_value
+                    )
 
             # Once we verify that `get_twin` returned the new property value, we set
             # it to `None` so the next iteration of the loop can update this value.

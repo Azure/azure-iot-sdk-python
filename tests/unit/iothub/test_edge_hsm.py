@@ -29,7 +29,9 @@ def edge_hsm():
 
 @pytest.mark.describe("IoTEdgeHsm - Instantiation")
 class TestIoTEdgeHsmInstantiation(object):
-    @pytest.mark.it("URL encodes the provided module_id parameter and sets it as an attribute")
+    @pytest.mark.it(
+        "URL encodes the provided module_id parameter and sets it as an attribute"
+    )
     def test_encode_and_set_module_id(self):
         module_id = "my_module_id"
         generation_id = "my_generation_id"
@@ -56,7 +58,9 @@ class TestIoTEdgeHsmInstantiation(object):
                 "http+unix://%2Fvar%2Frun%2Fiotedge%2Fworkload.sock/",
                 id="Domain Socket URI",
             ),
-            pytest.param("http://127.0.0.1:15580", "http://127.0.0.1:15580/", id="IP Address URI"),
+            pytest.param(
+                "http://127.0.0.1:15580", "http://127.0.0.1:15580/", id="IP Address URI"
+            ),
         ],
     )
     def test_workload_uri_formatting(self, workload_uri, expected_formatted_uri):
@@ -146,7 +150,9 @@ class TestIoTEdgeHsmGetCertificate(object):
             edge_hsm.get_certificate()
         assert e_info.value.__cause__ is error
 
-    @pytest.mark.it("Raises IoTEdgeError if there is an error in json decoding the trust bundle")
+    @pytest.mark.it(
+        "Raises IoTEdgeError if there is an error in json decoding the trust bundle"
+    )
     def test_bad_json(self, mocker, edge_hsm):
         mock_request_get = mocker.patch.object(requests, "get")
         mock_response = mock_request_get.return_value
@@ -157,7 +163,9 @@ class TestIoTEdgeHsmGetCertificate(object):
             edge_hsm.get_certificate()
         assert e_info.value.__cause__ is error
 
-    @pytest.mark.it("Raises IoTEdgeError if the certificate is missing from the trust bundle")
+    @pytest.mark.it(
+        "Raises IoTEdgeError if the certificate is missing from the trust bundle"
+    )
     def test_bad_trust_bundle(self, mocker, edge_hsm):
         mock_request_get = mocker.patch.object(requests, "get")
         mock_response = mock_request_get.return_value
@@ -178,22 +186,31 @@ class TestIoTEdgeHsmSign(object):
         data_str_b64 = "c29tZWRhdGE="
         mock_request_post = mocker.patch.object(requests, "post")
         mock_request_post.return_value.json.return_value = {"digest": "somedigest"}
-        expected_url = "{workload_uri}modules/{module_id}/genid/{generation_id}/sign".format(
-            workload_uri=edge_hsm.workload_uri,
-            module_id=edge_hsm.module_id,
-            generation_id=edge_hsm.generation_id,
+        expected_url = (
+            "{workload_uri}modules/{module_id}/genid/{generation_id}/sign".format(
+                workload_uri=edge_hsm.workload_uri,
+                module_id=edge_hsm.module_id,
+                generation_id=edge_hsm.generation_id,
+            )
         )
         expected_params = {"api-version": edge_hsm.api_version}
         expected_headers = {
-            "User-Agent": urllib.parse.quote(user_agent.get_iothub_user_agent(), safe="")
+            "User-Agent": urllib.parse.quote(
+                user_agent.get_iothub_user_agent(), safe=""
+            )
         }
-        expected_json = json.dumps({"keyId": "primary", "algo": "HMACSHA256", "data": data_str_b64})
+        expected_json = json.dumps(
+            {"keyId": "primary", "algo": "HMACSHA256", "data": data_str_b64}
+        )
 
         edge_hsm.sign(data_str)
 
         assert mock_request_post.call_count == 1
         assert mock_request_post.call_args == mocker.call(
-            url=expected_url, params=expected_params, headers=expected_headers, data=expected_json
+            url=expected_url,
+            params=expected_params,
+            headers=expected_headers,
+            data=expected_json,
         )
 
     @pytest.mark.it("Base64 encodes the string data in the request")
@@ -233,7 +250,9 @@ class TestIoTEdgeHsmSign(object):
             edge_hsm.sign("somedata")
         assert e_info.value.__cause__ is error
 
-    @pytest.mark.it("Raises IoTEdgeError if there is an error in json decoding the signed response")
+    @pytest.mark.it(
+        "Raises IoTEdgeError if there is an error in json decoding the signed response"
+    )
     def test_bad_json(self, mocker, edge_hsm):
         mock_request_post = mocker.patch.object(requests, "post")
         mock_response = mock_request_post.return_value
@@ -243,7 +262,9 @@ class TestIoTEdgeHsmSign(object):
             edge_hsm.sign("somedata")
         assert e_info.value.__cause__ is error
 
-    @pytest.mark.it("Raises IoTEdgeError if the signed data is missing from the response")
+    @pytest.mark.it(
+        "Raises IoTEdgeError if the signed data is missing from the response"
+    )
     def test_bad_response(self, mocker, edge_hsm):
         mock_request_post = mocker.patch.object(requests, "post")
         mock_response = mock_request_post.return_value

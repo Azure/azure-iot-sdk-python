@@ -43,7 +43,9 @@ def get_printable_object_name(obj):
     except TypeError:
         return "Foreign object (raised TypeError): {}, ID={}".format(type(obj), id(obj))
     except ModuleNotFoundError:
-        return "Foreign object (raised ModuleNotFoundError): {}, ID={}".format(type(obj), id(obj))
+        return "Foreign object (raised ModuleNotFoundError): {}, ID={}".format(
+            type(obj), id(obj)
+        )
 
 
 class TrackedObject(object):
@@ -275,7 +277,9 @@ class LeakTracker(object):
         """
 
         logger.info("-----------------------------------------------")
-        logger.error("Test failure.  {} objects have leaked:".format(len(leaked_objects)))
+        logger.error(
+            "Test failure.  {} objects have leaked:".format(len(leaked_objects))
+        )
         logger.info("(Default text format is <type(obj): str(obj)>")
 
         id_to_name_map = {}
@@ -360,9 +364,13 @@ class LeakTracker(object):
                                     object_id = id(referrer)
                                     if object_id in id_to_name_map:
                                         logger.info(
-                                            "    referred by: {}".format(id_to_name_map[object_id])
+                                            "    referred by: {}".format(
+                                                id_to_name_map[object_id]
+                                            )
                                         )
-                                        next_set_of_objects_to_report.add(id_to_name_map[object_id])
+                                        next_set_of_objects_to_report.add(
+                                            id_to_name_map[object_id]
+                                        )
                                     else:
                                         logger.info(
                                             "    referred by Non-object: {}".format(
@@ -379,9 +387,15 @@ class LeakTracker(object):
                 objects_to_report = next_set_of_objects_to_report
 
         logger.info("-----------------------------------------------")
-        logger.info("Leaked objects are available in local variables: gen0, gen1, and gen2")
-        logger.info("for the 3 generations of leaks. Use the get_object method to retrieve")
+        logger.info(
+            "Leaked objects are available in local variables: gen0, gen1, and gen2"
+        )
+        logger.info(
+            "for the 3 generations of leaks. Use the get_object method to retrieve"
+        )
         logger.info("the actual objects")
         logger.info("eg: us gen0[0].get_object() to get the first leaked object")
         logger.info("-----------------------------------------------")
-        assert False, "Test failure.  {} objects have leaked:".format(len(leaked_objects))
+        assert False, "Test failure.  {} objects have leaked:".format(
+            len(leaked_objects)
+        )

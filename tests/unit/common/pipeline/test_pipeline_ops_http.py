@@ -32,8 +32,12 @@ class HTTPRequestAndResponseOperationTestConfig(object):
         return kwargs
 
 
-class HTTPRequestAndResponseOperationInstantiationTests(HTTPRequestAndResponseOperationTestConfig):
-    @pytest.mark.it("Initializes 'method' attribute with the provided 'method' parameter")
+class HTTPRequestAndResponseOperationInstantiationTests(
+    HTTPRequestAndResponseOperationTestConfig
+):
+    @pytest.mark.it(
+        "Initializes 'method' attribute with the provided 'method' parameter"
+    )
     def test_method(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.method == init_kwargs["method"]
@@ -43,7 +47,9 @@ class HTTPRequestAndResponseOperationInstantiationTests(HTTPRequestAndResponseOp
         op = cls_type(**init_kwargs)
         assert op.path == init_kwargs["path"]
 
-    @pytest.mark.it("Initializes 'headers' attribute with the provided 'headers' parameter")
+    @pytest.mark.it(
+        "Initializes 'headers' attribute with the provided 'headers' parameter"
+    )
     def test_headers(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.headers == init_kwargs["headers"]

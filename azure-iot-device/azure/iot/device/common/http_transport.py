@@ -132,23 +132,43 @@ class HTTPTransport(object):
             # via the HTTPAdapter that was mounted at session level.
             if method == "GET":
                 response = session.get(
-                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                    url,
+                    data=body,
+                    headers=headers,
+                    proxies=self._proxies,
+                    timeout=HTTP_TIMEOUT,
                 )
             elif method == "POST":
                 response = session.post(
-                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                    url,
+                    data=body,
+                    headers=headers,
+                    proxies=self._proxies,
+                    timeout=HTTP_TIMEOUT,
                 )
             elif method == "PUT":
                 response = session.put(
-                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                    url,
+                    data=body,
+                    headers=headers,
+                    proxies=self._proxies,
+                    timeout=HTTP_TIMEOUT,
                 )
             elif method == "PATCH":
                 response = session.patch(
-                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                    url,
+                    data=body,
+                    headers=headers,
+                    proxies=self._proxies,
+                    timeout=HTTP_TIMEOUT,
                 )
             elif method == "DELETE":
                 response = session.delete(
-                    url, data=body, headers=headers, proxies=self._proxies, timeout=HTTP_TIMEOUT
+                    url,
+                    data=body,
+                    headers=headers,
+                    proxies=self._proxies,
+                    timeout=HTTP_TIMEOUT,
                 )
             else:
                 raise ValueError("Invalid method type: {}".format(method))
@@ -164,7 +184,9 @@ class HTTPTransport(object):
             callback(error=e)
         except Exception as e:
             # Raise error via the callback
-            new_err = exceptions.ProtocolClientError("Unexpected HTTPS failure during connect")
+            new_err = exceptions.ProtocolClientError(
+                "Unexpected HTTPS failure during connect"
+            )
             new_err.__cause__ = e
             callback(error=new_err)
         else:
@@ -190,7 +212,8 @@ def format_proxies(proxy_options):
         # Add credentials if necessary
         if proxy_options.proxy_username and proxy_options.proxy_password:
             auth = "{username}:{password}".format(
-                username=proxy_options.proxy_username, password=proxy_options.proxy_password
+                username=proxy_options.proxy_username,
+                password=proxy_options.proxy_password,
             )
             proxy = auth + "@" + proxy
         # Set proxy for use on HTTP or HTTPS connections

@@ -15,12 +15,18 @@ from azure.iot.device.iothub.client_event import (
 
 logging.basicConfig(level=logging.DEBUG)
 
-all_client_events = [CONNECTION_STATE_CHANGE, NEW_SASTOKEN_REQUIRED, BACKGROUND_EXCEPTION]
+all_client_events = [
+    CONNECTION_STATE_CHANGE,
+    NEW_SASTOKEN_REQUIRED,
+    BACKGROUND_EXCEPTION,
+]
 
 
 @pytest.mark.describe("ClientEvent")
 class TestClientEvent(object):
-    @pytest.mark.it("Instantiates with the 'name' attribute set to the provided 'name' parameter")
+    @pytest.mark.it(
+        "Instantiates with the 'name' attribute set to the provided 'name' parameter"
+    )
     @pytest.mark.parametrize("name", all_client_events)
     def test_name(self, name):
         event = ClientEvent(name)

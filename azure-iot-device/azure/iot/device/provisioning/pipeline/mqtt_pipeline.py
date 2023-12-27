@@ -73,7 +73,9 @@ class MQTTPipeline(object):
             # all operations directly into MQTT.  After this stage, only pipeline_stages_base stages
             # are allowed because ProvisioningMQTTTranslationStage removes all the provisioning-ness from the ops
             #
-            .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage())
+            .append_stage(
+                pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage()
+            )
             #
             # AutoConnectStage comes here because only MQTT ops have the need_connection flag set
             # and this is the first place in the pipeline where we can guarantee that all network
@@ -166,7 +168,9 @@ class MQTTPipeline(object):
         # constructs other than Stages (e.g. Operations) which may have timers attached. These are
         # lesser issues, but should be addressed at some point.
         # TODO: Truly complete the shutdown implementation
-        self._pipeline.run_op(pipeline_ops_base.ShutdownPipelineOperation(callback=on_complete))
+        self._pipeline.run_op(
+            pipeline_ops_base.ShutdownPipelineOperation(callback=on_complete)
+        )
 
     def connect(self, callback=None):
         """
@@ -192,7 +196,9 @@ class MQTTPipeline(object):
         def pipeline_callback(op, error):
             callback(error=error)
 
-        self._pipeline.run_op(pipeline_ops_base.ConnectOperation(callback=pipeline_callback))
+        self._pipeline.run_op(
+            pipeline_ops_base.ConnectOperation(callback=pipeline_callback)
+        )
 
     def disconnect(self, callback=None):
         """
@@ -214,7 +220,9 @@ class MQTTPipeline(object):
         def pipeline_callback(op, error):
             callback(error=error)
 
-        self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=pipeline_callback))
+        self._pipeline.run_op(
+            pipeline_ops_base.DisconnectOperation(callback=pipeline_callback)
+        )
 
     # NOTE: Currently, this operation will retry itself indefinitely in the case of timeout
     def enable_responses(self, callback=None):
@@ -274,6 +282,8 @@ class MQTTPipeline(object):
 
         self._pipeline.run_op(
             pipeline_ops_provisioning.RegisterOperation(
-                request_payload=payload, registration_id=self._registration_id, callback=on_complete
+                request_payload=payload,
+                registration_id=self._registration_id,
+                callback=on_complete,
             )
         )

@@ -51,7 +51,8 @@ def twin_patch():
 @pytest.fixture(autouse=True)
 def mock_transport(mocker):
     mocker.patch(
-        "azure.iot.device.common.pipeline.pipeline_stages_http.HTTPTransport", autospec=True
+        "azure.iot.device.common.pipeline.pipeline_stages_http.HTTPTransport",
+        autospec=True,
     )
 
 
@@ -98,7 +99,9 @@ class TestHTTPPipelineInstantiation(object):
     @pytest.mark.it(
         "Raises exceptions that occurred in execution upon unsuccessful completion of the InitializePipelineOperation"
     )
-    def test_sas_auth_op_fail(self, mocker, arbitrary_exception, pipeline_configuration):
+    def test_sas_auth_op_fail(
+        self, mocker, arbitrary_exception, pipeline_configuration
+    ):
         old_run_op = pipeline_stages_base.PipelineRootStage._run_op
 
         def fail_initialize(self, op):
@@ -156,7 +159,9 @@ class TestHTTPPipelineInvokeMethod(object):
     @pytest.mark.it("Passes the correct parameters to the MethodInvokeOperation")
     def test_passes_params_to_op(self, pipeline, mocker):
         cb = mocker.MagicMock()
-        mocked_op = mocker.patch.object(pipeline_ops_iothub_http, "MethodInvokeOperation")
+        mocked_op = mocker.patch.object(
+            pipeline_ops_iothub_http, "MethodInvokeOperation"
+        )
         fake_method_params = mocker.MagicMock()
         pipeline.invoke_method(
             device_id=fake_device_id,
@@ -172,7 +177,9 @@ class TestHTTPPipelineInvokeMethod(object):
             target_module_id=fake_module_id,
         )
 
-    @pytest.mark.it("Triggers the callback upon successful completion of the MethodInvokeOperation")
+    @pytest.mark.it(
+        "Triggers the callback upon successful completion of the MethodInvokeOperation"
+    )
     def test_op_success_with_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
 
@@ -211,7 +218,9 @@ class TestHTTPPipelineInvokeMethod(object):
 
         op.complete(error=arbitrary_exception)
         assert cb.call_count == 1
-        assert cb.call_args == mocker.call(error=arbitrary_exception, invoke_method_response=None)
+        assert cb.call_args == mocker.call(
+            error=arbitrary_exception, invoke_method_response=None
+        )
 
 
 @pytest.mark.describe("HTTPPipeline - .get_storage_info_for_blob()")
@@ -254,7 +263,9 @@ class TestHTTPPipelineGetStorageInfo(object):
         op.complete(error=None)
 
         assert cb.call_count == 1
-        assert cb.call_args == mocker.call(error=None, storage_info="__fake_storage_info__")
+        assert cb.call_args == mocker.call(
+            error=None, storage_info="__fake_storage_info__"
+        )
 
     @pytest.mark.it(
         "Calls the callback with the error upon unsuccessful completion of the GetStorageInfoOperation"

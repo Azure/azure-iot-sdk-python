@@ -22,7 +22,11 @@ class TestProvisioningPipelineConfigInstantiation(PipelineConfigInstantiationTes
     @pytest.fixture
     def required_kwargs(self):
         # This fixture is needed for the parent class
-        return {"hostname": hostname, "registration_id": registration_id, "id_scope": id_scope}
+        return {
+            "hostname": hostname,
+            "registration_id": registration_id,
+            "id_scope": id_scope,
+        }
 
     # The parent class defines the auth mechanism fixtures (sastoken, x509).
     # For the sake of ease of testing, we will assume sastoken is being used unless
@@ -34,7 +38,10 @@ class TestProvisioningPipelineConfigInstantiation(PipelineConfigInstantiationTes
     )
     def test_registration_id_set(self, sastoken):
         config = ProvisioningPipelineConfig(
-            hostname=hostname, registration_id=registration_id, id_scope=id_scope, sastoken=sastoken
+            hostname=hostname,
+            registration_id=registration_id,
+            id_scope=id_scope,
+            sastoken=sastoken,
         )
         assert config.registration_id == registration_id
 
@@ -43,6 +50,9 @@ class TestProvisioningPipelineConfigInstantiation(PipelineConfigInstantiationTes
     )
     def test_id_scope_set(self, sastoken):
         config = ProvisioningPipelineConfig(
-            hostname=hostname, registration_id=registration_id, id_scope=id_scope, sastoken=sastoken
+            hostname=hostname,
+            registration_id=registration_id,
+            id_scope=id_scope,
+            sastoken=sastoken,
         )
         assert config.id_scope == id_scope

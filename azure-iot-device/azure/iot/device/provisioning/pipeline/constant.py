@@ -31,4 +31,6 @@ PUBLISH_TOPIC_REGISTRATION = "$dps/registrations/PUT/iotdps-register/?$rid={}"
 The topic string used for publishing a query request.
 This must be provided with the registration request id (rid) as well as the operation id
 """
-PUBLISH_TOPIC_QUERYING = "$dps/registrations/GET/iotdps-get-operationstatus/?$rid={}&operationId={}"
+PUBLISH_TOPIC_QUERYING = (
+    "$dps/registrations/GET/iotdps-get-operationstatus/?$rid={}&operationId={}"
+)

@@ -57,7 +57,8 @@ def twin_patch():
 @pytest.fixture(autouse=True)
 def mock_transport(mocker):
     return mocker.patch(
-        "azure.iot.device.common.pipeline.pipeline_stages_mqtt.MQTTTransport", autospec=True
+        "azure.iot.device.common.pipeline.pipeline_stages_mqtt.MQTTTransport",
+        autospec=True,
     )
 
 
@@ -88,7 +89,9 @@ class TestMQTTPipelineInstantiation(object):
         assert pipeline.on_method_request_received is None
         assert pipeline.on_twin_patch_received is None
 
-    @pytest.mark.it("Configures the pipeline to trigger handlers in response to external events")
+    @pytest.mark.it(
+        "Configures the pipeline to trigger handlers in response to external events"
+    )
     def test_handlers_configured(self, pipeline_configuration):
         pipeline = MQTTPipeline(pipeline_configuration)
         assert pipeline._pipeline.on_pipeline_event_handler is not None
@@ -155,7 +158,9 @@ class TestMQTTPipelineInstantiation(object):
     @pytest.mark.it(
         "Raises exceptions that occurred in execution upon unsuccessful completion of the InitializePipelineOperation"
     )
-    def test_init_pipeline_fail(self, mocker, arbitrary_exception, pipeline_configuration):
+    def test_init_pipeline_fail(
+        self, mocker, arbitrary_exception, pipeline_configuration
+    ):
         old_run_op = pipeline_stages_base.PipelineRootStage._run_op
 
         def fail_initialize(self, op):
@@ -193,7 +198,8 @@ class TestMQTTPipelineShutdown(object):
         pipeline.shutdown(callback=cb)
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(
-            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.ShutdownPipelineOperation
+            pipeline._pipeline.run_op.call_args[0][0],
+            pipeline_ops_base.ShutdownPipelineOperation,
         )
 
     @pytest.mark.it(
@@ -278,10 +284,13 @@ class TestMQTTPipelineConnect(object):
         pipeline.connect(callback=cb)
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(
-            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.ConnectOperation
+            pipeline._pipeline.run_op.call_args[0][0],
+            pipeline_ops_base.ConnectOperation,
         )
 
-    @pytest.mark.it("Triggers the callback upon successful completion of the ConnectOperation")
+    @pytest.mark.it(
+        "Triggers the callback upon successful completion of the ConnectOperation"
+    )
     def test_op_success_with_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
 
@@ -326,10 +335,13 @@ class TestMQTTPipelineDisconnect(object):
         pipeline.disconnect(callback=mocker.MagicMock())
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(
-            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.DisconnectOperation
+            pipeline._pipeline.run_op.call_args[0][0],
+            pipeline_ops_base.DisconnectOperation,
         )
 
-    @pytest.mark.it("Triggers the callback upon successful completion of the DisconnectOperation")
+    @pytest.mark.it(
+        "Triggers the callback upon successful completion of the DisconnectOperation"
+    )
     def test_op_success_with_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
 
@@ -420,7 +432,9 @@ class TestMQTTPipelineSendD2CMessage(object):
         with pytest.raises(pipeline_exceptions.PipelineNotRunning):
             pipeline.send_message(message, callback=mocker.MagicMock())
 
-    @pytest.mark.it("Runs a SendD2CMessageOperation with the provided message on the pipeline")
+    @pytest.mark.it(
+        "Runs a SendD2CMessageOperation with the provided message on the pipeline"
+    )
     def test_runs_op(self, pipeline, message, mocker):
         pipeline.send_message(message, callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
@@ -477,7 +491,9 @@ class TestMQTTPipelineSendOutputMessage(object):
         message.output_name = "some output"
         return message
 
-    @pytest.mark.it("Runs a SendOutputMessageOperation with the provided Message on the pipeline")
+    @pytest.mark.it(
+        "Runs a SendOutputMessageOperation with the provided Message on the pipeline"
+    )
     def test_runs_op(self, pipeline, message, mocker):
         pipeline.send_output_message(message, callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
@@ -587,7 +603,8 @@ class TestMQTTPipelineGetTwin(object):
         pipeline.get_twin(callback=cb)
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(
-            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_iothub.GetTwinOperation
+            pipeline._pipeline.run_op.call_args[0][0],
+            pipeline_ops_iothub.GetTwinOperation,
         )
 
     @pytest.mark.it(
@@ -630,7 +647,9 @@ class TestMQTTPipelinePatchTwinReportedProperties(object):
         pipeline._running = False
 
         with pytest.raises(pipeline_exceptions.PipelineNotRunning):
-            pipeline.patch_twin_reported_properties(twin_patch, callback=mocker.MagicMock())
+            pipeline.patch_twin_reported_properties(
+                twin_patch, callback=mocker.MagicMock()
+            )
 
     @pytest.mark.it(
         "Runs a PatchTwinReportedPropertiesOperation with the provided twin patch on the pipeline"
@@ -696,7 +715,9 @@ class TestMQTTPipelineEnableFeature(object):
 
     # TODO: what about features that are already disabled?
 
-    @pytest.mark.it("Runs a EnableFeatureOperation with the provided feature_name on the pipeline")
+    @pytest.mark.it(
+        "Runs a EnableFeatureOperation with the provided feature_name on the pipeline"
+    )
     @pytest.mark.parametrize("feature", all_features)
     def test_runs_op(self, pipeline, feature, mocker):
         pipeline.enable_feature(feature, callback=mocker.MagicMock())
@@ -706,7 +727,9 @@ class TestMQTTPipelineEnableFeature(object):
         assert isinstance(op, pipeline_ops_base.EnableFeatureOperation)
         assert op.feature_name == feature
 
-    @pytest.mark.it("Does not mark the feature as enabled before the callback is complete")
+    @pytest.mark.it(
+        "Does not mark the feature as enabled before the callback is complete"
+    )
     @pytest.mark.parametrize("feature", all_features)
     def test_mark_feature_not_enabled(self, pipeline, feature, mocker):
         assert not pipeline.feature_enabled[feature]
@@ -716,7 +739,9 @@ class TestMQTTPipelineEnableFeature(object):
         assert callback.call_count == 0
         assert not pipeline.feature_enabled[feature]
 
-    @pytest.mark.it("Does not mark the feature as enabled if the EnableFeatureOperation fails")
+    @pytest.mark.it(
+        "Does not mark the feature as enabled if the EnableFeatureOperation fails"
+    )
     @pytest.mark.parametrize("feature", all_features)
     def test_mark_feature_not_enabled_on_failure(
         self, pipeline, feature, mocker, arbitrary_exception
@@ -732,7 +757,9 @@ class TestMQTTPipelineEnableFeature(object):
         assert callback.call_count == 1
         assert not pipeline.feature_enabled[feature]
 
-    @pytest.mark.it("Marks the feature as enabled if the EnableFeatureOperation succeeds")
+    @pytest.mark.it(
+        "Marks the feature as enabled if the EnableFeatureOperation succeeds"
+    )
     @pytest.mark.parametrize("feature", all_features)
     def test_mark_feature_enabled_on_success(self, pipeline, feature, mocker):
         assert not pipeline.feature_enabled[feature]
@@ -801,7 +828,9 @@ class TestMQTTPipelineDisableFeature(object):
 
     # TODO: what about features that are already disabled?
 
-    @pytest.mark.it("Runs a DisableFeatureOperation with the provided feature_name on the pipeline")
+    @pytest.mark.it(
+        "Runs a DisableFeatureOperation with the provided feature_name on the pipeline"
+    )
     @pytest.mark.parametrize("feature", all_features)
     def test_runs_op(self, pipeline, feature, mocker):
         pipeline.disable_feature(feature, callback=mocker.MagicMock())
@@ -811,7 +840,9 @@ class TestMQTTPipelineDisableFeature(object):
         assert isinstance(op, pipeline_ops_base.DisableFeatureOperation)
         assert op.feature_name == feature
 
-    @pytest.mark.it("Does not mark the feature as disabled before the callback is complete")
+    @pytest.mark.it(
+        "Does not mark the feature as disabled before the callback is complete"
+    )
     @pytest.mark.parametrize("feature", all_features)
     def test_mark_feature_not_enabled(self, pipeline, feature, mocker):
         # feature is already enabled
@@ -826,7 +857,9 @@ class TestMQTTPipelineDisableFeature(object):
         assert callback.call_count == 0
         assert pipeline.feature_enabled[feature]
 
-    @pytest.mark.it("Marks the feature as disabled if the DisableFeatureOperation succeeds")
+    @pytest.mark.it(
+        "Marks the feature as disabled if the DisableFeatureOperation succeeds"
+    )
     @pytest.mark.parametrize("feature", all_features)
     def test_mark_feature_enabled_on_success(self, pipeline, feature, mocker):
         # feature is already enabled
@@ -843,7 +876,9 @@ class TestMQTTPipelineDisableFeature(object):
         assert callback.call_count == 1
         assert not pipeline.feature_enabled[feature]
 
-    @pytest.mark.it("Marks the feature as disabled even if the DisableFeatureOperation fails")
+    @pytest.mark.it(
+        "Marks the feature as disabled even if the DisableFeatureOperation fails"
+    )
     @pytest.mark.parametrize("feature", all_features)
     def test_mark_feature_not_enabled_on_failure(
         self, pipeline, feature, mocker, arbitrary_exception
@@ -1004,7 +1039,9 @@ class TestMQTTPipelineOCCURRENCEReceiveC2DMessage(object):
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(message)
 
-    @pytest.mark.it("Drops the message if the 'on_c2d_message_received' handler is not set")
+    @pytest.mark.it(
+        "Drops the message if the 'on_c2d_message_received' handler is not set"
+    )
     def test_no_handler(self, pipeline, message):
         c2d_event = pipeline_events_iothub.C2DMessageEvent(message)
         pipeline._pipeline.on_pipeline_event_handler(c2d_event)
@@ -1034,7 +1071,9 @@ class TestMQTTPipelineOCCURRENCEReceiveInputMessage(object):
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(message)
 
-    @pytest.mark.it("Drops the message if the 'on_input_message_received' handler is not set")
+    @pytest.mark.it(
+        "Drops the message if the 'on_input_message_received' handler is not set"
+    )
     def test_no_handler(self, pipeline, message):
         input_name = "some_input"
         message.input_name = input_name
@@ -1074,7 +1113,9 @@ class TestMQTTPipelineOCCURRENCEReceiveMethodRequest(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("MQTTPipeline - OCCURRENCE: Twin Desired Properties Patch Received")
+@pytest.mark.describe(
+    "MQTTPipeline - OCCURRENCE: Twin Desired Properties Patch Received"
+)
 class TestMQTTPipelineOCCURRENCEReceiveDesiredPropertiesPatch(object):
     @pytest.mark.it(
         "Triggers the 'on_twin_patch_received' handler, passing the received twin patch as an argument"
@@ -1086,7 +1127,9 @@ class TestMQTTPipelineOCCURRENCEReceiveDesiredPropertiesPatch(object):
         assert mock_handler.call_count == 0
 
         # Create the event
-        twin_patch_event = pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(twin_patch)
+        twin_patch_event = pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
+            twin_patch
+        )
 
         # Trigger the event
         pipeline._pipeline.on_pipeline_event_handler(twin_patch_event)
@@ -1094,9 +1137,13 @@ class TestMQTTPipelineOCCURRENCEReceiveDesiredPropertiesPatch(object):
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(twin_patch)
 
-    @pytest.mark.it("Drops the twin patch if the 'on_twin_patch_received' handler is not set")
+    @pytest.mark.it(
+        "Drops the twin patch if the 'on_twin_patch_received' handler is not set"
+    )
     def test_no_handler(self, pipeline, twin_patch):
-        twin_patch_event = pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(twin_patch)
+        twin_patch_event = pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
+            twin_patch
+        )
         pipeline._pipeline.on_pipeline_event_handler(twin_patch_event)
 
         # No assertions required - not throwing an exception means the test passed
@@ -1115,9 +1162,13 @@ class TestMQTTPipelinePROPERTYPipelineConfiguration(object):
         pipeline.pipeline_configuration.sastoken = None
         assert pipeline.pipeline_configuration.sastoken is None
 
-    @pytest.mark.it("Reflects the value of the PipelineNucleus attribute of the same name")
+    @pytest.mark.it(
+        "Reflects the value of the PipelineNucleus attribute of the same name"
+    )
     def test_reflects_pipeline_attribute(self, pipeline):
-        assert pipeline.pipeline_configuration is pipeline._nucleus.pipeline_configuration
+        assert (
+            pipeline.pipeline_configuration is pipeline._nucleus.pipeline_configuration
+        )
 
 
 @pytest.mark.describe("MQTTPipeline - PROPERTY .connected")
@@ -1127,7 +1178,9 @@ class TestMQTTPipelinePROPERTYConnected(object):
         with pytest.raises(AttributeError):
             pipeline.connected = not pipeline.connected
 
-    @pytest.mark.it("Reflects the value of the PipelineNucleus attribute of the same name")
+    @pytest.mark.it(
+        "Reflects the value of the PipelineNucleus attribute of the same name"
+    )
     def test_reflects_pipeline_attribute(self, pipeline, pipeline_connected_mock):
         # Need to set indirectly via mock due to nucleus attribute being read-only
         type(pipeline._nucleus).connected = pipeline_connected_mock

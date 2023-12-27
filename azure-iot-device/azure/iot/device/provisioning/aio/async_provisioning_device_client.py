@@ -32,11 +32,15 @@ async def handle_result(callback):
     except pipeline_exceptions.ConnectionFailedError as e:
         raise exceptions.ConnectionFailedError("Could not connect to IoTHub") from e
     except pipeline_exceptions.UnauthorizedError as e:
-        raise exceptions.CredentialError("Credentials invalid, could not connect") from e
+        raise exceptions.CredentialError(
+            "Credentials invalid, could not connect"
+        ) from e
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError("Error in the IoTHub client") from e
     except pipeline_exceptions.OperationTimeout as e:
-        raise exceptions.OperationTimeout("Could not complete operation before timeout") from e
+        raise exceptions.OperationTimeout(
+            "Could not complete operation before timeout"
+        ) from e
     except pipeline_exceptions.PipelineNotRunning as e:
         raise exceptions.ClientError("Client has already been shut down") from e
     except Exception as e:
@@ -79,7 +83,9 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         register_async = async_adapter.emulate_async(self._pipeline.register)
         register_complete = async_adapter.AwaitableCallback(return_arg_name="result")
-        await register_async(payload=self._provisioning_payload, callback=register_complete)
+        await register_async(
+            payload=self._provisioning_payload, callback=register_complete
+        )
         result = await handle_result(register_complete)
 
         log_on_register_complete(result)
@@ -96,11 +102,15 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
     async def _enable_responses(self):
         """Enable to receive responses from Device Provisioning Service."""
-        logger.info("Enabling reception of response from Device Provisioning Service...")
+        logger.info(
+            "Enabling reception of response from Device Provisioning Service..."
+        )
         subscribe_async = async_adapter.emulate_async(self._pipeline.enable_responses)
 
         subscription_complete = async_adapter.AwaitableCallback()
         await subscribe_async(callback=subscription_complete)
         await handle_result(subscription_complete)
 
-        logger.info("Successfully subscribed to Device Provisioning Service to receive responses")
+        logger.info(
+            "Successfully subscribed to Device Provisioning Service to receive responses"
+        )

@@ -58,7 +58,9 @@ class AsyncHandlerManager(AbstractHandlerManager):
                 # Run coroutine on a dedicated event loop for handler invocations
                 # TODO: Can we call this on the user loop instead?
                 handler_loop = loop_management.get_client_handler_loop()
-                fut = asyncio.run_coroutine_threadsafe(handler(handler_arg), handler_loop)
+                fut = asyncio.run_coroutine_threadsafe(
+                    handler(handler_arg), handler_loop
+                )
                 # Free up this object so the garbage collector can free it if necessary. If we don't
                 # do this, we end up keeping this object alive until the next event arrives, which
                 # might be a long time. Tests would flag this as a memory leak if that happened.
@@ -124,7 +126,9 @@ class AsyncHandlerManager(AbstractHandlerManager):
                     fut.add_done_callback(_handler_callback)
             else:
                 logger.debug(
-                    "No handler for event {} set. Skipping handler invocation".format(event)
+                    "No handler for event {} set. Skipping handler invocation".format(
+                        event
+                    )
                 )
 
     def _start_handler_runner(self, handler_name):
@@ -166,7 +170,9 @@ class AsyncHandlerManager(AbstractHandlerManager):
             # Store the future
             self._receiver_handler_runners[handler_name] = future
 
-        _handler_runner_callback = self._generate_callback_for_handler_runner(handler_name)
+        _handler_runner_callback = self._generate_callback_for_handler_runner(
+            handler_name
+        )
         future.add_done_callback(_handler_runner_callback)
 
     def _stop_receiver_handler_runner(self, handler_name):
@@ -228,7 +234,9 @@ class AsyncHandlerManager(AbstractHandlerManager):
                     # We must log the error, and then restart the runner so that the program
                     # does not enter an invalid state
                     new_err = HandlerManagerException(
-                        "HANDLER RUNNER ({}): Unexpected error during task".format(handler_name),
+                        "HANDLER RUNNER ({}): Unexpected error during task".format(
+                            handler_name
+                        ),
                     )
                     new_err.__cause__ = e
                     handle_exceptions.handle_background_exception(new_err)

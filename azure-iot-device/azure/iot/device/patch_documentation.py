@@ -8,7 +8,9 @@ Currently we have to do like this so that we don't use exec anywhere"""
 
 
 def execute_patch_for_sync():
-    from azure.iot.device.iothub.sync_clients import IoTHubDeviceClient as IoTHubDeviceClient
+    from azure.iot.device.iothub.sync_clients import (
+        IoTHubDeviceClient as IoTHubDeviceClient,
+    )
 
     def connect(self):
         return super(IoTHubDeviceClient, self).connect()
@@ -36,16 +38,24 @@ def execute_patch_for_sync():
     patch_twin_reported_properties.__doc__ = (
         IoTHubDeviceClient.patch_twin_reported_properties.__doc__
     )
-    setattr(IoTHubDeviceClient, "patch_twin_reported_properties", patch_twin_reported_properties)
+    setattr(
+        IoTHubDeviceClient,
+        "patch_twin_reported_properties",
+        patch_twin_reported_properties,
+    )
 
     def receive_method_request(self, method_name=None, block=True, timeout=None):
-        return super(IoTHubDeviceClient, self).receive_method_request(method_name, block, timeout)
+        return super(IoTHubDeviceClient, self).receive_method_request(
+            method_name, block, timeout
+        )
 
     receive_method_request.__doc__ = IoTHubDeviceClient.receive_method_request.__doc__
     setattr(IoTHubDeviceClient, "receive_method_request", receive_method_request)
 
     def receive_twin_desired_properties_patch(self, block=True, timeout=None):
-        return super(IoTHubDeviceClient, self).receive_twin_desired_properties_patch(block, timeout)
+        return super(IoTHubDeviceClient, self).receive_twin_desired_properties_patch(
+            block, timeout
+        )
 
     receive_twin_desired_properties_patch.__doc__ = (
         IoTHubDeviceClient.receive_twin_desired_properties_patch.__doc__
@@ -85,7 +95,9 @@ def execute_patch_for_sync():
             connection_string, **kwargs
         )
 
-    create_from_connection_string.__doc__ = IoTHubDeviceClient.create_from_connection_string.__doc__
+    create_from_connection_string.__doc__ = (
+        IoTHubDeviceClient.create_from_connection_string.__doc__
+    )
     setattr(
         IoTHubDeviceClient,
         "create_from_connection_string",
@@ -96,22 +108,32 @@ def execute_patch_for_sync():
         return super(IoTHubDeviceClient, cls).create_from_sastoken(sastoken, **kwargs)
 
     create_from_sastoken.__doc__ = IoTHubDeviceClient.create_from_sastoken.__doc__
-    setattr(IoTHubDeviceClient, "create_from_sastoken", classmethod(create_from_sastoken))
+    setattr(
+        IoTHubDeviceClient, "create_from_sastoken", classmethod(create_from_sastoken)
+    )
 
     def create_from_symmetric_key(cls, symmetric_key, hostname, device_id, **kwargs):
         return super(IoTHubDeviceClient, cls).create_from_symmetric_key(
             symmetric_key, hostname, device_id, **kwargs
         )
 
-    create_from_symmetric_key.__doc__ = IoTHubDeviceClient.create_from_symmetric_key.__doc__
-    setattr(IoTHubDeviceClient, "create_from_symmetric_key", classmethod(create_from_symmetric_key))
+    create_from_symmetric_key.__doc__ = (
+        IoTHubDeviceClient.create_from_symmetric_key.__doc__
+    )
+    setattr(
+        IoTHubDeviceClient,
+        "create_from_symmetric_key",
+        classmethod(create_from_symmetric_key),
+    )
 
     def create_from_x509_certificate(cls, x509, hostname, device_id, **kwargs):
         return super(IoTHubDeviceClient, cls).create_from_x509_certificate(
             x509, hostname, device_id, **kwargs
         )
 
-    create_from_x509_certificate.__doc__ = IoTHubDeviceClient.create_from_x509_certificate.__doc__
+    create_from_x509_certificate.__doc__ = (
+        IoTHubDeviceClient.create_from_x509_certificate.__doc__
+    )
     setattr(
         IoTHubDeviceClient,
         "create_from_x509_certificate",
@@ -119,28 +141,38 @@ def execute_patch_for_sync():
     )
     setattr(IoTHubDeviceClient, "connected", IoTHubDeviceClient.connected)
     setattr(
-        IoTHubDeviceClient, "on_background_exception", IoTHubDeviceClient.on_background_exception
+        IoTHubDeviceClient,
+        "on_background_exception",
+        IoTHubDeviceClient.on_background_exception,
     )
     setattr(
         IoTHubDeviceClient,
         "on_connection_state_change",
         IoTHubDeviceClient.on_connection_state_change,
     )
-    setattr(IoTHubDeviceClient, "on_message_received", IoTHubDeviceClient.on_message_received)
+    setattr(
+        IoTHubDeviceClient,
+        "on_message_received",
+        IoTHubDeviceClient.on_message_received,
+    )
     setattr(
         IoTHubDeviceClient,
         "on_method_request_received",
         IoTHubDeviceClient.on_method_request_received,
     )
     setattr(
-        IoTHubDeviceClient, "on_new_sastoken_required", IoTHubDeviceClient.on_new_sastoken_required
+        IoTHubDeviceClient,
+        "on_new_sastoken_required",
+        IoTHubDeviceClient.on_new_sastoken_required,
     )
     setattr(
         IoTHubDeviceClient,
         "on_twin_desired_properties_patch_received",
         IoTHubDeviceClient.on_twin_desired_properties_patch_received,
     )
-    from azure.iot.device.iothub.sync_clients import IoTHubModuleClient as IoTHubModuleClient
+    from azure.iot.device.iothub.sync_clients import (
+        IoTHubModuleClient as IoTHubModuleClient,
+    )
 
     def connect(self):
         return super(IoTHubModuleClient, self).connect()
@@ -168,16 +200,24 @@ def execute_patch_for_sync():
     patch_twin_reported_properties.__doc__ = (
         IoTHubModuleClient.patch_twin_reported_properties.__doc__
     )
-    setattr(IoTHubModuleClient, "patch_twin_reported_properties", patch_twin_reported_properties)
+    setattr(
+        IoTHubModuleClient,
+        "patch_twin_reported_properties",
+        patch_twin_reported_properties,
+    )
 
     def receive_method_request(self, method_name=None, block=True, timeout=None):
-        return super(IoTHubModuleClient, self).receive_method_request(method_name, block, timeout)
+        return super(IoTHubModuleClient, self).receive_method_request(
+            method_name, block, timeout
+        )
 
     receive_method_request.__doc__ = IoTHubModuleClient.receive_method_request.__doc__
     setattr(IoTHubModuleClient, "receive_method_request", receive_method_request)
 
     def receive_twin_desired_properties_patch(self, block=True, timeout=None):
-        return super(IoTHubModuleClient, self).receive_twin_desired_properties_patch(block, timeout)
+        return super(IoTHubModuleClient, self).receive_twin_desired_properties_patch(
+            block, timeout
+        )
 
     receive_twin_desired_properties_patch.__doc__ = (
         IoTHubModuleClient.receive_twin_desired_properties_patch.__doc__
@@ -217,7 +257,9 @@ def execute_patch_for_sync():
             connection_string, **kwargs
         )
 
-    create_from_connection_string.__doc__ = IoTHubModuleClient.create_from_connection_string.__doc__
+    create_from_connection_string.__doc__ = (
+        IoTHubModuleClient.create_from_connection_string.__doc__
+    )
     setattr(
         IoTHubModuleClient,
         "create_from_connection_string",
@@ -227,7 +269,9 @@ def execute_patch_for_sync():
     def create_from_edge_environment(cls, **kwargs):
         return super(IoTHubModuleClient, cls).create_from_edge_environment(**kwargs)
 
-    create_from_edge_environment.__doc__ = IoTHubModuleClient.create_from_edge_environment.__doc__
+    create_from_edge_environment.__doc__ = (
+        IoTHubModuleClient.create_from_edge_environment.__doc__
+    )
     setattr(
         IoTHubModuleClient,
         "create_from_edge_environment",
@@ -238,14 +282,20 @@ def execute_patch_for_sync():
         return super(IoTHubModuleClient, cls).create_from_sastoken(sastoken, **kwargs)
 
     create_from_sastoken.__doc__ = IoTHubModuleClient.create_from_sastoken.__doc__
-    setattr(IoTHubModuleClient, "create_from_sastoken", classmethod(create_from_sastoken))
+    setattr(
+        IoTHubModuleClient, "create_from_sastoken", classmethod(create_from_sastoken)
+    )
 
-    def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
+    def create_from_x509_certificate(
+        cls, x509, hostname, device_id, module_id, **kwargs
+    ):
         return super(IoTHubModuleClient, cls).create_from_x509_certificate(
             x509, hostname, device_id, module_id, **kwargs
         )
 
-    create_from_x509_certificate.__doc__ = IoTHubModuleClient.create_from_x509_certificate.__doc__
+    create_from_x509_certificate.__doc__ = (
+        IoTHubModuleClient.create_from_x509_certificate.__doc__
+    )
     setattr(
         IoTHubModuleClient,
         "create_from_x509_certificate",
@@ -253,21 +303,29 @@ def execute_patch_for_sync():
     )
     setattr(IoTHubModuleClient, "connected", IoTHubModuleClient.connected)
     setattr(
-        IoTHubModuleClient, "on_background_exception", IoTHubModuleClient.on_background_exception
+        IoTHubModuleClient,
+        "on_background_exception",
+        IoTHubModuleClient.on_background_exception,
     )
     setattr(
         IoTHubModuleClient,
         "on_connection_state_change",
         IoTHubModuleClient.on_connection_state_change,
     )
-    setattr(IoTHubModuleClient, "on_message_received", IoTHubModuleClient.on_message_received)
+    setattr(
+        IoTHubModuleClient,
+        "on_message_received",
+        IoTHubModuleClient.on_message_received,
+    )
     setattr(
         IoTHubModuleClient,
         "on_method_request_received",
         IoTHubModuleClient.on_method_request_received,
     )
     setattr(
-        IoTHubModuleClient, "on_new_sastoken_required", IoTHubModuleClient.on_new_sastoken_required
+        IoTHubModuleClient,
+        "on_new_sastoken_required",
+        IoTHubModuleClient.on_new_sastoken_required,
     )
     setattr(
         IoTHubModuleClient,
@@ -285,7 +343,9 @@ def execute_patch_for_sync():
             provisioning_host, registration_id, id_scope, symmetric_key, **kwargs
         )
 
-    create_from_symmetric_key.__doc__ = ProvisioningDeviceClient.create_from_symmetric_key.__doc__
+    create_from_symmetric_key.__doc__ = (
+        ProvisioningDeviceClient.create_from_symmetric_key.__doc__
+    )
     setattr(
         ProvisioningDeviceClient,
         "create_from_symmetric_key",

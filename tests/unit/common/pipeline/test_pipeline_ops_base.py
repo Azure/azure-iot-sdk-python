@@ -185,7 +185,9 @@ class RequestAndResponseOperationTestConfig(object):
         return kwargs
 
 
-class RequestAndResponseOperationInstantiationTests(RequestAndResponseOperationTestConfig):
+class RequestAndResponseOperationInstantiationTests(
+    RequestAndResponseOperationTestConfig
+):
     @pytest.mark.it(
         "Initializes 'request_type' attribute with the provided 'request_type' parameter"
     )
@@ -193,7 +195,9 @@ class RequestAndResponseOperationInstantiationTests(RequestAndResponseOperationT
         op = cls_type(**init_kwargs)
         assert op.request_type == init_kwargs["request_type"]
 
-    @pytest.mark.it("Initializes 'method' attribute with the provided 'method' parameter")
+    @pytest.mark.it(
+        "Initializes 'method' attribute with the provided 'method' parameter"
+    )
     def test_method_type(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.method == init_kwargs["method"]
@@ -250,7 +254,9 @@ class RequestOperationTestConfig(object):
 
 
 class RequestOperationInstantiationTests(RequestOperationTestConfig):
-    @pytest.mark.it("Initializes the 'method' attribute with the provided 'method' parameter")
+    @pytest.mark.it(
+        "Initializes the 'method' attribute with the provided 'method' parameter"
+    )
     def test_method(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.method == init_kwargs["method"]

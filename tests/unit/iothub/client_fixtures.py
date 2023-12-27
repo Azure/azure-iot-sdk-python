@@ -72,7 +72,9 @@ module_connection_string_format = "HostName={hostname};DeviceId={device_id};Modu
 module_connection_string_gateway_format = "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}"
 
 
-@pytest.fixture(params=["Device Connection String", "Device Connection String w/ Protocol Gateway"])
+@pytest.fixture(
+    params=["Device Connection String", "Device Connection String w/ Protocol Gateway"]
+)
 def device_connection_string(request):
     string_type = request.param
     if string_type == "Device Connection String":
@@ -88,7 +90,9 @@ def device_connection_string(request):
         )
 
 
-@pytest.fixture(params=["Module Connection String", "Module Connection String w/ Protocol Gateway"])
+@pytest.fixture(
+    params=["Module Connection String", "Module Connection String w/ Protocol Gateway"]
+)
 def module_connection_string(request):
     string_type = request.param
     if string_type == "Module Connection String":
@@ -112,9 +116,7 @@ def module_connection_string(request):
 
 sas_token_format = "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}"
 # when to use the skn format?
-sas_token_skn_format = (
-    "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}&skn={shared_access_key_name}"
-)
+sas_token_skn_format = "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}&skn={shared_access_key_name}"
 
 # what about variant input with different ordered attributes
 # SharedAccessSignature sig={signature-string}&se={expiry}&skn={policyName}&sr={URL-encoded-resourceURI}
@@ -182,7 +184,9 @@ def edge_local_debug_environment():
 @pytest.fixture
 def mock_edge_hsm(mocker):
     mock_edge_hsm = mocker.patch("azure.iot.device.iothub.edge_hsm.IoTEdgeHsm")
-    mock_edge_hsm.return_value.sign.return_value = "8NJRMT83CcplGrAGaUVIUM/md5914KpWVNngSVoF9/M="
+    mock_edge_hsm.return_value.sign.return_value = (
+        "8NJRMT83CcplGrAGaUVIUM/md5914KpWVNngSVoF9/M="
+    )
     mock_edge_hsm.return_value.get_certificate.return_value = (
         "__FAKE_SERVER_VERIFICATION_CERTIFICATE__"
     )

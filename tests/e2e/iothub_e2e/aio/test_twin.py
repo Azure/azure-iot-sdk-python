@@ -40,7 +40,10 @@ class TestReportedProperties(object):
 
         # get twin from the service and verify content
         twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+        assert (
+            twin[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
+        )
 
         # TODO: investigate leak
         # leak_tracker.check_for_leaks()
@@ -109,7 +112,10 @@ class TestReportedProperties(object):
         )
 
         twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+        assert (
+            twin[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
+        )
 
         leak_tracker.check_for_leaks()
 
@@ -118,7 +124,6 @@ class TestReportedProperties(object):
 @pytest.mark.describe("Client Reported Properties with dropped connection")
 @pytest.mark.keep_alive(5)
 class TestReportedPropertiesDroppedConnection(object):
-
     # TODO: split drop tests between first and second patches
 
     @pytest.mark.it("Updates reported properties if connection drops before sending")

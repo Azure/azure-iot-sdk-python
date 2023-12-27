@@ -36,7 +36,11 @@ class CommonProvisioningStage(PipelineStage):
         when they respond back from service.
         """
         if op.provisioning_timeout_timer:
-            logger.debug("{}({}): Cancelling provisioning timeout timer".format(self.name, op.name))
+            logger.debug(
+                "{}({}): Cancelling provisioning timeout timer".format(
+                    self.name, op.name
+                )
+            )
             op.provisioning_timeout_timer.cancel()
             op.provisioning_timeout_timer = None
 
@@ -63,11 +67,15 @@ class CommonProvisioningStage(PipelineStage):
             )
 
         registration_result = RegistrationResult(
-            operation_id=operation_id, status=status, registration_state=registration_state
+            operation_id=operation_id,
+            status=status,
+            registration_state=registration_state,
         )
         return registration_result
 
-    def _process_service_error_status_code(self, original_provisioning_op, request_response_op):
+    def _process_service_error_status_code(
+        self, original_provisioning_op, request_response_op
+    ):
         logger.info(
             "{stage_name}({op_name}): Received error with status code {status_code} for {prov_op_name} request operation".format(
                 stage_name=self.name,
@@ -92,7 +100,9 @@ class CommonProvisioningStage(PipelineStage):
             )
         )
 
-    def _process_retry_status_code(self, error, original_provisioning_op, request_response_op):
+    def _process_retry_status_code(
+        self, error, original_provisioning_op, request_response_op
+    ):
         retry_interval = (
             int(request_response_op.retry_after, 10)
             if request_response_op.retry_after is not None
@@ -123,8 +133,12 @@ class CommonProvisioningStage(PipelineStage):
             )
         )
 
-        logger.debug("{}({}): Creating retry timer".format(self.name, request_response_op.name))
-        original_provisioning_op.retry_after_timer = Timer(retry_interval, do_retry_after)
+        logger.debug(
+            "{}({}): Creating retry timer".format(self.name, request_response_op.name)
+        )
+        original_provisioning_op.retry_after_timer = Timer(
+            retry_interval, do_retry_after
+        )
         original_provisioning_op.retry_after_timer.start()
 
     @staticmethod
@@ -137,7 +151,9 @@ class CommonProvisioningStage(PipelineStage):
         request_response_op,
     ):
         complete_registration_result = CommonProvisioningStage._form_complete_result(
-            operation_id=operation_id, decoded_response=decoded_response, status=registration_status
+            operation_id=operation_id,
+            decoded_response=decoded_response,
+            status=registration_status,
         )
         original_provisioning_op.registration_result = complete_registration_result
         if registration_status == "failed":
@@ -192,7 +208,9 @@ class PollingStatusStage(CommonProvisioningStage):
                     )
                 )
 
-            logger.debug("{}({}): Creating provisioning timeout timer".format(self.name, op.name))
+            logger.debug(
+                "{}({}): Creating provisioning timeout timer".format(self.name, op.name)
+            )
             query_status_op.provisioning_timeout_timer = Timer(
                 constant.DEFAULT_TIMEOUT_INTERVAL, query_timeout
             )
@@ -212,7 +230,9 @@ class PollingStatusStage(CommonProvisioningStage):
                 if error:
                     logger.debug(
                         "{stage_name}({op_name}): Received error for {prov_op_name} operation".format(
-                            stage_name=self.name, op_name=op.name, prov_op_name=op.request_type
+                            stage_name=self.name,
+                            op_name=op.name,
+                            prov_op_name=op.request_type,
                         )
                     )
                     query_status_op.complete(error=error)
@@ -259,12 +279,19 @@ class PollingStatusStage(CommonProvisioningStage):
                             )
 
                             logger.debug(
-                                "{}({}): Creating polling timer".format(self.name, op.name)
+                                "{}({}): Creating polling timer".format(
+                                    self.name, op.name
+                                )
                             )
-                            query_status_op.polling_timer = Timer(polling_interval, do_polling)
+                            query_status_op.polling_timer = Timer(
+                                polling_interval, do_polling
+                            )
                             query_status_op.polling_timer.start()
 
-                        elif registration_status == "assigned" or registration_status == "failed":
+                        elif (
+                            registration_status == "assigned"
+                            or registration_status == "failed"
+                        ):
                             self._process_failed_and_assigned_registration_status(
                                 error=error,
                                 operation_id=operation_id,
@@ -330,7 +357,9 @@ class RegistrationStage(CommonProvisioningStage):
                     )
                 )
 
-            logger.debug("{}({}): Creating provisioning timeout timer".format(self.name, op.name))
+            logger.debug(
+                "{}({}): Creating provisioning timeout timer".format(self.name, op.name)
+            )
             initial_register_op.provisioning_timeout_timer = Timer(
                 constant.DEFAULT_TIMEOUT_INTERVAL, register_timeout
             )
@@ -340,19 +369,22 @@ class RegistrationStage(CommonProvisioningStage):
                 self._clear_timeout_timer(initial_register_op, error)
                 logger.debug(
                     "{stage_name}({op_name}): Received response with status code {status_code} for RegisterOperation".format(
-                        stage_name=self.name, op_name=op.name, status_code=op.status_code
+                        stage_name=self.name,
+                        op_name=op.name,
+                        status_code=op.status_code,
                     )
                 )
                 if error:
                     logger.info(
                         "{stage_name}({op_name}): Received error for {prov_op_name} operation".format(
-                            stage_name=self.name, op_name=op.name, prov_op_name=op.request_type
+                            stage_name=self.name,
+                            op_name=op.name,
+                            prov_op_name=op.request_type,
                         )
                     )
                     initial_register_op.complete(error=error)
 
                 else:
-
                     if 300 <= op.status_code < 429:
                         self._process_service_error_status_code(initial_register_op, op)
 
@@ -371,7 +403,9 @@ class RegistrationStage(CommonProvisioningStage):
                                 logger.debug(
                                     "Copying registration result from Query Status Op to Registration Op"
                                 )
-                                initial_register_op.registration_result = op.registration_result
+                                initial_register_op.registration_result = (
+                                    op.registration_result
+                                )
                                 initial_register_op.error = error
 
                             @pipeline_thread.invoke_on_pipeline_thread_nowait
@@ -404,14 +438,20 @@ class RegistrationStage(CommonProvisioningStage):
                             )
 
                             logger.debug(
-                                "{}({}): Creating polling timer".format(self.name, op.name)
+                                "{}({}): Creating polling timer".format(
+                                    self.name, op.name
+                                )
                             )
                             initial_register_op.polling_timer = Timer(
-                                constant.DEFAULT_POLLING_INTERVAL, do_query_after_interval
+                                constant.DEFAULT_POLLING_INTERVAL,
+                                do_query_after_interval,
                             )
                             initial_register_op.polling_timer.start()
 
-                        elif registration_status == "failed" or registration_status == "assigned":
+                        elif (
+                            registration_status == "failed"
+                            or registration_status == "assigned"
+                        ):
                             self._process_failed_and_assigned_registration_status(
                                 error=error,
                                 operation_id=operation_id,

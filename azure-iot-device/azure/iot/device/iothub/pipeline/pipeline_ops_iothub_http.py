@@ -59,7 +59,9 @@ class NotifyBlobUploadStatusOperation(PipelineOperation):
     A PipelineOperation object which contains arguments used to get the storage information from IoT Hub.
     """
 
-    def __init__(self, correlation_id, is_success, status_code, status_description, callback):
+    def __init__(
+        self, correlation_id, is_success, status_code, status_description, callback
+    ):
         """
         Initializer for GetStorageInfo objects.
 
