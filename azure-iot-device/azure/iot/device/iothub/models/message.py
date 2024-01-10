@@ -50,7 +50,7 @@ class Message(object):
         self._iothub_interface_id = None
 
     @property
-    def iothub_interface_id(self):
+    def iothub_interface_id(self) -> str:
         return self._iothub_interface_id
 
     def set_as_security_message(self):
@@ -64,7 +64,7 @@ class Message(object):
     def __str__(self):
         return str(self.data)
 
-    def get_size(self):
+    def get_size(self) -> int:
         total = 0
         total = total + sum(
             sys.getsizeof(v)

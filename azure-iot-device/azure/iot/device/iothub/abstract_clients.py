@@ -17,14 +17,20 @@ from .pipeline import constant as pipeline_constant
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.iothub import client_event
+from azure.iot.device.iothub.models import Message, MethodRequest
+from azure.iot.device.common.models import X509
 from azure.iot.device import exceptions
 from azure.iot.device.common import auth, handle_exceptions
 from . import edge_hsm
+from .pipeline import MQTTPipeline, HTTPPipeline
+from typing_extensions import Self
+from azure.iot.device.custom_typing import JSONSerializable, Twin, TwinPatch
+from typing import Any, Callable, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
 
-def _validate_kwargs(exclude=[], **kwargs):
+def _validate_kwargs(exclude: Optional[List[str]] = [], **kwargs) -> None:
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
     valid_kwargs = [
@@ -47,7 +53,7 @@ def _validate_kwargs(exclude=[], **kwargs):
             raise TypeError("Unsupported keyword argument: '{}'".format(kwarg))
 
 
-def _get_config_kwargs(**kwargs):
+def _get_config_kwargs(**kwargs) -> Dict[str, Any]:
     """Get the subset of kwargs which pertain the config object"""
     valid_config_kwargs = [
         "server_verification_cert",
@@ -70,7 +76,7 @@ def _get_config_kwargs(**kwargs):
     return config_kwargs
 
 
-def _form_sas_uri(hostname, device_id, module_id=None):
+def _form_sas_uri(hostname: str, device_id: str, module_id: Optional[str] = None) -> str:
     if module_id:
         return "{hostname}/devices/{device_id}/modules/{module_id}".format(
             hostname=hostname, device_id=device_id, module_id=module_id
@@ -79,7 +85,7 @@ def _form_sas_uri(hostname, device_id, module_id=None):
         return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
 
 
-def _extract_sas_uri_values(uri):
+def _extract_sas_uri_values(uri: str) -> Dict[str, Any]:
     d = {}
     items = uri.split("/")
     if len(items) != 3 and len(items) != 5:
@@ -108,7 +114,7 @@ class AbstractIoTHubClient(abc.ABC):
     This class needs to be extended for specific clients.
     """
 
-    def __init__(self, mqtt_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline: MQTTPipeline, http_pipeline: HTTPPipeline) -> None:
         """Initializer for a generic client.
 
         :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
@@ -122,7 +128,7 @@ class AbstractIoTHubClient(abc.ABC):
         self._receive_type = RECEIVE_TYPE_NONE_SET
         self._client_lock = threading.Lock()
 
-    def _on_connected(self):
+    def _on_connected(self) -> None:
         """Helper handler that is called upon an iothub pipeline connect"""
         logger.info("Connection State - Connected")
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
@@ -133,7 +139,7 @@ class AbstractIoTHubClient(abc.ABC):
         # Ensure that all handlers are running now that connection is re-established.
         self._handler_manager.ensure_running()
 
-    def _on_disconnected(self):
+    def _on_disconnected(self) -> None:
         """Helper handler that is called upon an iothub pipeline disconnect"""
         logger.info("Connection State - Disconnected")
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
@@ -146,7 +152,7 @@ class AbstractIoTHubClient(abc.ABC):
         self._inbox_manager.clear_all_method_requests()
         logger.info("Cleared all pending method requests due to disconnect")
 
-    def _on_new_sastoken_required(self):
+    def _on_new_sastoken_required(self) -> None:
         """Helper handler that is called upon the iothub pipeline needing new SAS token"""
         logger.info("New SasToken required from user")
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
@@ -155,7 +161,7 @@ class AbstractIoTHubClient(abc.ABC):
             event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
             client_event_inbox.put(event)
 
-    def _on_background_exception(self, e):
+    def _on_background_exception(self, e: Exception) -> None:
         """Helper handler that is called upon an iothub pipeline background exception"""
         handle_exceptions.handle_background_exception(e)
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
@@ -164,7 +170,7 @@ class AbstractIoTHubClient(abc.ABC):
             event = client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, e)
             client_event_inbox.put(event)
 
-    def _check_receive_mode_is_api(self):
+    def _check_receive_mode_is_api(self) -> None:
         """Call this function first in EVERY receive API"""
         with self._client_lock:
             if self._receive_type is RECEIVE_TYPE_NONE_SET:
@@ -177,7 +183,7 @@ class AbstractIoTHubClient(abc.ABC):
             else:
                 pass
 
-    def _check_receive_mode_is_handler(self):
+    def _check_receive_mode_is_handler(self) -> None:
         """Call this function first in EVERY handler setter"""
         with self._client_lock:
             if self._receive_type is RECEIVE_TYPE_NONE_SET:
@@ -192,7 +198,7 @@ class AbstractIoTHubClient(abc.ABC):
             else:
                 pass
 
-    def _replace_user_supplied_sastoken(self, sastoken_str):
+    def _replace_user_supplied_sastoken(self, sastoken_str: str) -> None:
         """
         Replaces the pipeline's NonRenewableSasToken with a new one based on a provided
         sastoken string. Also does validation.
@@ -232,12 +238,12 @@ class AbstractIoTHubClient(abc.ABC):
         self._mqtt_pipeline.pipeline_configuration.sastoken = new_token_o
 
     @abc.abstractmethod
-    def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
+    def _generic_receive_handler_setter(self, handler_name: str, feature_name: str, new_handler: Optional[Callable[[], Any]]) -> None:
         # Will be implemented differently in child classes, but define here for static analysis
         pass
 
     @classmethod
-    def create_from_connection_string(cls, connection_string, **kwargs):
+    def create_from_connection_string(cls, connection_string: str, **kwargs: Dict[str, Any]) -> Self:
         """
         Instantiate the client from a IoTHub device or module connection string.
 
@@ -321,7 +327,7 @@ class AbstractIoTHubClient(abc.ABC):
         return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
-    def create_from_sastoken(cls, sastoken, **kwargs):
+    def create_from_sastoken(cls, sastoken: str, **kwargs: Dict[str, Any]) -> Self:
         """Instantiate the client from a pre-created SAS Token string
 
         :param str sastoken: The SAS Token string
@@ -393,54 +399,54 @@ class AbstractIoTHubClient(abc.ABC):
         return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
-    def shutdown(self):
+    def shutdown(self) -> None:
         pass
 
     @abc.abstractmethod
-    def connect(self):
+    def connect(self) -> None:
         pass
 
     @abc.abstractmethod
-    def disconnect(self):
+    def disconnect(self) -> None:
         pass
 
     @abc.abstractmethod
-    def update_sastoken(self, sastoken):
+    def update_sastoken(self, sastoken: str) -> None:
         pass
 
     @abc.abstractmethod
-    def send_message(self, message):
+    def send_message(self, message: Union[Message, str]) -> None:
         pass
 
     @abc.abstractmethod
-    def receive_method_request(self, method_name=None):
+    def receive_method_request(self, method_name: Optional[str] = None) -> None:
         pass
 
     @abc.abstractmethod
-    def send_method_response(self, method_request, payload, status):
+    def send_method_response(self, method_request: MethodRequest, payload: Dict[str, JSONSerializable], status: int) -> None:
         pass
 
     @abc.abstractmethod
-    def get_twin(self):
+    def get_twin(self) -> Twin:
         pass
 
     @abc.abstractmethod
-    def patch_twin_reported_properties(self, reported_properties_patch):
+    def patch_twin_reported_properties(self, reported_properties_patch: TwinPatch) -> None:
         pass
 
     @abc.abstractmethod
-    def receive_twin_desired_properties_patch(self):
+    def receive_twin_desired_properties_patch(self) -> TwinPatch:
         pass
 
     @property
-    def connected(self):
+    def connected(self) -> bool:
         """
         Read-only property to indicate if the transport is connected or not.
         """
         return self._mqtt_pipeline.connected
 
     @property
-    def on_connection_state_change(self):
+    def on_connection_state_change(self) -> Callable[[Any], Any]:
         """The handler function or coroutine that will be called when the connection state changes.
 
         The function or coroutine definition should take no positional arguments.
@@ -448,11 +454,11 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_connection_state_change
 
     @on_connection_state_change.setter
-    def on_connection_state_change(self, value):
+    def on_connection_state_change(self, value: Callable[[Any], Any]) -> None:
         self._handler_manager.on_connection_state_change = value
 
     @property
-    def on_new_sastoken_required(self):
+    def on_new_sastoken_required(self) -> Callable[[Any], Any]:
         """The handler function or coroutine that will be called when the client requires a new
         SAS token. This will happen approximately 2 minutes before the SAS Token expires.
         On Windows platforms, if the lifespan exceeds approximately 49 days, a new token will
@@ -469,11 +475,11 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_new_sastoken_required
 
     @on_new_sastoken_required.setter
-    def on_new_sastoken_required(self, value):
+    def on_new_sastoken_required(self, value: Callable[[Any], Any]) -> None:
         self._handler_manager.on_new_sastoken_required = value
 
     @property
-    def on_background_exception(self):
+    def on_background_exception(self) -> Callable[[Any], Any]:
         """The handler function or coroutine will be called when a background exception occurs.
 
         The function or coroutine definition should take one positional argument (the exception
@@ -481,16 +487,16 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_background_exception
 
     @on_background_exception.setter
-    def on_background_exception(self, value):
+    def on_background_exception(self, value: Callable[[Any], Any]) -> None:
         self._handler_manager.on_background_exception = value
 
     @abc.abstractproperty
-    def on_message_received(self):
+    def on_message_received(self) -> Callable[[Any], Any]:
         # Defined below on AbstractIoTHubDeviceClient / AbstractIoTHubModuleClient
         pass
 
     @property
-    def on_method_request_received(self):
+    def on_method_request_received(self) -> Callable[[Any], Any]:
         """The handler function or coroutine that will be called when a method request is received.
 
         Remember to acknowledge the method request in your function or coroutine via use of the
@@ -501,13 +507,13 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_method_request_received
 
     @on_method_request_received.setter
-    def on_method_request_received(self, value):
+    def on_method_request_received(self, value: Callable[[Any], Any]) -> None:
         self._generic_receive_handler_setter(
             "on_method_request_received", pipeline_constant.METHODS, value
         )
 
     @property
-    def on_twin_desired_properties_patch_received(self):
+    def on_twin_desired_properties_patch_received(self) -> Callable[[Any], Any]:
         """The handler function or coroutine that will be called when a twin desired properties
         patch is received.
 
@@ -516,7 +522,7 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_twin_desired_properties_patch_received
 
     @on_twin_desired_properties_patch_received.setter
-    def on_twin_desired_properties_patch_received(self, value):
+    def on_twin_desired_properties_patch_received(self, value: Callable[[Any], Any]):
         self._generic_receive_handler_setter(
             "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
         )
@@ -524,7 +530,7 @@ class AbstractIoTHubClient(abc.ABC):
 
 class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     @classmethod
-    def create_from_x509_certificate(cls, x509, hostname, device_id, **kwargs):
+    def create_from_x509_certificate(cls, x509: X509, hostname: str, device_id: str, **kwargs) -> Self:
         """
         Instantiate a client using X509 certificate authentication.
 
@@ -586,7 +592,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
-    def create_from_symmetric_key(cls, symmetric_key, hostname, device_id, **kwargs):
+    def create_from_symmetric_key(cls, symmetric_key: str, hostname: str, device_id: str, **kwargs) -> Self:
         """
         Instantiate a client using symmetric key authentication.
 
@@ -657,21 +663,21 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
-    def receive_message(self):
+    def receive_message(self) -> Message:
         pass
 
     @abc.abstractmethod
-    def get_storage_info_for_blob(self, blob_name):
+    def get_storage_info_for_blob(self, blob_name: str) -> Dict[str, Any]:
         pass
 
     @abc.abstractmethod
     def notify_blob_upload_status(
-        self, correlation_id, is_success, status_code, status_description
-    ):
+        self, correlation_id: str, is_success: bool, status_code: int, status_description: str
+    ) -> None:
         pass
 
     @property
-    def on_message_received(self):
+    def on_message_received(self) -> Callable[[Any], Any]:
         """The handler function or coroutine that will be called when a message is received.
 
         The function or coroutine definition should take one positional argument (the
@@ -679,7 +685,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         return self._handler_manager.on_message_received
 
     @on_message_received.setter
-    def on_message_received(self, value):
+    def on_message_received(self, value: Callable[[Any], Any]):
         self._generic_receive_handler_setter(
             "on_message_received", pipeline_constant.C2D_MSG, value
         )
@@ -687,7 +693,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
     @classmethod
-    def create_from_edge_environment(cls, **kwargs):
+    def create_from_edge_environment(cls, **kwargs) -> Self:
         """
         Instantiate the client from the IoT Edge environment.
 
@@ -824,7 +830,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
-    def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
+    def create_from_x509_certificate(cls, x509: X509, hostname: str, device_id: str, module_id: str, **kwargs) -> Self:
         """
         Instantiate a client using X509 certificate authentication.
 
@@ -885,19 +891,19 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
-    def send_message_to_output(self, message, output_name):
+    def send_message_to_output(self, message: Union[Message, str], output_name: str) -> None:
         pass
 
     @abc.abstractmethod
-    def receive_message_on_input(self, input_name):
+    def receive_message_on_input(self, input_name: str) -> Message:
         pass
 
     @abc.abstractmethod
-    def invoke_method(self, method_params, device_id, module_id=None):
+    def invoke_method(self, method_params: dict, device_id: str, module_id: Optional[str] = None) -> None:
         pass
 
     @property
-    def on_message_received(self):
+    def on_message_received(self) -> Callable[[Any], Any]:
         """The handler function or coroutine that will be called when an input message is received.
 
         The function definition or coroutine should take one positional argument (the
@@ -905,7 +911,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         return self._handler_manager.on_message_received
 
     @on_message_received.setter
-    def on_message_received(self, value):
+    def on_message_received(self, value: Callable[[Any], Any]) -> None:
         self._generic_receive_handler_setter(
             "on_message_received", pipeline_constant.INPUT_MSG, value
         )

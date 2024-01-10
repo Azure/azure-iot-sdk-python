@@ -9,18 +9,20 @@ Device SDK. This client uses Symmetric Key and X509 authentication to register d
 IoT Hub via the Device Provisioning Service.
 """
 import logging
+from typing import Callable
 from azure.iot.device.common.evented_callback import EventedCallback
 from .abstract_provisioning_device_client import AbstractProvisioningDeviceClient
 from .abstract_provisioning_device_client import log_on_register_complete
 from azure.iot.device.provisioning.pipeline import constant as dps_constant
 from .pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
+from azure.iot.device.provisioning.models import RegistrationResult
 
 
 logger = logging.getLogger(__name__)
 
 
-def handle_result(callback):
+def handle_result(callback: Callable[[], None]) -> None:
     try:
         return callback.wait_for_completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
@@ -47,7 +49,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
     using Symmetric Key or X509 authentication.
     """
 
-    def register(self):
+    def register(self) -> RegistrationResult:
         """
         Register the device with the provisioning service
 
@@ -94,7 +96,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         return result
 
-    def _enable_responses(self):
+    def _enable_responses(self) -> None:
         """Enable to receive responses from Device Provisioning Service.
 
         This is a synchronous call, meaning that this function will not return until the feature

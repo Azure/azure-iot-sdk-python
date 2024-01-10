@@ -5,6 +5,9 @@
 # --------------------------------------------------------------------------
 """This module contains classes related to direct method invocations.
 """
+from typing import Optional
+from typing_extensions import Self
+from azure.iot.device.custom_typing import JSONSerializable
 
 
 class MethodRequest(object):
@@ -15,7 +18,7 @@ class MethodRequest(object):
     :ivar dict payload: The JSON payload being sent with the request.
     """
 
-    def __init__(self, request_id, name, payload):
+    def __init__(self, request_id: str, name: str, payload: JSONSerializable):
         """Initializer for a MethodRequest.
 
         :param str request_id: The request id.
@@ -27,15 +30,15 @@ class MethodRequest(object):
         self._payload = payload
 
     @property
-    def request_id(self):
+    def request_id(self) -> str:
         return self._request_id
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @property
-    def payload(self):
+    def payload(self) -> JSONSerializable:
         return self._payload
 
 
@@ -48,7 +51,7 @@ class MethodResponse(object):
     :type payload: dict, str, int, float, bool, or None (JSON compatible values)
     """
 
-    def __init__(self, request_id, status, payload=None):
+    def __init__(self, request_id: str, status: int, payload: Optional[JSONSerializable] = None):
         """Initializer for MethodResponse.
 
         :param str request_id: The request id of the MethodRequest being responded to.
@@ -61,7 +64,7 @@ class MethodResponse(object):
         self.payload = payload
 
     @classmethod
-    def create_from_method_request(cls, method_request, status, payload=None):
+    def create_from_method_request(cls, method_request: MethodRequest, status: int, payload: Optional[JSONSerializable] = None) -> Self:
         """Factory method for creating a MethodResponse from a MethodRequest.
 
         :param method_request: The MethodRequest object to respond to.
