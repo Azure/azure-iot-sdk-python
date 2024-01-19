@@ -17,9 +17,12 @@ jobs:
       scanType: 'Register'
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
-  
+
   - script: 'python scripts/env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
+  
+  - bash: echo This script could output $Build.BuildUri
+    displayName: 'echo URI'
 
   - script: 'flake8 .'
     displayName: 'Flake8'
