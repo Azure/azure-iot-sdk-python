@@ -21,7 +21,7 @@ jobs:
   - script: 'python scripts/env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
   
-  - bash: echo This script could output $Build.BuildUri
+  - bash: echo $(Build.BuildUri)
     displayName: 'echo URI'
 
   - script: 'flake8 .'
