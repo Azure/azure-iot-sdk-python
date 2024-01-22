@@ -32,12 +32,17 @@ async def main():
             status = 200  # set return status code
             print("executed method2")
         else:
-            payload = {"result": False, "data": "unknown method"}  # set response payload
+            payload = {
+                "result": False,
+                "data": "unknown method",
+            }  # set response payload
             status = 400  # set return status code
             print("executed unknown method: " + method_request.name)
 
         # Send the response
-        method_response = MethodResponse.create_from_method_request(method_request, status, payload)
+        method_response = MethodResponse.create_from_method_request(
+            method_request, status, payload
+        )
         await device_client.send_method_response(method_response)
 
     # Set the method request handler on the client

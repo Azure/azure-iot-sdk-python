@@ -60,7 +60,9 @@ def transport_to_port(transport):
         return mqttws_port
     else:
         raise ValueError(
-            "transport_type {} invalid.  Only mqtt and mqttws are accepted".format(transport)
+            "transport_type {} invalid.  Only mqtt and mqttws are accepted".format(
+                transport
+            )
         )
 
 
@@ -95,7 +97,11 @@ def reconnect_all(transport, host):
             # do the lines in reverse because deleting an entry changes the line numbers of all entries after that.
             lines.reverse()
             for line in lines:
-                if disconnect_type in line and "dpt:{}".format(port) in line and ip in line:
+                if (
+                    disconnect_type in line
+                    and "dpt:{}".format(port) in line
+                    and ip in line
+                ):
                     line_number = line.split(" ")[0]
                     logger.info("Removing {} from [{}]".format(line_number, line))
                     # sudo -n iptables -D OUTPUT 1

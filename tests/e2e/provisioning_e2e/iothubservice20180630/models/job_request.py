@@ -39,11 +39,17 @@ class JobRequest(Model):
     _attribute_map = {
         "job_id": {"key": "jobId", "type": "str"},
         "type": {"key": "type", "type": "str"},
-        "cloud_to_device_method": {"key": "cloudToDeviceMethod", "type": "CloudToDeviceMethod"},
+        "cloud_to_device_method": {
+            "key": "cloudToDeviceMethod",
+            "type": "CloudToDeviceMethod",
+        },
         "update_twin": {"key": "updateTwin", "type": "Twin"},
         "query_condition": {"key": "queryCondition", "type": "str"},
         "start_time": {"key": "startTime", "type": "iso-8601"},
-        "max_execution_time_in_seconds": {"key": "maxExecutionTimeInSeconds", "type": "long"},
+        "max_execution_time_in_seconds": {
+            "key": "maxExecutionTimeInSeconds",
+            "type": "long",
+        },
     }
 
     def __init__(

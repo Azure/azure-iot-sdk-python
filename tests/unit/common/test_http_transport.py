@@ -29,7 +29,13 @@ fake_cipher = "DHE-RSA-AES128-SHA"
 @pytest.mark.describe("HTTPTransport - Instantiation")
 class TestInstantiation(object):
     @pytest.fixture(
-        params=["HTTP - No Auth", "HTTP - Auth", "SOCKS4", "SOCKS5 - No Auth", "SOCKS5 - Auth"]
+        params=[
+            "HTTP - No Auth",
+            "HTTP - Auth",
+            "SOCKS4",
+            "SOCKS5 - No Auth",
+            "SOCKS5 - Auth",
+        ]
     )
     def proxy_options(self, request):
         if "HTTP" in request.param:
@@ -40,7 +46,9 @@ class TestInstantiation(object):
             proxy_type = "SOCKS5"
 
         if "No Auth" in request.param:
-            proxy = ProxyOptions(proxy_type=proxy_type, proxy_addr="127.0.0.1", proxy_port=1080)
+            proxy = ProxyOptions(
+                proxy_type=proxy_type, proxy_addr="127.0.0.1", proxy_port=1080
+            )
         else:
             proxy = ProxyOptions(
                 proxy_type=proxy_type,
@@ -53,7 +61,6 @@ class TestInstantiation(object):
 
     @pytest.mark.it("Stores the hostname for later use")
     def test_sets_required_parameters(self, mocker):
-
         mocker.patch.object(ssl, "SSLContext").return_value
         mocker.patch.object(HTTPTransport, "_create_ssl_context").return_value
 
@@ -70,7 +77,9 @@ class TestInstantiation(object):
         "Creates a dictionary of proxies from the 'proxy_options' parameter, if the parameter is provided"
     )
     def test_proxy_format(self, proxy_options):
-        http_transport_object = HTTPTransport(hostname=fake_hostname, proxy_options=proxy_options)
+        http_transport_object = HTTPTransport(
+            hostname=fake_hostname, proxy_options=proxy_options
+        )
 
         if proxy_options.proxy_username and proxy_options.proxy_password:
             expected_proxy_string = "{username}:{password}@{address}:{port}".format(
@@ -105,7 +114,9 @@ class TestInstantiation(object):
         HTTPTransport(hostname=fake_hostname)
         # Verify correctness of TLS/SSL Context
         assert mock_ssl_context_constructor.call_count == 1
-        assert mock_ssl_context_constructor.call_args == mocker.call(protocol=ssl.PROTOCOL_TLSv1_2)
+        assert mock_ssl_context_constructor.call_args == mocker.call(
+            protocol=ssl.PROTOCOL_TLSv1_2
+        )
         assert mock_ssl_context.check_hostname is True
         assert mock_ssl_context.verify_mode == ssl.CERT_REQUIRED
 
@@ -127,7 +138,8 @@ class TestInstantiation(object):
         mock_ssl_context = mocker.patch.object(ssl, "SSLContext").return_value
 
         HTTPTransport(
-            hostname=fake_hostname, server_verification_cert=fake_server_verification_cert
+            hostname=fake_hostname,
+            server_verification_cert=fake_server_verification_cert,
         )
 
         assert mock_ssl_context.load_verify_locations.call_count == 1
@@ -146,8 +158,12 @@ class TestInstantiation(object):
         assert mock_ssl_context.set_ciphers.call_count == 1
         assert mock_ssl_context.set_ciphers.call_args == mocker.call(fake_cipher)
 
-    @pytest.mark.it("Configures TLS/SSL context with client-provided-certificate-chain like x509")
-    def test_configures_tls_context_with_client_provided_certificate_chain(self, mocker):
+    @pytest.mark.it(
+        "Configures TLS/SSL context with client-provided-certificate-chain like x509"
+    )
+    def test_configures_tls_context_with_client_provided_certificate_chain(
+        self, mocker
+    ):
         fake_client_cert = X509("fake_cert_file", "fake_key_file", "fake pass phrase")
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = mock_ssl_context_constructor.return_value
@@ -170,8 +186,12 @@ class TestInstantiation(object):
         # in order to show that the HTTPAdapter is functioning as intended. This naturally gets a
         # little messy from a unit testing perspective
         poolmanager_init_mock = mocker.patch.object(requests.adapters, "PoolManager")
-        proxymanager_init_mock = mocker.patch.object(urllib3.poolmanager, "ProxyManager")
-        socksproxymanager_init_mock = mocker.patch.object(requests.adapters, "SOCKSProxyManager")
+        proxymanager_init_mock = mocker.patch.object(
+            urllib3.poolmanager, "ProxyManager"
+        )
+        socksproxymanager_init_mock = mocker.patch.object(
+            requests.adapters, "SOCKSProxyManager"
+        )
         ssl_context_init_mock = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = ssl_context_init_mock.return_value
 
@@ -179,7 +199,9 @@ class TestInstantiation(object):
         # SSL Context was only created once
         assert ssl_context_init_mock.call_count == 1
         # HTTP Adapter was set on the transport
-        assert isinstance(http_transport_object._http_adapter, requests.adapters.HTTPAdapter)
+        assert isinstance(
+            http_transport_object._http_adapter, requests.adapters.HTTPAdapter
+        )
 
         # Reset the poolmanager mock because it's already been called upon instantiation of the adapter
         # (We will manually test scenarios in which a PoolManager is instantiated)
@@ -199,9 +221,13 @@ class TestInstantiation(object):
         assert proxymanager_init_mock.call_args[1]["ssl_context"] == mock_ssl_context
 
         # SOCKSProxyManager init scenario
-        http_transport_object._http_adapter.proxy_manager_for(proxy="socks5://127.0.0.1")
+        http_transport_object._http_adapter.proxy_manager_for(
+            proxy="socks5://127.0.0.1"
+        )
         assert socksproxymanager_init_mock.call_count == 1
-        assert socksproxymanager_init_mock.call_args[1]["ssl_context"] == mock_ssl_context
+        assert (
+            socksproxymanager_init_mock.call_args[1]["ssl_context"] == mock_ssl_context
+        )
 
         # SSL Context was still only ever created once. This proves that the SSL context being
         # used above is the same one that was configured in a custom way
@@ -229,7 +255,9 @@ class TestRequest(object):
     @pytest.mark.it(
         "Mounts the custom HTTP Adapter on a new requests Session before making a request"
     )
-    def test_mount_adapter(self, mocker, transport, mock_requests_session, request_method):
+    def test_mount_adapter(
+        self, mocker, transport, mock_requests_session, request_method
+    ):
         session = mock_requests_session.return_value
         session_method = getattr(session, request_method.lower())
 
@@ -251,7 +279,9 @@ class TestRequest(object):
         assert session is mock_requests_session.return_value
         # Adapter has been mounted
         assert session.mount.call_count == 1
-        assert session.mount.call_args == mocker.call("https://", transport._http_adapter)
+        assert session.mount.call_args == mocker.call(
+            "https://", transport._http_adapter
+        )
         # Request was made after (see above side effect for proof that this happens after mount)
         assert session_method.call_count == 1
 
@@ -278,11 +308,15 @@ class TestRequest(object):
         ],
     )
     @pytest.mark.parametrize(
-        "body", [pytest.param("", id="No body"), pytest.param("fake body", id="With body")]
+        "body",
+        [pytest.param("", id="No body"), pytest.param("fake body", id="With body")],
     )
     @pytest.mark.parametrize(
         "headers",
-        [pytest.param({}, id="No headers"), pytest.param({"Key": "Value"}, id="With headers")],
+        [
+            pytest.param({}, id="No headers"),
+            pytest.param({"Key": "Value"}, id="With headers"),
+        ],
     )
     def test_request(
         self,
@@ -312,7 +346,9 @@ class TestRequest(object):
         assert mock_requests_session.call_args == mocker.call()
         session = mock_requests_session.return_value
         assert session.mount.call_count == 1
-        assert session.mount.call_args == mocker.call("https://", transport._http_adapter)
+        assert session.mount.call_args == mocker.call(
+            "https://", transport._http_adapter
+        )
 
         # The relevant method was called on the session
         session_method = getattr(session, request_method.lower())

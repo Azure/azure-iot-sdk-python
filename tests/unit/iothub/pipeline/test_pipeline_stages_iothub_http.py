@@ -64,7 +64,9 @@ class IoTHubHTTPTranslationStageTestConfig(object):
         # auth type shouldn't matter for this stage, so just give it a fake sastoken for now.
         # Manually override to make this for modules
         cfg = config.IoTHubPipelineConfig(
-            hostname="http://my.hostname", device_id="my_device", sastoken=mocker.MagicMock()
+            hostname="http://my.hostname",
+            device_id="my_device",
+            sastoken=mocker.MagicMock(),
         )
         return cfg
 
@@ -152,7 +154,9 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
 
         assert new_op.method == "POST"
         assert new_op.path == expected_path
-        assert new_op.query_params == "api-version={}".format(pkg_constant.IOTHUB_API_VERSION)
+        assert new_op.query_params == "api-version={}".format(
+            pkg_constant.IOTHUB_API_VERSION
+        )
 
     @pytest.mark.it(
         "Configures the HTTPRequestAndResponseOperation with the headers for a Method Invoke request"
@@ -163,12 +167,15 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
             pytest.param("", id="No custom user agent"),
             pytest.param("MyCustomUserAgent", id="With custom user agent"),
             pytest.param(
-                "My/Custom?User+Agent", id="With custom user agent containing reserved characters"
+                "My/Custom?User+Agent",
+                id="With custom user agent containing reserved characters",
             ),
             pytest.param(12345, id="Non-string custom user agent"),
         ],
     )
-    def test_new_op_headers(self, mocker, stage, op, custom_user_agent, pipeline_config):
+    def test_new_op_headers(
+        self, mocker, stage, op, custom_user_agent, pipeline_config
+    ):
         stage.nucleus.pipeline_configuration.product_info = custom_user_agent
         stage.run_op(op)
 
@@ -181,7 +188,9 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
         expected_user_agent = urllib.parse.quote_plus(
             user_agent.get_iothub_user_agent() + str(custom_user_agent)
         )
-        expected_edge_string = "{}/{}".format(pipeline_config.device_id, pipeline_config.module_id)
+        expected_edge_string = "{}/{}".format(
+            pipeline_config.device_id, pipeline_config.module_id
+        )
 
         assert new_op.headers["Host"] == pipeline_config.gateway_hostname
         assert new_op.headers["Content-Type"] == "application/json"
@@ -238,7 +247,9 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
         "response_body, expected_method_response",
         [
             pytest.param(
-                b'{"key": "val"}', {"key": "val"}, id="Response Body: dict value as bytestring"
+                b'{"key": "val"}',
+                {"key": "val"},
+                id="Response Body: dict value as bytestring",
             ),
             pytest.param(
                 b'{"key": "val", "key2": {"key3": "val2"}}',
@@ -341,7 +352,9 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
         # Because Storage/Blob related functionality is limited to Device, configure pipeline for a device
         # auth type shouldn't matter for this stage, so just give it a fake sastoken for now.
         cfg = config.IoTHubPipelineConfig(
-            hostname="http://my.hostname", device_id="my_device", sastoken=mocker.MagicMock()
+            hostname="http://my.hostname",
+            device_id="my_device",
+            sastoken=mocker.MagicMock(),
         )
         return cfg
 
@@ -375,14 +388,19 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
 
         # Validate request
         assert mock_http_path_iothub.get_storage_info_for_blob_path.call_count == 1
-        assert mock_http_path_iothub.get_storage_info_for_blob_path.call_args == mocker.call(
-            pipeline_config.device_id
+        assert (
+            mock_http_path_iothub.get_storage_info_for_blob_path.call_args
+            == mocker.call(pipeline_config.device_id)
         )
-        expected_path = mock_http_path_iothub.get_storage_info_for_blob_path.return_value
+        expected_path = (
+            mock_http_path_iothub.get_storage_info_for_blob_path.return_value
+        )
 
         assert new_op.method == "POST"
         assert new_op.path == expected_path
-        assert new_op.query_params == "api-version={}".format(pkg_constant.IOTHUB_API_VERSION)
+        assert new_op.query_params == "api-version={}".format(
+            pkg_constant.IOTHUB_API_VERSION
+        )
 
     @pytest.mark.it(
         "Configures the HTTPRequestAndResponseOperation with the headers for a Get Storage Info request"
@@ -393,12 +411,15 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
             pytest.param("", id="No custom user agent"),
             pytest.param("MyCustomUserAgent", id="With custom user agent"),
             pytest.param(
-                "My/Custom?User+Agent", id="With custom user agent containing reserved characters"
+                "My/Custom?User+Agent",
+                id="With custom user agent containing reserved characters",
             ),
             pytest.param(12345, id="Non-string custom user agent"),
         ],
     )
-    def test_new_op_headers(self, mocker, stage, op, custom_user_agent, pipeline_config):
+    def test_new_op_headers(
+        self, mocker, stage, op, custom_user_agent, pipeline_config
+    ):
         stage.nucleus.pipeline_configuration.product_info = custom_user_agent
         stage.run_op(op)
 
@@ -567,7 +588,9 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperati
         # Because Storage/Blob related functionality is limited to Device, configure pipeline for a device
         # auth type shouldn't matter for this stage, so just give it a fake sastoken for now.
         cfg = config.IoTHubPipelineConfig(
-            hostname="http://my.hostname", device_id="my_device", sastoken=mocker.MagicMock()
+            hostname="http://my.hostname",
+            device_id="my_device",
+            sastoken=mocker.MagicMock(),
         )
         return cfg
 
@@ -605,14 +628,19 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperati
 
         # Validate request
         assert mock_http_path_iothub.get_notify_blob_upload_status_path.call_count == 1
-        assert mock_http_path_iothub.get_notify_blob_upload_status_path.call_args == mocker.call(
-            pipeline_config.device_id
+        assert (
+            mock_http_path_iothub.get_notify_blob_upload_status_path.call_args
+            == mocker.call(pipeline_config.device_id)
         )
-        expected_path = mock_http_path_iothub.get_notify_blob_upload_status_path.return_value
+        expected_path = (
+            mock_http_path_iothub.get_notify_blob_upload_status_path.return_value
+        )
 
         assert new_op.method == "POST"
         assert new_op.path == expected_path
-        assert new_op.query_params == "api-version={}".format(pkg_constant.IOTHUB_API_VERSION)
+        assert new_op.query_params == "api-version={}".format(
+            pkg_constant.IOTHUB_API_VERSION
+        )
 
     @pytest.mark.it(
         "Configures the HTTPRequestAndResponseOperation with the headers for a Notify Blob Upload Status request"
@@ -623,12 +651,15 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperati
             pytest.param("", id="No custom user agent"),
             pytest.param("MyCustomUserAgent", id="With custom user agent"),
             pytest.param(
-                "My/Custom?User+Agent", id="With custom user agent containing reserved characters"
+                "My/Custom?User+Agent",
+                id="With custom user agent containing reserved characters",
             ),
             pytest.param(12345, id="Non-string custom user agent"),
         ],
     )
-    def test_new_op_headers(self, mocker, stage, op, custom_user_agent, pipeline_config):
+    def test_new_op_headers(
+        self, mocker, stage, op, custom_user_agent, pipeline_config
+    ):
         stage.nucleus.pipeline_configuration.product_info = custom_user_agent
         stage.run_op(op)
 

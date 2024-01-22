@@ -38,11 +38,15 @@ def handle_result(callback):
     except pipeline_exceptions.NoConnectionError as e:
         raise exceptions.NoConnectionError("Client is not connected to IoTHub") from e
     except pipeline_exceptions.UnauthorizedError as e:
-        raise exceptions.CredentialError("Credentials invalid, could not connect") from e
+        raise exceptions.CredentialError(
+            "Credentials invalid, could not connect"
+        ) from e
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError("Error in the IoTHub client") from e
     except pipeline_exceptions.TlsExchangeAuthError as e:
-        raise exceptions.ClientError("Error in the IoTHub client due to TLS exchanges.") from e
+        raise exceptions.ClientError(
+            "Error in the IoTHub client due to TLS exchanges."
+        ) from e
     except pipeline_exceptions.ProtocolProxyError as e:
         raise exceptions.ClientError(
             "Error in the IoTHub client raised due to proxy connections."
@@ -50,9 +54,13 @@ def handle_result(callback):
     except pipeline_exceptions.PipelineNotRunning as e:
         raise exceptions.ClientError("Client has already been shut down") from e
     except pipeline_exceptions.OperationCancelled as e:
-        raise exceptions.OperationCancelled("Operation was cancelled before completion") from e
+        raise exceptions.OperationCancelled(
+            "Operation was cancelled before completion"
+        ) from e
     except pipeline_exceptions.OperationTimeout as e:
-        raise exceptions.OperationTimeout("Could not complete operation before timeout") from e
+        raise exceptions.OperationTimeout(
+            "Could not complete operation before timeout"
+        ) from e
     except Exception as e:
         raise exceptions.ClientError("Unexpected failure") from e
 
@@ -79,7 +87,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # **kwargs.
         super().__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
-        self._handler_manager = sync_handler_manager.SyncHandlerManager(self._inbox_manager)
+        self._handler_manager = sync_handler_manager.SyncHandlerManager(
+            self._inbox_manager
+        )
 
         # Set pipeline handlers for client events
         self._mqtt_pipeline.on_connected = self._on_connected
@@ -88,8 +98,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._mqtt_pipeline.on_background_exception = self._on_background_exception
 
         # Set pipeline handlers for data receives
-        self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
-        self._mqtt_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
+        self._mqtt_pipeline.on_method_request_received = (
+            self._inbox_manager.route_method_request
+        )
+        self._mqtt_pipeline.on_twin_patch_received = (
+            self._inbox_manager.route_twin_patch
+        )
 
     def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature.
@@ -147,7 +161,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         setattr(self._handler_manager, handler_name, new_handler)
 
         # Enable the feature if necessary
-        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
+        if (
+            new_handler is not None
+            and not self._mqtt_pipeline.feature_enabled[feature_name]
+        ):
             self._enable_feature(feature_name)
 
         # Disable the feature if necessary
@@ -538,7 +555,9 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
-        self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
+        self._mqtt_pipeline.on_c2d_message_received = (
+            self._inbox_manager.route_c2d_message
+        )
 
     @deprecation.deprecated(
         deprecated_in="2.3.0",
@@ -620,7 +639,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
-        self._mqtt_pipeline.on_input_message_received = self._inbox_manager.route_input_message
+        self._mqtt_pipeline.on_input_message_received = (
+            self._inbox_manager.route_input_message
+        )
 
     def send_message_to_output(self, message, output_name):
         """Sends an event/message to the given module output.
@@ -710,7 +731,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :rtype: dict
         """
         logger.info(
-            "Invoking {} method on {}{}".format(method_params["methodName"], device_id, module_id)
+            "Invoking {} method on {}{}".format(
+                method_params["methodName"], device_id, module_id
+            )
         )
         callback = EventedCallback(return_arg_name="invoke_method_response")
         self._http_pipeline.invoke_method(

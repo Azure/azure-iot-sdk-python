@@ -20,7 +20,9 @@ dummy_status = 200
 class TestMethodRequest(object):
     @pytest.mark.it("Instantiates with a read-only 'request_id' attribute")
     def test_request_id_property_is_read_only(self):
-        m_req = MethodRequest(request_id=dummy_rid, name=dummy_name, payload=dummy_payload)
+        m_req = MethodRequest(
+            request_id=dummy_rid, name=dummy_name, payload=dummy_payload
+        )
         new_rid = 2
 
         with pytest.raises(AttributeError):
@@ -30,7 +32,9 @@ class TestMethodRequest(object):
 
     @pytest.mark.it("Instantiates with a read-only 'name' attribute")
     def test_name_property_is_read_only(self):
-        m_req = MethodRequest(request_id=dummy_rid, name=dummy_name, payload=dummy_payload)
+        m_req = MethodRequest(
+            request_id=dummy_rid, name=dummy_name, payload=dummy_payload
+        )
         new_name = "new_name"
 
         with pytest.raises(AttributeError):
@@ -40,7 +44,9 @@ class TestMethodRequest(object):
 
     @pytest.mark.it("Instantiates with a read-only 'payload' attribute")
     def test_payload_property_is_read_only(self):
-        m_req = MethodRequest(request_id=dummy_rid, name=dummy_name, payload=dummy_payload)
+        m_req = MethodRequest(
+            request_id=dummy_rid, name=dummy_name, payload=dummy_payload
+        )
         new_payload = {"NewPayload": "somenewpayload"}
 
         with pytest.raises(AttributeError):
@@ -53,7 +59,9 @@ class TestMethodRequest(object):
 class TestMethodResponseInstantiation(object):
     @pytest.mark.it("Instantiates with an editable 'request_id' attribute")
     def test_instantiates_with_request_id(self):
-        response = MethodResponse(request_id=dummy_rid, status=dummy_status, payload=dummy_payload)
+        response = MethodResponse(
+            request_id=dummy_rid, status=dummy_status, payload=dummy_payload
+        )
         assert response.request_id == dummy_rid
 
         new_rid = "2"
@@ -63,7 +71,9 @@ class TestMethodResponseInstantiation(object):
 
     @pytest.mark.it("Instantiates with an editable 'status' attribute")
     def test_instantiates_with_status(self):
-        response = MethodResponse(request_id=dummy_rid, status=dummy_status, payload=dummy_payload)
+        response = MethodResponse(
+            request_id=dummy_rid, status=dummy_status, payload=dummy_payload
+        )
         assert response.status == dummy_status
 
         new_status = 400
@@ -73,7 +83,9 @@ class TestMethodResponseInstantiation(object):
 
     @pytest.mark.it("Instantiates with an editable 'payload' attribute")
     def test_instantiates_with_payload(self):
-        response = MethodResponse(request_id=dummy_rid, status=dummy_status, payload=dummy_payload)
+        response = MethodResponse(
+            request_id=dummy_rid, status=dummy_status, payload=dummy_payload
+        )
         assert response.payload == dummy_payload
 
         new_payload = {"NewPayload": "yes_this_is_new"}
@@ -93,7 +105,9 @@ class TestMethodResponseInstantiation(object):
 class TestMethodResponseCreateFromMethodRequest(object):
     @pytest.mark.it("Instantiates using a MethodRequest to provide the 'request_id'")
     def test_instantiates_from_method_request(self):
-        request = MethodRequest(request_id=dummy_rid, name=dummy_name, payload=dummy_payload)
+        request = MethodRequest(
+            request_id=dummy_rid, name=dummy_name, payload=dummy_payload
+        )
         status = 200
         payload = {"ResponsePayload": "SomeResponse"}
         response = MethodResponse.create_from_method_request(
@@ -107,7 +121,9 @@ class TestMethodResponseCreateFromMethodRequest(object):
 
     @pytest.mark.it("Instantiates with a default 'payload' of 'None' if not provided")
     def test_instantiates_without_payload(self):
-        request = MethodRequest(request_id=dummy_rid, name=dummy_name, payload=dummy_payload)
+        request = MethodRequest(
+            request_id=dummy_rid, name=dummy_name, payload=dummy_payload
+        )
         status = 200
         response = MethodResponse.create_from_method_request(request, status)
 

@@ -43,7 +43,9 @@ def get_module_id_from_event(event):
     Helper function to get the module_id from an EventHub message
     """
     if "iothub-connection-module_id" in event.message.annotations:
-        return event.message.annotations["iothub-connection-module-id".encode()].decode()
+        return event.message.annotations[
+            "iothub-connection-module-id".encode()
+        ].decode()
     else:
         return None
 
@@ -68,7 +70,9 @@ class EventhubEvent(object):
     def message_id(self):
         # if message_id is missing, make one with a random guid. Do this because incoming_eventhub_events
         # is a dict indexed on message_id
-        return self.system_properties.get("message-id", "no-message-id-{}".format(uuid.uuid4()))
+        return self.system_properties.get(
+            "message-id", "no-message-id-{}".format(uuid.uuid4())
+        )
 
 
 class ServiceHelperSync(object):
@@ -123,7 +127,9 @@ class ServiceHelperSync(object):
             )
         else:
             self._registry_manager.update_twin(
-                self.device_id, Twin(properties=TwinProperties(desired=desired_props)), "*"
+                self.device_id,
+                Twin(properties=TwinProperties(desired=desired_props)),
+                "*",
             )
 
     def invoke_method(
@@ -146,7 +152,9 @@ class ServiceHelperSync(object):
             )
 
         else:
-            response = self._registry_manager.invoke_device_method(self.device_id, request)
+            response = self._registry_manager.invoke_device_method(
+                self.device_id, request
+            )
 
         return response
 
@@ -163,7 +171,9 @@ class ServiceHelperSync(object):
                 # if message_id is not set, return any message
                 if not inner_message_id and len(arrivals):
                     id = list(arrivals.keys())[0]
-                    logger.info("wait_for_eventhub_arrival(None) returning msgid={}".format(id))
+                    logger.info(
+                        "wait_for_eventhub_arrival(None) returning msgid={}".format(id)
+                    )
                 else:
                     id = inner_message_id
 
@@ -184,7 +194,9 @@ class ServiceHelperSync(object):
                 if ev:
                     return ev
                 elif time.time() >= end_time:
-                    logger.warning("timeout waiting for message with msgid={}".format(message_id))
+                    logger.warning(
+                        "timeout waiting for message with msgid={}".format(message_id)
+                    )
                     return None
                 elif end_time:
                     self.cv.wait(timeout=end_time - time.time())
@@ -195,7 +207,9 @@ class ServiceHelperSync(object):
         try:
             return self.incoming_patch_queue.get(block=block, timeout=timeout)
         except queue.Empty:
-            raise Exception("reported patch did not arrive within {} seconds".format(timeout))
+            raise Exception(
+                "reported patch did not arrive within {} seconds".format(timeout)
+            )
 
     def shutdown(self):
         if self._eventhub_consumer_client:
@@ -218,9 +232,15 @@ class ServiceHelperSync(object):
             message.module_id = module_id
             message.message_body = event_body
             if event.message.properties:
-                message.properties = convert_binary_dict_to_string_dict(event.properties)
-                message.content_type = event.message.properties.content_type.decode("utf-8")
-            message.system_properties = convert_binary_dict_to_string_dict(event.system_properties)
+                message.properties = convert_binary_dict_to_string_dict(
+                    event.properties
+                )
+                message.content_type = event.message.properties.content_type.decode(
+                    "utf-8"
+                )
+            message.system_properties = convert_binary_dict_to_string_dict(
+                event.system_properties
+            )
             return message
 
     def _store_eventhub_arrival(self, converted_event):
@@ -250,7 +270,6 @@ class ServiceHelperSync(object):
                     module_id = get_module_id_from_event(event)
 
                     if device_id == self.device_id and module_id == self.module_id:
-
                         converted_event = self._convert_incoming_event(event)
                         if isinstance(converted_event, EventhubEvent):
                             if "message-id" in converted_event.system_properties:

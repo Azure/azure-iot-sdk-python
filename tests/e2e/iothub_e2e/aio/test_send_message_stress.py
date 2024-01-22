@@ -55,8 +55,12 @@ class TestSendMessageStress(object):
         await call_with_retry(client, client.send_message, random_message)
 
         # Wait for the arrival of the message.
-        logger.info("Waiting for arrival of message {}".format(random_message.message_id))
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        logger.info(
+            "Waiting for arrival of message {}".format(random_message.message_id)
+        )
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
 
         # verify the message
         assert event, "service helper returned falsy event"
@@ -94,7 +98,6 @@ class TestSendMessageStress(object):
         try:
             # go until time runs out and our list of futures is empty.
             while not done_sending or len(futures) > 0:
-
                 # When time runs out, stop sending, and slow down out loop so we call
                 # asyncio.gather much less often.
                 if time.time() >= test_end:
@@ -124,7 +127,9 @@ class TestSendMessageStress(object):
                 # If we're done sending, and nothing finished in this last interval, log which
                 # message_ids are outstanding. This can be used to grep logs for outstanding messages.
                 if done_sending and len(done) == 0:
-                    logger.warning("Not received: {}".format(self.outstanding_message_ids))
+                    logger.warning(
+                        "Not received: {}".format(self.outstanding_message_ids)
+                    )
 
                 # Use `asyncio.gather` to reraise any exceptions that might have been raised inside our
                 # futures.
@@ -138,7 +143,9 @@ class TestSendMessageStress(object):
             if len(futures):
                 await task_cleanup.cleanup_tasks(futures)
 
-    async def send_and_verify_many_telemetry_messages(self, client, service_helper, message_count):
+    async def send_and_verify_many_telemetry_messages(
+        self, client, service_helper, message_count
+    ):
         """
         Send a whole bunch of messages all at once and verify that they arrive at eventhub
         """
@@ -169,7 +176,9 @@ class TestSendMessageStress(object):
                 # If nothing finished in this last interval, log which
                 # message_ids are outstanding. This can be used to grep logs for outstanding messages.
                 if len(done) == 0:
-                    logger.warning("Not received: {}".format(self.outstanding_message_ids))
+                    logger.warning(
+                        "Not received: {}".format(self.outstanding_message_ids)
+                    )
 
                 # Use `asyncio.gather` to reraise any exceptions that might have been raised inside our
                 # futures.

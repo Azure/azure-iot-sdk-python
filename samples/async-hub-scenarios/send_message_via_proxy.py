@@ -18,7 +18,9 @@ async def main():
     conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 
     proxy_opts = ProxyOptions(
-        proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888  # localhost
+        proxy_type="HTTP",
+        proxy_addr="127.0.0.1",
+        proxy_port=8888,  # localhost
     )
 
     # The client object is used to interact with your Azure IoT hub.
@@ -41,7 +43,9 @@ async def main():
         print("done sending message #" + str(i))
 
     # send `messages_to_send` messages in parallel
-    await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
+    await asyncio.gather(
+        *[send_test_message(i) for i in range(1, messages_to_send + 1)]
+    )
 
     # Finally, shut down the client
     await device_client.shutdown()

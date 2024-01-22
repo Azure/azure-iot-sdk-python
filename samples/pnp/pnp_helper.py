@@ -54,7 +54,11 @@ def create_reported_properties(component_name=None, **prop_kwargs):
     :return: The dictionary of properties.
     """
     if component_name:
-        print("Updating pnp properties for {component_name}".format(component_name=component_name))
+        print(
+            "Updating pnp properties for {component_name}".format(
+                component_name=component_name
+            )
+        )
     else:
         print("Updating pnp properties for root interface")
     prop_object = PnpProperties(component_name, **prop_kwargs)
@@ -70,7 +74,9 @@ def create_reported_properties(component_name=None, **prop_kwargs):
     return prop_dict
 
 
-def create_response_payload_with_status(command_request, method_name, create_user_response=None):
+def create_response_payload_with_status(
+    command_request, method_name, create_user_response=None
+):
     """
     Helper method to create the payload for responding to a command request.
     This method is used for all method responses unless the user provides another

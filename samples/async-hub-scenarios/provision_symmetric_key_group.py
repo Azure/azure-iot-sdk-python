@@ -62,11 +62,19 @@ device_ids_to_keys[device_id_3] = derived_device_key_3
 
 
 async def send_test_message(i, client):
-    print("sending message # {index} for client with id {id}".format(index=i, id=client.id))
+    print(
+        "sending message # {index} for client with id {id}".format(
+            index=i, id=client.id
+        )
+    )
     msg = Message("test wind speed " + str(i))
     msg.message_id = uuid.uuid4()
     await client.send_message(msg)
-    print("done sending message # {index} for client with id {id}".format(index=i, id=client.id))
+    print(
+        "done sending message # {index} for client with id {id}".format(
+            index=i, id=client.id
+        )
+    )
 
 
 async def main():
@@ -81,7 +89,9 @@ async def main():
         return await provisioning_device_client.register()
 
     results = await asyncio.gather(
-        register_device(device_id_1), register_device(device_id_2), register_device(device_id_3)
+        register_device(device_id_1),
+        register_device(device_id_2),
+        register_device(device_id_3),
     )
 
     clients_to_device_ids = {}
@@ -95,7 +105,9 @@ async def main():
             device_id = registration_result.registration_state.device_id
 
             print(
-                "Will send telemetry from the provisioned device with id {id}".format(id=device_id)
+                "Will send telemetry from the provisioned device with id {id}".format(
+                    id=device_id
+                )
             )
             device_client = IoTHubDeviceClient.create_from_symmetric_key(
                 symmetric_key=device_ids_to_keys[device_id],
@@ -111,7 +123,9 @@ async def main():
             print("Can not send telemetry from the provisioned device")
 
     # connect all the clients
-    await asyncio.gather(*[client.connect() for client in clients_to_device_ids.values()])
+    await asyncio.gather(
+        *[client.connect() for client in clients_to_device_ids.values()]
+    )
 
     # send `messages_to_send` messages in parallel.
     await asyncio.gather(
@@ -126,7 +140,9 @@ async def main():
     )
 
     # disconnect all the clients
-    await asyncio.gather(*[client.disconnect() for client in clients_to_device_ids.values()])
+    await asyncio.gather(
+        *[client.disconnect() for client in clients_to_device_ids.values()]
+    )
 
 
 if __name__ == "__main__":

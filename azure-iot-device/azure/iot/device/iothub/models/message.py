@@ -25,7 +25,12 @@ class Message(object):
     """
 
     def __init__(
-        self, data, message_id=None, content_encoding=None, content_type=None, output_name=None
+        self,
+        data,
+        message_id=None,
+        content_encoding=None,
+        content_type=None,
+        output_name=None,
     ):
         """
         Initializer for Message
@@ -73,6 +78,8 @@ class Message(object):
         )
         if self.custom_properties:
             total = total + sum(
-                sys.getsizeof(v) for v in self.custom_properties.values() if v is not None
+                sys.getsizeof(v)
+                for v in self.custom_properties.values()
+                if v is not None
             )
         return total

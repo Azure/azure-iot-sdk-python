@@ -133,7 +133,9 @@ class InboxManager(object):
                 inbox = self.input_message_inboxes[input_name]
             except KeyError:
                 logger.warning(
-                    "No input message inbox for {} - dropping message".format(input_name)
+                    "No input message inbox for {} - dropping message".format(
+                        input_name
+                    )
                 )
                 return False
             else:

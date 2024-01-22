@@ -63,7 +63,9 @@ class SharedIoTHubClientInstantiationTests(object):
     @pytest.mark.it(
         "Stores the HTTPPipeline from the 'http_pipeline' parameter in the '_http_pipeline' attribute"
     )
-    def test_sets_http_pipeline_attribute(self, client_class, mqtt_pipeline, http_pipeline):
+    def test_sets_http_pipeline_attribute(
+        self, client_class, mqtt_pipeline, http_pipeline
+    ):
         client = client_class(mqtt_pipeline, http_pipeline)
 
         assert client._http_pipeline is http_pipeline
@@ -93,14 +95,22 @@ class SharedIoTHubClientInstantiationTests(object):
         client = client_class(mqtt_pipeline, http_pipeline)
 
         assert client._mqtt_pipeline.on_new_sastoken_required is not None
-        assert client._mqtt_pipeline.on_new_sastoken_required == client._on_new_sastoken_required
+        assert (
+            client._mqtt_pipeline.on_new_sastoken_required
+            == client._on_new_sastoken_required
+        )
 
     @pytest.mark.it("Sets on_background_exception handler in the MQTTPipeline")
-    def test_sets_on_background_exception_handler(self, client_class, mqtt_pipeline, http_pipeline):
+    def test_sets_on_background_exception_handler(
+        self, client_class, mqtt_pipeline, http_pipeline
+    ):
         client = client_class(mqtt_pipeline, http_pipeline)
 
         assert client._mqtt_pipeline.on_background_exception is not None
-        assert client._mqtt_pipeline.on_background_exception == client._on_background_exception
+        assert (
+            client._mqtt_pipeline.on_background_exception
+            == client._on_background_exception
+        )
 
     @pytest.mark.it("Sets on_method_request_received handler in the MQTTPipeline")
     def test_sets_on_method_request_received_handler_in_pipeline(
@@ -122,7 +132,8 @@ class SharedIoTHubClientInstantiationTests(object):
 
         assert client._mqtt_pipeline.on_twin_patch_received is not None
         assert (
-            client._mqtt_pipeline.on_twin_patch_received == client._inbox_manager.route_twin_patch
+            client._mqtt_pipeline.on_twin_patch_received
+            == client._inbox_manager.route_twin_patch
         )
 
     @pytest.mark.it("Sets the Receive Mode/Type for the client as yet-unchosen")
@@ -150,7 +161,6 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
     ):
-
         product_info = "MyProductInfo"
         client_create_method(*create_method_args, product_info=product_info)
 
@@ -173,7 +183,6 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
     ):
-
         client_create_method(*create_method_args, ensure_desired_properties=True)
 
         # Get configuration object, and ensure it was used for both protocol pipelines
@@ -195,7 +204,6 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
     ):
-
         client_create_method(*create_method_args, websockets=True)
 
         # Get configuration object, and ensure it was used for both protocol pipelines
@@ -209,7 +217,9 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
     # TODO: Show that input in the wrong format is formatted to the correct one. This test exists
     # in the IoTHubPipelineConfig object already, but we do not currently show that this is felt
     # from the API level.
-    @pytest.mark.it("Sets the 'cipher' user option parameter on the PipelineConfig, if provided")
+    @pytest.mark.it(
+        "Sets the 'cipher' user option parameter on the PipelineConfig, if provided"
+    )
     def test_cipher_option(
         self,
         option_test_required_patching,
@@ -241,7 +251,9 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         mock_http_pipeline_init,
     ):
         server_verification_cert = "fake_server_verification_cert"
-        client_create_method(*create_method_args, server_verification_cert=server_verification_cert)
+        client_create_method(
+            *create_method_args, server_verification_cert=server_verification_cert
+        )
 
         # Get configuration object, and ensure it was used for both protocol pipelines
         assert mock_mqtt_pipeline_init.call_count == 1
@@ -284,7 +296,9 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
     ):
-        proxy_options = ProxyOptions(proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888)
+        proxy_options = ProxyOptions(
+            proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888
+        )
         client_create_method(*create_method_args, proxy_options=proxy_options)
 
         # Get configuration object, and ensure it was used for both protocol pipelines
@@ -351,7 +365,9 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         mock_http_pipeline_init,
     ):
         connection_retry_value = False
-        client_create_method(*create_method_args, connection_retry=connection_retry_value)
+        client_create_method(
+            *create_method_args, connection_retry=connection_retry_value
+        )
 
         # Get configuration object, and ensure it was used for both protocol pipelines
         assert mock_mqtt_pipeline_init.call_count == 1
@@ -374,7 +390,8 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
     ):
         connection_retry_interval_value = 17
         client_create_method(
-            *create_method_args, connection_retry_interval=connection_retry_interval_value
+            *create_method_args,
+            connection_retry_interval=connection_retry_interval_value,
         )
 
         # Get configuration object, and ensure it was used for both protocol pipelines
@@ -385,7 +402,9 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
 
         assert config.connection_retry_interval == connection_retry_interval_value
 
-    @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
+    @pytest.mark.it(
+        "Raises a TypeError if an invalid user option parameter is provided"
+    )
     def test_invalid_option(
         self, option_test_required_patching, client_create_method, create_method_args
     ):
@@ -408,7 +427,10 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         # Both pipelines use the same IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            is mock_http_pipeline_init.call_args[0][0]
+        )
         config = mock_mqtt_pipeline_init.call_args[0][0]
         assert isinstance(config, IoTHubPipelineConfig)
 
@@ -457,7 +479,9 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
         # Override to test that gateway_hostname CANNOT be provided in Edge scenarios
 
         with pytest.raises(TypeError):
-            client_create_method(*create_method_args, gateway_hostname="my.gateway.device")
+            client_create_method(
+                *create_method_args, gateway_hostname="my.gateway.device"
+            )
 
     @pytest.mark.it("Sets default user options if none are provided")
     def test_default_options(
@@ -477,7 +501,10 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
         # Both pipelines use the same IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            is mock_http_pipeline_init.call_args[0][0]
+        )
         config = mock_mqtt_pipeline_init.call_args[0][0]
         assert isinstance(config, IoTHubPipelineConfig)
 
@@ -501,7 +528,9 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
         cs_obj = cs.ConnectionString(connection_string)
 
         custom_ttl = 1000
-        client_class.create_from_connection_string(connection_string, sastoken_ttl=custom_ttl)
+        client_class.create_from_connection_string(
+            connection_string, sastoken_ttl=custom_ttl
+        )
 
         # Determine expected URI based on class under test
         if client_class.__name__ == "IoTHubDeviceClient":
@@ -576,7 +605,10 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
         # Verify pipelines created with an IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            is mock_http_pipeline_init.call_args[0][0]
+        )
         assert isinstance(mock_mqtt_pipeline_init.call_args[0][0], IoTHubPipelineConfig)
 
         # Verify the IoTHubPipelineConfig is constructed as expected
@@ -626,7 +658,9 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
                 "HostName=value.domain.net;WrongValue=Invalid;SharedAccessKey=Zm9vYmFy",
                 id="Contains extraneous data",
             ),
-            pytest.param("HostName=value.domain.net;DeviceId=my_device", id="Incomplete"),
+            pytest.param(
+                "HostName=value.domain.net;DeviceId=my_device", id="Incomplete"
+            ),
             pytest.param(
                 "HostName=value.domain.net;DeviceId=my_device;x509=True",
                 id="X509 Connection String",
@@ -638,7 +672,9 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
             client_class.create_from_connection_string(bad_cs)
 
     @pytest.mark.it("Raises ValueError if a SasToken creation results in failure")
-    def test_raises_value_error_on_sastoken_failure(self, mocker, client_class, connection_string):
+    def test_raises_value_error_on_sastoken_failure(
+        self, mocker, client_class, connection_string
+    ):
         sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         token_err = st.SasTokenError("Some SasToken failure")
         sastoken_mock.side_effect = token_err
@@ -655,29 +691,43 @@ class SharedIoTHubClientPROPERTYHandlerTests(object):
         setattr(client, handler_name, handler)
         assert getattr(client, handler_name) is handler
 
-    @pytest.mark.it("Reflects the value of the handler manager property of the same name")
+    @pytest.mark.it(
+        "Reflects the value of the handler manager property of the same name"
+    )
     def test_set_on_handler_manager(self, client, handler, handler_name):
         assert getattr(client, handler_name) is None
-        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+        assert getattr(client, handler_name) is getattr(
+            client._handler_manager, handler_name
+        )
         setattr(client, handler_name, handler)
         assert getattr(client, handler_name) is handler
-        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+        assert getattr(client, handler_name) is getattr(
+            client._handler_manager, handler_name
+        )
 
 
-class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYHandlerTests):
+class SharedIoTHubClientPROPERTYReceiverHandlerTests(
+    SharedIoTHubClientPROPERTYHandlerTests
+):
     @pytest.mark.it("Can have its value set and retrieved")
     def test_read_write(self, client, handler, handler_name):
         assert getattr(client, handler_name) is None
         setattr(client, handler_name, handler)
         assert getattr(client, handler_name) is handler
 
-    @pytest.mark.it("Reflects the value of the handler manager property of the same name")
+    @pytest.mark.it(
+        "Reflects the value of the handler manager property of the same name"
+    )
     def test_set_on_handler_manager(self, client, handler, handler_name):
         assert getattr(client, handler_name) is None
-        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+        assert getattr(client, handler_name) is getattr(
+            client._handler_manager, handler_name
+        )
         setattr(client, handler_name, handler)
         assert getattr(client, handler_name) is handler
-        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+        assert getattr(client, handler_name) is getattr(
+            client._handler_manager, handler_name
+        )
 
     @pytest.mark.it(
         "Implicitly enables the corresponding feature if not already enabled, when a handler value is set"
@@ -816,7 +866,9 @@ class SharedIoTHubClientOCCURRENCEConnectTests(object):
         if handling_client_events:
             # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
             # the rule about black-boxing other modules to simulate what we want. Sorry.
-            client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+            client._handler_manager._client_event_runner = (
+                mocker.MagicMock()
+            )  # fake thread
         assert client._handler_manager.handling_client_events is handling_client_events
         ensure_running_spy = mocker.spy(client._handler_manager, "ensure_running")
         client._on_connected()
@@ -870,9 +922,13 @@ class SharedIoTHubClientOCCURRENCEDisconnectTests(object):
         if handling_client_events:
             # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
             # the rule about black-boxing other modules to simulate what we want. Sorry.
-            client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+            client._handler_manager._client_event_runner = (
+                mocker.MagicMock()
+            )  # fake thread
         assert client._handler_manager.handling_client_events is handling_client_events
-        clear_method_request_spy = mocker.spy(client._inbox_manager, "clear_all_method_requests")
+        clear_method_request_spy = mocker.spy(
+            client._inbox_manager, "clear_all_method_requests"
+        )
         client._on_disconnected()
         assert clear_method_request_spy.call_count == 1
 
@@ -926,9 +982,13 @@ class SharedIoTHubClientOCCURRENCEBackgroundException(object):
         if handling_client_events:
             # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
             # the rule about black-boxing other modules to simulate what we want. Sorry.
-            client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+            client._handler_manager._client_event_runner = (
+                mocker.MagicMock()
+            )  # fake thread
         assert client._handler_manager.handling_client_events is handling_client_events
-        background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
+        background_exc_spy = mocker.spy(
+            handle_exceptions, "handle_background_exception"
+        )
 
         client._on_background_exception(arbitrary_exception)
 
@@ -1026,7 +1086,10 @@ class SharedIoTHubDeviceClientCreateFromSastokenTests(
         # Verify pipelines created with an IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            is mock_http_pipeline_init.call_args[0][0]
+        )
         assert isinstance(mock_mqtt_pipeline_init.call_args[0][0], IoTHubPipelineConfig)
 
         # Verify the IoTHubPipelineConfig is constructed as expected
@@ -1055,8 +1118,12 @@ class SharedIoTHubDeviceClientCreateFromSastokenTests(
         assert client._mqtt_pipeline is mock_mqtt_pipeline_init.return_value
         assert client._http_pipeline is mock_http_pipeline_init.return_value
 
-    @pytest.mark.it("Raises ValueError if NonRenewableSasToken creation results in failure")
-    def test_raises_value_error_on_sastoken_failure(self, sas_token_string, mocker, client_class):
+    @pytest.mark.it(
+        "Raises ValueError if NonRenewableSasToken creation results in failure"
+    )
+    def test_raises_value_error_on_sastoken_failure(
+        self, sas_token_string, mocker, client_class
+    ):
         # NOTE: specific inputs that could cause this are tested in the sastoken test module
         sastoken_mock = mocker.patch.object(st, "NonRenewableSasToken")
         token_err = st.SasTokenError("Some SasToken failure")
@@ -1066,43 +1133,66 @@ class SharedIoTHubDeviceClientCreateFromSastokenTests(
             client_class.create_from_sastoken(sastoken=sas_token_string)
         assert e_info.value.__cause__ is token_err
 
-    @pytest.mark.it("Raises ValueError if the provided SAS token string has an invalid URI")
+    @pytest.mark.it(
+        "Raises ValueError if the provided SAS token string has an invalid URI"
+    )
     @pytest.mark.parametrize(
         "invalid_token_uri",
         [
             pytest.param("some.hostname/devices", id="Too short"),
-            pytest.param("some.hostname/devices/my_device/somethingElse", id="Too long"),
             pytest.param(
-                "some.hostname/not-devices/device_id", id="Incorrectly formatted device notation"
+                "some.hostname/devices/my_device/somethingElse", id="Too long"
             ),
-            pytest.param("some.hostname/devices/my_device/modules/my_module", id="Module URI"),
+            pytest.param(
+                "some.hostname/not-devices/device_id",
+                id="Incorrectly formatted device notation",
+            ),
+            pytest.param(
+                "some.hostname/devices/my_device/modules/my_module", id="Module URI"
+            ),
         ],
     )
-    def test_raises_value_error_invalid_uri(self, mocker, client_class, invalid_token_uri):
-        sastoken_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-            resource=urllib.parse.quote(invalid_token_uri, safe=""),
-            signature=urllib.parse.quote("ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""),
-            expiry=int(time.time() + 3600),
+    def test_raises_value_error_invalid_uri(
+        self, mocker, client_class, invalid_token_uri
+    ):
+        sastoken_str = (
+            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=urllib.parse.quote(invalid_token_uri, safe=""),
+                signature=urllib.parse.quote(
+                    "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""
+                ),
+                expiry=int(time.time() + 3600),
+            )
         )
 
         with pytest.raises(ValueError):
             client_class.create_from_sastoken(sastoken=sastoken_str)
 
-    @pytest.mark.it("Raises ValueError if the provided SAS token string has already expired")
+    @pytest.mark.it(
+        "Raises ValueError if the provided SAS token string has already expired"
+    )
     def test_expired_token(self, mocker, client_class):
-        sastoken_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-            resource=urllib.parse.quote("some.hostname/devices/my_device", safe=""),
-            signature=urllib.parse.quote("ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""),
-            expiry=int(time.time() - 3600),  # expired
+        sastoken_str = (
+            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=urllib.parse.quote("some.hostname/devices/my_device", safe=""),
+                signature=urllib.parse.quote(
+                    "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""
+                ),
+                expiry=int(time.time() - 3600),  # expired
+            )
         )
 
         with pytest.raises(ValueError):
             client_class.create_from_sastoken(sastoken=sastoken_str)
 
-    @pytest.mark.it("Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user")
+    @pytest.mark.it(
+        "Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user"
+    )
     def test_sastoken_ttl(self, client_class, sas_token_string):
         with pytest.raises(TypeError):
-            client_class.create_from_sastoken(sastoken=sas_token_string, sastoken_ttl=1000)
+            client_class.create_from_sastoken(
+                sastoken=sas_token_string, sastoken_ttl=1000
+            )
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")
@@ -1162,7 +1252,9 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
         )
 
         client_class.create_from_symmetric_key(
-            symmetric_key=self.symmetric_key, hostname=self.hostname, device_id=self.device_id
+            symmetric_key=self.symmetric_key,
+            hostname=self.hostname,
+            device_id=self.device_id,
         )
 
         # SymmetricKeySigningMechanism created using the provided symmetric key
@@ -1184,13 +1276,18 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
         sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
 
         client_class.create_from_symmetric_key(
-            symmetric_key=self.symmetric_key, hostname=self.hostname, device_id=self.device_id
+            symmetric_key=self.symmetric_key,
+            hostname=self.hostname,
+            device_id=self.device_id,
         )
 
         # Verify pipelines created with an IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            is mock_http_pipeline_init.call_args[0][0]
+        )
         assert isinstance(mock_mqtt_pipeline_init.call_args[0][0], IoTHubPipelineConfig)
 
         # Verify the IoTHubPipelineConfig is constructed as expected
@@ -1209,7 +1306,9 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
         self, mocker, client_class, mock_mqtt_pipeline_init, mock_http_pipeline_init
     ):
         client = client_class.create_from_symmetric_key(
-            symmetric_key=self.symmetric_key, hostname=self.hostname, device_id=self.device_id
+            symmetric_key=self.symmetric_key,
+            hostname=self.hostname,
+            device_id=self.device_id,
         )
         assert isinstance(client, client_class)
         assert client._mqtt_pipeline is mock_mqtt_pipeline_init.return_value
@@ -1223,7 +1322,9 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
 
         with pytest.raises(ValueError) as e_info:
             client_class.create_from_symmetric_key(
-                symmetric_key=self.symmetric_key, hostname=self.hostname, device_id=self.device_id
+                symmetric_key=self.symmetric_key,
+                hostname=self.hostname,
+                device_id=self.device_id,
             )
         assert e_info.value.__cause__ is token_err
 
@@ -1249,7 +1350,12 @@ class SharedIoTHubDeviceClientCreateFromX509CertificateTests(
         "Creates MQTT and HTTP pipelines with an IoTHubPipelineConfig object containing the X509 and other values provided in parameters"
     )
     def test_pipeline_config(
-        self, mocker, client_class, x509, mock_mqtt_pipeline_init, mock_http_pipeline_init
+        self,
+        mocker,
+        client_class,
+        x509,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
     ):
         client_class.create_from_x509_certificate(
             x509=x509, hostname=self.hostname, device_id=self.device_id
@@ -1258,7 +1364,10 @@ class SharedIoTHubDeviceClientCreateFromX509CertificateTests(
         # Verify pipelines created with an IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] == mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            == mock_http_pipeline_init.call_args[0][0]
+        )
         assert isinstance(mock_mqtt_pipeline_init.call_args[0][0], IoTHubPipelineConfig)
 
         # Verify the IoTHubPipelineConfig is constructed as expected
@@ -1274,7 +1383,12 @@ class SharedIoTHubDeviceClientCreateFromX509CertificateTests(
         "Returns an instance of an IoTHubDeviceclient using the created MQTT and HTTP pipelines"
     )
     def test_client_returned(
-        self, mocker, client_class, x509, mock_mqtt_pipeline_init, mock_http_pipeline_init
+        self,
+        mocker,
+        client_class,
+        x509,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
     ):
         client = client_class.create_from_x509_certificate(
             x509=x509, hostname=self.hostname, device_id=self.device_id
@@ -1283,11 +1397,16 @@ class SharedIoTHubDeviceClientCreateFromX509CertificateTests(
         assert client._mqtt_pipeline is mock_mqtt_pipeline_init.return_value
         assert client._http_pipeline is mock_http_pipeline_init.return_value
 
-    @pytest.mark.it("Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user")
+    @pytest.mark.it(
+        "Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user"
+    )
     def test_sastoken_ttl(self, client_class, x509):
         with pytest.raises(TypeError):
             client_class.create_from_x509_certificate(
-                x509=x509, hostname=self.hostname, device_id=self.device_id, sastoken_ttl=1000
+                x509=x509,
+                hostname=self.hostname,
+                device_id=self.device_id,
+                sastoken_ttl=1000,
             )
 
 
@@ -1348,7 +1467,10 @@ class SharedIoTHubModuleClientCreateFromSastokenTests(
         # Verify pipelines created with an IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            is mock_http_pipeline_init.call_args[0][0]
+        )
         assert isinstance(mock_mqtt_pipeline_init.call_args[0][0], IoTHubPipelineConfig)
 
         # Verify the IoTHubPipelineConfig is constructed as expected
@@ -1377,8 +1499,12 @@ class SharedIoTHubModuleClientCreateFromSastokenTests(
         assert client._mqtt_pipeline is mock_mqtt_pipeline_init.return_value
         assert client._http_pipeline is mock_http_pipeline_init.return_value
 
-    @pytest.mark.it("Raises ValueError if NonRenewableSasToken creation results in failure")
-    def test_raises_value_error_on_sastoken_failure(self, mocker, client_class, sas_token_string):
+    @pytest.mark.it(
+        "Raises ValueError if NonRenewableSasToken creation results in failure"
+    )
+    def test_raises_value_error_on_sastoken_failure(
+        self, mocker, client_class, sas_token_string
+    ):
         # NOTE: specific inputs that could cause this are tested in the sastoken test module
         sastoken_mock = mocker.patch.object(st, "NonRenewableSasToken")
         token_err = st.SasTokenError("Some SasToken failure")
@@ -1388,13 +1514,16 @@ class SharedIoTHubModuleClientCreateFromSastokenTests(
             client_class.create_from_sastoken(sastoken=sas_token_string)
         assert e_info.value.__cause__ is token_err
 
-    @pytest.mark.it("Raises ValueError if the provided SAS token string has an invalid URI")
+    @pytest.mark.it(
+        "Raises ValueError if the provided SAS token string has an invalid URI"
+    )
     @pytest.mark.parametrize(
         "invalid_token_uri",
         [
             pytest.param("some.hostname/devices/my_device/modules/", id="Too short"),
             pytest.param(
-                "some.hostname/devices/my_device/modules/my_module/somethingElse", id="Too long"
+                "some.hostname/devices/my_device/modules/my_module/somethingElse",
+                id="Too long",
             ),
             pytest.param(
                 "some.hostname/not-devices/device_id/modules/module_id",
@@ -1407,33 +1536,49 @@ class SharedIoTHubModuleClientCreateFromSastokenTests(
             pytest.param("some.hostname/devices/my_device/", id="Device URI"),
         ],
     )
-    def test_raises_value_error_invalid_uri(self, mocker, client_class, invalid_token_uri):
-        sastoken_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-            resource=urllib.parse.quote(invalid_token_uri, safe=""),
-            signature=urllib.parse.quote("ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""),
-            expiry=int(time.time() + 3600),
+    def test_raises_value_error_invalid_uri(
+        self, mocker, client_class, invalid_token_uri
+    ):
+        sastoken_str = (
+            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=urllib.parse.quote(invalid_token_uri, safe=""),
+                signature=urllib.parse.quote(
+                    "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""
+                ),
+                expiry=int(time.time() + 3600),
+            )
         )
 
         with pytest.raises(ValueError):
             client_class.create_from_sastoken(sastoken=sastoken_str)
 
-    @pytest.mark.it("Raises ValueError if the provided SAS token string has already expired")
+    @pytest.mark.it(
+        "Raises ValueError if the provided SAS token string has already expired"
+    )
     def test_expired_token(self, mocker, client_class):
-        sastoken_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
-            resource=urllib.parse.quote(
-                "some.hostname/devices/my_device/modules/my_module", safe=""
-            ),
-            signature=urllib.parse.quote("ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""),
-            expiry=int(time.time() - 3600),  # expired
+        sastoken_str = (
+            "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=urllib.parse.quote(
+                    "some.hostname/devices/my_device/modules/my_module", safe=""
+                ),
+                signature=urllib.parse.quote(
+                    "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""
+                ),
+                expiry=int(time.time() - 3600),  # expired
+            )
         )
 
         with pytest.raises(ValueError):
             client_class.create_from_sastoken(sastoken=sastoken_str)
 
-    @pytest.mark.it("Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user")
+    @pytest.mark.it(
+        "Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user"
+    )
     def test_sastoken_ttl(self, client_class, sas_token_string):
         with pytest.raises(TypeError):
-            client_class.create_from_sastoken(sastoken=sas_token_string, sastoken_ttl=1000)
+            client_class.create_from_sastoken(
+                sastoken=sas_token_string, sastoken_ttl=1000
+            )
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")
@@ -1458,16 +1603,27 @@ class SharedIoTHubModuleClientCreateFromX509CertificateTests(
         "Creates MQTT and HTTP pipelines with an IoTHubPipelineConfig object containing the X509 and other values provided in parameters"
     )
     def test_pipeline_config(
-        self, mocker, client_class, x509, mock_mqtt_pipeline_init, mock_http_pipeline_init
+        self,
+        mocker,
+        client_class,
+        x509,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
     ):
         client_class.create_from_x509_certificate(
-            x509=x509, hostname=self.hostname, device_id=self.device_id, module_id=self.module_id
+            x509=x509,
+            hostname=self.hostname,
+            device_id=self.device_id,
+            module_id=self.module_id,
         )
 
         # Verify pipelines created with an IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] == mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            == mock_http_pipeline_init.call_args[0][0]
+        )
         assert isinstance(mock_mqtt_pipeline_init.call_args[0][0], IoTHubPipelineConfig)
 
         # Verify the IoTHubPipelineConfig is constructed as expected
@@ -1483,20 +1639,33 @@ class SharedIoTHubModuleClientCreateFromX509CertificateTests(
         "Returns an instance of an IoTHubDeviceclient using the created MQTT and HTTP pipelines"
     )
     def test_client_returned(
-        self, mocker, client_class, x509, mock_mqtt_pipeline_init, mock_http_pipeline_init
+        self,
+        mocker,
+        client_class,
+        x509,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
     ):
         client = client_class.create_from_x509_certificate(
-            x509=x509, hostname=self.hostname, device_id=self.device_id, module_id=self.module_id
+            x509=x509,
+            hostname=self.hostname,
+            device_id=self.device_id,
+            module_id=self.module_id,
         )
         assert isinstance(client, client_class)
         assert client._mqtt_pipeline is mock_mqtt_pipeline_init.return_value
         assert client._http_pipeline is mock_http_pipeline_init.return_value
 
-    @pytest.mark.it("Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user")
+    @pytest.mark.it(
+        "Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user"
+    )
     def test_sastoken_ttl(self, client_class, x509):
         with pytest.raises(TypeError):
             client_class.create_from_x509_certificate(
-                x509=x509, hostname=self.hostname, device_id=self.device_id, sastoken_ttl=1000
+                x509=x509,
+                hostname=self.hostname,
+                device_id=self.device_id,
+                sastoken_ttl=1000,
             )
 
 
@@ -1538,7 +1707,8 @@ class SharedIoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests(
 
         with pytest.raises(TypeError):
             client_create_method(
-                *create_method_args, server_verification_cert="fake_server_verification_cert"
+                *create_method_args,
+                server_verification_cert="fake_server_verification_cert",
             )
 
     @pytest.mark.it(
@@ -1556,7 +1726,9 @@ class SharedIoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests(
         # Override to test that gateway_hostname CANNOT be provided in Edge scenarios
 
         with pytest.raises(TypeError):
-            client_create_method(*create_method_args, gateway_hostname="my.gateway.device")
+            client_create_method(
+                *create_method_args, gateway_hostname="my.gateway.device"
+            )
 
     @pytest.mark.it("Sets default user options if none are provided")
     def test_default_options(
@@ -1577,7 +1749,10 @@ class SharedIoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests(
         # Both pipelines use the same IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            is mock_http_pipeline_init.call_args[0][0]
+        )
         config = mock_mqtt_pipeline_init.call_args[0][0]
         assert isinstance(config, IoTHubPipelineConfig)
 
@@ -1594,14 +1769,18 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
     SharedIoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests
 ):
     @pytest.fixture
-    def option_test_required_patching(self, mocker, mock_edge_hsm, edge_container_environment):
+    def option_test_required_patching(
+        self, mocker, mock_edge_hsm, edge_container_environment
+    ):
         """THIS FIXTURE OVERRIDES AN INHERITED FIXTURE"""
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
 
     @pytest.mark.it(
         "Creates a SasToken that uses an IoTEdgeHsm, from the values extracted from the Edge environment and the user-provided TTL"
     )
-    def test_sastoken(self, mocker, client_class, mock_edge_hsm, edge_container_environment):
+    def test_sastoken(
+        self, mocker, client_class, mock_edge_hsm, edge_container_environment
+    ):
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
         sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
 
@@ -1672,7 +1851,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
         edge_container_environment,
         edge_local_debug_environment,
     ):
-        hybrid_environment = merge_dicts(edge_container_environment, edge_local_debug_environment)
+        hybrid_environment = merge_dicts(
+            edge_container_environment, edge_local_debug_environment
+        )
         mocker.patch.dict(os.environ, hybrid_environment, clear=True)
         sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         mock_sksm = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
@@ -1712,7 +1893,10 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
         # Verify pipelines created with an IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            is mock_http_pipeline_init.call_args[0][0]
+        )
         assert isinstance(mock_mqtt_pipeline_init.call_args[0][0], IoTHubPipelineConfig)
 
         # Verify the IoTHubPipelineConfig is constructed as expected
@@ -1720,7 +1904,10 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
         assert config.device_id == edge_container_environment["IOTEDGE_DEVICEID"]
         assert config.module_id == edge_container_environment["IOTEDGE_MODULEID"]
         assert config.hostname == edge_container_environment["IOTEDGE_IOTHUBHOSTNAME"]
-        assert config.gateway_hostname == edge_container_environment["IOTEDGE_GATEWAYHOSTNAME"]
+        assert (
+            config.gateway_hostname
+            == edge_container_environment["IOTEDGE_GATEWAYHOSTNAME"]
+        )
         assert config.sastoken is sastoken_mock.return_value
         assert (
             config.server_verification_cert
@@ -1774,7 +1961,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
     @pytest.mark.it(
         "Raises OSError if there is an error retrieving the server verification certificate from Edge with the IoTEdgeHsm"
     )
-    def test_bad_edge_auth(self, mocker, client_class, edge_container_environment, mock_edge_hsm):
+    def test_bad_edge_auth(
+        self, mocker, client_class, edge_container_environment, mock_edge_hsm
+    ):
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
         my_edge_error = edge_hsm.IoTEdgeError()
         mock_edge_hsm.return_value.get_certificate.side_effect = my_edge_error
@@ -1802,7 +1991,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
     SharedIoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests
 ):
     @pytest.fixture
-    def option_test_required_patching(self, mocker, mock_open, edge_local_debug_environment):
+    def option_test_required_patching(
+        self, mocker, mock_open, edge_local_debug_environment
+    ):
         """THIS FIXTURE OVERRIDES AN INHERITED FIXTURE"""
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
 
@@ -1813,11 +2004,15 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
     @pytest.mark.it(
         "Creates a SasToken that uses a SymmetricKeySigningMechanism, from the values in the connection string extracted from the Edge local debug environment, as well as the user-provided TTL"
     )
-    def test_sastoken(self, mocker, client_class, mock_open, edge_local_debug_environment):
+    def test_sastoken(
+        self, mocker, client_class, mock_open, edge_local_debug_environment
+    ):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
         sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
-        cs_obj = cs.ConnectionString(edge_local_debug_environment["EdgeHubConnectionString"])
+        cs_obj = cs.ConnectionString(
+            edge_local_debug_environment["EdgeHubConnectionString"]
+        )
         expected_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
             hostname=cs_obj[cs.HOST_NAME],
             device_id=cs_obj[cs.DEVICE_ID],
@@ -1840,11 +2035,15 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
     @pytest.mark.it(
         "Uses 3600 seconds (1 hour) as the default SasToken TTL if no custom TTL is provided"
     )
-    def test_sastoken_default(self, mocker, client_class, mock_open, edge_local_debug_environment):
+    def test_sastoken_default(
+        self, mocker, client_class, mock_open, edge_local_debug_environment
+    ):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
         sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
-        cs_obj = cs.ConnectionString(edge_local_debug_environment["EdgeHubConnectionString"])
+        cs_obj = cs.ConnectionString(
+            edge_local_debug_environment["EdgeHubConnectionString"]
+        )
         expected_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
             hostname=cs_obj[cs.HOST_NAME],
             device_id=cs_obj[cs.DEVICE_ID],
@@ -1878,7 +2077,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
         # This test verifies that the presence of edge container environment variables means the
         # code will follow the edge container environment creation path (using the IoTEdgeHsm)
         # even if edge local debug variables are present.
-        hybrid_environment = merge_dicts(edge_container_environment, edge_local_debug_environment)
+        hybrid_environment = merge_dicts(
+            edge_container_environment, edge_local_debug_environment
+        )
         mocker.patch.dict(os.environ, hybrid_environment, clear=True)
         sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
@@ -1901,7 +2102,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
     @pytest.mark.it(
         "Extracts the server verification certificate from the file indicated by the filepath extracted from the Edge local debug environment"
     )
-    def test_open_ca_cert(self, mocker, client_class, edge_local_debug_environment, mock_open):
+    def test_open_ca_cert(
+        self, mocker, client_class, edge_local_debug_environment, mock_open
+    ):
         mock_file_handle = mock_open.return_value.__enter__.return_value
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
 
@@ -1932,14 +2135,19 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
         ca_cert_file_contents = "some cert"
         mock_file_handle.read.return_value = ca_cert_file_contents
 
-        cs_obj = cs.ConnectionString(edge_local_debug_environment["EdgeHubConnectionString"])
+        cs_obj = cs.ConnectionString(
+            edge_local_debug_environment["EdgeHubConnectionString"]
+        )
 
         client_class.create_from_edge_environment()
 
         # Verify pipelines created with an IoTHubPipelineConfig
         assert mock_mqtt_pipeline_init.call_count == 1
         assert mock_http_pipeline_init.call_count == 1
-        assert mock_mqtt_pipeline_init.call_args[0][0] is mock_http_pipeline_init.call_args[0][0]
+        assert (
+            mock_mqtt_pipeline_init.call_args[0][0]
+            is mock_http_pipeline_init.call_args[0][0]
+        )
         assert isinstance(mock_mqtt_pipeline_init.call_args[0][0], IoTHubPipelineConfig)
 
         # Verify the IoTHubPipelineConfig is constructed as expected
@@ -1978,7 +2186,12 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
         "missing_env_var", ["EdgeHubConnectionString", "EdgeModuleCACertificateFile"]
     )
     def test_bad_environment(
-        self, mocker, client_class, edge_local_debug_environment, missing_env_var, mock_open
+        self,
+        mocker,
+        client_class,
+        edge_local_debug_environment,
+        missing_env_var,
+        mock_open,
     ):
         # Remove a variable from the fixture
         del edge_local_debug_environment[missing_env_var]
@@ -2002,7 +2215,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
                 "HostName=value.domain.net;WrongValue=Invalid;SharedAccessKey=Zm9vYmFy",
                 id="Contains extraneous data",
             ),
-            pytest.param("HostName=value.domain.net;DeviceId=my_device", id="Incomplete"),
+            pytest.param(
+                "HostName=value.domain.net;DeviceId=my_device", id="Incomplete"
+            ),
         ],
     )
     def test_bad_connection_string(
@@ -2017,7 +2232,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
     @pytest.mark.it(
         "Raises FileNotFoundError if the filepath in the EdgeModuleCACertificateFile environment variable is invalid"
     )
-    def test_bad_filepath(self, mocker, client_class, edge_local_debug_environment, mock_open):
+    def test_bad_filepath(
+        self, mocker, client_class, edge_local_debug_environment, mock_open
+    ):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         my_fnf_error = FileNotFoundError()
         mock_open.side_effect = my_fnf_error
@@ -2028,7 +2245,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
     @pytest.mark.it(
         "Raises ValueError if the file referenced by the filepath in the EdgeModuleCACertificateFile environment variable cannot be opened"
     )
-    def test_bad_file_io(self, mocker, client_class, edge_local_debug_environment, mock_open):
+    def test_bad_file_io(
+        self, mocker, client_class, edge_local_debug_environment, mock_open
+    ):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         my_os_error = OSError()
         mock_open.side_effect = my_os_error

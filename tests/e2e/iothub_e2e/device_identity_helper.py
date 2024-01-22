@@ -14,7 +14,9 @@ from hmac import HMAC
 def generate_sas_token(uri, key, policy_name, expiry):
     sign_data = "%s\n%d" % ((parse.quote_plus(uri)), int(expiry))
 
-    signature = b64encode(HMAC(b64decode(key), sign_data.encode("utf-8"), sha256).digest())
+    signature = b64encode(
+        HMAC(b64decode(key), sign_data.encode("utf-8"), sha256).digest()
+    )
 
     rawtoken = {"sr": uri, "sig": signature, "se": str(int(expiry))}
 

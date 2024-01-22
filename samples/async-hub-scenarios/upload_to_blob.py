@@ -65,7 +65,9 @@ async def upload_via_storage_blob(blob_info):
 
     # Create a file in local Documents directory to upload and download
     local_file_name = "data/quickstart" + str(uuid.uuid4()) + ".txt"
-    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), local_file_name)
+    filename = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), local_file_name
+    )
 
     # Write text to the file
     if not os.path.exists(os.path.dirname(filename)):
@@ -117,7 +119,10 @@ async def main():
 
     if result["status_code"] == 200:
         await device_client.notify_blob_upload_status(
-            storage_info["correlationId"], True, result["status_code"], result["status_description"]
+            storage_info["correlationId"],
+            True,
+            result["status_code"],
+            result["status_description"],
         )
     else:
         await device_client.notify_blob_upload_status(

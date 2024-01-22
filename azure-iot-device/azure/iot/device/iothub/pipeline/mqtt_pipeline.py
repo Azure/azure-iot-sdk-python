@@ -121,21 +121,29 @@ class MQTTPipeline(object):
                 if self.on_c2d_message_received:
                     self.on_c2d_message_received(event.message)
                 else:
-                    logger.debug("C2D message event received with no handler.  dropping.")
+                    logger.debug(
+                        "C2D message event received with no handler.  dropping."
+                    )
 
             elif isinstance(event, pipeline_events_iothub.InputMessageEvent):
                 if self.on_input_message_received:
                     self.on_input_message_received(event.message)
                 else:
-                    logger.debug("input message event received with no handler.  dropping.")
+                    logger.debug(
+                        "input message event received with no handler.  dropping."
+                    )
 
             elif isinstance(event, pipeline_events_iothub.MethodRequestEvent):
                 if self.on_method_request_received:
                     self.on_method_request_received(event.method_request)
                 else:
-                    logger.debug("Method request event received with no handler. Dropping.")
+                    logger.debug(
+                        "Method request event received with no handler. Dropping."
+                    )
 
-            elif isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
+            elif isinstance(
+                event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent
+            ):
                 if self.on_twin_patch_received:
                     self.on_twin_patch_received(event.patch)
                 else:
@@ -160,7 +168,9 @@ class MQTTPipeline(object):
             if self.on_new_sastoken_required:
                 self.on_new_sastoken_required()
             else:
-                logger.debug("IoTHub Pipeline requires new SASToken, but no handler was set")
+                logger.debug(
+                    "IoTHub Pipeline requires new SASToken, but no handler was set"
+                )
 
         def _on_background_exception(e):
             if self.on_background_exception:
@@ -221,7 +231,9 @@ class MQTTPipeline(object):
         # constructs other than Stages (e.g. Operations) which may have timers attached. These are
         # lesser issues, but should be addressed at some point.
         # TODO: Truly complete the shutdown implementation
-        self._pipeline.run_op(pipeline_ops_base.ShutdownPipelineOperation(callback=on_complete))
+        self._pipeline.run_op(
+            pipeline_ops_base.ShutdownPipelineOperation(callback=on_complete)
+        )
 
     def connect(self, callback):
         """
@@ -271,7 +283,9 @@ class MQTTPipeline(object):
         def on_complete(op, error):
             callback(error=error)
 
-        self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=on_complete))
+        self._pipeline.run_op(
+            pipeline_ops_base.DisconnectOperation(callback=on_complete)
+        )
 
     def reauthorize_connection(self, callback):
         """
@@ -336,7 +350,9 @@ class MQTTPipeline(object):
             callback(error=error)
 
         self._pipeline.run_op(
-            pipeline_ops_iothub.SendD2CMessageOperation(message=message, callback=on_complete)
+            pipeline_ops_iothub.SendD2CMessageOperation(
+                message=message, callback=on_complete
+            )
         )
 
     def send_output_message(self, message, callback):
@@ -370,7 +386,9 @@ class MQTTPipeline(object):
             callback(error=error)
 
         self._pipeline.run_op(
-            pipeline_ops_iothub.SendOutputMessageOperation(message=message, callback=on_complete)
+            pipeline_ops_iothub.SendOutputMessageOperation(
+                message=message, callback=on_complete
+            )
         )
 
     def send_method_response(self, method_response, callback):
@@ -444,7 +462,9 @@ class MQTTPipeline(object):
             else:
                 callback(twin=op.twin)
 
-        self._pipeline.run_op(pipeline_ops_iothub.GetTwinOperation(callback=on_complete))
+        self._pipeline.run_op(
+            pipeline_ops_iothub.GetTwinOperation(callback=on_complete)
+        )
 
     def patch_twin_reported_properties(self, patch, callback):
         """
@@ -516,7 +536,9 @@ class MQTTPipeline(object):
         def on_complete(op, error):
             if error:
                 logger.warning(
-                    "Subscribe for {} failed.  Not enabling feature".format(feature_name)
+                    "Subscribe for {} failed.  Not enabling feature".format(
+                        feature_name
+                    )
                 )
             else:
                 self.feature_enabled[feature_name] = True

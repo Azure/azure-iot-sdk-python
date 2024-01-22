@@ -7,7 +7,10 @@
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device.aio import ProvisioningDeviceClient
 from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
-from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
+from provisioningserviceclient.protocol.models import (
+    AttestationMechanism,
+    ReprovisionPolicy,
+)
 import pytest
 import logging
 import os
@@ -42,9 +45,13 @@ async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_
         )
 
         registration_id = individual_enrollment_record.registration_id
-        symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
+        symmetric_key = (
+            individual_enrollment_record.attestation.symmetric_key.primary_key
+        )
 
-        registration_result = await result_from_register(registration_id, symmetric_key, protocol)
+        registration_result = await result_from_register(
+            registration_id, symmetric_key, protocol
+        )
 
         assert_device_provisioned(
             device_id=registration_id, registration_result=registration_result
@@ -58,21 +65,29 @@ async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a symmetric key authentication"
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
-async def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollment(protocol):
-
+async def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollment(
+    protocol,
+):
     device_id = "e2edpsgoldensnitch"
     try:
         individual_enrollment_record = create_individual_enrollment(
-            registration_id="e2e-dps-levicorpus" + str(uuid.uuid4()), device_id=device_id
+            registration_id="e2e-dps-levicorpus" + str(uuid.uuid4()),
+            device_id=device_id,
         )
 
         registration_id = individual_enrollment_record.registration_id
-        symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
+        symmetric_key = (
+            individual_enrollment_record.attestation.symmetric_key.primary_key
+        )
 
-        registration_result = await result_from_register(registration_id, symmetric_key, protocol)
+        registration_result = await result_from_register(
+            registration_id, symmetric_key, protocol
+        )
 
         assert device_id != registration_id
-        assert_device_provisioned(device_id=device_id, registration_result=registration_result)
+        assert_device_provisioned(
+            device_id=device_id, registration_result=registration_result
+        )
         device_registry_helper.try_delete_device(device_id)
     finally:
         service_client.delete_individual_enrollment_by_param(registration_id)

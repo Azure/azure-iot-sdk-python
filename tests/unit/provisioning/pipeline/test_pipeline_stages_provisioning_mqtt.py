@@ -21,7 +21,10 @@ from azure.iot.device.provisioning.pipeline import (
 )
 from azure.iot.device.provisioning.pipeline import constant as pipeline_constant
 from azure.iot.device import user_agent
-from tests.unit.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
+from tests.unit.common.pipeline.helpers import (
+    StageRunOpTestBase,
+    StageHandlePipelineEventTestBase,
+)
 from tests.unit.common.pipeline import pipeline_stage_test
 
 logging.basicConfig(level=logging.DEBUG)
@@ -91,7 +94,9 @@ class TestProvisioningMQTTTranslationStageRunOpWithInitializePipelineOperation(
 ):
     @pytest.fixture
     def op(self, mocker):
-        return pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
+        return pipeline_ops_base.InitializePipelineOperation(
+            callback=mocker.MagicMock()
+        )
 
     @pytest.mark.it("Derives the MQTT client id, and sets it on the op")
     def test_client_id(self, stage, op, pipeline_config):
@@ -109,7 +114,9 @@ class TestProvisioningMQTTTranslationStageRunOpWithInitializePipelineOperation(
             id_scope=pipeline_config.id_scope,
             registration_id=pipeline_config.registration_id,
             api_version=pkg_constant.PROVISIONING_API_VERSION,
-            user_agent=urllib.parse.quote(user_agent.get_provisioning_user_agent(), safe=""),
+            user_agent=urllib.parse.quote(
+                user_agent.get_provisioning_user_agent(), safe=""
+            ),
         )
         assert op.username == expected_username
 
@@ -137,7 +144,9 @@ class TestProvisioningMQTTTranslationStageRunOpWithRequestOperationRegister(
             callback=mocker.MagicMock(),
         )
 
-    @pytest.mark.it("Derives the Provisioning Register Request topic using the op's details")
+    @pytest.mark.it(
+        "Derives the Provisioning Register Request topic using the op's details"
+    )
     def test_register_request_topic(self, mocker, stage, op, mock_mqtt_topic):
         stage.run_op(op)
 
@@ -155,10 +164,14 @@ class TestProvisioningMQTTTranslationStageRunOpWithRequestOperationRegister(
         assert stage.send_op_down.call_count == 1
         new_op = stage.send_op_down.call_args[0][0]
         assert isinstance(new_op, pipeline_ops_mqtt.MQTTPublishOperation)
-        assert new_op.topic == mock_mqtt_topic.get_register_topic_for_publish.return_value
+        assert (
+            new_op.topic == mock_mqtt_topic.get_register_topic_for_publish.return_value
+        )
         assert new_op.payload == op.request_body
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTPublishOperation")
+    @pytest.mark.it(
+        "Completes the original op upon completion of the new MQTTPublishOperation"
+    )
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -194,7 +207,9 @@ class TestProvisioningMQTTTranslationStageRunOpWithRequestOperationQuery(
             callback=mocker.MagicMock(),
         )
 
-    @pytest.mark.it("Derives the Provisioning Query Request topic using the op's details")
+    @pytest.mark.it(
+        "Derives the Provisioning Query Request topic using the op's details"
+    )
     def test_register_request_topic(self, mocker, stage, op, mock_mqtt_topic):
         stage.run_op(op)
 
@@ -215,7 +230,9 @@ class TestProvisioningMQTTTranslationStageRunOpWithRequestOperationQuery(
         assert new_op.topic == mock_mqtt_topic.get_query_topic_for_publish.return_value
         assert new_op.payload == op.request_body
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTPublishOperation")
+    @pytest.mark.it(
+        "Completes the original op upon completion of the new MQTTPublishOperation"
+    )
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -281,7 +298,9 @@ class TestProvisioningMQTTTranslationStageRunOpWithEnableFeatureOperation(
 
         # Topic was derived as expected
         assert mock_mqtt_topic.get_register_topic_for_subscribe.call_count == 1
-        assert mock_mqtt_topic.get_register_topic_for_subscribe.call_args == mocker.call()
+        assert (
+            mock_mqtt_topic.get_register_topic_for_subscribe.call_args == mocker.call()
+        )
 
         # New op was sent down
         assert stage.send_op_down.call_count == 1
@@ -289,9 +308,14 @@ class TestProvisioningMQTTTranslationStageRunOpWithEnableFeatureOperation(
         assert isinstance(new_op, pipeline_ops_mqtt.MQTTSubscribeOperation)
 
         # New op has the expected topic
-        assert new_op.topic == mock_mqtt_topic.get_register_topic_for_subscribe.return_value
+        assert (
+            new_op.topic
+            == mock_mqtt_topic.get_register_topic_for_subscribe.return_value
+        )
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTSubscribeOperation")
+    @pytest.mark.it(
+        "Completes the original op upon completion of the new MQTTSubscribeOperation"
+    )
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -341,7 +365,9 @@ class TestProvisioningMQTTTranslationStageRunOpWithDisableFeatureOperation(
 
         # Topic was derived as expected
         assert mock_mqtt_topic.get_register_topic_for_subscribe.call_count == 1
-        assert mock_mqtt_topic.get_register_topic_for_subscribe.call_args == mocker.call()
+        assert (
+            mock_mqtt_topic.get_register_topic_for_subscribe.call_args == mocker.call()
+        )
 
         # New op was sent down
         assert stage.send_op_down.call_count == 1
@@ -349,9 +375,14 @@ class TestProvisioningMQTTTranslationStageRunOpWithDisableFeatureOperation(
         assert isinstance(new_op, pipeline_ops_mqtt.MQTTUnsubscribeOperation)
 
         # New op has the expected topic
-        assert new_op.topic == mock_mqtt_topic.get_register_topic_for_subscribe.return_value
+        assert (
+            new_op.topic
+            == mock_mqtt_topic.get_register_topic_for_subscribe.return_value
+        )
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTUnsubscribeOperation")
+    @pytest.mark.it(
+        "Completes the original op upon completion of the new MQTTUnsubscribeOperation"
+    )
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -422,10 +453,14 @@ class TestProvisioningMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMes
 
     @pytest.fixture
     def event(self, status, rid, retry_after):
-        topic = "$dps/registrations/res/{status}/?$rid={rid}".format(status=status, rid=rid)
+        topic = "$dps/registrations/res/{status}/?$rid={rid}".format(
+            status=status, rid=rid
+        )
         if retry_after:
             topic = topic + "&retry-after={}".format(retry_after)
-        return pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=b"some payload")
+        return pipeline_events_mqtt.IncomingMQTTMessageEvent(
+            topic=topic, payload=b"some payload"
+        )
 
     @pytest.mark.it(
         "Sends a ResponseEvent up the pipeline containing the original event's payload and values extracted from the topic string"
@@ -451,7 +486,9 @@ class TestProvisioningMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMes
     @pytest.fixture
     def event(self):
         topic = "not a real topic"
-        return pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=b"some payload")
+        return pipeline_events_mqtt.IncomingMQTTMessageEvent(
+            topic=topic, payload=b"some payload"
+        )
 
     @pytest.mark.it("Sends the event up the pipeline")
     def test_sends_up(self, event, stage):

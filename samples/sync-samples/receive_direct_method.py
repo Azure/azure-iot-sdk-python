@@ -34,7 +34,9 @@ def method_request_handler(method_request):
         print("executed unknown method: " + method_request.name)
 
     # Send the response
-    method_response = MethodResponse.create_from_method_request(method_request, status, payload)
+    method_response = MethodResponse.create_from_method_request(
+        method_request, status, payload
+    )
     device_client.send_method_response(method_response)
 
 

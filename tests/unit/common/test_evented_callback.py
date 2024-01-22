@@ -44,7 +44,9 @@ class TestEventedCallback(object):
     @pytest.mark.it(
         "Sets the instance completion Event when a call is invoked on the instance (with return_arg_name)"
     )
-    def test_calling_object_sets_event_with_return_arg_name(self, fake_return_arg_value):
+    def test_calling_object_sets_event_with_return_arg_name(
+        self, fake_return_arg_value
+    ):
         callback = EventedCallback(return_arg_name="arg_name")
         assert not callback.completion_event.isSet()
         callback(arg_name=fake_return_arg_value)
@@ -56,7 +58,9 @@ class TestEventedCallback(object):
     @pytest.mark.it(
         "Raises a TypeError when a call is invoked on the instance without the correct return argument (with return_arg_name)"
     )
-    def test_calling_object_raises_exception_if_return_arg_is_missing(self, fake_return_arg_value):
+    def test_calling_object_raises_exception_if_return_arg_is_missing(
+        self, fake_return_arg_value
+    ):
         callback = EventedCallback(return_arg_name="arg_name")
         with pytest.raises(TypeError):
             callback()

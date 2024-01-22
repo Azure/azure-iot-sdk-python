@@ -91,10 +91,14 @@ class Application(object):
                 conn_str
             )
             # Attach the connection state handler
-            self.device_client.on_connection_state_change = self.handle_on_connection_state_change
+            self.device_client.on_connection_state_change = (
+                self.handle_on_connection_state_change
+            )
         except Exception as e:
             self.log_error_and_print(
-                "Caught exception while trying to attach handler : {}".format(get_type_name(e))
+                "Caught exception while trying to attach handler : {}".format(
+                    get_type_name(e)
+                )
             )
             raise Exception(
                 "Caught exception while trying to attach handler. Will exit application..."
@@ -122,7 +126,6 @@ class Application(object):
     async def enqueue_message(self):
         message_id = 0
         while True:
-
             message_id += 1
             msg = Message("current wind speed ")
             msg.message_id = message_id
@@ -166,7 +169,9 @@ class Application(object):
                     await asyncio.sleep(TELEMETRY_INTERVAL)
                 except Exception as e:
                     self.log_error_and_print(
-                        "Caught exception while trying to send message: {}".format(get_type_name(e))
+                        "Caught exception while trying to send message: {}".format(
+                            get_type_name(e)
+                        )
                     )
                     self.message_queue.put_nowait(msg)
             if self.exit_app_event.is_set():
@@ -196,7 +201,9 @@ class Application(object):
                     await self.device_client.connect()
                     if self.first_connect:
                         self.first_connect = False
-                    self.log_info_and_print("Successfully connected the device client...")
+                    self.log_info_and_print(
+                        "Successfully connected the device client..."
+                    )
                 except Exception as e:
                     if self.first_connect:
                         self.log_info_and_print(
@@ -207,10 +214,13 @@ class Application(object):
                     else:
                         self.log_info_and_print(
                             "Retry attempt interval is {} and increase power factor is {}".format(
-                                self.sleep_time_between_conns, self.retry_increase_factor
+                                self.sleep_time_between_conns,
+                                self.retry_increase_factor,
                             )
                         )
-                        sleep_time = pow(self.sleep_time_between_conns, self.retry_increase_factor)
+                        sleep_time = pow(
+                            self.sleep_time_between_conns, self.retry_increase_factor
+                        )
 
                     if sleep_time > THRESHOLD_FOR_RETRY_CONNECTION:
                         self.log_error_and_print(
@@ -220,7 +230,9 @@ class Application(object):
                         self.try_number = 0
                         raise
 
-                    self.log_error_and_print("Caught exception while trying to connect...")
+                    self.log_error_and_print(
+                        "Caught exception while trying to connect..."
+                    )
                     self.log_error_and_print(
                         "Failed to connect the device client due to error :{}.Sleeping and retrying after {} seconds".format(
                             get_type_name(e), sleep_time
@@ -252,12 +264,16 @@ class Application(object):
         pending = []
 
         try:
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+            done, pending = await asyncio.wait(
+                tasks, return_when=asyncio.FIRST_EXCEPTION
+            )
             await asyncio.gather(*done)
         except KeyboardInterrupt:
             self.log_error_and_print("IoTHubClient sample stopped by user")
         except Exception as e:
-            self.log_error_and_print("Exception in main loop: {}".format(get_type_name(e)))
+            self.log_error_and_print(
+                "Exception in main loop: {}".format(get_type_name(e))
+            )
         finally:
             self.log_info_and_print("Exiting app")
             self.exit_app_event.set()
@@ -265,7 +281,9 @@ class Application(object):
             await asyncio.wait_for(
                 asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED), timeout=5
             )
-            self.log_info_and_print("Shutting down IoTHubClient and exiting Application")
+            self.log_info_and_print(
+                "Shutting down IoTHubClient and exiting Application"
+            )
             await self.device_client.shutdown()
 
 

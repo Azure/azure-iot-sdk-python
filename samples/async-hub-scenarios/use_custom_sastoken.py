@@ -16,7 +16,6 @@ def get_new_sastoken():
 
 
 async def main():
-
     # Get a sastoken you generated
     sastoken = get_new_sastoken()
     # The client object is used to interact with your Azure IoT hub.

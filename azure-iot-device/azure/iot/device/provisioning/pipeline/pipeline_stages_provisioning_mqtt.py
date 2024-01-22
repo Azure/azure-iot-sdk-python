@@ -35,18 +35,20 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
-
             client_id = self.nucleus.pipeline_configuration.registration_id
             query_param_seq = [
                 ("api-version", pkg_constant.PROVISIONING_API_VERSION),
                 ("ClientVersion", user_agent.get_provisioning_user_agent()),
             ]
-            username = "{id_scope}/registrations/{registration_id}/{query_params}".format(
-                id_scope=self.nucleus.pipeline_configuration.id_scope,
-                registration_id=self.nucleus.pipeline_configuration.registration_id,
-                query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),
+            username = (
+                "{id_scope}/registrations/{registration_id}/{query_params}".format(
+                    id_scope=self.nucleus.pipeline_configuration.id_scope,
+                    registration_id=self.nucleus.pipeline_configuration.registration_id,
+                    query_params=urllib.parse.urlencode(
+                        query_param_seq, quote_via=urllib.parse.quote
+                    ),
+                )
             )
 
             # Dynamically attach the derived MQTT values to the InitializePipelineOperation
@@ -69,7 +71,8 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                 self.send_op_down(worker_op)
             elif op.request_type == pipeline_constant.QUERY:
                 topic = mqtt_topic_provisioning.get_query_topic_for_publish(
-                    request_id=op.request_id, operation_id=op.query_params["operation_id"]
+                    request_id=op.request_id,
+                    operation_id=op.query_params["operation_id"],
                 )
                 worker_op = op.spawn_worker_op(
                     worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
@@ -79,14 +82,18 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                 self.send_op_down(worker_op)
             else:
                 raise pipeline_exceptions.OperationError(
-                    "RequestOperation request_type {} not supported".format(op.request_type)
+                    "RequestOperation request_type {} not supported".format(
+                        op.request_type
+                    )
                 )
 
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # The only supported feature is REGISTER
             if not op.feature_name == pipeline_constant.REGISTER:
                 raise pipeline_exceptions.OperationError(
-                    "Trying to enable/disable invalid feature - {}".format(op.feature_name)
+                    "Trying to enable/disable invalid feature - {}".format(
+                        op.feature_name
+                    )
                 )
             # Enabling for register gets translated into an MQTT subscribe operation
             topic = mqtt_topic_provisioning.get_register_topic_for_subscribe()
@@ -99,7 +106,9 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
             # The only supported feature is REGISTER
             if not op.feature_name == pipeline_constant.REGISTER:
                 raise pipeline_exceptions.OperationError(
-                    "Trying to enable/disable invalid feature - {}".format(op.feature_name)
+                    "Trying to enable/disable invalid feature - {}".format(
+                        op.feature_name
+                    )
                 )
             # Disabling a register response gets turned into an MQTT unsubscribe operation
             topic = mqtt_topic_provisioning.get_register_topic_for_subscribe()
@@ -127,12 +136,16 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                         payload=event.payload, topic=topic
                     )
                 )
-                key_values = mqtt_topic_provisioning.extract_properties_from_dps_response_topic(
-                    topic
+                key_values = (
+                    mqtt_topic_provisioning.extract_properties_from_dps_response_topic(
+                        topic
+                    )
                 )
                 retry_after = key_values.get("retry-after", None)
-                status_code = mqtt_topic_provisioning.extract_status_code_from_dps_response_topic(
-                    topic
+                status_code = (
+                    mqtt_topic_provisioning.extract_status_code_from_dps_response_topic(
+                        topic
+                    )
                 )
                 request_id = key_values["rid"]
 
@@ -145,7 +158,9 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                     )
                 )
             else:
-                logger.debug("Unknown topic: {} passing up to next handler".format(topic))
+                logger.debug(
+                    "Unknown topic: {} passing up to next handler".format(topic)
+                )
                 self.send_event_up(event)
 
         else:

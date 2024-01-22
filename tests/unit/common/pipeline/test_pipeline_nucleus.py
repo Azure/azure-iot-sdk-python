@@ -5,7 +5,10 @@
 # --------------------------------------------------------------------------
 import pytest
 import logging
-from azure.iot.device.common.pipeline.pipeline_nucleus import PipelineNucleus, ConnectionState
+from azure.iot.device.common.pipeline.pipeline_nucleus import (
+    PipelineNucleus,
+    ConnectionState,
+)
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -24,7 +27,9 @@ class TestPipelineNucleusInstantiation(object):
         nucleus = PipelineNucleus(pipeline_configuration=pipeline_config)
         assert nucleus.pipeline_configuration is pipeline_config
 
-    @pytest.mark.it("Instantiates with the 'connection_state' attribute set to DISCONNECTED")
+    @pytest.mark.it(
+        "Instantiates with the 'connection_state' attribute set to DISCONNECTED"
+    )
     def test_connected(self, pipeline_config):
         nucleus = PipelineNucleus(pipeline_config)
         assert nucleus.connection_state is ConnectionState.DISCONNECTED
@@ -47,7 +52,9 @@ class TestPipelineNucleusPROPERTYConnected(object):
         nucleus.connection_state = ConnectionState.CONNECTED
         assert nucleus.connected
 
-    @pytest.mark.it("Returns False if the '.connection_state' attribute has any other value")
+    @pytest.mark.it(
+        "Returns False if the '.connection_state' attribute has any other value"
+    )
     @pytest.mark.parametrize(
         "state",
         [

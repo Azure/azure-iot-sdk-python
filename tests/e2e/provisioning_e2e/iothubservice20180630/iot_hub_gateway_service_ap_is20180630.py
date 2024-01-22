@@ -8,7 +8,6 @@
 from msrest.service_client import ServiceClient
 from msrest import Configuration, Serializer, Deserializer
 from .version import VERSION
-from msrest.exceptions import HttpOperationError
 from .operations.service_operations import ServiceOperations
 from . import models
 
@@ -22,7 +21,6 @@ class IotHubGatewayServiceAPIs20180630Configuration(Configuration):
     """
 
     def __init__(self, base_url=None):
-
         if not base_url:
             base_url = "https://fully-qualified-iothubname.azure-devices.net"
 
@@ -44,11 +42,12 @@ class IotHubGatewayServiceAPIs20180630(object):
     """
 
     def __init__(self, base_url=None):
-
         self.config = IotHubGatewayServiceAPIs20180630Configuration(base_url)
         self._client = ServiceClient(None, self.config)
 
-        client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
+        client_models = {
+            k: v for k, v in models.__dict__.items() if isinstance(v, type)
+        }
         self.api_version = "2018-06-30"
         self._serialize = Serializer(client_models)
         self._deserialize = Deserializer(client_models)

@@ -8,9 +8,17 @@ This module represents proxy options to enable sending traffic through proxy ser
 """
 import socks
 
-string_to_socks_constant_map = {"HTTP": socks.HTTP, "SOCKS4": socks.SOCKS4, "SOCKS5": socks.SOCKS5}
+string_to_socks_constant_map = {
+    "HTTP": socks.HTTP,
+    "SOCKS4": socks.SOCKS4,
+    "SOCKS5": socks.SOCKS5,
+}
 
-socks_constant_to_string_map = {socks.HTTP: "HTTP", socks.SOCKS4: "SOCKS4", socks.SOCKS5: "SOCKS5"}
+socks_constant_to_string_map = {
+    socks.HTTP: "HTTP",
+    socks.SOCKS4: "SOCKS4",
+    socks.SOCKS5: "SOCKS5",
+}
 
 
 class ProxyOptions(object):
@@ -20,7 +28,12 @@ class ProxyOptions(object):
     """
 
     def __init__(
-        self, proxy_type, proxy_addr, proxy_port, proxy_username=None, proxy_password=None
+        self,
+        proxy_type,
+        proxy_addr,
+        proxy_port,
+        proxy_username=None,
+        proxy_password=None,
     ):
         """
         Initializer for proxy options.

@@ -84,13 +84,17 @@ def create_certificate_chain(
         key_file=root_password_file, password=ca_password, key_size=key_size
     )
     root_cert = create_root_ca_cert(
-        root_common_name="root" + common_name, root_private_key=root_private_key, days=days
+        root_common_name="root" + common_name,
+        root_private_key=root_private_key,
+        days=days,
     )
 
     intermediate_password_file = "demoCA/private/intermediate_key.pem"
 
     intermediate_private_key = create_private_key(
-        key_file=intermediate_password_file, password=intermediate_password, key_size=key_size
+        key_file=intermediate_password_file,
+        password=intermediate_password,
+        key_size=key_size,
     )
 
     intermediate_cert = create_intermediate_ca_cert(
@@ -126,15 +130,25 @@ def create_root_ca_cert(root_common_name, root_private_key, days=365):
     root_public_key = root_private_key.public_key()
 
     subject = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, str.encode(root_common_name).decode("utf-8"))]
+        [
+            x509.NameAttribute(
+                NameOID.COMMON_NAME, str.encode(root_common_name).decode("utf-8")
+            )
+        ]
     )
 
     builder = create_cert_builder(
-        subject=subject, issuer_name=subject, public_key=root_public_key, days=days, is_ca=True
+        subject=subject,
+        issuer_name=subject,
+        public_key=root_public_key,
+        days=days,
+        is_ca=True,
     )
 
     root_cert = builder.sign(
-        private_key=root_private_key, algorithm=hashes.SHA256(), backend=default_backend()
+        private_key=root_private_key,
+        algorithm=hashes.SHA256(),
+        backend=default_backend(),
     )
     with open(file_root_certificate, "wb") as f:
         f.write(root_cert.public_bytes(serialization.Encoding.PEM))
@@ -143,7 +157,11 @@ def create_root_ca_cert(root_common_name, root_private_key, days=365):
 
 
 def create_intermediate_ca_cert(
-    issuer_cert_subject, issuer_key, intermediate_common_name, intermediate_private_key, days=365
+    issuer_cert_subject,
+    issuer_key,
+    intermediate_common_name,
+    intermediate_private_key,
+    days=365,
 ):
     """
     This method will create a intermediate ca certificate valid for a duration of 36 days.
@@ -281,7 +299,9 @@ def create_verification_cert(nonce, issuer_password, root_verify=False, key_size
     )
 
     verification_cert = verification_builder.sign(
-        private_key=issuer_private_key, algorithm=hashes.SHA256(), backend=default_backend()
+        private_key=issuer_private_key,
+        algorithm=hashes.SHA256(),
+        backend=default_backend(),
     )
     with open(verfication_cert_file, "wb") as f:
         f.write(verification_cert.public_bytes(serialization.Encoding.PEM))
@@ -329,11 +349,15 @@ def create_csr(private_key, csr_file, subject, is_ca=False):
             x509.Name(
                 [
                     # Provide various details about who we are.
-                    x509.NameAttribute(NameOID.COMMON_NAME, str.encode(subject).decode("utf-8"))
+                    x509.NameAttribute(
+                        NameOID.COMMON_NAME, str.encode(subject).decode("utf-8")
+                    )
                 ]
             )
         )
-        .add_extension(x509.BasicConstraints(ca=is_ca, path_length=None), critical=False)
+        .add_extension(
+            x509.BasicConstraints(ca=is_ca, path_length=None), critical=False
+        )
     )
 
     csr = builder.sign(
@@ -438,7 +462,9 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
         cert_pem_data = str(base64.b64decode(ca_cert), "ascii")
         out_ca_pem.write(cert_pem_data)
         encoded_cert_pem_data = str.encode(cert_pem_data)
-        root_cert = x509.load_pem_x509_certificate(encoded_cert_pem_data, default_backend())
+        root_cert = x509.load_pem_x509_certificate(
+            encoded_cert_pem_data, default_backend()
+        )
 
         if os.path.exists(in_cert_file_path):
             print("root cert decoded and created")
@@ -450,7 +476,9 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
         out_ca_key.write(key_pem_data)
         encoded_key_pem_data = str.encode(key_pem_data)
         root_private_key = serialization.load_pem_private_key(
-            encoded_key_pem_data, password=str.encode(ca_password), backend=default_backend()
+            encoded_key_pem_data,
+            password=str.encode(ca_password),
+            backend=default_backend(),
         )
 
         if os.path.exists(in_key_file_path):
@@ -461,7 +489,9 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
     intermediate_password_file = "demoCA/private/intermediate_key.pem"
 
     intermediate_private_key = create_private_key(
-        key_file=intermediate_password_file, password=intermediate_password, key_size=key_size
+        key_file=intermediate_password_file,
+        password=intermediate_password,
+        key_size=key_size,
     )
 
     intermediate_cert = create_intermediate_ca_cert(
@@ -500,7 +530,9 @@ if __name__ == "__main__":
         help="Validity time in days. Default is 10 years for root , 1 year for intermediate and 1 month for leaf",
     )
     parser.add_argument(
-        "--ca-password", type=str, help="CA key password. If omitted it will be prompted."
+        "--ca-password",
+        type=str,
+        help="CA key password. If omitted it will be prompted.",
     )
     parser.add_argument(
         "--intermediate-password",
@@ -508,7 +540,9 @@ if __name__ == "__main__":
         help="intermediate key password. If omitted it will be prompted.",
     )
     parser.add_argument(
-        "--device-password", type=str, help="device key password. If omitted it will be prompted."
+        "--device-password",
+        type=str,
+        help="device key password. If omitted it will be prompted.",
     )
 
     parser.add_argument(
@@ -519,7 +553,9 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--device-count", type=str, help="Number of devices that present in a group. Default is 1."
+        "--device-count",
+        type=str,
+        help="Number of devices that present in a group. Default is 1.",
     )
 
     parser.add_argument(
@@ -575,7 +611,9 @@ if __name__ == "__main__":
         if args.intermediate_password:
             intermediate_password = args.intermediate_password
         else:
-            intermediate_password = getpass.getpass("Enter pass phrase for intermediate key: ")
+            intermediate_password = getpass.getpass(
+                "Enter pass phrase for intermediate key: "
+            )
         if args.device_password:
             device_password = args.device_password
         else:
@@ -596,7 +634,9 @@ if __name__ == "__main__":
 
             if lower_root_verify == "false":
                 root_verify = False
-                print("Root verify is False. So will be verifying intermediate certificate")
+                print(
+                    "Root verify is False. So will be verifying intermediate certificate"
+                )
             else:
                 root_verify = True
                 print("Root verify is True. So will be verifying root certificate")

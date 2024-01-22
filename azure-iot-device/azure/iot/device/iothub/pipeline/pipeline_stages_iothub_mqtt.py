@@ -33,9 +33,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
-
             if self.nucleus.pipeline_configuration.module_id:
                 # Module Format
                 client_id = "{}/{}".format(
@@ -53,15 +51,22 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             if custom_product_info.startswith(
                 pkg_constant.DIGITAL_TWIN_PREFIX
             ):  # Digital Twin Stuff
-                query_param_seq.append(("api-version", pkg_constant.DIGITAL_TWIN_API_VERSION))
-                query_param_seq.append(("DeviceClientType", user_agent.get_iothub_user_agent()))
+                query_param_seq.append(
+                    ("api-version", pkg_constant.DIGITAL_TWIN_API_VERSION)
+                )
+                query_param_seq.append(
+                    ("DeviceClientType", user_agent.get_iothub_user_agent())
+                )
                 query_param_seq.append(
                     (pkg_constant.DIGITAL_TWIN_QUERY_HEADER, custom_product_info)
                 )
             else:
                 query_param_seq.append(("api-version", pkg_constant.IOTHUB_API_VERSION))
                 query_param_seq.append(
-                    ("DeviceClientType", user_agent.get_iothub_user_agent() + custom_product_info)
+                    (
+                        "DeviceClientType",
+                        user_agent.get_iothub_user_agent() + custom_product_info,
+                    )
                 )
 
             # NOTE: Client ID (including the device and/or module ids that are in it)
@@ -73,7 +78,9 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             username = "{hostname}/{client_id}/?{query_params}".format(
                 hostname=self.nucleus.pipeline_configuration.hostname,
                 client_id=client_id,
-                query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),
+                query_params=urllib.parse.urlencode(
+                    query_param_seq, quote_via=urllib.parse.quote
+                ),
             )
 
             # Dynamically attach the derived MQTT values to the InitializePipelineOperation
@@ -108,7 +115,9 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             )
             payload = json.dumps(op.method_response.payload)
             worker_op = op.spawn_worker_op(
-                worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation, topic=topic, payload=payload
+                worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
+                topic=topic,
+                payload=payload,
             )
             self.send_op_down(worker_op)
 
@@ -143,7 +152,9 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 self.send_op_down(worker_op)
             else:
                 raise pipeline_exceptions.OperationError(
-                    "RequestOperation request_type {} not supported".format(op.request_type)
+                    "RequestOperation request_type {} not supported".format(
+                        op.request_type
+                    )
                 )
 
         else:
@@ -168,7 +179,9 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         elif feature == pipeline_constant.TWIN_PATCHES:
             return mqtt_topic_iothub.get_twin_patch_topic_for_subscribe()
         else:
-            logger.warning("Cannot retrieve MQTT topic for subscription to invalid feature")
+            logger.warning(
+                "Cannot retrieve MQTT topic for subscription to invalid feature"
+            )
             raise pipeline_exceptions.OperationError(
                 "Trying to enable/disable invalid feature - {}".format(feature)
             )
@@ -203,28 +216,36 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 method_received = MethodRequest(
                     request_id=request_id,
                     name=method_name,
-                    payload=json.loads(event.payload.decode("utf-8") or 'null'),
+                    payload=json.loads(event.payload.decode("utf-8") or "null"),
                 )
-                self.send_event_up(pipeline_events_iothub.MethodRequestEvent(method_received))
+                self.send_event_up(
+                    pipeline_events_iothub.MethodRequestEvent(method_received)
+                )
 
             elif mqtt_topic_iothub.is_twin_response_topic(topic):
                 request_id = mqtt_topic_iothub.get_twin_request_id_from_topic(topic)
-                status_code = int(mqtt_topic_iothub.get_twin_status_code_from_topic(topic))
+                status_code = int(
+                    mqtt_topic_iothub.get_twin_status_code_from_topic(topic)
+                )
                 self.send_event_up(
                     pipeline_events_base.ResponseEvent(
-                        request_id=request_id, status_code=status_code, response_body=event.payload
+                        request_id=request_id,
+                        status_code=status_code,
+                        response_body=event.payload,
                     )
                 )
 
             elif mqtt_topic_iothub.is_twin_desired_property_patch_topic(topic):
                 self.send_event_up(
                     pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
-                        patch=json.loads(event.payload.decode("utf-8") or 'null')
+                        patch=json.loads(event.payload.decode("utf-8") or "null")
                     )
                 )
 
             else:
-                logger.debug("Unknown topic: {} passing up to next handler".format(topic))
+                logger.debug(
+                    "Unknown topic: {} passing up to next handler".format(topic)
+                )
                 self.send_event_up(event)
 
         else:

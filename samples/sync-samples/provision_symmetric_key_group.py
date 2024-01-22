@@ -61,7 +61,6 @@ device_ids_to_keys[device_id_3] = derived_device_key_3
 
 
 def register_device(registration_id):
-
     provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
         provisioning_host=provisioning_host,
         registration_id=registration_id,
@@ -88,7 +87,11 @@ for device_id in device_ids_to_keys:
     print(registration_result.registration_state.etag)
     print("\n")
     if registration_result.status == "assigned":
-        print("Will send telemetry from the provisioned device with id {id}".format(id=device_id))
+        print(
+            "Will send telemetry from the provisioned device with id {id}".format(
+                id=device_id
+            )
+        )
         device_client = IoTHubDeviceClient.create_from_symmetric_key(
             symmetric_key=device_ids_to_keys[device_id],
             hostname=registration_result.registration_state.assigned_hub,
@@ -109,5 +112,7 @@ for device_id in device_ids_to_keys:
 
     else:
         print(
-            "Can not send telemetry from the provisioned device with id {id}".format(id=device_id)
+            "Can not send telemetry from the provisioned device with id {id}".format(
+                id=device_id
+            )
         )

@@ -18,7 +18,9 @@ class ServiceHelper:
         self._event_loop = event_loop or asyncio.get_event_loop()
         self._executor = executor or concurrent.futures.ThreadPoolExecutor()
         self._inner_object = ServiceHelperSync(
-            iothub_connection_string, eventhub_connection_string, eventhub_consumer_group
+            iothub_connection_string,
+            eventhub_connection_string,
+            eventhub_consumer_group,
         )
 
     def set_identity(self, device_id, module_id):
@@ -73,4 +75,6 @@ class ServiceHelper:
         )
 
     async def shutdown(self):
-        return await self._event_loop.run_in_executor(self._executor, self._inner_object.shutdown)
+        return await self._event_loop.run_in_executor(
+            self._executor, self._inner_object.shutdown
+        )

@@ -59,7 +59,9 @@ class TestGetMethodInvokePath(object):
         ],
     )
     def test_path(self, device_id, module_id, expected_path):
-        path = http_path_iothub.get_method_invoke_path(device_id=device_id, module_id=module_id)
+        path = http_path_iothub.get_method_invoke_path(
+            device_id=device_id, module_id=module_id
+        )
         assert path == expected_path
 
 

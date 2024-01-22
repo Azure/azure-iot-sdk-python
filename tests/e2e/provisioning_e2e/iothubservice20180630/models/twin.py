@@ -71,7 +71,10 @@ class Twin(Model):
         "status_update_time": {"key": "statusUpdateTime", "type": "iso-8601"},
         "connection_state": {"key": "connectionState", "type": "str"},
         "last_activity_time": {"key": "lastActivityTime", "type": "iso-8601"},
-        "cloud_to_device_message_count": {"key": "cloudToDeviceMessageCount", "type": "int"},
+        "cloud_to_device_message_count": {
+            "key": "cloudToDeviceMessageCount",
+            "type": "int",
+        },
         "authentication_type": {"key": "authenticationType", "type": "str"},
         "x509_thumbprint": {"key": "x509Thumbprint", "type": "X509Thumbprint"},
     }

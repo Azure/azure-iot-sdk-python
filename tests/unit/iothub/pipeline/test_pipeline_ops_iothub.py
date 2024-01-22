@@ -26,7 +26,9 @@ class SendD2CMessageOperationTestConfig(object):
 
 
 class SendD2CMessageOperationInstantiationTests(SendD2CMessageOperationTestConfig):
-    @pytest.mark.it("Initializes 'message' attribute with the provided 'message' parameter")
+    @pytest.mark.it(
+        "Initializes 'message' attribute with the provided 'message' parameter"
+    )
     def test_message(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.message is init_kwargs["message"]
@@ -51,8 +53,12 @@ class SendOutputMessageOperationTestConfig(object):
         return kwargs
 
 
-class SendOutputMessageOperationInstantiationTests(SendOutputMessageOperationTestConfig):
-    @pytest.mark.it("Initializes 'message' attribute with the provided 'message' parameter")
+class SendOutputMessageOperationInstantiationTests(
+    SendOutputMessageOperationTestConfig
+):
+    @pytest.mark.it(
+        "Initializes 'message' attribute with the provided 'message' parameter"
+    )
     def test_message(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.message is init_kwargs["message"]
@@ -77,7 +83,9 @@ class SendMethodResponseOperationTestConfig(object):
         return kwargs
 
 
-class SendMethodResponseOperationInstantiationTests(SendMethodResponseOperationTestConfig):
+class SendMethodResponseOperationInstantiationTests(
+    SendMethodResponseOperationTestConfig
+):
     @pytest.mark.it(
         "Initializes 'method_response' attribute with the provided 'method_response' parameter"
     )

@@ -36,7 +36,7 @@ class SymmetricKeySigningMechanism(SigningMechanism):
         # CT-TODO: is "signing key" the right term?
         try:
             self._signing_key = base64.b64decode(key)
-        except (base64.binascii.Error):
+        except base64.binascii.Error:
             raise ValueError("Invalid Symmetric Key")
 
     def sign(self, data_str):
@@ -62,7 +62,7 @@ class SymmetricKeySigningMechanism(SigningMechanism):
                 key=self._signing_key, msg=data_str, digestmod=hashlib.sha256
             ).digest()
             signed_data = base64.b64encode(hmac_digest)
-        except (TypeError):
+        except TypeError:
             raise ValueError("Unable to sign string using the provided symmetric key")
         # Convert from bytes to string
         return signed_data.decode("utf-8")

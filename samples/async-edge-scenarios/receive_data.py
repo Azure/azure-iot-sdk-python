@@ -51,7 +51,9 @@ def create_client():
             await client.send_method_response(method_response)
         else:
             print("Unknown method request received: {}".format(method_request.name))
-            method_response = MethodResponse.create_from_method_request(method_request, 400, None)
+            method_response = MethodResponse.create_from_method_request(
+                method_request, 400, None
+            )
             await client.send_method_response(method_response)
 
     # set the received data handlers on the client

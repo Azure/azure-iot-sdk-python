@@ -106,20 +106,27 @@ def leak_tracker():
 
 @pytest.fixture(scope="session")
 def device_identity():
-
     if test_config.config.auth == test_config.AUTH_CONNECTION_STRING:
         device_identity = device_identity_helper.create_device_with_symmetric_key()
         logger.info(
-            "Created connection string device with deviceId = {}".format(device_identity.device_id)
+            "Created connection string device with deviceId = {}".format(
+                device_identity.device_id
+            )
         )
     elif test_config.config.auth == test_config.AUTH_SYMMETRIC_KEY:
         device_identity = device_identity_helper.create_device_with_symmetric_key()
         logger.info(
-            "Created symmetric key device with deviceId = {}".format(device_identity.device_id)
+            "Created symmetric key device with deviceId = {}".format(
+                device_identity.device_id
+            )
         )
     elif test_config.config.auth == test_config.AUTH_SAS_TOKEN:
         device_identity = device_identity_helper.create_device_with_sas()
-        logger.info("Created sas token device with deviceId = {}".format(device_identity.device_id))
+        logger.info(
+            "Created sas token device with deviceId = {}".format(
+                device_identity.device_id
+            )
+        )
     elif test_config.config.auth in test_config.AUTH_CHOICES:
         # need to implement
         raise Exception("{} Auth not yet implemented".format(test_config.config.auth))
@@ -218,11 +225,15 @@ def pytest_runtest_setup(item):
 def pytest_exception_interact(node, call, report):
     e = call.excinfo.value
     logger.error("------------------------------------------------------")
-    logger.error("EXCEPTION RAISED in {} phase: {}".format(report.when, str(e) or type(e)))
+    logger.error(
+        "EXCEPTION RAISED in {} phase: {}".format(report.when, str(e) or type(e))
+    )
     logger.error("------------------------------------------------------")
 
     if hasattr(node, "outer_leak_tracker"):
-        logger.info("Skipping leak tracking because of Exception {}".format(str(e) or type(e)))
+        logger.info(
+            "Skipping leak tracking because of Exception {}".format(str(e) or type(e))
+        )
         del node.outer_leak_tracker
 
     yield

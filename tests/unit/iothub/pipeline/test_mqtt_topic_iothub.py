@@ -48,13 +48,19 @@ class TestGetC2DTopicForSubscribe(object):
         "device_id, expected_topic",
         [
             pytest.param(
-                "my$device", "devices/my$device/messages/devicebound/#", id="id contains '$'"
+                "my$device",
+                "devices/my$device/messages/devicebound/#",
+                id="id contains '$'",
             ),
             pytest.param(
-                "my device", "devices/my device/messages/devicebound/#", id="id contains ' '"
+                "my device",
+                "devices/my device/messages/devicebound/#",
+                id="id contains ' '",
             ),
             pytest.param(
-                "my/device", "devices/my/device/messages/devicebound/#", id="id contains '/'"
+                "my/device",
+                "devices/my/device/messages/devicebound/#",
+                id="id contains '/'",
             ),
         ],
     )
@@ -114,7 +120,9 @@ class TestGetInputTopicForSubscribe(object):
         topic = mqtt_topic_iothub.get_input_topic_for_subscribe(device_id, module_id)
         assert topic == expected_topic
 
-    @pytest.mark.it("Converts the device_id and module_id to string when generating the topic")
+    @pytest.mark.it(
+        "Converts the device_id and module_id to string when generating the topic"
+    )
     def test_str_conversion(self):
         device_id = 2000
         module_id = 4000
@@ -153,7 +161,9 @@ class TestGetTelemetryTopicForPublish(object):
     @pytest.mark.parametrize(
         "device_id, module_id, expected_topic",
         [
-            pytest.param("my_device", None, "devices/my_device/messages/events/", id="Device"),
+            pytest.param(
+                "my_device", None, "devices/my_device/messages/events/", id="Device"
+            ),
             pytest.param(
                 "my_device",
                 "my_module",
@@ -218,12 +228,16 @@ class TestGetTelemetryTopicForPublish(object):
         topic = mqtt_topic_iothub.get_telemetry_topic_for_publish(device_id, module_id)
         assert topic == expected_topic
 
-    @pytest.mark.it("Converts the device_id and module_id to string when generating the topic")
+    @pytest.mark.it(
+        "Converts the device_id and module_id to string when generating the topic"
+    )
     @pytest.mark.parametrize(
         "device_id, module_id, expected_topic",
         [
             pytest.param(2000, None, "devices/2000/messages/events/", id="Device"),
-            pytest.param(2000, 4000, "devices/2000/modules/4000/messages/events/", id="Module"),
+            pytest.param(
+                2000, 4000, "devices/2000/modules/4000/messages/events/", id="Module"
+            ),
         ],
     )
     def test_str_conversion(self, device_id, module_id, expected_topic):
@@ -237,9 +251,14 @@ class TestGetMethodTopicForPublish(object):
     @pytest.mark.parametrize(
         "request_id, status, expected_topic",
         [
-            pytest.param("1", "200", "$iothub/methods/res/200/?$rid=1", id="Successful result"),
             pytest.param(
-                "475764", "500", "$iothub/methods/res/500/?$rid=475764", id="Failure result"
+                "1", "200", "$iothub/methods/res/200/?$rid=1", id="Successful result"
+            ),
+            pytest.param(
+                "475764",
+                "500",
+                "$iothub/methods/res/500/?$rid=475764",
+                id="Failure result",
             ),
         ],
     )
@@ -309,7 +328,9 @@ class TestGetTwinTopicForPublish(object):
         ],
     )
     def test_returns_topic(self, method, resource_location, request_id, expected_topic):
-        topic = mqtt_topic_iothub.get_twin_topic_for_publish(method, resource_location, request_id)
+        topic = mqtt_topic_iothub.get_twin_topic_for_publish(
+            method, resource_location, request_id
+        )
         assert topic == expected_topic
 
     @pytest.mark.it("URL encodes 'request_id' parameter")
@@ -361,15 +382,21 @@ class TestGetTwinTopicForPublish(object):
         ],
     )
     def test_url_encoding(self, method, resource_location, request_id, expected_topic):
-        topic = mqtt_topic_iothub.get_twin_topic_for_publish(method, resource_location, request_id)
+        topic = mqtt_topic_iothub.get_twin_topic_for_publish(
+            method, resource_location, request_id
+        )
         assert topic == expected_topic
 
-    @pytest.mark.it("Converts 'request_id' parameter to string when generating the topic")
+    @pytest.mark.it(
+        "Converts 'request_id' parameter to string when generating the topic"
+    )
     @pytest.mark.parametrize(
         "method, resource_location, request_id, expected_topic",
         [
             # Get Twin
-            pytest.param("GET", "/", 4000, "$iothub/twin/GET/?$rid=4000", id="Get Twin"),
+            pytest.param(
+                "GET", "/", 4000, "$iothub/twin/GET/?$rid=4000", id="Get Twin"
+            ),
             # Patch Twin
             pytest.param(
                 "POST",
@@ -380,8 +407,12 @@ class TestGetTwinTopicForPublish(object):
             ),
         ],
     )
-    def test_str_conversion(self, method, resource_location, request_id, expected_topic):
-        topic = mqtt_topic_iothub.get_twin_topic_for_publish(method, resource_location, request_id)
+    def test_str_conversion(
+        self, method, resource_location, request_id, expected_topic
+    ):
+        topic = mqtt_topic_iothub.get_twin_topic_for_publish(
+            method, resource_location, request_id
+        )
         assert topic == expected_topic
 
 
@@ -481,7 +512,9 @@ class TestIsInputTopic(object):
     # that exist to prevent Hub from breaking due to a lack of URL decoding.
     # If Hub does begin to support robust URL encoding for safety, this test can easily be switched
     # to show that URL encoding DOES work.
-    @pytest.mark.it("Does NOT URL encode the device id and module_id when matching to the topic")
+    @pytest.mark.it(
+        "Does NOT URL encode the device id and module_id when matching to the topic"
+    )
     @pytest.mark.parametrize(
         "topic, device_id, module_id",
         [
@@ -508,7 +541,9 @@ class TestIsInputTopic(object):
     def test_url_encodes(self, topic, device_id, module_id):
         assert mqtt_topic_iothub.is_input_topic(topic, device_id, module_id)
 
-    @pytest.mark.it("Converts the device_id and module_id to string when matching to the topic")
+    @pytest.mark.it(
+        "Converts the device_id and module_id to string when matching to the topic"
+    )
     def test_str_conversion(self):
         topic = "devices/2000/modules/4000/inputs/fake_input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2F2000%2Fmodules%2F4000%2Finputs%2Ffake_input"
         device_id = 2000
@@ -543,10 +578,16 @@ class TestIsInputTopic(object):
     @pytest.mark.parametrize(
         "device_id, module_id",
         [
-            pytest.param("VERY_fake_device", "fake_module", id="Non-matching device_id"),
-            pytest.param("fake_device", "VERY_fake_module", id="Non-matching module_id"),
             pytest.param(
-                "VERY_fake_device", "VERY_fake_module", id="Non-matching device_id AND module_id"
+                "VERY_fake_device", "fake_module", id="Non-matching device_id"
+            ),
+            pytest.param(
+                "fake_device", "VERY_fake_module", id="Non-matching module_id"
+            ),
+            pytest.param(
+                "VERY_fake_device",
+                "VERY_fake_module",
+                id="Non-matching device_id AND module_id",
             ),
             pytest.param(None, "fake_module", id="No device_id"),
             pytest.param("fake_device", None, id="No module_id"),
@@ -573,7 +614,9 @@ class TestIsMethodTopic(object):
                 "devices/fake_device/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmessages%2Fdevicebound",
                 id="Topic of wrong type",
             ),
-            pytest.param("$iothub/mthds/POST/fake_method/?$rid=1", id="Malformed topic"),
+            pytest.param(
+                "$iothub/mthds/POST/fake_method/?$rid=1", id="Malformed topic"
+            ),
         ],
     )
     def test_is_not_method_topic(self, topic):
@@ -592,7 +635,9 @@ class TestIsTwinResponseTopic(object):
         "topic",
         [
             pytest.param("not a topic", id="Not a topic"),
-            pytest.param("$iothub/methods/POST/fake_method/?$rid=1", id="Topic of wrong type"),
+            pytest.param(
+                "$iothub/methods/POST/fake_method/?$rid=1", id="Topic of wrong type"
+            ),
             pytest.param(
                 "$iothub/twin/rs/200/?$rid=d9d7ce4d-3be9-498b-abde-913b81b880e5",
                 id="Malformed topic",
@@ -605,18 +650,27 @@ class TestIsTwinResponseTopic(object):
 
 @pytest.mark.describe(".is_twin_desired_property_patch_topic()")
 class TestIsTwinDesiredPropertyPatchTopic(object):
-    @pytest.mark.it("Returns True if the provided topic is a desired property patch topic")
+    @pytest.mark.it(
+        "Returns True if the provided topic is a desired property patch topic"
+    )
     def test_is_desired_property_patch_topic(self):
         topic = "$iothub/twin/PATCH/properties/desired/?$version=1"
         assert mqtt_topic_iothub.is_twin_desired_property_patch_topic(topic)
 
-    @pytest.mark.it("Returns False if the provided topic is not a desired property patch topic")
+    @pytest.mark.it(
+        "Returns False if the provided topic is not a desired property patch topic"
+    )
     @pytest.mark.parametrize(
         "topic",
         [
             pytest.param("not a topic", id="Not a topic"),
-            pytest.param("$iothub/methods/POST/fake_method/?$rid=1", id="Topic of wrong type"),
-            pytest.param("$iothub/twin/PATCH/properties/dsiered/?$version=1", id="Malformed topic"),
+            pytest.param(
+                "$iothub/methods/POST/fake_method/?$rid=1", id="Topic of wrong type"
+            ),
+            pytest.param(
+                "$iothub/twin/PATCH/properties/dsiered/?$version=1",
+                id="Malformed topic",
+            ),
         ],
     )
     def test_is_not_desired_property_patch_topic(self, topic):
@@ -651,12 +705,16 @@ class TestGetInputNameFromTopic(object):
     def test_url_decodes_value(self, topic, expected_input_name):
         assert mqtt_topic_iothub.get_input_name_from_topic(topic) == expected_input_name
 
-    @pytest.mark.it("Raises a ValueError if the provided topic is not an input name topic")
+    @pytest.mark.it(
+        "Raises a ValueError if the provided topic is not an input name topic"
+    )
     @pytest.mark.parametrize(
         "topic",
         [
             pytest.param("not a topic", id="Not a topic"),
-            pytest.param("$iothub/methods/POST/fake_method/?$rid=1", id="Topic of wrong type"),
+            pytest.param(
+                "$iothub/methods/POST/fake_method/?$rid=1", id="Topic of wrong type"
+            ),
             pytest.param(
                 "devices/fake_device/inputs/fake_input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmodules%2Ffake_module%2Finputs%2Ffake_input",
                 id="Malformed topic",
@@ -675,7 +733,9 @@ class TestGetMethodNameFromTopic(object):
         topic = "$iothub/methods/POST/fake_method/?$rid=1"
         expected_method_name = "fake_method"
 
-        assert mqtt_topic_iothub.get_method_name_from_topic(topic) == expected_method_name
+        assert (
+            mqtt_topic_iothub.get_method_name_from_topic(topic) == expected_method_name
+        )
 
     @pytest.mark.it("URL decodes the returned method name")
     @pytest.mark.parametrize(
@@ -694,7 +754,9 @@ class TestGetMethodNameFromTopic(object):
         ],
     )
     def test_url_decodes_value(self, topic, expected_method_name):
-        assert mqtt_topic_iothub.get_method_name_from_topic(topic) == expected_method_name
+        assert (
+            mqtt_topic_iothub.get_method_name_from_topic(topic) == expected_method_name
+        )
 
     @pytest.mark.it("Raises a ValueError if the provided topic is not a method topic")
     @pytest.mark.parametrize(
@@ -705,7 +767,9 @@ class TestGetMethodNameFromTopic(object):
                 "devices/fake_device/modules/fake_module/inputs/fake_input",
                 id="Topic of wrong type",
             ),
-            pytest.param("$iothub/methdos/POST/fake_method/?$rid=1", id="Malformed topic"),
+            pytest.param(
+                "$iothub/methdos/POST/fake_method/?$rid=1", id="Malformed topic"
+            ),
         ],
     )
     def test_invalid_method_topic(self, topic):
@@ -720,7 +784,10 @@ class TestGetMethodRequestIdFromTopic(object):
         topic = "$iothub/methods/POST/fake_method/?$rid=1"
         expected_request_id = "1"
 
-        assert mqtt_topic_iothub.get_method_request_id_from_topic(topic) == expected_request_id
+        assert (
+            mqtt_topic_iothub.get_method_request_id_from_topic(topic)
+            == expected_request_id
+        )
 
     @pytest.mark.it("URL decodes the returned value")
     @pytest.mark.parametrize(
@@ -739,7 +806,10 @@ class TestGetMethodRequestIdFromTopic(object):
         ],
     )
     def test_url_decodes_value(self, topic, expected_request_id):
-        assert mqtt_topic_iothub.get_method_request_id_from_topic(topic) == expected_request_id
+        assert (
+            mqtt_topic_iothub.get_method_request_id_from_topic(topic)
+            == expected_request_id
+        )
 
     @pytest.mark.it("Raises a ValueError if the provided topic is not a method topic")
     @pytest.mark.parametrize(
@@ -750,7 +820,9 @@ class TestGetMethodRequestIdFromTopic(object):
                 "devices/fake_device/modules/fake_module/inputs/fake_input",
                 id="Topic of wrong type",
             ),
-            pytest.param("$iothub/methdos/POST/fake_method/?$rid=1", id="Malformed topic"),
+            pytest.param(
+                "$iothub/methdos/POST/fake_method/?$rid=1", id="Malformed topic"
+            ),
         ],
     )
     def test_invalid_method_topic(self, topic):
@@ -765,7 +837,10 @@ class TestGetTwinRequestIdFromTopic(object):
         topic = "$iothub/twin/res/200/?rid=1"
         expected_request_id = "1"
 
-        assert mqtt_topic_iothub.get_twin_request_id_from_topic(topic) == expected_request_id
+        assert (
+            mqtt_topic_iothub.get_twin_request_id_from_topic(topic)
+            == expected_request_id
+        )
 
     @pytest.mark.it("URL decodes the returned value")
     @pytest.mark.parametrize(
@@ -784,9 +859,14 @@ class TestGetTwinRequestIdFromTopic(object):
         ],
     )
     def test_url_decodes_value(self, topic, expected_request_id):
-        assert mqtt_topic_iothub.get_twin_request_id_from_topic(topic) == expected_request_id
+        assert (
+            mqtt_topic_iothub.get_twin_request_id_from_topic(topic)
+            == expected_request_id
+        )
 
-    @pytest.mark.it("Raises a ValueError if the provided topic is not a twin response topic")
+    @pytest.mark.it(
+        "Raises a ValueError if the provided topic is not a twin response topic"
+    )
     @pytest.mark.parametrize(
         "topic",
         [
@@ -810,13 +890,17 @@ class TestGetTwinStatusCodeFromTopic(object):
         topic = "$iothub/twin/res/200/?rid=1"
         expected_status = "200"
 
-        assert mqtt_topic_iothub.get_twin_status_code_from_topic(topic) == expected_status
+        assert (
+            mqtt_topic_iothub.get_twin_status_code_from_topic(topic) == expected_status
+        )
 
     @pytest.mark.it("URL decodes the returned value")
     @pytest.mark.parametrize(
         "topic, expected_status",
         [
-            pytest.param("$iothub/twin/res/%24%24%24/?rid=1", "$$$", id="Standard URL decoding"),
+            pytest.param(
+                "$iothub/twin/res/%24%24%24/?rid=1", "$$$", id="Standard URL decoding"
+            ),
             pytest.param(
                 "$iothub/twin/res/invalid+status/?rid=1",
                 "invalid+status",
@@ -825,9 +909,13 @@ class TestGetTwinStatusCodeFromTopic(object):
         ],
     )
     def test_url_decode(self, topic, expected_status):
-        assert mqtt_topic_iothub.get_twin_status_code_from_topic(topic) == expected_status
+        assert (
+            mqtt_topic_iothub.get_twin_status_code_from_topic(topic) == expected_status
+        )
 
-    @pytest.mark.it("Raises a ValueError if the provided topic is not a twin response topic")
+    @pytest.mark.it(
+        "Raises a ValueError if the provided topic is not a twin response topic"
+    )
     @pytest.mark.parametrize(
         "topic",
         [
@@ -982,7 +1070,9 @@ class TestExtractMessagePropertiesFromTopic(object):
             ),
         ],
     )
-    def test_url_decode(self, topic, expected_system_properties, expected_custom_properties):
+    def test_url_decode(
+        self, topic, expected_system_properties, expected_custom_properties
+    ):
         msg = Message("fake message")
         mqtt_topic_iothub.extract_message_properties_from_topic(topic, msg)
 
@@ -999,7 +1089,9 @@ class TestExtractMessagePropertiesFromTopic(object):
         # Validate custom properties
         assert msg.custom_properties == expected_custom_properties
 
-    @pytest.mark.it("Ignores certain properties in a C2D message topic, and does NOT extract them")
+    @pytest.mark.it(
+        "Ignores certain properties in a C2D message topic, and does NOT extract them"
+    )
     @pytest.mark.parametrize(
         "topic",
         [
@@ -1063,7 +1155,11 @@ class TestExtractMessagePropertiesFromTopic(object):
         [
             pytest.param(
                 "devices/fakedevice/messages/devicebound/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion=1.0&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid&%24.uid",
-                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": None, "uid": None},
+                {
+                    "mid": "e32c2285-668e-4161-a236-9f5f6b90362c",
+                    "cid": None,
+                    "uid": None,
+                },
                 {
                     "topic": "/subscriptions/resourceGroups",
                     "subject": "/graphInstances",
@@ -1074,7 +1170,11 @@ class TestExtractMessagePropertiesFromTopic(object):
             ),
             pytest.param(
                 "devices/fakedevice/modules/fakemodule/inputs/fakeinput/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion=1.0&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid&%24.uid",
-                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": None, "uid": None},
+                {
+                    "mid": "e32c2285-668e-4161-a236-9f5f6b90362c",
+                    "cid": None,
+                    "uid": None,
+                },
                 {
                     "topic": "/subscriptions/resourceGroups",
                     "subject": "/graphInstances",
@@ -1117,7 +1217,11 @@ class TestExtractMessagePropertiesFromTopic(object):
             ),
             pytest.param(
                 "devices/fakedevice/messages/devicebound/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid&%24.uid&classname",
-                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": None, "uid": None},
+                {
+                    "mid": "e32c2285-668e-4161-a236-9f5f6b90362c",
+                    "cid": None,
+                    "uid": None,
+                },
                 {
                     "topic": "/subscriptions/resourceGroups",
                     "subject": "/graphInstances",
@@ -1129,7 +1233,11 @@ class TestExtractMessagePropertiesFromTopic(object):
             ),
             pytest.param(
                 "devices/fakedevice/modules/fakemodule/inputs/fakeinput/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid&%24.uid&classname",
-                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": None, "uid": None},
+                {
+                    "mid": "e32c2285-668e-4161-a236-9f5f6b90362c",
+                    "cid": None,
+                    "uid": None,
+                },
                 {
                     "topic": "/subscriptions/resourceGroups",
                     "subject": "/graphInstances",
@@ -1339,10 +1447,18 @@ class TestEncodeMessagePropertiesInTopic(object):
         ],
     )
     def test_encodes_properties(
-        self, message_topic, message_system_properties, message_custom_properties, expected_encoding
+        self,
+        message_topic,
+        message_system_properties,
+        message_custom_properties,
+        expected_encoding,
     ):
-        message = self.create_message(message_system_properties, message_custom_properties)
-        encoded_topic = mqtt_topic_iothub.encode_message_properties_in_topic(message, message_topic)
+        message = self.create_message(
+            message_system_properties, message_custom_properties
+        )
+        encoded_topic = mqtt_topic_iothub.encode_message_properties_in_topic(
+            message, message_topic
+        )
 
         assert encoded_topic.startswith(message_topic)
         encoding = encoded_topic.split(message_topic)[1]
@@ -1400,10 +1516,18 @@ class TestEncodeMessagePropertiesInTopic(object):
         ],
     )
     def test_url_encodes(
-        self, message_topic, message_system_properties, message_custom_properties, expected_encoding
+        self,
+        message_topic,
+        message_system_properties,
+        message_custom_properties,
+        expected_encoding,
     ):
-        message = self.create_message(message_system_properties, message_custom_properties)
-        encoded_topic = mqtt_topic_iothub.encode_message_properties_in_topic(message, message_topic)
+        message = self.create_message(
+            message_system_properties, message_custom_properties
+        )
+        encoded_topic = mqtt_topic_iothub.encode_message_properties_in_topic(
+            message, message_topic
+        )
 
         assert encoded_topic.startswith(message_topic)
         encoding = encoded_topic.split(message_topic)[1]
@@ -1411,11 +1535,20 @@ class TestEncodeMessagePropertiesInTopic(object):
 
     @pytest.mark.it("String converts message properties when adding them to the topic")
     def test_str_conversion(self, message_topic):
-        system_properties = {"mid": 1234, "cid": 5678, "uid": 4000, "on": 2222, "ce": 8, "ct": 12}
+        system_properties = {
+            "mid": 1234,
+            "cid": 5678,
+            "uid": 4000,
+            "on": 2222,
+            "ce": 8,
+            "ct": 12,
+        }
         custom_properties = {1: 23, 47: 245, 3000: 9458}
         expected_encoding = "%24.on=2222&%24.mid=1234&%24.cid=5678&%24.uid=4000&%24.ct=12&%24.ce=8&1=23&3000=9458&47=245"
         message = self.create_message(system_properties, custom_properties)
-        encoded_topic = mqtt_topic_iothub.encode_message_properties_in_topic(message, message_topic)
+        encoded_topic = mqtt_topic_iothub.encode_message_properties_in_topic(
+            message, message_topic
+        )
 
         assert encoded_topic.startswith(message_topic)
         encoding = encoded_topic.split(message_topic)[1]

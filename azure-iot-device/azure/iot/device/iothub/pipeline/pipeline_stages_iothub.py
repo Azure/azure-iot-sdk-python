@@ -44,7 +44,9 @@ class EnsureDesiredPropertiesStage(PipelineStage):
 
                 if op.feature_name == constant.TWIN_PATCHES:
                     logger.debug(
-                        "{}: enabling twin patches.  setting last_version_seen".format(self.name)
+                        "{}: enabling twin patches.  setting last_version_seen".format(
+                            self.name
+                        )
                     )
                     self.last_version_seen = -1
         self.send_op_down(op)
@@ -66,7 +68,9 @@ class EnsureDesiredPropertiesStage(PipelineStage):
             self.send_op_down(self.pending_get_request)
         else:
             logger.debug(
-                "{}: Outstanding twin GET already exists.  Not sending anything".format(self.name)
+                "{}: Outstanding twin GET already exists.  Not sending anything".format(
+                    self.name
+                )
             )
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -83,7 +87,9 @@ class EnsureDesiredPropertiesStage(PipelineStage):
             # long as we are connected. We run the risk of repeating this forever and might need
             # to add logic to "give up" after some number of failures, but we don't have any real
             # reason to add that yet.
-            logger.debug("{}: Twin GET failed with error {}.  Resubmitting.".format(self, error))
+            logger.debug(
+                "{}: Twin GET failed with error {}.  Resubmitting.".format(self, error)
+            )
             self._ensure_get_op()
         elif error and not self.nucleus.connected:
             # If the GetTwinOperation failed and the client is in any state but connected,
@@ -94,7 +100,9 @@ class EnsureDesiredPropertiesStage(PipelineStage):
         else:
             # If the GetTwinOperation is successful, we compare the $version values and create
             # an artificial patch if the versions do not match.
-            logger.debug("{} Twin GET response received.  Checking versions".format(self))
+            logger.debug(
+                "{} Twin GET response received.  Checking versions".format(self)
+            )
             new_version = op.twin["desired"]["$version"]
             logger.debug(
                 "{}: old version = {}, new version = {}".format(
@@ -105,20 +113,28 @@ class EnsureDesiredPropertiesStage(PipelineStage):
                 # The twin we received has different (presumably newer) desired properties.
                 # Make an artificial patch and send it up
 
-                logger.debug("{}: Version changed.  Sending up new patch event".format(self.name))
+                logger.debug(
+                    "{}: Version changed.  Sending up new patch event".format(self.name)
+                )
                 self.last_version_seen = new_version
                 self.send_event_up(
-                    pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(op.twin["desired"])
+                    pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
+                        op.twin["desired"]
+                    )
                 )
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
         if self.nucleus.pipeline_configuration.ensure_desired_properties:
-            if isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
+            if isinstance(
+                event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent
+            ):
                 # remember the $version when we get a patch.
                 version = event.patch["$version"]
                 logger.debug(
-                    "{}: Desired patch received.  Saving $version={}".format(self.name, version)
+                    "{}: Desired patch received.  Saving $version={}".format(
+                        self.name, version
+                    )
                 )
                 self.last_version_seen = version
             elif isinstance(event, pipeline_events_base.ConnectedEvent):
@@ -148,23 +164,30 @@ class TwinRequestResponseStage(PipelineStage):
                 return error
             elif twin_op.status_code >= 300:
                 # TODO map error codes to correct exceptions
-                logger.info("Error {} received from twin operation".format(twin_op.status_code))
+                logger.info(
+                    "Error {} received from twin operation".format(twin_op.status_code)
+                )
                 logger.info("response body: {}".format(twin_op.response_body))
                 return exceptions.ServiceError(
                     "twin operation returned status {}".format(twin_op.status_code)
                 )
 
         if isinstance(op, pipeline_ops_iothub.GetTwinOperation):
-
             # Alias to avoid overload within the callback below
             # CT-TODO: remove the need for this with better callback semantics
             op_waiting_for_response = op
 
             def on_twin_response(op, error):
-                logger.debug("{}({}): Got response for GetTwinOperation".format(self.name, op.name))
+                logger.debug(
+                    "{}({}): Got response for GetTwinOperation".format(
+                        self.name, op.name
+                    )
+                )
                 error = map_twin_error(error=error, twin_op=op)
                 if not error:
-                    op_waiting_for_response.twin = json.loads(op.response_body.decode("utf-8"))
+                    op_waiting_for_response.twin = json.loads(
+                        op.response_body.decode("utf-8")
+                    )
                 op_waiting_for_response.complete(error=error)
 
             self.send_op_down(
@@ -178,7 +201,6 @@ class TwinRequestResponseStage(PipelineStage):
             )
 
         elif isinstance(op, pipeline_ops_iothub.PatchTwinReportedPropertiesOperation):
-
             # Alias to avoid overload within the callback below
             # CT-TODO: remove the need for this with better callback semantics
             op_waiting_for_response = op
@@ -193,7 +215,9 @@ class TwinRequestResponseStage(PipelineStage):
                 op_waiting_for_response.complete(error=error)
 
             logger.debug(
-                "{}({}): Sending reported properties patch: {}".format(self.name, op.name, op.patch)
+                "{}({}): Sending reported properties patch: {}".format(
+                    self.name, op.name, op.patch
+                )
             )
 
             self.send_op_down(

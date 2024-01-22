@@ -27,7 +27,12 @@ container = None
 
 
 def control_container(
-    container_name, keep_running, keep_dead, restart_count, signal_to_quit, should_be_restarted=True
+    container_name,
+    keep_running,
+    keep_dead,
+    restart_count,
+    signal_to_quit,
+    should_be_restarted=True,
 ):
     global container
 
@@ -52,7 +57,9 @@ def control_container(
 def kill_and_restart_container(keep_running, keep_dead, restart_count, signal_to_quit):
     kill_container(keep_running)
     print("Container stopped.")
-    start_timer(duration=keep_dead, restart_count=restart_count, signal_to_quit=signal_to_quit)
+    start_timer(
+        duration=keep_dead, restart_count=restart_count, signal_to_quit=signal_to_quit
+    )
 
 
 def kill_container(keep_running):
@@ -96,7 +103,11 @@ async def send_test_message(device_client, restart_count):
 def start_timer(duration, restart_count, signal_to_quit):
     def timer_done():
         timer.cancel()
-        print("{} secs is up. Cancelled timer. Container will be restarted again.".format(duration))
+        print(
+            "{} secs is up. Cancelled timer. Container will be restarted again.".format(
+                duration
+            )
+        )
         restart_count.value = restart_count.value + 1
         # signal_to_quit.value = 0
         needs_restart = True
@@ -123,7 +134,6 @@ def start_timer(duration, restart_count, signal_to_quit):
 
 
 async def main():
-
     ca_cert = "self_cert_localhost.pem"
     certfile = open(ca_cert)
     root_ca_cert = certfile.read()
@@ -134,7 +144,13 @@ async def main():
 
     process_docker = Process(
         target=control_container,
-        args=(CONTAINER_NAME, KEEP_RUNNING, KEEP_DEAD, times_container_restart, signal_to_quit),
+        args=(
+            CONTAINER_NAME,
+            KEEP_RUNNING,
+            KEEP_DEAD,
+            times_container_restart,
+            signal_to_quit,
+        ),
     )
     process_docker.start()
 

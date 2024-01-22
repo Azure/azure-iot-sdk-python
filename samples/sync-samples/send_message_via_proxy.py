@@ -16,7 +16,9 @@ logging.basicConfig(level=logging.DEBUG)
 conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 
 # Create proxy options when trying to send via proxy
-proxy_opts = ProxyOptions(proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888)  # localhost
+proxy_opts = ProxyOptions(
+    proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888
+)  # localhost
 # The client object is used to interact with your Azure IoT hub.
 device_client = IoTHubDeviceClient.create_from_connection_string(
     conn_str, websockets=True, proxy_options=proxy_opts

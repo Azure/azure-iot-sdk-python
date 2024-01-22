@@ -39,7 +39,9 @@ class TestSasRenewal(object):
 
         async def handle_on_connection_state_change():
             nonlocal token_at_connect_time
-            logger.info("handle_on_connection_state_change: {}".format(client.connected))
+            logger.info(
+                "handle_on_connection_state_change: {}".format(client.connected)
+            )
             if client.connected:
                 token_at_connect_time = str(token_object)
                 logger.info("saving token: {}".format(token_at_connect_time))
@@ -80,7 +82,9 @@ class TestSasRenewal(object):
 
         # and verify that the message arrived at the service
         # TODO incoming_event_queue.get should check thread future
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
         assert json.dumps(event.message_body) == random_message.data
 
         random_message = None  # so this isn't flagged as a leak

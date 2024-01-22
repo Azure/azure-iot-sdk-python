@@ -28,7 +28,9 @@ logging.basicConfig(level=logging.DEBUG)
 
 @pytest.mark.describe(".get_register_topic_for_subscribe()")
 class TestGetRegisterTopicForSubscribe(object):
-    @pytest.mark.it("Returns the topic for subscribing to registration responses from DPS")
+    @pytest.mark.it(
+        "Returns the topic for subscribing to registration responses from DPS"
+    )
     def test_returns_topic(self):
         topic = mqtt_topic_provisioning.get_register_topic_for_subscribe()
         assert topic == "$dps/registrations/res/#"
@@ -39,9 +41,7 @@ class TestGetRegisterTopicForPublish(object):
     @pytest.mark.it("Returns the topic for publishing registration requests to DPS")
     def test_returns_topic(self):
         request_id = "3226c2f7-3d30-425c-b83b-0c34335f8220"
-        expected_topic = (
-            "$dps/registrations/PUT/iotdps-register/?$rid=3226c2f7-3d30-425c-b83b-0c34335f8220"
-        )
+        expected_topic = "$dps/registrations/PUT/iotdps-register/?$rid=3226c2f7-3d30-425c-b83b-0c34335f8220"
         topic = mqtt_topic_provisioning.get_register_topic_for_publish(request_id)
         assert topic == expected_topic
 
@@ -84,10 +84,14 @@ class TestGetQueryTopicForPublish(object):
         request_id = "3226c2f7-3d30-425c-b83b-0c34335f8220"
         operation_id = "4.79f33f69d8eb3870.da2d9251-3097-43e9-b81c-782718485ce7"
         expected_topic = "$dps/registrations/GET/iotdps-get-operationstatus/?$rid=3226c2f7-3d30-425c-b83b-0c34335f8220&operationId=4.79f33f69d8eb3870.da2d9251-3097-43e9-b81c-782718485ce7"
-        topic = mqtt_topic_provisioning.get_query_topic_for_publish(request_id, operation_id)
+        topic = mqtt_topic_provisioning.get_query_topic_for_publish(
+            request_id, operation_id
+        )
         assert topic == expected_topic
 
-    @pytest.mark.it("URL encodes the request id and operation id when generating the topic")
+    @pytest.mark.it(
+        "URL encodes the request id and operation id when generating the topic"
+    )
     @pytest.mark.parametrize(
         "request_id, operation_id, expected_topic",
         [
@@ -112,17 +116,21 @@ class TestGetQueryTopicForPublish(object):
         ],
     )
     def test_url_encoding(self, request_id, operation_id, expected_topic):
-        topic = mqtt_topic_provisioning.get_query_topic_for_publish(request_id, operation_id)
+        topic = mqtt_topic_provisioning.get_query_topic_for_publish(
+            request_id, operation_id
+        )
         assert topic == expected_topic
 
-    @pytest.mark.it("Converts the request id and operation id to string when generating the topic")
+    @pytest.mark.it(
+        "Converts the request id and operation id to string when generating the topic"
+    )
     def test_string_conversion(self):
         request_id = 1234
         operation_id = 4567
-        expected_topic = (
-            "$dps/registrations/GET/iotdps-get-operationstatus/?$rid=1234&operationId=4567"
+        expected_topic = "$dps/registrations/GET/iotdps-get-operationstatus/?$rid=1234&operationId=4567"
+        topic = mqtt_topic_provisioning.get_query_topic_for_publish(
+            request_id, operation_id
         )
-        topic = mqtt_topic_provisioning.get_query_topic_for_publish(request_id, operation_id)
         assert topic == expected_topic
 
 
@@ -170,7 +178,9 @@ class TestIsDpsResponseTopic(object):
 
 @pytest.mark.describe(".extract_properties_from_dps_response_topic()")
 class TestExtractPropertiesFromDpsResponseTopic(object):
-    @pytest.mark.it("Returns the properties from a valid DPS response topic as a dictionary")
+    @pytest.mark.it(
+        "Returns the properties from a valid DPS response topic as a dictionary"
+    )
     @pytest.mark.parametrize(
         "topic, expected_dict",
         [

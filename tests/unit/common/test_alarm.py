@@ -27,7 +27,8 @@ class TestAlarm(object):
         "Invokes the given function with the given args and kwargs at the given alarm time once started"
     )
     @pytest.mark.parametrize(
-        "args", [pytest.param(["arg1", "arg2"], id="W/ args"), pytest.param([], id="No args")]
+        "args",
+        [pytest.param(["arg1", "arg2"], id="W/ args"), pytest.param([], id="No args")],
     )
     @pytest.mark.parametrize(
         "kwargs",
@@ -38,17 +39,23 @@ class TestAlarm(object):
     )
     def test_fn_called_w_args(self, mocker, desired_function, args, kwargs):
         alarm_time = time.time() + 2  # call fn in 2 seconds
-        a = Alarm(alarm_time=alarm_time, function=desired_function, args=args, kwargs=kwargs)
+        a = Alarm(
+            alarm_time=alarm_time, function=desired_function, args=args, kwargs=kwargs
+        )
         a.start()
 
         assert desired_function.call_count == 0
         time.sleep(1)  # hasn't been 2 seconds yet
         assert desired_function.call_count == 0
-        time.sleep(1.1)  # it has now been just over 2 seconds, so the call HAS been made
+        time.sleep(
+            1.1
+        )  # it has now been just over 2 seconds, so the call HAS been made
         assert desired_function.call_count == 1
         assert desired_function.call_args == mocker.call(*args, **kwargs)
 
-    @pytest.mark.it("Invokes the function with no args or kwargs by default if none are provided")
+    @pytest.mark.it(
+        "Invokes the function with no args or kwargs by default if none are provided"
+    )
     def test_fn_called_no_args(self, mocker, desired_function):
         alarm_time = time.time() + 1  # call fn in 1 seconds
         a = Alarm(alarm_time=alarm_time, function=desired_function)
@@ -59,7 +66,9 @@ class TestAlarm(object):
         assert desired_function.call_count == 1
         desired_function.call_args == mocker.call()
 
-    @pytest.mark.it("Invokes the function immediately if the given alarm time is in the past")
+    @pytest.mark.it(
+        "Invokes the function immediately if the given alarm time is in the past"
+    )
     def test_alarm_already_expired(self, mocker, desired_function):
         alarm_time = time.time() - 1
         a = Alarm(alarm_time=alarm_time, function=desired_function)

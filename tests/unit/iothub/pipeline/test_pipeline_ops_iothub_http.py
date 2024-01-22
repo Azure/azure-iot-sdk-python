@@ -34,12 +34,16 @@ class MethodInvokeOperationTestConfig(object):
 
 
 class MethodInvokeOperationInstantiationTests(MethodInvokeOperationTestConfig):
-    @pytest.mark.it("Initializes 'device_id' attribute with the provided 'device_id' parameter")
+    @pytest.mark.it(
+        "Initializes 'device_id' attribute with the provided 'device_id' parameter"
+    )
     def test_device_id(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.target_device_id is init_kwargs["target_device_id"]
 
-    @pytest.mark.it("Initializes 'module_id' attribute with the provided 'module_id' parameter")
+    @pytest.mark.it(
+        "Initializes 'module_id' attribute with the provided 'module_id' parameter"
+    )
     def test_module_id(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.target_module_id is init_kwargs["target_module_id"]
@@ -77,7 +81,9 @@ class GetStorageInfoOperationTestConfig(object):
 
 
 class GetStorageInfoOperationInstantiationTests(GetStorageInfoOperationTestConfig):
-    @pytest.mark.it("Initializes 'blob_name' attribute with the provided 'blob_name' parameter")
+    @pytest.mark.it(
+        "Initializes 'blob_name' attribute with the provided 'blob_name' parameter"
+    )
     def test_blob_name(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.blob_name is init_kwargs["blob_name"]
@@ -113,7 +119,9 @@ class NotifyBlobUploadStatusOperationTestConfig(object):
         return kwargs
 
 
-class NotifyBlobUploadStatusOperationInstantiationTests(NotifyBlobUploadStatusOperationTestConfig):
+class NotifyBlobUploadStatusOperationInstantiationTests(
+    NotifyBlobUploadStatusOperationTestConfig
+):
     @pytest.mark.it(
         "Initializes 'correlation_id' attribute with the provided 'correlation_id' parameter"
     )
@@ -121,7 +129,9 @@ class NotifyBlobUploadStatusOperationInstantiationTests(NotifyBlobUploadStatusOp
         op = cls_type(**init_kwargs)
         assert op.correlation_id is init_kwargs["correlation_id"]
 
-    @pytest.mark.it("Initializes 'is_success' attribute with the provided 'is_success' parameter")
+    @pytest.mark.it(
+        "Initializes 'is_success' attribute with the provided 'is_success' parameter"
+    )
     def test_is_success(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.is_success is init_kwargs["is_success"]

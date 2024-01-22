@@ -29,7 +29,9 @@ class RenewableSasToken(object):
     _auth_rule_token_format = (
         "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}&skn={keyname}"
     )
-    _simple_token_format = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}"
+    _simple_token_format = (
+        "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}"
+    )
 
     def __init__(self, uri, signing_mechanism, key_name=None, ttl=3600):
         """
@@ -44,7 +46,9 @@ class RenewableSasToken(object):
         self._uri = uri
         self._signing_mechanism = signing_mechanism
         self._key_name = key_name
-        self._expiry_time = None  # This will be overwritten by the .refresh() call below
+        self._expiry_time = (
+            None  # This will be overwritten by the .refresh() call below
+        )
         self._token = None  # This will be overwritten by the .refresh() call below
 
         self.ttl = ttl
@@ -139,7 +143,9 @@ def get_sastoken_info_from_string(sastoken_string):
 
     # Get sastoken info as dictionary
     try:
-        sastoken_info = dict(map(str.strip, sub.split("=", 1)) for sub in pieces[1].split("&"))
+        sastoken_info = dict(
+            map(str.strip, sub.split("=", 1)) for sub in pieces[1].split("&")
+        )
     except Exception as e:
         raise SasTokenError("Invalid SasToken string: Incorrectly formatted") from e
 

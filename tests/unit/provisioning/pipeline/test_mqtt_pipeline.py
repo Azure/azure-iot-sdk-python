@@ -30,7 +30,11 @@ feature = dps_constants.REGISTER
 
 
 def mock_x509():
-    return X509(cert_file="fake_cert_file", key_file="fake_key_file", pass_phrase="some_password")
+    return X509(
+        cert_file="fake_cert_file",
+        key_file="fake_key_file",
+        pass_phrase="some_password",
+    )
 
 
 @pytest.fixture
@@ -53,7 +57,8 @@ def pipeline(mocker, pipeline_configuration):
 @pytest.fixture(autouse=True)
 def mock_mqtt_transport(mocker):
     return mocker.patch(
-        "azure.iot.device.common.pipeline.pipeline_stages_mqtt.MQTTTransport", autospec=True
+        "azure.iot.device.common.pipeline.pipeline_stages_mqtt.MQTTTransport",
+        autospec=True,
     )
 
 
@@ -78,7 +83,9 @@ class TestMQTTPipelineInstantiation(object):
         assert pipeline.on_background_exception is None
         assert pipeline.on_message_received is None
 
-    @pytest.mark.it("Configures the pipeline to trigger handlers in response to external events")
+    @pytest.mark.it(
+        "Configures the pipeline to trigger handlers in response to external events"
+    )
     def test_handlers_configured(self, pipeline_configuration):
         pipeline = MQTTPipeline(pipeline_configuration)
         assert pipeline._pipeline.on_pipeline_event_handler is not None
@@ -145,7 +152,9 @@ class TestMQTTPipelineInstantiation(object):
     @pytest.mark.it(
         "Raises exceptions that occurred in execution upon unsuccessful completion of the InitializePipelineOperation"
     )
-    def test_init_pipeline_failure(self, mocker, arbitrary_exception, pipeline_configuration):
+    def test_init_pipeline_failure(
+        self, mocker, arbitrary_exception, pipeline_configuration
+    ):
         old_run_op = pipeline_stages_base.PipelineRootStage._run_op
 
         def fail_set_security_client(self, op):
@@ -183,7 +192,8 @@ class TestMQTTPipelineShutdown(object):
         pipeline.shutdown(callback=cb)
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(
-            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.ShutdownPipelineOperation
+            pipeline._pipeline.run_op.call_args[0][0],
+            pipeline_ops_base.ShutdownPipelineOperation,
         )
 
     @pytest.mark.it(
@@ -268,10 +278,13 @@ class TestMQTTPipelineConnect(object):
         pipeline.connect(callback=cb)
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(
-            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.ConnectOperation
+            pipeline._pipeline.run_op.call_args[0][0],
+            pipeline_ops_base.ConnectOperation,
         )
 
-    @pytest.mark.it("Triggers the callback upon successful completion of the ConnectOperation")
+    @pytest.mark.it(
+        "Triggers the callback upon successful completion of the ConnectOperation"
+    )
     def test_op_success_with_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
 
@@ -316,10 +329,13 @@ class TestMQTTPipelineDisconnect(object):
         pipeline.disconnect(callback=mocker.MagicMock())
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(
-            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.DisconnectOperation
+            pipeline._pipeline.run_op.call_args[0][0],
+            pipeline_ops_base.DisconnectOperation,
         )
 
-    @pytest.mark.it("Triggers the callback upon successful completion of the DisconnectOperation")
+    @pytest.mark.it(
+        "Triggers the callback upon successful completion of the DisconnectOperation"
+    )
     def test_op_success_with_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
 
@@ -366,9 +382,14 @@ class TestSendRegister(object):
         assert pipeline._pipeline.run_op.call_count == 1
         op = pipeline._pipeline.run_op.call_args[0][0]
         assert isinstance(op, pipeline_ops_provisioning.RegisterOperation)
-        assert op.registration_id == pipeline._nucleus.pipeline_configuration.registration_id
+        assert (
+            op.registration_id
+            == pipeline._nucleus.pipeline_configuration.registration_id
+        )
 
-    @pytest.mark.it("passes the payload parameter as request_payload on the RegistrationRequest")
+    @pytest.mark.it(
+        "passes the payload parameter as request_payload on the RegistrationRequest"
+    )
     def test_sets_request_payload(self, pipeline, mocker):
         cb = mocker.MagicMock()
         fake_request_payload = "fake_request_payload"

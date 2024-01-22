@@ -39,7 +39,10 @@ class TestReportedProperties(object):
 
         # get twin from the service and verify content
         twin = client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+        assert (
+            twin[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
+        )
 
     @pytest.mark.it("Raises correct exception for un-serializable patch")
     def test_sync_bad_reported_patch_raises(self, client, leak_tracker):
@@ -55,7 +58,9 @@ class TestReportedProperties(object):
 
     @pytest.mark.it("Can clear a reported property")
     @pytest.mark.quicktest_suite
-    def test_sync_clear_property(self, client, random_reported_props, service_helper, leak_tracker):
+    def test_sync_clear_property(
+        self, client, random_reported_props, service_helper, leak_tracker
+    ):
         leak_tracker.set_initial_object_list()
 
         # patch properties and verify that the service received the patch
@@ -98,7 +103,10 @@ class TestReportedProperties(object):
         )
 
         twin = client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+        assert (
+            twin[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
+        )
 
         leak_tracker.check_for_leaks()
 
@@ -107,19 +115,26 @@ class TestReportedProperties(object):
 @pytest.mark.describe("Client Reported Properties with dropped connection")
 @pytest.mark.keep_alive(5)
 class TestReportedPropertiesDroppedConnection(object):
-
     # TODO: split drop tests between first and second patches
 
     @pytest.mark.it("Updates reported properties if connection drops before sending")
     def test_sync_updates_reported_if_drop_before_sending(
-        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+        self,
+        client,
+        random_reported_props,
+        dropper,
+        service_helper,
+        executor,
+        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
 
         assert client.connected
         dropper.drop_outgoing()
 
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        send_task = executor.submit(
+            client.patch_twin_reported_properties, random_reported_props
+        )
         while client.connected:
             time.sleep(1)
 
@@ -142,14 +157,22 @@ class TestReportedPropertiesDroppedConnection(object):
 
     @pytest.mark.it("Updates reported properties if connection rejects send")
     def test_sync_updates_reported_if_reject_before_sending(
-        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+        self,
+        client,
+        random_reported_props,
+        dropper,
+        service_helper,
+        executor,
+        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
 
         assert client.connected
         dropper.reject_outgoing()
 
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
+        send_task = executor.submit(
+            client.patch_twin_reported_properties, random_reported_props
+        )
         while client.connected:
             time.sleep(1)
 
@@ -175,7 +198,9 @@ class TestReportedPropertiesDroppedConnection(object):
 class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
     @pytest.mark.quicktest_suite
-    def test_sync_receives_simple_desired_patch(self, client, service_helper, leak_tracker):
+    def test_sync_receives_simple_desired_patch(
+        self, client, service_helper, leak_tracker
+    ):
         received_patches = queue.Queue()
         leak_tracker.set_initial_object_list()
 

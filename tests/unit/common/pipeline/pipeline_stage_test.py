@@ -5,7 +5,10 @@
 # --------------------------------------------------------------------------
 import logging
 import pytest
-from tests.unit.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
+from tests.unit.common.pipeline.helpers import (
+    StageRunOpTestBase,
+    StageHandlePipelineEventTestBase,
+)
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from azure.iot.device.common.pipeline import pipeline_exceptions, pipeline_events_base
 
@@ -77,7 +80,9 @@ def add_base_pipeline_stage_tests(
     # FLOW TESTS #
     ##############
 
-    @pytest.mark.describe("{} - .send_op_down()".format(stage_class_under_test.__name__))
+    @pytest.mark.describe(
+        "{} - .send_op_down()".format(stage_class_under_test.__name__)
+    )
     class StageSendOpDownTests(StageTestConfig):
         @pytest.mark.it("Passes the op to the next stage's .run_op() method")
         def test_passes_op_to_next_stage(self, mocker, stage, arbitrary_op):
@@ -92,7 +97,9 @@ def add_base_pipeline_stage_tests(
             with pytest.raises(pipeline_exceptions.PipelineRuntimeError):
                 stage.send_op_down(arbitrary_op)
 
-    @pytest.mark.describe("{} - .send_event_up()".format(stage_class_under_test.__name__))
+    @pytest.mark.describe(
+        "{} - .send_event_up()".format(stage_class_under_test.__name__)
+    )
     class StageSendEventUpTests(StageTestConfig):
         @pytest.mark.it(
             "Passes the event up to the previous stage's .handle_pipeline_event() method"
@@ -100,7 +107,9 @@ def add_base_pipeline_stage_tests(
         def test_calls_handle_pipeline_event(self, stage, arbitrary_event, mocker):
             stage.send_event_up(arbitrary_event)
             assert stage.previous.handle_pipeline_event.call_count == 1
-            assert stage.previous.handle_pipeline_event.call_args == mocker.call(arbitrary_event)
+            assert stage.previous.handle_pipeline_event.call_args == mocker.call(
+                arbitrary_event
+            )
 
         @pytest.mark.it("Raises a PipelineRuntimeError if there is no previous stage")
         def test_no_previous_stage(self, stage, arbitrary_event):
@@ -146,7 +155,10 @@ def add_base_pipeline_stage_tests(
             StageRunOpUnhandledOp,
         )
 
-    if stage_class_under_test._handle_pipeline_event is PipelineStage._handle_pipeline_event:
+    if (
+        stage_class_under_test._handle_pipeline_event
+        is PipelineStage._handle_pipeline_event
+    ):
 
         @pytest.mark.describe(
             "{} - .handle_pipeline_event()".format(stage_class_under_test.__name__)
@@ -166,7 +178,9 @@ def add_base_pipeline_stage_tests(
 
         setattr(
             test_module,
-            "Test{}HandlePipelineEventUnhandledEvent".format(stage_class_under_test.__name__),
+            "Test{}HandlePipelineEventUnhandledEvent".format(
+                stage_class_under_test.__name__
+            ),
             StageHandlePipelineEventUnhandledEvent,
         )
 

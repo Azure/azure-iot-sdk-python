@@ -133,7 +133,9 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
             else:
                 return future
         else:
-            logger.debug("Already in {} thread for {}".format(thread_name, function_name))
+            logger.debug(
+                "Already in {} thread for {}".format(thread_name, function_name)
+            )
             return func(*args, **kwargs)
 
     return wrapper
@@ -166,7 +168,9 @@ def invoke_on_http_thread_nowait(func):
     """
     # TODO: Refactor this since this is not in the pipeline thread anymore, so we need to pull this into common.
     # Also, the max workers eventually needs to be a bigger number, so that needs to be fixed to allow for more than one HTTP Request a a time.
-    return _invoke_on_executor_thread(func=func, thread_name="azure_iot_http", block=False)
+    return _invoke_on_executor_thread(
+        func=func, thread_name="azure_iot_http", block=False
+    )
 
 
 def _assert_executor_thread(func, thread_name):
@@ -177,10 +181,7 @@ def _assert_executor_thread(func, thread_name):
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-
-        assert (
-            threading.current_thread().name == thread_name
-        ), """
+        assert threading.current_thread().name == thread_name, """
             Function {function_name} is not running inside {thread_name} thread.
             It should be. You should use invoke_on_{thread_name}_thread(_nowait) to enter the
             {thread_name} thread before calling this function.  If you're hitting this from

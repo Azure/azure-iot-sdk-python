@@ -25,7 +25,10 @@ from azure.iot.device.iothub.pipeline import (
 from azure.iot.device.iothub.pipeline.exceptions import OperationError
 from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
-from tests.unit.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
+from tests.unit.common.pipeline.helpers import (
+    StageRunOpTestBase,
+    StageHandlePipelineEventTestBase,
+)
 from tests.unit.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant, user_agent
 
@@ -112,7 +115,9 @@ class IoTHubMQTTTranslationStageTestConfig(object):
         # NOTE 2: This config is configured for a device, not a module. Where relevant, override this
         # fixture or dynamically add a module_id
         cfg = config.IoTHubPipelineConfig(
-            hostname="http://my.hostname", device_id="my_device", sastoken=mocker.MagicMock()
+            hostname="http://my.hostname",
+            device_id="my_device",
+            sastoken=mocker.MagicMock(),
         )
         return cfg
 
@@ -142,7 +147,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnDevice
 ):
     @pytest.fixture
     def op(self, mocker):
-        return pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
+        return pipeline_ops_base.InitializePipelineOperation(
+            callback=mocker.MagicMock()
+        )
 
     @pytest.mark.it("Derives the MQTT client id, and sets it on the op")
     def test_client_id(self, stage, op, pipeline_config):
@@ -157,7 +164,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnDevice
         [
             pytest.param("", id="No custom product info"),
             pytest.param("my-product-info", id="With custom product info"),
-            pytest.param("my$product$info", id="With custom product info (URL encoding required)"),
+            pytest.param(
+                "my$product$info", id="With custom product info (URL encoding required)"
+            ),
         ],
     )
     def test_username(self, stage, op, pipeline_config, cust_product_info):
@@ -170,7 +179,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnDevice
             client_id=pipeline_config.device_id,
             api_version=pkg_constant.IOTHUB_API_VERSION,
             user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
-            custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
+            custom_product_info=urllib.parse.quote(
+                pipeline_config.product_info, safe=""
+            ),
         )
         assert op.username == expected_username
 
@@ -190,7 +201,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnDevice
             ),
         ],
     )
-    def test_username_for_digital_twin(self, stage, op, pipeline_config, digital_twin_product_info):
+    def test_username_for_digital_twin(
+        self, stage, op, pipeline_config, digital_twin_product_info
+    ):
         pipeline_config.product_info = digital_twin_product_info
         assert not hasattr(op, "username")
         stage.run_op(op)
@@ -201,7 +214,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnDevice
             api_version=pkg_constant.DIGITAL_TWIN_API_VERSION,
             user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
             digital_twin_prefix=pkg_constant.DIGITAL_TWIN_QUERY_HEADER,
-            custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
+            custom_product_info=urllib.parse.quote(
+                pipeline_config.product_info, safe=""
+            ),
         )
         assert op.username == expected_username
 
@@ -245,7 +260,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
 
     @pytest.fixture
     def op(self, mocker):
-        return pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
+        return pipeline_ops_base.InitializePipelineOperation(
+            callback=mocker.MagicMock()
+        )
 
     @pytest.mark.it("Derives the MQTT client id, and sets it on the op")
     def test_client_id(self, stage, op, pipeline_config):
@@ -262,7 +279,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
         [
             pytest.param("", id="No custom product info"),
             pytest.param("my-product-info", id="With custom product info"),
-            pytest.param("my$product$info", id="With custom product info (URL encoding required)"),
+            pytest.param(
+                "my$product$info", id="With custom product info (URL encoding required)"
+            ),
         ],
     )
     def test_username(self, stage, op, pipeline_config, cust_product_info):
@@ -277,7 +296,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
             client_id=expected_client_id,
             api_version=pkg_constant.IOTHUB_API_VERSION,
             user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
-            custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
+            custom_product_info=urllib.parse.quote(
+                pipeline_config.product_info, safe=""
+            ),
         )
         assert op.username == expected_username
 
@@ -297,7 +318,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
             ),
         ],
     )
-    def test_username_for_digital_twin(self, stage, op, pipeline_config, digital_twin_product_info):
+    def test_username_for_digital_twin(
+        self, stage, op, pipeline_config, digital_twin_product_info
+    ):
         pipeline_config.product_info = digital_twin_product_info
         assert not hasattr(op, "username")
         stage.run_op(op)
@@ -311,7 +334,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
             api_version=pkg_constant.DIGITAL_TWIN_API_VERSION,
             user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
             digital_twin_prefix=pkg_constant.DIGITAL_TWIN_QUERY_HEADER,
-            custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
+            custom_product_info=urllib.parse.quote(
+                pipeline_config.product_info, safe=""
+            ),
         )
         assert op.username == expected_username
 
@@ -378,8 +403,11 @@ class TestIoTHubMQTTTranslationStageRunOpWithSendD2CMessageOperation(
             device_id=pipeline_config.device_id, module_id=pipeline_config.module_id
         )
         assert mock_mqtt_topic.encode_message_properties_in_topic.call_count == 1
-        assert mock_mqtt_topic.encode_message_properties_in_topic.call_args == mocker.call(
-            op.message, mock_mqtt_topic.get_telemetry_topic_for_publish.return_value
+        assert (
+            mock_mqtt_topic.encode_message_properties_in_topic.call_args
+            == mocker.call(
+                op.message, mock_mqtt_topic.get_telemetry_topic_for_publish.return_value
+            )
         )
 
     @pytest.mark.it(
@@ -391,10 +419,15 @@ class TestIoTHubMQTTTranslationStageRunOpWithSendD2CMessageOperation(
         assert stage.send_op_down.call_count == 1
         new_op = stage.send_op_down.call_args[0][0]
         assert isinstance(new_op, pipeline_ops_mqtt.MQTTPublishOperation)
-        assert new_op.topic == mock_mqtt_topic.encode_message_properties_in_topic.return_value
+        assert (
+            new_op.topic
+            == mock_mqtt_topic.encode_message_properties_in_topic.return_value
+        )
         assert new_op.payload == op.message.data
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTPublishOperation")
+    @pytest.mark.it(
+        "Completes the original op upon completion of the new MQTTPublishOperation"
+    )
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -437,8 +470,11 @@ class TestIoTHubMQTTTranslationStageRunOpWithSendOutputMessageOperation(
             device_id=pipeline_config.device_id, module_id=pipeline_config.module_id
         )
         assert mock_mqtt_topic.encode_message_properties_in_topic.call_count == 1
-        assert mock_mqtt_topic.encode_message_properties_in_topic.call_args == mocker.call(
-            op.message, mock_mqtt_topic.get_telemetry_topic_for_publish.return_value
+        assert (
+            mock_mqtt_topic.encode_message_properties_in_topic.call_args
+            == mocker.call(
+                op.message, mock_mqtt_topic.get_telemetry_topic_for_publish.return_value
+            )
         )
 
     @pytest.mark.it(
@@ -450,10 +486,15 @@ class TestIoTHubMQTTTranslationStageRunOpWithSendOutputMessageOperation(
         assert stage.send_op_down.call_count == 1
         new_op = stage.send_op_down.call_args[0][0]
         assert isinstance(new_op, pipeline_ops_mqtt.MQTTPublishOperation)
-        assert new_op.topic == mock_mqtt_topic.encode_message_properties_in_topic.return_value
+        assert (
+            new_op.topic
+            == mock_mqtt_topic.encode_message_properties_in_topic.return_value
+        )
         assert new_op.payload == op.message.data
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTPublishOperation")
+    @pytest.mark.it(
+        "Completes the original op upon completion of the new MQTTPublishOperation"
+    )
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -484,7 +525,9 @@ class TestIoTHubMQTTTranslationStageWithSendMethodResponseOperation(
             method_response=method_response, callback=mocker.MagicMock()
         )
 
-    @pytest.mark.it("Derives the IoTHub telemetry topic using the op's request id and status")
+    @pytest.mark.it(
+        "Derives the IoTHub telemetry topic using the op's request id and status"
+    )
     def test_telemetry_topic(self, mocker, stage, op, mock_mqtt_topic):
         stage.run_op(op)
 
@@ -516,7 +559,9 @@ class TestIoTHubMQTTTranslationStageWithSendMethodResponseOperation(
         assert new_op.topic == mock_mqtt_topic.get_method_topic_for_publish.return_value
         assert new_op.payload == expected_string
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTPublishOperation")
+    @pytest.mark.it(
+        "Completes the original op upon completion of the new MQTTPublishOperation"
+    )
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -564,7 +609,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithEnableFeatureOperation(
         # New op has the expected topic
         assert new_op.topic == expected_mqtt_topic_fn.return_value
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTSubscribeOperation")
+    @pytest.mark.it(
+        "Completes the original op upon completion of the new MQTTSubscribeOperation"
+    )
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -612,7 +659,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithDisableFeatureOperation(
         # New op has the expected topic
         assert new_op.topic == expected_mqtt_topic_fn.return_value
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTUnsubscribeOperation")
+    @pytest.mark.it(
+        "Completes the original op upon completion of the new MQTTUnsubscribeOperation"
+    )
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -628,7 +677,9 @@ class TestIoTHubMQTTTranslationStageRunOpWithDisableFeatureOperation(
         assert op.error is op_error
 
 
-@pytest.mark.describe("IoTHubMQTTTranslationStage - .run_op() -- Called with RequestOperation")
+@pytest.mark.describe(
+    "IoTHubMQTTTranslationStage - .run_op() -- Called with RequestOperation"
+)
 class TestIoTHubMQTTTranslationStageWithRequestOperation(
     StageRunOpTestBase, IoTHubMQTTTranslationStageTestConfig
 ):
@@ -653,7 +704,9 @@ class TestIoTHubMQTTTranslationStageWithRequestOperation(
 
         assert mock_mqtt_topic.get_twin_topic_for_publish.call_count == 1
         assert mock_mqtt_topic.get_twin_topic_for_publish.call_args == mocker.call(
-            method=op.method, resource_location=op.resource_location, request_id=op.request_id
+            method=op.method,
+            resource_location=op.resource_location,
+            request_id=op.request_id,
         )
 
     @pytest.mark.it(
@@ -679,7 +732,9 @@ class TestIoTHubMQTTTranslationStageWithRequestOperation(
         assert new_op.topic == mock_mqtt_topic.get_twin_topic_for_publish.return_value
         assert new_op.payload == op.request_body
 
-    @pytest.mark.it("Completes the original op upon completion of the new MQTTPublishOperation")
+    @pytest.mark.it(
+        "Completes the original op upon completion of the new MQTTPublishOperation"
+    )
     def test_complete_resulting_op(self, stage, op, op_error):
         stage.run_op(op)
         assert not op.completed
@@ -725,7 +780,9 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
         topic = "devices/{device_id}/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2F{device_id}%2Fmessages%2Fdevicebound".format(
             device_id=pipeline_config.device_id
         )
-        return pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload="some payload")
+        return pipeline_events_mqtt.IncomingMQTTMessageEvent(
+            topic=topic, payload="some payload"
+        )
 
     @pytest.mark.it(
         "Creates a Message with the event's payload, and applies any message properties included in the topic"
@@ -736,7 +793,10 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
         # Message properties were extracted from the topic
         # NOTE that because this is mocked, we don't need to test various topics with various properties
         assert mock_mqtt_topic.extract_message_properties_from_topic.call_count == 1
-        assert mock_mqtt_topic.extract_message_properties_from_topic.call_args[0][0] == event.topic
+        assert (
+            mock_mqtt_topic.extract_message_properties_from_topic.call_args[0][0]
+            == event.topic
+        )
         message = mock_mqtt_topic.extract_message_properties_from_topic.call_args[0][1]
         assert isinstance(message, Message)
         # The message contains the event's payload
@@ -796,7 +856,9 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
             module_id=pipeline_config.module_id,
             input_name=input_name,
         )
-        return pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload="some payload")
+        return pipeline_events_mqtt.IncomingMQTTMessageEvent(
+            topic=topic, payload="some payload"
+        )
 
     @pytest.mark.it(
         "Creates a Message with the event's payload, and applies any message properties included in the topic"
@@ -807,7 +869,10 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
         # Message properties were extracted from the topic
         # NOTE that because this is mocked, we don't need to test various topics with various properties
         assert mock_mqtt_topic.extract_message_properties_from_topic.call_count == 1
-        assert mock_mqtt_topic.extract_message_properties_from_topic.call_args[0][0] == event.topic
+        assert (
+            mock_mqtt_topic.extract_message_properties_from_topic.call_args[0][0]
+            == event.topic
+        )
         message = mock_mqtt_topic.extract_message_properties_from_topic.call_args[0][1]
         assert isinstance(message, Message)
         # The message contains the event's payload
@@ -892,7 +957,9 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
         assert new_event.method_request.name == method_name
         assert new_event.method_request.request_id == rid
         # This is expanded on in in the next test
-        assert new_event.method_request.payload == json.loads(event.payload.decode("utf-8") or 'null')
+        assert new_event.method_request.payload == json.loads(
+            event.payload.decode("utf-8") or "null"
+        )
 
     @pytest.mark.it(
         "Derives the MethodRequestEvent's payload by converting the original event's payload from bytes into a JSON object"
@@ -900,7 +967,9 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
     @pytest.mark.parametrize(
         "original_payload, derived_payload",
         [
-            pytest.param(b'{"some": "payload"}', {"some": "payload"}, id="Dictionary JSON"),
+            pytest.param(
+                b'{"some": "payload"}', {"some": "payload"}, id="Dictionary JSON"
+            ),
             pytest.param(b'"payload"', "payload", id="String JSON"),
             pytest.param(b"1234", 1234, id="Int JSON"),
             pytest.param(b"null", None, id="None JSON"),
@@ -936,7 +1005,9 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
     @pytest.fixture
     def event(self, status, rid):
         topic = "$iothub/twin/res/{status}/?$rid={rid}".format(status=status, rid=rid)
-        return pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=b"some_payload")
+        return pipeline_events_mqtt.IncomingMQTTMessageEvent(
+            topic=topic, payload=b"some_payload"
+        )
 
     @pytest.mark.it(
         "Sends a ResponseEvent up the pipeline containing the original event's payload, and values extracted from the topic string"
@@ -972,7 +1043,9 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
     @pytest.mark.parametrize(
         "original_payload, derived_payload",
         [
-            pytest.param(b'{"some": "payload"}', {"some": "payload"}, id="Dictionary JSON"),
+            pytest.param(
+                b'{"some": "payload"}', {"some": "payload"}, id="Dictionary JSON"
+            ),
             pytest.param(b'"payload"', "payload", id="String JSON"),
             pytest.param(b"1234", 1234, id="Int JSON"),
             pytest.param(b"null", None, id="None JSON"),
@@ -985,7 +1058,9 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
 
         assert stage.send_event_up.call_count == 1
         new_event = stage.send_event_up.call_args[0][0]
-        assert isinstance(new_event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent)
+        assert isinstance(
+            new_event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent
+        )
         assert new_event.patch == derived_payload
 
 
@@ -998,7 +1073,9 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
     @pytest.fixture
     def event(self):
         topic = "not a real topic"
-        return pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=b"some payload")
+        return pipeline_events_mqtt.IncomingMQTTMessageEvent(
+            topic=topic, payload=b"some payload"
+        )
 
     @pytest.mark.it("Sends the event up the pipeline")
     def test_sends_up(self, event, stage):

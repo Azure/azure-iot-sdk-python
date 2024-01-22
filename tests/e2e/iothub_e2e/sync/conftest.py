@@ -14,7 +14,9 @@ logger.setLevel(level=logging.INFO)
 
 
 @pytest.fixture(scope="function")
-def brand_new_client(device_identity, client_kwargs, service_helper, device_id, module_id):
+def brand_new_client(
+    device_identity, client_kwargs, service_helper, device_id, module_id
+):
     service_helper.set_identity(device_id, module_id)
 
     # Keep this here.  It is useful to see this info inside the inside devops pipeline test failures.

@@ -60,9 +60,13 @@ class TestConnectDisconnect(object):
         async def handle_on_connection_state_change():
             nonlocal reconnected_event
             if client.connected:
-                logger.info("handle_on_connection_state_change connected.  nothing to do")
+                logger.info(
+                    "handle_on_connection_state_change connected.  nothing to do"
+                )
             else:
-                logger.info("handle_on_connection_state_change disconnected.  reconnecting.")
+                logger.info(
+                    "handle_on_connection_state_change disconnected.  reconnecting."
+                )
                 await client.connect()
                 assert client.connected
                 event_loop.call_soon_threadsafe(reconnected_event.set)
@@ -82,7 +86,9 @@ class TestConnectDisconnect(object):
         await reconnected_event.wait()
 
         logger.info(
-            "reconnect_event.wait() returned.  client.connected={}".format(client.connected)
+            "reconnect_event.wait() returned.  client.connected={}".format(
+                client.connected
+            )
         )
 
         # This assert fails because of initial and secondary disconnects
@@ -94,7 +100,9 @@ class TestConnectDisconnect(object):
 
         # finally, send a message to makes reu we're _really_ connected
         await client.send_message(random_message)
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
         assert event
 
         random_message = None  # so this isn't flagged as a leak
@@ -107,7 +115,10 @@ class TestConnectDisconnect(object):
     @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     @pytest.mark.parametrize(
         "first_connect",
-        [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
+        [
+            pytest.param(True, id="First connection"),
+            pytest.param(False, id="Second connection"),
+        ],
     )
     async def test_disconnect_in_the_middle_of_connect(
         self,
@@ -174,7 +185,9 @@ class TestConnectDisconnect(object):
         assert client.connected
 
         await client.send_message(random_message)
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
         assert event
 
         random_message = None  # So this doesn't get flagged as a leak.

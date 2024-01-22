@@ -80,11 +80,15 @@ def create_max_min_report_response(values):
         "maxTemp": max_temp,
         "minTemp": min_temp,
         "avgTemp": sum(avg_temp_list) / moving_window_size,
-        "startTime": (datetime.now() - timedelta(0, moving_window_size * 8)).isoformat(),
+        "startTime": (
+            datetime.now() - timedelta(0, moving_window_size * 8)
+        ).isoformat(),
         "endTime": datetime.now().isoformat(),
     }
     # serialize response dictionary into a JSON formatted str
-    response_payload = json.dumps(response_dict, default=lambda o: o.__dict__, sort_keys=True)
+    response_payload = json.dumps(
+        response_dict, default=lambda o: o.__dict__, sort_keys=True
+    )
     print(response_payload)
     return response_payload
 
@@ -147,13 +151,17 @@ async def execute_command_listener(
         try:
             await device_client.send_method_response(command_response)
         except Exception:
-            print("responding to the {command} command failed".format(command=method_name))
+            print(
+                "responding to the {command} command failed".format(command=method_name)
+            )
 
 
 async def execute_property_listener(device_client):
     ignore_keys = ["__t", "$version"]
     while True:
-        patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
+        patch = (
+            await device_client.receive_twin_desired_properties_patch()
+        )  # blocking call
 
         print("the data in the desired properties patch was: {}".format(patch))
 
@@ -198,7 +206,9 @@ def stdin_listener():
 
 #####################################################
 # PROVISION DEVICE
-async def provision_device(provisioning_host, id_scope, registration_id, symmetric_key, model_id):
+async def provision_device(
+    provisioning_host, id_scope, registration_id, symmetric_key, model_id
+):
     provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
         provisioning_host=provisioning_host,
         registration_id=registration_id,
@@ -261,7 +271,9 @@ async def main():
     # Set and read desired property (target temperature)
 
     max_temp = 10.96  # Initial Max Temp otherwise will not pass certification
-    await device_client.patch_twin_reported_properties({"maxTempSinceLastReboot": max_temp})
+    await device_client.patch_twin_reported_properties(
+        {"maxTempSinceLastReboot": max_temp}
+    )
 
     ################################################
     # Register callback and Handle command (reboot)

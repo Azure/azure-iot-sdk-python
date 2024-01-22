@@ -39,4 +39,6 @@ from . import patch_documentation
 
 patch_documentation.execute_patch_for_async()
 
-__all__ = azure.iot.device.iothub.aio.__all__ + azure.iot.device.provisioning.aio.__all__
+__all__ = (
+    azure.iot.device.iothub.aio.__all__ + azure.iot.device.provisioning.aio.__all__
+)

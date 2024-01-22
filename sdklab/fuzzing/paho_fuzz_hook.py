@@ -51,7 +51,9 @@ def add_paho_logging_hook(device_client, log_func=print):
         )
 
 
-def add_hook_drop_outgoing_until_reconnect(device_client, failure_probability, log_func=print):
+def add_hook_drop_outgoing_until_reconnect(
+    device_client, failure_probability, log_func=print
+):
     """
     Add a hook to randomly drop all outgoing messages until reconnect based on some failure
     probability. This is used to simulate a "connection drop" scenario where packets just stop
@@ -99,7 +101,9 @@ def add_hook_drop_outgoing_until_reconnect(device_client, failure_probability, l
     paho._sock_close = new_sock_close
 
 
-def add_hook_drop_individual_outgoing(device_client, failure_probability, log_func=print):
+def add_hook_drop_individual_outgoing(
+    device_client, failure_probability, log_func=print
+):
     """
     Add a hook to randomly drop individual outgoing messages until reconnect based on some
     probability. This is used to simulate a "unreliable network" scenario where individual
@@ -125,7 +129,9 @@ def add_hook_drop_individual_outgoing(device_client, failure_probability, log_fu
     paho._sock_send = new_sock_send
 
 
-def add_hook_drop_incoming_until_reconnect(device_client, failure_probability, log_func=print):
+def add_hook_drop_incoming_until_reconnect(
+    device_client, failure_probability, log_func=print
+):
     """
     Add a hook to randomly drop all incoming messages until reconnect based on some failure
     probability. This is used to simulate a "connection drop" scenario where packets just stop
@@ -178,7 +184,9 @@ def add_hook_drop_incoming_until_reconnect(device_client, failure_probability, l
     paho._sock_close = new_sock_close
 
 
-def add_hook_drop_individual_incoming(device_client, failure_probability, log_func=print):
+def add_hook_drop_individual_incoming(
+    device_client, failure_probability, log_func=print
+):
     """
     Add a hook to randomly drop individual incoming messages until reconnect based on some
     failure probability. This is used to simulate a "unreliable network" scenario where individual
@@ -231,7 +239,9 @@ def add_hook_raise_send_exception(device_client, failure_probability, log_func=p
     paho._sock_send = new_sock_send
 
 
-def add_hook_raise_receive_exception(device_client, failure_probability, log_func=print):
+def add_hook_raise_receive_exception(
+    device_client, failure_probability, log_func=print
+):
     """
     Add a hook to randomly raise an exception when receiving based on some failure probability. This
     is used to simulate an exception inside Paho when receiving.

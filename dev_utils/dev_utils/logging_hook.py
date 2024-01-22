@@ -106,7 +106,10 @@ def add_logging_hook(obj, func_name, log_func, module_name, log_args=True):
         else:
             log_func(
                 "{indent}{module_name}-{index}: calling {func_name} with <REDACTED>".format(
-                    indent=_indent(), module_name=module_name, index=index, func_name=func_name
+                    indent=_indent(),
+                    module_name=module_name,
+                    index=index,
+                    func_name=func_name,
                 )
             )
 

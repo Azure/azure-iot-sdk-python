@@ -5,7 +5,9 @@
 # --------------------------------------------------------------------------
 import pytest
 import logging
-from azure.iot.device.provisioning.provisioning_device_client import ProvisioningDeviceClient
+from azure.iot.device.provisioning.provisioning_device_client import (
+    ProvisioningDeviceClient,
+)
 from azure.iot.device.provisioning.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions as client_exceptions
 from .shared_client_tests import (
@@ -44,16 +46,21 @@ class TestProvisioningClientCreateFromSymmetricKey(
     pass
 
 
-@pytest.mark.describe("ProvisioningDeviceClient (Sync) - .create_from_x509_certificate()")
+@pytest.mark.describe(
+    "ProvisioningDeviceClient (Sync) - .create_from_x509_certificate()"
+)
 class TestProvisioningClientCreateFromX509Certificate(
-    ProvisioningClientTestsConfig, SharedProvisioningClientCreateFromX509CertificateTests
+    ProvisioningClientTestsConfig,
+    SharedProvisioningClientCreateFromX509CertificateTests,
 ):
     pass
 
 
 @pytest.mark.describe("ProvisioningDeviceClient (Sync) - .register()")
 class TestClientRegister(object):
-    @pytest.mark.it("Implicitly enables responses from provisioning service if not already enabled")
+    @pytest.mark.it(
+        "Implicitly enables responses from provisioning service if not already enabled"
+    )
     def test_enables_provisioning_only_if_not_already_enabled(
         self, mocker, provisioning_pipeline, registration_result
     ):
@@ -62,7 +69,9 @@ class TestClientRegister(object):
             callback(result=registration_result)
 
         mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_success_callback
+            provisioning_pipeline,
+            "register",
+            side_effect=register_complete_success_callback,
         )
 
         provisioning_pipeline.responses_enabled.__getitem__.return_value = False
@@ -87,7 +96,9 @@ class TestClientRegister(object):
             callback(result=registration_result)
 
         mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_success_callback
+            provisioning_pipeline,
+            "register",
+            side_effect=register_complete_success_callback,
         )
         client = ProvisioningDeviceClient(provisioning_pipeline)
         client.register()
@@ -96,7 +107,9 @@ class TestClientRegister(object):
     @pytest.mark.it(
         "Begins a 'shutdown' pipeline operation if the registration result is successful"
     )
-    def test_shutdown_upon_success(self, mocker, provisioning_pipeline, registration_result):
+    def test_shutdown_upon_success(
+        self, mocker, provisioning_pipeline, registration_result
+    ):
         # success result
         registration_result._status = "assigned"
 
@@ -104,7 +117,9 @@ class TestClientRegister(object):
             callback(result=registration_result)
 
         mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_success_callback
+            provisioning_pipeline,
+            "register",
+            side_effect=register_complete_success_callback,
         )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
@@ -115,7 +130,9 @@ class TestClientRegister(object):
     @pytest.mark.it(
         "Does NOT begin a 'shutdown' pipeline operation if the registration result is NOT successful"
     )
-    def test_no_shutdown_upon_fail(self, mocker, provisioning_pipeline, registration_result):
+    def test_no_shutdown_upon_fail(
+        self, mocker, provisioning_pipeline, registration_result
+    ):
         # fail result
         registration_result._status = "not assigned"
 
@@ -123,7 +140,9 @@ class TestClientRegister(object):
             callback(result=registration_result)
 
         mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_fail_callback
+            provisioning_pipeline,
+            "register",
+            side_effect=register_complete_fail_callback,
         )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
@@ -159,7 +178,9 @@ class TestClientRegister(object):
         assert provisioning_pipeline.register.call_args == mocker.call(
             payload=mocker.ANY, callback=cb_mock_register
         )
-        assert provisioning_pipeline.shutdown.call_args == mocker.call(callback=cb_mock_shutdown)
+        assert provisioning_pipeline.shutdown.call_args == mocker.call(
+            callback=cb_mock_shutdown
+        )
         # Callback completions were waited upon as expected
         assert cb_mock_register.wait_for_completion.call_count == 1
         assert cb_mock_shutdown.wait_for_completion.call_count == 1
@@ -206,7 +227,9 @@ class TestClientRegister(object):
             callback(result=result)
 
         mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_success_callback
+            provisioning_pipeline,
+            "register",
+            side_effect=register_complete_success_callback,
         )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
@@ -244,7 +267,9 @@ class TestClientRegister(object):
                 client_exceptions.OperationTimeout,
                 id="OperationTimeout->OperationTimeout",
             ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            ),
         ],
     )
     def test_raises_error_on_register_pipeline_op_error(
@@ -256,7 +281,9 @@ class TestClientRegister(object):
             callback(result=None, error=error)
 
         mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_failure_callback
+            provisioning_pipeline,
+            "register",
+            side_effect=register_complete_failure_callback,
         )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
@@ -273,11 +300,18 @@ class TestClientRegister(object):
         "pipeline_error,client_error",
         [
             # The only expected errors are unexpected ones
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError")
+            pytest.param(
+                Exception, client_exceptions.ClientError, id="Exception->ClientError"
+            )
         ],
     )
     def test_raises_error_on_shutdown_pipeline_op_error(
-        self, mocker, pipeline_error, client_error, provisioning_pipeline, registration_result
+        self,
+        mocker,
+        pipeline_error,
+        client_error,
+        provisioning_pipeline,
+        registration_result,
     ):
         # success result is required to trigger shutdown
         registration_result._status = "assigned"
@@ -291,7 +325,9 @@ class TestClientRegister(object):
             callback(result=None, error=error)
 
         mocker.patch.object(
-            provisioning_pipeline, "register", side_effect=register_complete_success_callback
+            provisioning_pipeline,
+            "register",
+            side_effect=register_complete_success_callback,
         )
         mocker.patch.object(
             provisioning_pipeline, "shutdown", side_effect=shutdown_failure_callback

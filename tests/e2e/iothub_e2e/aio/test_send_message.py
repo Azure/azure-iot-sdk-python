@@ -18,13 +18,16 @@ pytestmark = pytest.mark.asyncio
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
     @pytest.mark.quicktest_suite
-    async def test_send_simple_message(self, client, random_message, service_helper, leak_tracker):
-
+    async def test_send_simple_message(
+        self, client, random_message, service_helper, leak_tracker
+    ):
         leak_tracker.set_initial_object_list()
 
         await client.send_message(random_message)
 
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
         assert event.system_properties["message-id"] == random_message.message_id
         assert json.dumps(event.message_body) == random_message.data
 
@@ -32,8 +35,9 @@ class TestSendMessage(object):
 
     @pytest.mark.it("Connects the transport if necessary")
     @pytest.mark.quicktest_suite
-    async def test_connect_if_necessary(self, client, random_message, service_helper, leak_tracker):
-
+    async def test_connect_if_necessary(
+        self, client, random_message, service_helper, leak_tracker
+    ):
         leak_tracker.set_initial_object_list()
 
         await client.disconnect()
@@ -42,7 +46,9 @@ class TestSendMessage(object):
         await client.send_message(random_message)
         assert client.connected
 
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
         assert json.dumps(event.message_body) == random_message.data
 
         leak_tracker.check_for_leaks()
@@ -62,7 +68,9 @@ class TestSendMessage(object):
         # TODO: investigate leak
         # leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
+    @pytest.mark.it(
+        "Can send a JSON-formatted string that isn't wrapped in a Message object"
+    )
     async def test_sends_json_string(self, client, service_helper, leak_tracker):
         leak_tracker.set_initial_object_list()
 
@@ -116,7 +124,9 @@ class TestSendMessageDroppedConnection(object):
 
         await send_task
 
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
 
         logger.info("sent from device= {}".format(random_message.data))
         logger.info("received at eventhub = {}".format(event.message_body))
@@ -150,7 +160,9 @@ class TestSendMessageDroppedConnection(object):
 
         await send_task
 
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
 
         logger.info("sent from device= {}".format(random_message.data))
         logger.info("received at eventhub = {}".format(event.message_body))
@@ -181,12 +193,16 @@ class TestSendMessageRetryDisabled(object):
 
         await client.send_message(random_message)
 
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
         assert json.dumps(event.message_body) == random_message.data
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Automatically connects if transport manually disconnected before sending")
+    @pytest.mark.it(
+        "Automatically connects if transport manually disconnected before sending"
+    )
     async def test_connect_if_necessary_retry_disabled(
         self, client, random_message, service_helper, leak_tracker
     ):
@@ -198,12 +214,16 @@ class TestSendMessageRetryDisabled(object):
         await client.send_message(random_message)
         assert client.connected
 
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
         assert json.dumps(event.message_body) == random_message.data
 
         leak_tracker.check_for_leaks()
 
-    @pytest.mark.it("Automatically connects if transport automatically disconnected before sending")
+    @pytest.mark.it(
+        "Automatically connects if transport automatically disconnected before sending"
+    )
     @pytest.mark.uses_iptables
     async def test_connects_after_automatic_disconnect_retry_disabled(
         self, client, random_message, dropper, service_helper, leak_tracker
@@ -221,7 +241,9 @@ class TestSendMessageRetryDisabled(object):
         await client.send_message(random_message)
         assert client.connected
 
-        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        event = await service_helper.wait_for_eventhub_arrival(
+            random_message.message_id
+        )
         assert json.dumps(event.message_body) == random_message.data
 
         leak_tracker.check_for_leaks()

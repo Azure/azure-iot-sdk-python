@@ -60,7 +60,9 @@ class FakeProvisioningPipeline:
 
 @pytest.fixture
 def registration_result():
-    registration_state = RegistrationState(fake_device_id, fake_assigned_hub, fake_sub_status)
+    registration_state = RegistrationState(
+        fake_device_id, fake_assigned_hub, fake_sub_status
+    )
     return RegistrationResult(fake_operation_id, fake_status, registration_state)
 
 

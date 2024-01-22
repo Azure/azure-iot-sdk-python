@@ -38,11 +38,15 @@ async def handle_result(callback):
     except pipeline_exceptions.NoConnectionError as e:
         raise exceptions.NoConnectionError("Client is not connected to IoTHub") from e
     except pipeline_exceptions.UnauthorizedError as e:
-        raise exceptions.CredentialError("Credentials invalid, could not connect") from e
+        raise exceptions.CredentialError(
+            "Credentials invalid, could not connect"
+        ) from e
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError("Error in the IoTHub client") from e
     except pipeline_exceptions.TlsExchangeAuthError as e:
-        raise exceptions.ClientError("Error in the IoTHub client due to TLS exchanges.") from e
+        raise exceptions.ClientError(
+            "Error in the IoTHub client due to TLS exchanges."
+        ) from e
     except pipeline_exceptions.ProtocolProxyError as e:
         raise exceptions.ClientError(
             "Error in the IoTHub client raised due to proxy connections."
@@ -50,9 +54,13 @@ async def handle_result(callback):
     except pipeline_exceptions.PipelineNotRunning as e:
         raise exceptions.ClientError("Client has already been shut down") from e
     except pipeline_exceptions.OperationCancelled as e:
-        raise exceptions.OperationCancelled("Operation was cancelled before completion") from e
+        raise exceptions.OperationCancelled(
+            "Operation was cancelled before completion"
+        ) from e
     except pipeline_exceptions.OperationTimeout as e:
-        raise exceptions.OperationTimeout("Could not complete operation before timeout") from e
+        raise exceptions.OperationTimeout(
+            "Could not complete operation before timeout"
+        ) from e
     except Exception as e:
         raise exceptions.ClientError("Unexpected failure") from e
 
@@ -79,7 +87,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # **kwargs.
         super().__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=AsyncClientInbox)
-        self._handler_manager = async_handler_manager.AsyncHandlerManager(self._inbox_manager)
+        self._handler_manager = async_handler_manager.AsyncHandlerManager(
+            self._inbox_manager
+        )
 
         # Set pipeline handlers for client events
         self._mqtt_pipeline.on_connected = self._on_connected
@@ -88,8 +98,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._mqtt_pipeline.on_background_exception = self._on_background_exception
 
         # Set pipeline handlers for data receives
-        self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
-        self._mqtt_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
+        self._mqtt_pipeline.on_method_request_received = (
+            self._inbox_manager.route_method_request
+        )
+        self._mqtt_pipeline.on_twin_patch_received = (
+            self._inbox_manager.route_twin_patch
+        )
 
     async def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature
@@ -100,7 +114,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Enabling feature:" + feature_name + "...")
         if not self._mqtt_pipeline.feature_enabled[feature_name]:
             # Enable the feature if not already enabled
-            enable_feature_async = async_adapter.emulate_async(self._mqtt_pipeline.enable_feature)
+            enable_feature_async = async_adapter.emulate_async(
+                self._mqtt_pipeline.enable_feature
+            )
 
             callback = async_adapter.AwaitableCallback()
             await enable_feature_async(feature_name, callback=callback)
@@ -120,7 +136,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Disabling feature: {}...".format(feature_name))
         if self._mqtt_pipeline.feature_enabled[feature_name]:
             # Disable the feature if not already disabled
-            disable_feature_async = async_adapter.emulate_async(self._mqtt_pipeline.disable_feature)
+            disable_feature_async = async_adapter.emulate_async(
+                self._mqtt_pipeline.disable_feature
+            )
 
             callback = async_adapter.AwaitableCallback()
             await disable_feature_async(feature_name, callback=callback)
@@ -146,12 +164,17 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         setattr(self._handler_manager, handler_name, new_handler)
 
         # Enable the feature if necessary
-        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
+        if (
+            new_handler is not None
+            and not self._mqtt_pipeline.feature_enabled[feature_name]
+        ):
             # We have to call this on a loop running on a different thread in order to ensure
             # the setter can be called both within a coroutine (with a running event loop) and
             # outside of a coroutine (where no event loop is currently running)
             loop = loop_management.get_client_internal_loop()
-            fut = asyncio.run_coroutine_threadsafe(self._enable_feature(feature_name), loop=loop)
+            fut = asyncio.run_coroutine_threadsafe(
+                self._enable_feature(feature_name), loop=loop
+            )
             fut.result()
 
         # Disable the feature if necessary
@@ -160,7 +183,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             # the setter can be called both within a coroutine (with a running event loop) and
             # outside of a coroutine (where no event loop is currently running)
             loop = loop_management.get_client_internal_loop()
-            fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
+            fut = asyncio.run_coroutine_threadsafe(
+                self._disable_feature(feature_name), loop=loop
+            )
             fut.result()
 
     async def shutdown(self):
@@ -347,7 +372,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             raise ValueError("Size of telemetry message can not exceed 256 KB.")
 
         logger.info("Sending message to Hub...")
-        send_message_async = async_adapter.emulate_async(self._mqtt_pipeline.send_message)
+        send_message_async = async_adapter.emulate_async(
+            self._mqtt_pipeline.send_message
+        )
 
         callback = async_adapter.AwaitableCallback()
         await send_message_async(message, callback=callback)
@@ -529,7 +556,9 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
-        self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
+        self._mqtt_pipeline.on_c2d_message_received = (
+            self._inbox_manager.route_c2d_message
+        )
 
     @deprecation.deprecated(
         deprecated_in="2.3.0",
@@ -611,7 +640,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
-        self._mqtt_pipeline.on_input_message_received = self._inbox_manager.route_input_message
+        self._mqtt_pipeline.on_input_message_received = (
+            self._inbox_manager.route_input_message
+        )
 
     async def send_message_to_output(self, message, output_name):
         """Sends an event/message to the given module output.
@@ -697,12 +728,20 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :rtype: dict
         """
         logger.info(
-            "Invoking {} method on {}{}".format(method_params["methodName"], device_id, module_id)
+            "Invoking {} method on {}{}".format(
+                method_params["methodName"], device_id, module_id
+            )
         )
 
-        invoke_method_async = async_adapter.emulate_async(self._http_pipeline.invoke_method)
-        callback = async_adapter.AwaitableCallback(return_arg_name="invoke_method_response")
-        await invoke_method_async(device_id, method_params, callback=callback, module_id=module_id)
+        invoke_method_async = async_adapter.emulate_async(
+            self._http_pipeline.invoke_method
+        )
+        callback = async_adapter.AwaitableCallback(
+            return_arg_name="invoke_method_response"
+        )
+        await invoke_method_async(
+            device_id, method_params, callback=callback, module_id=module_id
+        )
 
         method_response = await handle_result(callback)
         logger.info("Successfully invoked method")

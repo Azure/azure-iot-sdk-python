@@ -38,7 +38,9 @@ all_internal_client_event_handlers = [
     "_on_new_sastoken_required",
     "_on_background_exception",
 ]
-all_internal_handlers = all_internal_receiver_handlers + all_internal_client_event_handlers
+all_internal_handlers = (
+    all_internal_receiver_handlers + all_internal_client_event_handlers
+)
 all_receiver_handlers = [s.lstrip("_") for s in all_internal_receiver_handlers]
 all_client_event_handlers = [s.lstrip("_") for s in all_internal_client_event_handlers]
 all_handlers = all_receiver_handlers + all_client_event_handlers
@@ -188,7 +190,9 @@ class TestStop(object):
         if client_event_handlers_running:
             assert handler_manager._client_event_runner is not None
 
-    @pytest.mark.it("Completes all pending handler invocations before stopping the runner(s)")
+    @pytest.mark.it(
+        "Completes all pending handler invocations before stopping the runner(s)"
+    )
     async def test_completes_pending(self, mocker, inbox_manager):
         hm = AsyncHandlerManager(inbox_manager)
 
@@ -237,14 +241,19 @@ class TestEnsureRunning(object):
             for handler_name in all_handlers:
                 setattr(hm, handler_name, handler)
             hm.stop()
-        elif request.param == "All handlers set, receivers stopped, client events running":
+        elif (
+            request.param
+            == "All handlers set, receivers stopped, client events running"
+        ):
             for handler_name in all_handlers:
                 setattr(hm, handler_name, handler)
             hm.stop(receiver_handlers_only=True)
         elif request.param == "All handlers set, all running":
             for handler_name in all_handlers:
                 setattr(hm, handler_name, handler)
-        elif request.param == "Some receiver and client event handlers set, all stopped":
+        elif (
+            request.param == "Some receiver and client event handlers set, all stopped"
+        ):
             hm.on_message_received = handler
             hm.on_method_request_received = handler
             hm.on_connection_state_change = handler
@@ -259,7 +268,9 @@ class TestEnsureRunning(object):
             hm.on_connection_state_change = handler
             hm.on_new_sastoken_required = handler
             hm.stop(receiver_handlers_only=True)
-        elif request.param == "Some receiver and client event handlers set, all running":
+        elif (
+            request.param == "Some receiver and client event handlers set, all running"
+        ):
             hm.on_message_received = handler
             hm.on_method_request_received = handler
             hm.on_connection_state_change = handler
@@ -293,7 +304,10 @@ class TestEnsureRunning(object):
             if getattr(handler_manager, handler_name) is not None:
                 # NOTE: this assumes the convention of internal names being the name of a handler
                 # prefixed with a "_". If this ever changes, you must change this test.
-                assert handler_manager._receiver_handler_runners["_" + handler_name] is not None
+                assert (
+                    handler_manager._receiver_handler_runners["_" + handler_name]
+                    is not None
+                )
 
         # Check client event handlers
         for handler_name in all_client_event_handlers:
@@ -386,7 +400,9 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
 
         setattr(handler_manager, handler_name, new_handler)
         # Future has not completed, and is still maintained by the manager
-        assert handler_manager._receiver_handler_runners[handler_name_internal] is future
+        assert (
+            handler_manager._receiver_handler_runners[handler_name_internal] is future
+        )
         assert not future.done()
 
     @pytest.mark.it(
@@ -476,7 +492,9 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         self, mocker, handler_name, handler_manager, inbox, arbitrary_exception
     ):
         # NOTE: this test tests both coroutines and functions without the need for parametrization
-        background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
+        background_exc_spy = mocker.spy(
+            handle_exceptions, "handle_background_exception"
+        )
 
         def function_handler(arg):
             raise arbitrary_exception
@@ -516,7 +534,9 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
     @pytest.mark.it(
         "Can be updated with a new value that the corresponding handler runner will immediately begin using for handler invocations instead"
     )
-    async def test_handler_update_handler(self, mocker, handler_name, handler_manager, inbox):
+    async def test_handler_update_handler(
+        self, mocker, handler_name, handler_manager, inbox
+    ):
         # NOTE: this test tests both coroutines and functions without the need for parametrization
         mock_handler = mocker.MagicMock()
 
@@ -565,7 +585,9 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
     @pytest.mark.it(
         "Does not modify the Client Event handler runner future when value is set to a function or coroutine if the Client Event handler runner already exists"
     )
-    async def test_client_event_runner_already_exists(self, handler_name, handler_manager, handler):
+    async def test_client_event_runner_already_exists(
+        self, handler_name, handler_manager, handler
+    ):
         # Add a fake client event runner future
         fake_runner_future = concurrent.futures.Future()
         handler_manager._client_event_runner = fake_runner_future
@@ -618,7 +640,14 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         "Is invoked by the runner only when the Client Event Inbox receives a matching event, passing any arguments to the handler"
     )
     async def test_handler_invoked(
-        self, mocker, handler_name, handler_manager, handler_checker, handler, inbox, event
+        self,
+        mocker,
+        handler_name,
+        handler_manager,
+        handler_checker,
+        handler,
+        inbox,
+        event,
     ):
         # Set the handler
         setattr(handler_manager, handler_name, handler)
@@ -667,7 +696,9 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         self, mocker, handler_name, handler_manager, inbox, event, arbitrary_exception
     ):
         # NOTE: this test tests both coroutines and functions without the need for parametrization
-        background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
+        background_exc_spy = mocker.spy(
+            handle_exceptions, "handle_background_exception"
+        )
 
         def function_handler(*args):
             raise arbitrary_exception
@@ -742,7 +773,9 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
 
 
 @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_message_received")
-class TestAsyncHandlerManagerPropertyOnMessageReceived(SharedReceiverHandlerPropertyTests):
+class TestAsyncHandlerManagerPropertyOnMessageReceived(
+    SharedReceiverHandlerPropertyTests
+):
     @pytest.fixture
     def handler_name(self):
         return "on_message_received"
@@ -753,7 +786,9 @@ class TestAsyncHandlerManagerPropertyOnMessageReceived(SharedReceiverHandlerProp
 
 
 @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_method_request_received")
-class TestAsyncHandlerManagerPropertyOnMethodRequestReceived(SharedReceiverHandlerPropertyTests):
+class TestAsyncHandlerManagerPropertyOnMethodRequestReceived(
+    SharedReceiverHandlerPropertyTests
+):
     @pytest.fixture
     def handler_name(self):
         return "on_method_request_received"
@@ -763,7 +798,9 @@ class TestAsyncHandlerManagerPropertyOnMethodRequestReceived(SharedReceiverHandl
         return inbox_manager.get_method_request_inbox()
 
 
-@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_twin_desired_properties_patch_received")
+@pytest.mark.describe(
+    "AsyncHandlerManager - PROPERTY: .on_twin_desired_properties_patch_received"
+)
 class TestAsyncHandlerManagerPropertyOnTwinDesiredPropertiesPatchReceived(
     SharedReceiverHandlerPropertyTests
 ):
@@ -777,7 +814,9 @@ class TestAsyncHandlerManagerPropertyOnTwinDesiredPropertiesPatchReceived(
 
 
 @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_connection_state_change")
-class TestAsyncHandlerManagerPropertyOnConnectionStateChange(SharedClientEventHandlerPropertyTests):
+class TestAsyncHandlerManagerPropertyOnConnectionStateChange(
+    SharedClientEventHandlerPropertyTests
+):
     @pytest.fixture
     def handler_name(self):
         return "on_connection_state_change"
@@ -788,7 +827,9 @@ class TestAsyncHandlerManagerPropertyOnConnectionStateChange(SharedClientEventHa
 
 
 @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_new_sastoken_required")
-class TestAsyncHandlerManagerPropertyOnNewSastokenRequired(SharedClientEventHandlerPropertyTests):
+class TestAsyncHandlerManagerPropertyOnNewSastokenRequired(
+    SharedClientEventHandlerPropertyTests
+):
     @pytest.fixture
     def handler_name(self):
         return "on_new_sastoken_required"
@@ -799,14 +840,18 @@ class TestAsyncHandlerManagerPropertyOnNewSastokenRequired(SharedClientEventHand
 
 
 @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_background_exception")
-class TestAsyncHandlerManagerPropertyOnBackgroundException(SharedClientEventHandlerPropertyTests):
+class TestAsyncHandlerManagerPropertyOnBackgroundException(
+    SharedClientEventHandlerPropertyTests
+):
     @pytest.fixture
     def handler_name(self):
         return "on_background_exception"
 
     @pytest.fixture
     def event(self, arbitrary_exception):
-        return client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, arbitrary_exception)
+        return client_event.ClientEvent(
+            client_event.BACKGROUND_EXCEPTION, arbitrary_exception
+        )
 
 
 @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .handling_client_events")

@@ -85,7 +85,9 @@ class AbstractProvisioningDeviceClient(abc.ABC):
         self._pipeline = pipeline
         self._provisioning_payload = None
 
-        self._pipeline.on_background_exception = handle_exceptions.handle_background_exception
+        self._pipeline.on_background_exception = (
+            handle_exceptions.handle_background_exception
+        )
 
     @classmethod
     def create_from_symmetric_key(
@@ -142,7 +144,9 @@ class AbstractProvisioningDeviceClient(abc.ABC):
         try:
             sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
-            new_err = ValueError("Could not create a SasToken using the provided values")
+            new_err = ValueError(
+                "Could not create a SasToken using the provided values"
+            )
             new_err.__cause__ = e
             raise new_err
 
@@ -153,7 +157,7 @@ class AbstractProvisioningDeviceClient(abc.ABC):
             registration_id=registration_id,
             id_scope=id_scope,
             sastoken=sastoken,
-            **config_kwargs
+            **config_kwargs,
         )
 
         # Pipeline setup
@@ -215,7 +219,7 @@ class AbstractProvisioningDeviceClient(abc.ABC):
             registration_id=registration_id,
             id_scope=id_scope,
             x509=x509,
-            **config_kwargs
+            **config_kwargs,
         )
 
         # Pipeline setup

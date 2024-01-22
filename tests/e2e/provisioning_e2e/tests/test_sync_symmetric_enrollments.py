@@ -7,7 +7,10 @@
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device import ProvisioningDeviceClient
 from provisioningserviceclient import ProvisioningServiceClient, IndividualEnrollment
-from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
+from provisioningserviceclient.protocol.models import (
+    AttestationMechanism,
+    ReprovisionPolicy,
+)
 import pytest
 import logging
 import os
@@ -28,16 +31,22 @@ linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRI
     "A device gets provisioned to the linked IoTHub with the device_id equal to the registration_id of the individual enrollment that has been created with a symmetric key authentication"
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
-def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment(protocol):
+def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment(
+    protocol,
+):
     try:
         individual_enrollment_record = create_individual_enrollment(
             "e2e-dps-underthewhompingwillow" + str(uuid.uuid4())
         )
 
         registration_id = individual_enrollment_record.registration_id
-        symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
+        symmetric_key = (
+            individual_enrollment_record.attestation.symmetric_key.primary_key
+        )
 
-        registration_result = result_from_register(registration_id, symmetric_key, protocol)
+        registration_result = result_from_register(
+            registration_id, symmetric_key, protocol
+        )
 
         assert_device_provisioned(
             device_id=registration_id, registration_result=registration_result
@@ -51,21 +60,29 @@ def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enroll
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a symmetric key authentication"
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
-def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollment(protocol):
-
+def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollment(
+    protocol,
+):
     device_id = "e2edpstommarvoloriddle"
     try:
         individual_enrollment_record = create_individual_enrollment(
-            registration_id="e2e-dps-prioriincantatem" + str(uuid.uuid4()), device_id=device_id
+            registration_id="e2e-dps-prioriincantatem" + str(uuid.uuid4()),
+            device_id=device_id,
         )
 
         registration_id = individual_enrollment_record.registration_id
-        symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
+        symmetric_key = (
+            individual_enrollment_record.attestation.symmetric_key.primary_key
+        )
 
-        registration_result = result_from_register(registration_id, symmetric_key, protocol)
+        registration_result = result_from_register(
+            registration_id, symmetric_key, protocol
+        )
 
         assert device_id != registration_id
-        assert_device_provisioned(device_id=device_id, registration_result=registration_result)
+        assert_device_provisioned(
+            device_id=device_id, registration_result=registration_result
+        )
         device_registry_helper.try_delete_device(device_id)
     finally:
         service_client.delete_individual_enrollment_by_param(registration_id)

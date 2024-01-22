@@ -12,7 +12,10 @@ from provisioningserviceclient import (
     IndividualEnrollment,
     EnrollmentGroup,
 )
-from provisioningserviceclient.protocol.models import AttestationMechanism, ReprovisionPolicy
+from provisioningserviceclient.protocol.models import (
+    AttestationMechanism,
+    ReprovisionPolicy,
+)
 import pytest
 import logging
 import os
@@ -83,8 +86,10 @@ def test_device_register_with_device_id_for_a_x509_individual_enrollment(protoco
     device_index = type_to_device_indices.get("individual_with_device_id")[0]
 
     try:
-        individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
-            device_index=device_index, device_id=device_id
+        individual_enrollment_record = (
+            create_individual_enrollment_with_x509_client_certs(
+                device_index=device_index, device_id=device_id
+            )
         )
         registration_id = individual_enrollment_record.registration_id
 
@@ -95,7 +100,9 @@ def test_device_register_with_device_id_for_a_x509_individual_enrollment(protoco
         )
 
         assert device_id != registration_id
-        assert_device_provisioned(device_id=device_id, registration_result=registration_result)
+        assert_device_provisioned(
+            device_id=device_id, registration_result=registration_result
+        )
         device_registry_helper.try_delete_device(device_id)
     finally:
         service_client.delete_individual_enrollment_by_param(registration_id)
@@ -109,8 +116,10 @@ def test_device_register_with_no_device_id_for_a_x509_individual_enrollment(prot
     device_index = type_to_device_indices.get("individual_no_device_id")[0]
 
     try:
-        individual_enrollment_record = create_individual_enrollment_with_x509_client_certs(
-            device_index=device_index
+        individual_enrollment_record = (
+            create_individual_enrollment_with_x509_client_certs(
+                device_index=device_index
+            )
         )
         registration_id = individual_enrollment_record.registration_id
 
@@ -150,7 +159,9 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
             intermediate_cert_content
         )
         enrollment_group_provisioning_model = EnrollmentGroup.create(
-            group_id, attestation=attestation_mechanism, reprovision_policy=reprovision_policy
+            group_id,
+            attestation=attestation_mechanism,
+            reprovision_policy=reprovision_policy,
         )
 
         service_client.create_or_update(enrollment_group_provisioning_model)
@@ -158,13 +169,17 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
         count = 0
         common_device_key_input_file = "demoCA/private/device_key"
         common_device_cert_input_file = "demoCA/newcerts/device_cert"
-        common_device_inter_cert_chain_file = "demoCA/newcerts/out_inter_device_chain_cert"
+        common_device_inter_cert_chain_file = (
+            "demoCA/newcerts/out_inter_device_chain_cert"
+        )
         for index in devices_indices:
             count = count + 1
             device_id = common_device_id + str(index)
             device_key_input_file = common_device_key_input_file + str(index) + ".pem"
             device_cert_input_file = common_device_cert_input_file + str(index) + ".pem"
-            device_inter_cert_chain_file = common_device_inter_cert_chain_file + str(index) + ".pem"
+            device_inter_cert_chain_file = (
+                common_device_inter_cert_chain_file + str(index) + ".pem"
+            )
 
             filenames = [device_cert_input_file, intermediate_cert_filename]
             with open(device_inter_cert_chain_file, "w") as outfile:
@@ -179,7 +194,9 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
                 protocol=protocol,
             )
 
-            assert_device_provisioned(device_id=device_id, registration_result=registration_result)
+            assert_device_provisioned(
+                device_id=device_id, registration_result=registration_result
+            )
             device_registry_helper.try_delete_device(device_id)
 
         # Make sure space is okay. The following line must be outside for loop.
@@ -211,7 +228,9 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authenticatio
             ref1=DPS_GROUP_CA_CERT
         )
         enrollment_group_provisioning_model = EnrollmentGroup.create(
-            group_id, attestation=attestation_mechanism, reprovision_policy=reprovision_policy
+            group_id,
+            attestation=attestation_mechanism,
+            reprovision_policy=reprovision_policy,
         )
 
         service_client.create_or_update(enrollment_group_provisioning_model)
@@ -220,13 +239,17 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authenticatio
         intermediate_cert_filename = "demoCA/newcerts/intermediate_cert.pem"
         common_device_key_input_file = "demoCA/private/device_key"
         common_device_cert_input_file = "demoCA/newcerts/device_cert"
-        common_device_inter_cert_chain_file = "demoCA/newcerts/out_inter_device_chain_cert"
+        common_device_inter_cert_chain_file = (
+            "demoCA/newcerts/out_inter_device_chain_cert"
+        )
         for index in devices_indices:
             count = count + 1
             device_id = common_device_id + str(index)
             device_key_input_file = common_device_key_input_file + str(index) + ".pem"
             device_cert_input_file = common_device_cert_input_file + str(index) + ".pem"
-            device_inter_cert_chain_file = common_device_inter_cert_chain_file + str(index) + ".pem"
+            device_inter_cert_chain_file = (
+                common_device_inter_cert_chain_file + str(index) + ".pem"
+            )
             filenames = [device_cert_input_file, intermediate_cert_filename]
             with open(device_inter_cert_chain_file, "w") as outfile:
                 for fname in filenames:
@@ -243,7 +266,9 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authenticatio
                 protocol=protocol,
             )
 
-            assert_device_provisioned(device_id=device_id, registration_result=registration_result)
+            assert_device_provisioned(
+                device_id=device_id, registration_result=registration_result
+            )
             device_registry_helper.try_delete_device(device_id)
 
         # Make sure space is okay. The following line must be outside for loop.
@@ -276,7 +301,9 @@ def create_individual_enrollment_with_x509_client_certs(device_index, device_id=
     with open(device_cert_input_file, "r") as in_device_cert:
         device_cert_content = in_device_cert.read()
 
-    attestation_mechanism = AttestationMechanism.create_with_x509_client_certs(device_cert_content)
+    attestation_mechanism = AttestationMechanism.create_with_x509_client_certs(
+        device_cert_content
+    )
 
     individual_provisioning_model = IndividualEnrollment.create(
         attestation=attestation_mechanism,
@@ -289,7 +316,11 @@ def create_individual_enrollment_with_x509_client_certs(device_index, device_id=
 
 
 def result_from_register(registration_id, device_cert_file, device_key_file, protocol):
-    x509 = X509(cert_file=device_cert_file, key_file=device_key_file, pass_phrase=device_password)
+    x509 = X509(
+        cert_file=device_cert_file,
+        key_file=device_key_file,
+        pass_phrase=device_password,
+    )
     protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
     provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certificate(
         provisioning_host=PROVISIONING_HOST,

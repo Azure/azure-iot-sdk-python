@@ -28,11 +28,19 @@ def create_self_signed_cert(common_name, days=30):
     public_key = private_key.public_key()
 
     subject = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, str.encode(common_name).decode("utf-8"))]
+        [
+            x509.NameAttribute(
+                NameOID.COMMON_NAME, str.encode(common_name).decode("utf-8")
+            )
+        ]
     )
 
     builder = create_cert_builder(
-        subject=subject, issuer_name=subject, public_key=public_key, days=days, is_ca=False
+        subject=subject,
+        issuer_name=subject,
+        public_key=public_key,
+        days=days,
+        is_ca=False,
     )
 
     self_cert = builder.sign(

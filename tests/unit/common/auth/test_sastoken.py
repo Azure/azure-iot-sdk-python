@@ -55,13 +55,17 @@ class RenewableSasTokenTestConfig(object):
             return RenewableSasToken(uri=fake_uri, signing_mechanism=signing_mechanism)
         elif token_type == "Service Token":
             return RenewableSasToken(
-                uri=fake_uri, signing_mechanism=signing_mechanism, key_name=fake_key_name
+                uri=fake_uri,
+                signing_mechanism=signing_mechanism,
+                key_name=fake_key_name,
             )
 
 
 @pytest.mark.describe("RenewableSasToken")
 class TestRenewableSasToken(RenewableSasTokenTestConfig):
-    @pytest.mark.it("Instantiates with a default TTL of 3600 seconds if no TTL is provided")
+    @pytest.mark.it(
+        "Instantiates with a default TTL of 3600 seconds if no TTL is provided"
+    )
     def test_default_ttl(self, signing_mechanism):
         s = RenewableSasToken(fake_uri, signing_mechanism)
         assert s.ttl == 3600
@@ -72,7 +76,9 @@ class TestRenewableSasToken(RenewableSasTokenTestConfig):
         s = RenewableSasToken(fake_uri, signing_mechanism, ttl=custom_ttl)
         assert s.ttl == custom_ttl
 
-    @pytest.mark.it("Instantiates with with no key name by default if no key name is provided")
+    @pytest.mark.it(
+        "Instantiates with with no key name by default if no key name is provided"
+    )
     def test_default_key_name(self, signing_mechanism):
         s = RenewableSasToken(fake_uri, signing_mechanism)
         assert s._key_name is None
@@ -99,7 +105,9 @@ class TestRenewableSasToken(RenewableSasTokenTestConfig):
         RenewableSasToken(fake_uri, signing_mechanism)
         assert refresh_mock.call_count == 1
 
-    @pytest.mark.it("Returns the SAS token string as the string representation of the object")
+    @pytest.mark.it(
+        "Returns the SAS token string as the string representation of the object"
+    )
     def test_str_rep(self, sastoken):
         assert str(sastoken) == sastoken._token
 
@@ -140,7 +148,9 @@ class TestRenewableSasTokenRefresh(RenewableSasTokenTestConfig):
         assert signing_mechanism.sign.call_count == 1
         # The string being signed was a concatenation of the URI and expiry time
         assert signing_mechanism.sign.call_args == mocker.call(
-            urllib.parse.quote(sastoken._uri, safe="") + "\n" + str(sastoken.expiry_time)
+            urllib.parse.quote(sastoken._uri, safe="")
+            + "\n"
+            + str(sastoken.expiry_time)
         )
         # The token string has the resulting signed string included as the signature
         token_info = token_parser(str(sastoken))
@@ -156,7 +166,9 @@ class TestRenewableSasTokenRefresh(RenewableSasTokenTestConfig):
         if not sastoken._key_name:
             pattern = re.compile(r"SharedAccessSignature sr=(.+)&sig=(.+)&se=(.+)")
         else:
-            pattern = re.compile(r"SharedAccessSignature sr=(.+)&sig=(.+)&se=(.+)&skn=(.+)")
+            pattern = re.compile(
+                r"SharedAccessSignature sr=(.+)&sig=(.+)&se=(.+)&skn=(.+)"
+            )
         assert pattern.match(token_str)
 
         # Verify that content in the string representation is correct
@@ -169,7 +181,9 @@ class TestRenewableSasTokenRefresh(RenewableSasTokenTestConfig):
         if sastoken._key_name:
             assert token_info["skn"] == sastoken._key_name
 
-    @pytest.mark.it("Raises a SasTokenError if an exception is raised by the signing mechanism")
+    @pytest.mark.it(
+        "Raises a SasTokenError if an exception is raised by the signing mechanism"
+    )
     def test_signing_mechanism_raises_value_error(
         self, mocker, signing_mechanism, sastoken, arbitrary_exception
     ):
@@ -209,7 +223,9 @@ class TestNonRenewableSasToken(object):
         s = NonRenewableSasToken(sastoken_str)
         assert s._token == sastoken_str
 
-    @pytest.mark.it("Raises a SasToken error if instantiating from an invalid SAS Token string")
+    @pytest.mark.it(
+        "Raises a SasToken error if instantiating from an invalid SAS Token string"
+    )
     @pytest.mark.parametrize(
         "invalid_token_str",
         [
@@ -247,7 +263,9 @@ class TestNonRenewableSasToken(object):
         with pytest.raises(SasTokenError):
             NonRenewableSasToken(invalid_token_str)
 
-    @pytest.mark.it("Returns the SAS token string as the string representation of the object")
+    @pytest.mark.it(
+        "Returns the SAS token string as the string representation of the object"
+    )
     def test_str_rep(self, sastoken_str):
         sastoken = NonRenewableSasToken(sastoken_str)
         assert str(sastoken) == sastoken_str

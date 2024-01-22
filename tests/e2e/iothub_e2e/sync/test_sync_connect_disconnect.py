@@ -58,9 +58,13 @@ class TestConnectDisconnect(object):
             nonlocal reconnected_event
 
             if client.connected:
-                logger.info("handle_on_connection_state_change connected.  nothing to do")
+                logger.info(
+                    "handle_on_connection_state_change connected.  nothing to do"
+                )
             else:
-                logger.info("handle_on_connection_state_change disconnected.  reconnecting.")
+                logger.info(
+                    "handle_on_connection_state_change disconnected.  reconnecting."
+                )
                 client.connect()
                 assert client.connected
                 reconnected_event.set()
@@ -82,7 +86,9 @@ class TestConnectDisconnect(object):
         reconnected_event.wait()
 
         logger.info(
-            "reconnect_event.wait() returned.  client.connected={}".format(client.connected)
+            "reconnect_event.wait() returned.  client.connected={}".format(
+                client.connected
+            )
         )
         # This assert fails because of initial and secondary disconnects
         assert client.connected
@@ -105,10 +111,18 @@ class TestConnectDisconnect(object):
     @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     @pytest.mark.parametrize(
         "first_connect",
-        [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
+        [
+            pytest.param(True, id="First connection"),
+            pytest.param(False, id="Second connection"),
+        ],
     )
     def test_sync_disconnect_in_the_middle_of_connect(
-        self, brand_new_client, service_helper, random_message, first_connect, leak_tracker
+        self,
+        brand_new_client,
+        service_helper,
+        random_message,
+        first_connect,
+        leak_tracker,
     ):
         """
         Explanation: This is the inverse of `test_connect_in_the_middle_of_disconnect`.  This is
