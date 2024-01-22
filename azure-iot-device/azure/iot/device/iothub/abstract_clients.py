@@ -243,7 +243,7 @@ class AbstractIoTHubClient(abc.ABC):
         pass
 
     @classmethod
-    def create_from_connection_string(cls, connection_string: str, **kwargs: Dict[str, Any]) -> Self:
+    def create_from_connection_string(cls, connection_string: str, **kwargs) -> Self:
         """
         Instantiate the client from a IoTHub device or module connection string.
 
