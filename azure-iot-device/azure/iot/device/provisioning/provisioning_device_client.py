@@ -8,6 +8,7 @@ This module contains user-facing synchronous Provisioning Device Client for Azur
 Device SDK. This client uses Symmetric Key and X509 authentication to register devices with an
 IoT Hub via the Device Provisioning Service.
 """
+from __future__ import annotations
 import logging
 from typing import Any
 from azure.iot.device.common.evented_callback import EventedCallback

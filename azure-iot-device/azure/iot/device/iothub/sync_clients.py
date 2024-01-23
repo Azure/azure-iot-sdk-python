@@ -6,7 +6,7 @@
 """This module contains user-facing synchronous clients for the
 Azure IoTHub Device SDK for Python.
 """
-
+from __future__ import annotations
 import logging
 import deprecation
 from .abstract_clients import (
@@ -25,7 +25,7 @@ from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device import constant as device_constant
 from .pipeline import MQTTPipeline, HTTPPipeline
 from azure.iot.device.custom_typing import FunctionOrCoroutine, StorageInfo, Twin, TwinPatch
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             # This branch shouldn't be reached, but in case it is, log it
             logger.info("Feature ({}) already disabled - skipping".format(feature_name))
 
-    def _generic_receive_handler_setter(self, handler_name: str, feature_name: str, new_handler: FunctionOrCoroutine[[None], None]) -> None:
+    def _generic_receive_handler_setter(
+        self, handler_name: str, feature_name: str, new_handler: FunctionOrCoroutine[[None], None]
+    ) -> None:
         """Set a receive handler on the handler manager and enable the corresponding feature.
 
         This is a synchronous call, meaning that this function will not return until the feature
@@ -354,7 +356,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         current_version=device_constant.VERSION,
         details="We recommend that you use the .on_method_request_received property to set a handler instead",
     )
-    def receive_method_request(self, method_name: Optional[str] = None, block: bool = True, timeout: Optional[int] = None) -> MethodRequest:
+    def receive_method_request(
+        self, method_name: Optional[str] = None, block: bool = True, timeout: Optional[int] = None
+    ) -> MethodRequest:
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
         :param str method_name: Optionally provide the name of the method to receive requests for.
@@ -675,7 +679,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         current_version=device_constant.VERSION,
         details="We recommend that you use the .on_message_received property to set a handler instead",
     )
-    def receive_message_on_input(self, input_name: str, block: bool = True, timeout: Optional[int] = None) -> Message:
+    def receive_message_on_input(
+        self, input_name: str, block: bool = True, timeout: Optional[int] = None
+    ) -> Message:
         """Receive an input message that has been sent from another Module to a specific input.
 
         :param str input_name: The input name to receive a message on.

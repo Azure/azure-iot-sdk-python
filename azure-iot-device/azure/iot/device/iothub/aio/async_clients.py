@@ -6,7 +6,7 @@
 """This module contains user-facing asynchronous clients for the
 Azure IoTHub Device SDK for Python.
 """
-
+from __future__ import annotations
 import logging
 import asyncio
 import deprecation
@@ -134,7 +134,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             # This branch shouldn't be reached, but in case it is, log it
             logger.info("Feature ({}) already disabled - skipping".format(feature_name))
 
-    def _generic_receive_handler_setter(self, handler_name: str, feature_name: str, new_handler: FunctionOrCoroutine[[None], None]) -> None:
+    def _generic_receive_handler_setter(
+        self, handler_name: str, feature_name: str, new_handler: FunctionOrCoroutine[[None], None]
+    ) -> None:
         """Set a receive handler on the handler manager and enable the corresponding feature.
 
         This is a synchronous call (yes, even though this is the async client), meaning that this
@@ -688,7 +690,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         logger.info("Input message received on: " + input_name)
         return message
 
-    async def invoke_method(self, method_params, device_id, module_id: Optional[str] = None) -> MethodResponse:
+    async def invoke_method(
+        self, method_params, device_id, module_id: Optional[str] = None
+    ) -> MethodResponse:
         """Invoke a method from your client onto a device or module client, and receive the response to the method call.
 
         :param dict method_params: Should contain a methodName (str), payload (str),

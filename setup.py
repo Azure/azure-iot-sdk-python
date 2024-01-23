@@ -85,6 +85,7 @@ setup(
         "requests-unixsocket>=0.1.5,<1.0.0",
         "janus",
         "PySocks",
+        "typing_extensions",
     ],
     python_requires=">=3.6, <4",
     packages=find_namespace_packages(where="azure-iot-device"),

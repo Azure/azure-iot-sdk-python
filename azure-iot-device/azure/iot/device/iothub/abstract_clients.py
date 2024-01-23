@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 """This module contains abstract classes for the various clients of the Azure IoT Hub Device SDK
 """
-
+from __future__ import annotations
 import abc
 import logging
 import threading
@@ -238,7 +238,12 @@ class AbstractIoTHubClient(abc.ABC):
         self._mqtt_pipeline.pipeline_configuration.sastoken = new_token_o
 
     @abc.abstractmethod
-    def _generic_receive_handler_setter(self, handler_name: str, feature_name: str, new_handler: Optional[FunctionOrCoroutine[[Any], Any]]) -> None:
+    def _generic_receive_handler_setter(
+        self,
+        handler_name: str,
+        feature_name: str,
+        new_handler: Optional[FunctionOrCoroutine[[Any], Any]],
+    ) -> None:
         # Will be implemented differently in child classes, but define here for static analysis
         pass
 
@@ -315,7 +320,7 @@ class AbstractIoTHubClient(abc.ABC):
             hostname=connection_string[cs.HOST_NAME],
             gateway_hostname=connection_string.get(cs.GATEWAY_HOST_NAME),
             sastoken=sastoken,
-            **config_kwargs
+            **config_kwargs,
         )
         if cls.__name__ == "IoTHubDeviceClient":
             pipeline_configuration.blob_upload = True
@@ -387,7 +392,7 @@ class AbstractIoTHubClient(abc.ABC):
             module_id=vals["module_id"],
             hostname=vals["hostname"],
             sastoken=sastoken_o,
-            **config_kwargs
+            **config_kwargs,
         )
         if cls.__name__ == "IoTHubDeviceClient":
             pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
@@ -423,7 +428,9 @@ class AbstractIoTHubClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def send_method_response(self, method_request: MethodRequest, payload: Dict[str, JSONSerializable], status: int) -> None:
+    def send_method_response(
+        self, method_request: MethodRequest, payload: Dict[str, JSONSerializable], status: int
+    ) -> None:
         pass
 
     @abc.abstractmethod
@@ -522,7 +529,9 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_twin_desired_properties_patch_received
 
     @on_twin_desired_properties_patch_received.setter
-    def on_twin_desired_properties_patch_received(self, value: FunctionOrCoroutine[[TwinPatch], None]):
+    def on_twin_desired_properties_patch_received(
+        self, value: FunctionOrCoroutine[[TwinPatch], None]
+    ):
         self._generic_receive_handler_setter(
             "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
         )
@@ -530,7 +539,9 @@ class AbstractIoTHubClient(abc.ABC):
 
 class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     @classmethod
-    def create_from_x509_certificate(cls, x509: X509, hostname: str, device_id: str, **kwargs) -> Self:
+    def create_from_x509_certificate(
+        cls, x509: X509, hostname: str, device_id: str, **kwargs
+    ) -> Self:
         """
         Instantiate a client using X509 certificate authentication.
 
@@ -592,7 +603,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
-    def create_from_symmetric_key(cls, symmetric_key: str, hostname: str, device_id: str, **kwargs) -> Self:
+    def create_from_symmetric_key(
+        cls, symmetric_key: str, hostname: str, device_id: str, **kwargs
+    ) -> Self:
         """
         Instantiate a client using symmetric key authentication.
 
@@ -815,7 +828,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             gateway_hostname=gateway_hostname,
             sastoken=sastoken,
             server_verification_cert=server_verification_cert,
-            **config_kwargs
+            **config_kwargs,
         )
         pipeline_configuration.ensure_desired_properties = True
 
@@ -830,7 +843,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
-    def create_from_x509_certificate(cls, x509: X509, hostname: str, device_id: str, module_id: str, **kwargs) -> Self:
+    def create_from_x509_certificate(
+        cls, x509: X509, hostname: str, device_id: str, module_id: str, **kwargs
+    ) -> Self:
         """
         Instantiate a client using X509 certificate authentication.
 
@@ -899,7 +914,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         pass
 
     @abc.abstractmethod
-    def invoke_method(self, method_params: dict, device_id: str, module_id: Optional[str] = None) -> None:
+    def invoke_method(
+        self, method_params: dict, device_id: str, module_id: Optional[str] = None
+    ) -> None:
         pass
 
     @property
