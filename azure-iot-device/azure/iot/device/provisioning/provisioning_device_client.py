@@ -9,6 +9,7 @@ Device SDK. This client uses Symmetric Key and X509 authentication to register d
 IoT Hub via the Device Provisioning Service.
 """
 import logging
+from typing import Any
 from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device.custom_typing import FunctionOrCoroutine
 from .abstract_provisioning_device_client import AbstractProvisioningDeviceClient
