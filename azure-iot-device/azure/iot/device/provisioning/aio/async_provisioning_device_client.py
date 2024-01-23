@@ -10,8 +10,9 @@ IoT Hub via the Device Provisioning Service.
 """
 
 import logging
-from typing import Callable
+from typing import Any
 from azure.iot.device.common import async_adapter
+from azure.iot.device.custom_typing import FunctionOrCoroutine
 from azure.iot.device.provisioning.abstract_provisioning_device_client import (
     AbstractProvisioningDeviceClient,
 )
@@ -26,7 +27,7 @@ from azure.iot.device.provisioning.models import RegistrationResult
 logger = logging.getLogger(__name__)
 
 
-async def handle_result(callback: Callable[[], None]) -> None:
+async def handle_result(callback: FunctionOrCoroutine[[Any], None]) -> None:
     try:
         return await callback.completion()
     except pipeline_exceptions.ConnectionDroppedError as e:

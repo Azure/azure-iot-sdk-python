@@ -25,13 +25,13 @@ from .async_inbox import AsyncClientInbox
 from . import async_handler_manager, loop_management
 from azure.iot.device import constant as device_constant
 from azure.iot.device.iothub.pipeline import MQTTPipeline, HTTPPipeline
-from azure.iot.device.custom_typing import StorageInfo, Twin, TwinPatch
-from typing import Any, Callable, Optional, Union
+from azure.iot.device.custom_typing import FunctionOrCoroutine, StorageInfo, Twin, TwinPatch
+from typing import Any, Optional, Union
 
 logger = logging.getLogger(__name__)
 
 
-async def handle_result(callback: Callable[[], None]):
+async def handle_result(callback: FunctionOrCoroutine[[Any], None]):
     try:
         return await callback.completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
@@ -134,7 +134,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             # This branch shouldn't be reached, but in case it is, log it
             logger.info("Feature ({}) already disabled - skipping".format(feature_name))
 
-    def _generic_receive_handler_setter(self, handler_name: str, feature_name: str, new_handler: Callable[[], Any]) -> None:
+    def _generic_receive_handler_setter(self, handler_name: str, feature_name: str, new_handler: FunctionOrCoroutine[[], None]) -> None:
         """Set a receive handler on the handler manager and enable the corresponding feature.
 
         This is a synchronous call (yes, even though this is the async client), meaning that this

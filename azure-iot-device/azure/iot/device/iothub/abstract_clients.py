@@ -24,8 +24,8 @@ from azure.iot.device.common import auth, handle_exceptions
 from . import edge_hsm
 from .pipeline import MQTTPipeline, HTTPPipeline
 from typing_extensions import Self
-from azure.iot.device.custom_typing import JSONSerializable, Twin, TwinPatch
-from typing import Any, Callable, Dict, List, Optional, Union
+from azure.iot.device.custom_typing import FunctionOrCoroutine, JSONSerializable, Twin, TwinPatch
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +238,7 @@ class AbstractIoTHubClient(abc.ABC):
         self._mqtt_pipeline.pipeline_configuration.sastoken = new_token_o
 
     @abc.abstractmethod
-    def _generic_receive_handler_setter(self, handler_name: str, feature_name: str, new_handler: Optional[Callable[[], Any]]) -> None:
+    def _generic_receive_handler_setter(self, handler_name: str, feature_name: str, new_handler: Optional[FunctionOrCoroutine[[Any], Any]]) -> None:
         # Will be implemented differently in child classes, but define here for static analysis
         pass
 
@@ -446,7 +446,7 @@ class AbstractIoTHubClient(abc.ABC):
         return self._mqtt_pipeline.connected
 
     @property
-    def on_connection_state_change(self) -> Callable[[Any], Any]:
+    def on_connection_state_change(self) -> FunctionOrCoroutine[[None], None]:
         """The handler function or coroutine that will be called when the connection state changes.
 
         The function or coroutine definition should take no positional arguments.
@@ -454,11 +454,11 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_connection_state_change
 
     @on_connection_state_change.setter
-    def on_connection_state_change(self, value: Callable[[Any], Any]) -> None:
+    def on_connection_state_change(self, value: FunctionOrCoroutine[[None], None]) -> None:
         self._handler_manager.on_connection_state_change = value
 
     @property
-    def on_new_sastoken_required(self) -> Callable[[Any], Any]:
+    def on_new_sastoken_required(self) -> FunctionOrCoroutine[[None], None]:
         """The handler function or coroutine that will be called when the client requires a new
         SAS token. This will happen approximately 2 minutes before the SAS Token expires.
         On Windows platforms, if the lifespan exceeds approximately 49 days, a new token will
@@ -475,11 +475,11 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_new_sastoken_required
 
     @on_new_sastoken_required.setter
-    def on_new_sastoken_required(self, value: Callable[[Any], Any]) -> None:
+    def on_new_sastoken_required(self, value: FunctionOrCoroutine[[None], None]) -> None:
         self._handler_manager.on_new_sastoken_required = value
 
     @property
-    def on_background_exception(self) -> Callable[[Any], Any]:
+    def on_background_exception(self) -> FunctionOrCoroutine[[Exception], None]:
         """The handler function or coroutine will be called when a background exception occurs.
 
         The function or coroutine definition should take one positional argument (the exception
@@ -487,16 +487,16 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_background_exception
 
     @on_background_exception.setter
-    def on_background_exception(self, value: Callable[[Any], Any]) -> None:
+    def on_background_exception(self, value: FunctionOrCoroutine[[Exception], None]) -> None:
         self._handler_manager.on_background_exception = value
 
     @abc.abstractproperty
-    def on_message_received(self) -> Callable[[Any], Any]:
+    def on_message_received(self) -> FunctionOrCoroutine[[Message], None]:
         # Defined below on AbstractIoTHubDeviceClient / AbstractIoTHubModuleClient
         pass
 
     @property
-    def on_method_request_received(self) -> Callable[[Any], Any]:
+    def on_method_request_received(self) -> FunctionOrCoroutine[[MethodRequest], None]:
         """The handler function or coroutine that will be called when a method request is received.
 
         Remember to acknowledge the method request in your function or coroutine via use of the
@@ -507,13 +507,13 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_method_request_received
 
     @on_method_request_received.setter
-    def on_method_request_received(self, value: Callable[[Any], Any]) -> None:
+    def on_method_request_received(self, value: FunctionOrCoroutine[[MethodRequest], None]) -> None:
         self._generic_receive_handler_setter(
             "on_method_request_received", pipeline_constant.METHODS, value
         )
 
     @property
-    def on_twin_desired_properties_patch_received(self) -> Callable[[Any], Any]:
+    def on_twin_desired_properties_patch_received(self) -> FunctionOrCoroutine[[TwinPatch], None]:
         """The handler function or coroutine that will be called when a twin desired properties
         patch is received.
 
@@ -522,7 +522,7 @@ class AbstractIoTHubClient(abc.ABC):
         return self._handler_manager.on_twin_desired_properties_patch_received
 
     @on_twin_desired_properties_patch_received.setter
-    def on_twin_desired_properties_patch_received(self, value: Callable[[Any], Any]):
+    def on_twin_desired_properties_patch_received(self, value: FunctionOrCoroutine[[TwinPatch], None]):
         self._generic_receive_handler_setter(
             "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
         )
@@ -677,7 +677,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         pass
 
     @property
-    def on_message_received(self) -> Callable[[Any], Any]:
+    def on_message_received(self) -> FunctionOrCoroutine[[Message], None]:
         """The handler function or coroutine that will be called when a message is received.
 
         The function or coroutine definition should take one positional argument (the
@@ -685,7 +685,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         return self._handler_manager.on_message_received
 
     @on_message_received.setter
-    def on_message_received(self, value: Callable[[Any], Any]):
+    def on_message_received(self, value: FunctionOrCoroutine[[Message], None]):
         self._generic_receive_handler_setter(
             "on_message_received", pipeline_constant.C2D_MSG, value
         )
@@ -903,7 +903,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         pass
 
     @property
-    def on_message_received(self) -> Callable[[Any], Any]:
+    def on_message_received(self) -> FunctionOrCoroutine[[Message], Any]:
         """The handler function or coroutine that will be called when an input message is received.
 
         The function definition or coroutine should take one positional argument (the
@@ -911,7 +911,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         return self._handler_manager.on_message_received
 
     @on_message_received.setter
-    def on_message_received(self, value: Callable[[Any], Any]) -> None:
+    def on_message_received(self, value: FunctionOrCoroutine[[Message], Any]) -> None:
         self._generic_receive_handler_setter(
             "on_message_received", pipeline_constant.INPUT_MSG, value
         )

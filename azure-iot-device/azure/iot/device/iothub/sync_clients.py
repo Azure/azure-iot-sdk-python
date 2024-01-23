@@ -24,8 +24,8 @@ from azure.iot.device import exceptions
 from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device import constant as device_constant
 from .pipeline import MQTTPipeline, HTTPPipeline
-from azure.iot.device.custom_typing import StorageInfo, Twin, TwinPatch
-from typing import Any, Callable, Optional, Union
+from azure.iot.device.custom_typing import FunctionOrCoroutine, StorageInfo, Twin, TwinPatch
+from typing import Any, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             # This branch shouldn't be reached, but in case it is, log it
             logger.info("Feature ({}) already disabled - skipping".format(feature_name))
 
-    def _generic_receive_handler_setter(self, handler_name: str, feature_name: str, new_handler: Callable[[], Any]) -> None:
+    def _generic_receive_handler_setter(self, handler_name: str, feature_name: str, new_handler: FunctionOrCoroutine[[Any], Any]) -> None:
         """Set a receive handler on the handler manager and enable the corresponding feature.
 
         This is a synchronous call, meaning that this function will not return until the feature

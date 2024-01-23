@@ -9,8 +9,8 @@ Device SDK. This client uses Symmetric Key and X509 authentication to register d
 IoT Hub via the Device Provisioning Service.
 """
 import logging
-from typing import Callable
 from azure.iot.device.common.evented_callback import EventedCallback
+from azure.iot.device.custom_typing import FunctionOrCoroutine
 from .abstract_provisioning_device_client import AbstractProvisioningDeviceClient
 from .abstract_provisioning_device_client import log_on_register_complete
 from azure.iot.device.provisioning.pipeline import constant as dps_constant
@@ -22,7 +22,7 @@ from azure.iot.device.provisioning.models import RegistrationResult
 logger = logging.getLogger(__name__)
 
 
-def handle_result(callback: Callable[[], None]) -> None:
+def handle_result(callback: FunctionOrCoroutine[[Any], None]) -> None:
     try:
         return callback.wait_for_completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
