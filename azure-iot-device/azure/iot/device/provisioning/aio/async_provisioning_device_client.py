@@ -8,7 +8,7 @@ This module contains user-facing asynchronous Provisioning Device Client for Azu
 Device SDK. This client uses Symmetric Key and X509 authentication to register devices with an
 IoT Hub via the Device Provisioning Service.
 """
-from __future__ import annotations
+from __future__ import annotations  # Needed for annotation bug < 3.10
 import logging
 from typing import Any
 from azure.iot.device.common import async_adapter
@@ -27,7 +27,7 @@ from azure.iot.device.provisioning.models import RegistrationResult
 logger = logging.getLogger(__name__)
 
 
-async def handle_result(callback: FunctionOrCoroutine[[Any], None]) -> None:
+async def handle_result(callback: FunctionOrCoroutine[[Any], Any]) -> Any:
     try:
         return await callback.completion()
     except pipeline_exceptions.ConnectionDroppedError as e:

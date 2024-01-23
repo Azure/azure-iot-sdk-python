@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 """This module contains abstract classes for the various clients of the Azure IoT Hub Device SDK
 """
-from __future__ import annotations
+from __future__ import annotations  # Needed for annotation bug < 3.10
 import abc
 import logging
 import threading

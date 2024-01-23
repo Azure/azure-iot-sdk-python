@@ -93,7 +93,9 @@ class RegistrationResult(object):
     from the provisioning service.
     """
 
-    def __init__(self, operation_id: str, status: str, registration_state: Optional[RegistrationState] = None):
+    def __init__(
+        self, operation_id: str, status: str, registration_state: Optional[RegistrationState] = None
+    ):
         """
         :param operation_id: The id of the operation as returned by the initial registration request.
         :param status: The status of the registration process.
@@ -114,7 +116,7 @@ class RegistrationResult(object):
         return self._status
 
     @property
-    def registration_state(self) -> RegistrationState:
+    def registration_state(self) -> Optional[RegistrationState]:
         return self._registration_state
 
     def __str__(self):

@@ -6,7 +6,7 @@
 """This module contains user-facing synchronous clients for the
 Azure IoTHub Device SDK for Python.
 """
-from __future__ import annotations
+from __future__ import annotations  # Needed for annotation bug < 3.10
 import logging
 import deprecation
 from .abstract_clients import (
