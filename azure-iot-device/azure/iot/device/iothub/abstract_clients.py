@@ -231,7 +231,7 @@ class AbstractIoTHubClient(abc.ABC):
             raise ValueError("Provided SasToken is for a device")
         if self._mqtt_pipeline.pipeline_configuration.device_id != vals["device_id"]:
             raise ValueError("Provided SasToken does not match existing device id")
-        if self._mqtt_pipeline.pipeline_configuration.module_id != vals["module_id"]:
+        if vals["module_id"] is not "" and self._mqtt_pipeline.pipeline_configuration.module_id != vals["module_id"]:
             raise ValueError("Provided SasToken does not match existing module id")
         if self._mqtt_pipeline.pipeline_configuration.hostname != vals["hostname"]:
             raise ValueError("Provided SasToken does not match existing hostname")

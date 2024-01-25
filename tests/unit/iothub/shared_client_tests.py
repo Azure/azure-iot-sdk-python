@@ -1032,7 +1032,7 @@ class SharedIoTHubDeviceClientCreateFromSastokenTests(
         # Verify the IoTHubPipelineConfig is constructed as expected
         config = mock_mqtt_pipeline_init.call_args[0][0]
         assert config.device_id == expected_device_id
-        assert config.module_id is None
+        assert config.module_id is ""
         assert config.hostname == expected_hostname
         assert config.gateway_hostname is None
         assert config.sastoken is sastoken_mock.return_value
