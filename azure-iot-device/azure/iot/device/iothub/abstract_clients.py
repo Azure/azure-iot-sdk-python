@@ -24,7 +24,7 @@ from azure.iot.device.common import auth, handle_exceptions
 from . import edge_hsm
 from .pipeline import MQTTPipeline, HTTPPipeline
 from typing_extensions import Self
-from azure.iot.device.custom_typing import FunctionOrCoroutine, JSONSerializable, Twin, TwinPatch
+from azure.iot.device.custom_typing import FunctionOrCoroutine, Twin, TwinPatch
 from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)

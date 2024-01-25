@@ -10,7 +10,7 @@ IoT Hub via the Device Provisioning Service.
 """
 from __future__ import annotations  # Needed for annotation bug < 3.10
 import logging
-from typing import Any, Union
+from typing import Any
 from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device.custom_typing import FunctionOrCoroutine
 from .abstract_provisioning_device_client import AbstractProvisioningDeviceClient

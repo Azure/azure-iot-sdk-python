@@ -26,7 +26,7 @@ from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device import constant as device_constant
 from .pipeline import MQTTPipeline, HTTPPipeline
 from azure.iot.device.custom_typing import FunctionOrCoroutine, StorageInfo, Twin, TwinPatch
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Optional, Union
 
 logger = logging.getLogger(__name__)
 

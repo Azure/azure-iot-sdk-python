@@ -11,7 +11,7 @@ Device Provisioning Service.
 import abc
 import logging
 from typing_extensions import Self
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from azure.iot.device.provisioning import pipeline
 
 from azure.iot.device.common.auth import sastoken as st
