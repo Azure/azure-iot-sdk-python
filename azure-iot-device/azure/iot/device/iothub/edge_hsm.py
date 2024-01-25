@@ -7,7 +7,7 @@
 import logging
 import json
 import base64
-import requests
+import requests # type: ignore
 import requests_unixsocket
 import urllib
 from azure.iot.device.common.auth.signing_mechanism import SigningMechanism

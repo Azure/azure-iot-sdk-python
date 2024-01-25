@@ -10,7 +10,7 @@ IoT Hub via the Device Provisioning Service.
 """
 from __future__ import annotations  # Needed for annotation bug < 3.10
 import logging
-from typing import Any
+from typing import Any, Union
 from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device.custom_typing import FunctionOrCoroutine
 from .abstract_provisioning_device_client import AbstractProvisioningDeviceClient
@@ -24,7 +24,7 @@ from azure.iot.device.provisioning.models import RegistrationResult
 logger = logging.getLogger(__name__)
 
 
-def handle_result(callback: FunctionOrCoroutine[[Any], None]) -> None:
+def handle_result(callback: FunctionOrCoroutine[[Any], None]) -> RegistrationResult:
     try:
         return callback.wait_for_completion()
     except pipeline_exceptions.ConnectionDroppedError as e:

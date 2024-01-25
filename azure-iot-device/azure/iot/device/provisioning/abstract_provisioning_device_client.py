@@ -39,7 +39,7 @@ def _validate_kwargs(exclude: Optional[List[str]] = [], **kwargs):
     ]
 
     for kwarg in kwargs:
-        if (kwarg not in valid_kwargs) or (kwarg in exclude):
+        if (kwarg not in valid_kwargs) or (exclude is not None and kwarg in exclude):
             raise TypeError("Unsupported keyword argument '{}'".format(kwarg))
 
 
@@ -251,7 +251,7 @@ class AbstractProvisioningDeviceClient(abc.ABC):
         self._provisioning_payload = provisioning_payload
 
 
-def log_on_register_complete(result: Union[RegistrationResult, Exception] = None) -> None:
+def log_on_register_complete(result: Optional[RegistrationResult] = None) -> None:
     # This could be a failed/successful registration result from DPS
     # or a error from polling machine. Response should be given appropriately
     if result is not None:

@@ -618,7 +618,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
-    async def send_message_to_output(self, message: Message, output_name: str) -> None:
+    async def send_message_to_output(self, message: Union[Message, str], output_name: str) -> None:
         """Sends an event/message to the given module output.
 
         These are outgoing events and are meant to be "output events"

@@ -6,7 +6,7 @@
 
 import logging
 import ssl
-import requests
+import requests # type: ignore
 from . import transport_exceptions as exceptions
 from .pipeline import pipeline_thread
 

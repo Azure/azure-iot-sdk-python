@@ -7,12 +7,13 @@
 
 import inspect
 import logging
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
 # This dict will be used as a scope for imports and defs in add_shims_for_inherited_methods
 # in order to keep them out of the global scope of this module.
-shim_scope = {}
+shim_scope : Dict[str, str]= {}
 
 
 def add_shims_for_inherited_methods(target_class):
