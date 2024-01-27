@@ -17,11 +17,6 @@ jobs:
         imageName: 'windows-latest'
         consumerGroup: 'cg2'
 
-      py36_linux_mqtt:
-        pv: '3.6'
-        transport: 'mqtt'
-        imageName: 'Ubuntu 20.04'
-        consumerGroup: 'cg3'
       py37_linux_mqttws:
         pv: '3.7'
         transport: 'mqttws'
