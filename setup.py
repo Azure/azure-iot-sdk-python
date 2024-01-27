@@ -88,6 +88,7 @@ setup(
         "typing_extensions",
     ],
     python_requires=">=3.6, <4",
+    package_data={"azure.iot.device": ["py.typed"]},
     packages=find_namespace_packages(where="azure-iot-device"),
     package_dir={"": "azure-iot-device"},
     zip_safe=False,
