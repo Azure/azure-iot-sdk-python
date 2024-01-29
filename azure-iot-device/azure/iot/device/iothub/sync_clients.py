@@ -6,15 +6,16 @@
 """This module contains user-facing synchronous clients for the
 Azure IoTHub Device SDK for Python.
 """
-
+from __future__ import annotations  # Needed for annotation bug < 3.10
 import logging
+from queue import Queue
 import deprecation
 from .abstract_clients import (
     AbstractIoTHubClient,
     AbstractIoTHubDeviceClient,
     AbstractIoTHubModuleClient,
 )
-from .models import Message
+from .models import Message, MethodResponse, MethodRequest
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox, InboxEmpty
 from . import sync_handler_manager
@@ -23,7 +24,9 @@ from .pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device import constant as device_constant
-
+from .pipeline import MQTTPipeline, HTTPPipeline
+from azure.iot.device.custom_typing import FunctionOrCoroutine, StorageInfo, Twin, TwinPatch
+from typing import Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +94,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
         self._mqtt_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
 
-    def _enable_feature(self, feature_name):
+    def _enable_feature(self, feature_name: str) -> None:
         """Enable an Azure IoT Hub feature.
 
         This is a synchronous call, meaning that this function will not return until the feature
@@ -111,7 +114,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             # This branch shouldn't be reached, but in case it is, log it
             logger.info("Feature ({}) already disabled - skipping".format(feature_name))
 
-    def _disable_feature(self, feature_name):
+    def _disable_feature(self, feature_name: str) -> None:
         """Disable an Azure IoT Hub feature
 
         This is a synchronous call, meaning that this function will not return until the feature
@@ -132,7 +135,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             # This branch shouldn't be reached, but in case it is, log it
             logger.info("Feature ({}) already disabled - skipping".format(feature_name))
 
-    def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
+    def _generic_receive_handler_setter(
+        self, handler_name: str, feature_name: str, new_handler: FunctionOrCoroutine[[None], None]
+    ) -> None:
         """Set a receive handler on the handler manager and enable the corresponding feature.
 
         This is a synchronous call, meaning that this function will not return until the feature
@@ -154,7 +159,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
             self._disable_feature(feature_name)
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Shut down the client for graceful exit.
 
         Once this method is called, any attempts at further client calls will result in a
@@ -180,7 +185,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.debug("Completed pipeline shutdown operation")
 
         # Stop the Client Event handlers now that everything else is completed
-        self._handler_manager.stop(receiver_handlers_only=False)
+        if self._handler_manager is not None:
+            self._handler_manager.stop(receiver_handlers_only=False)
 
         # Yes, that means the pipeline is disconnected twice (well, actually three times if you
         # consider that the client-level disconnect causes two pipeline-level disconnects for
@@ -197,7 +203,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # capability for HTTP pipeline.
         logger.info("Client shutdown complete")
 
-    def connect(self):
+    def connect(self) -> None:
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
 
         The destination is chosen based on the credentials passed via the auth_provider parameter
@@ -224,7 +230,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully connected to Hub")
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub instance.
 
         It is recommended that you make sure to call this function when you are completely done
@@ -247,7 +253,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # Note that in the process of stopping the handlers and resolving pending calls
         # a user-supplied handler may cause a reconnection to occur
         logger.debug("Stopping handlers...")
-        self._handler_manager.stop(receiver_handlers_only=True)
+        if self._handler_manager is not None:
+            self._handler_manager.stop(receiver_handlers_only=True)
         logger.debug("Successfully stopped handlers")
 
         # Disconnect again to ensure disconnection has occurred due to the issue mentioned above
@@ -270,7 +277,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully disconnected from Hub")
 
-    def update_sastoken(self, sastoken):
+    def update_sastoken(self, sastoken: str) -> None:
         """
         Update the client's SAS Token used for authentication, then reauthorizes the connection.
 
@@ -306,7 +313,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully reauthorized connection to Hub")
 
-    def send_message(self, message):
+    def send_message(self, message: Union[Message, str]) -> None:
         """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
 
         This is a synchronous event, meaning that this function will not return until the event
@@ -352,7 +359,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         current_version=device_constant.VERSION,
         details="We recommend that you use the .on_method_request_received property to set a handler instead",
     )
-    def receive_method_request(self, method_name=None, block=True, timeout=None):
+    def receive_method_request(
+        self, method_name: Optional[str] = None, block: bool = True, timeout: Optional[int] = None
+    ) -> Optional[MethodRequest]:
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
         :param str method_name: Optionally provide the name of the method to receive requests for.
@@ -369,7 +378,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
             self._enable_feature(pipeline_constant.METHODS)
 
-        method_inbox = self._inbox_manager.get_method_request_inbox(method_name)
+        if self._inbox_manager is not None:
+            method_inbox : Queue[MethodRequest] = self._inbox_manager.get_method_request_inbox(method_name)
 
         logger.info("Waiting for method request...")
         try:
@@ -380,7 +390,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             logger.info("Did not receive method request")
         return method_request
 
-    def send_method_response(self, method_response):
+    def send_method_response(self, method_response: MethodResponse) -> None:
         """Send a response to a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
         This is a synchronous event, meaning that this function will not return until the event
@@ -413,7 +423,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent method response to Hub")
 
-    def get_twin(self):
+    def get_twin(self) -> Twin:
         """
         Gets the device or module twin from the Azure IoT Hub or Azure IoT Edge Hub service.
 
@@ -446,7 +456,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Successfully retrieved twin")
         return twin
 
-    def patch_twin_reported_properties(self, reported_properties_patch):
+    def patch_twin_reported_properties(self, reported_properties_patch: TwinPatch) -> None:
         """
         Update reported properties with the Azure IoT Hub or Azure IoT Edge Hub service.
 
@@ -488,7 +498,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         current_version=device_constant.VERSION,
         details="We recommend that you use the .on_twin_desired_properties_patch_received property to set a handler instead",
     )
-    def receive_twin_desired_properties_patch(self, block=True, timeout=None):
+    def receive_twin_desired_properties_patch(self, block=True, timeout=None) -> TwinPatch:
         """
         Receive a desired property patch via the Azure IoT Hub or Azure IoT Edge Hub.
 
@@ -513,7 +523,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
             self._enable_feature(pipeline_constant.TWIN_PATCHES)
-        twin_patch_inbox = self._inbox_manager.get_twin_patch_inbox()
+        if self._inbox_manager is not None:
+            twin_patch_inbox : Queue[TwinPatch] = self._inbox_manager.get_twin_patch_inbox()
 
         logger.info("Waiting for twin patches...")
         try:
@@ -528,7 +539,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """A synchronous device client that connects to an Azure IoT Hub instance."""
 
-    def __init__(self, mqtt_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline: MQTTPipeline, http_pipeline: HTTPPipeline):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
@@ -538,14 +549,15 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
-        self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
+        if self._inbox_manager is not None:
+            self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
     @deprecation.deprecated(
         deprecated_in="2.3.0",
         current_version=device_constant.VERSION,
         details="We recommend that you use the .on_message_received property to set a handler instead",
     )
-    def receive_message(self, block=True, timeout=None):
+    def receive_message(self, block=True, timeout=None) -> Optional[Message]:
         """Receive a message that has been sent from the Azure IoT Hub.
 
         :param bool block: Indicates if the operation should block until a message is received.
@@ -559,7 +571,8 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
             self._enable_feature(pipeline_constant.C2D_MSG)
-        c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
+        if self._inbox_manager is not None:
+            c2d_inbox : Queue[Message] = self._inbox_manager.get_c2d_message_inbox()
 
         logger.info("Waiting for message from Hub...")
         try:
@@ -570,7 +583,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
             logger.info("No message received.")
         return message
 
-    def get_storage_info_for_blob(self, blob_name):
+    def get_storage_info_for_blob(self, blob_name: str) -> StorageInfo:
         """Sends a POST request over HTTP to an IoTHub endpoint that will return information for uploading via the Azure Storage Account linked to the IoTHub your device is connected to.
 
         :param str blob_name: The name in string format of the blob that will be uploaded using the storage API. This name will be used to generate the proper credentials for Storage, and needs to match what will be used with the Azure Storage SDK to perform the blob upload.
@@ -584,8 +597,8 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         return storage_info
 
     def notify_blob_upload_status(
-        self, correlation_id, is_success, status_code, status_description
-    ):
+        self, correlation_id: str, is_success: bool, status_code: int, status_description: str
+    ) -> None:
         """When the upload is complete, the device sends a POST request to the IoT Hub endpoint with information on the status of an upload to blob attempt. This is used by IoT Hub to notify listening clients.
 
         :param str correlation_id: Provided by IoT Hub on get_storage_info_for_blob request.
@@ -608,7 +621,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     """A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance."""
 
-    def __init__(self, mqtt_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline: MQTTPipeline, http_pipeline: HTTPPipeline):
         """Initializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
@@ -620,9 +633,10 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
-        self._mqtt_pipeline.on_input_message_received = self._inbox_manager.route_input_message
+        if self._inbox_manager is not None:
+            self._mqtt_pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
-    def send_message_to_output(self, message, output_name):
+    def send_message_to_output(self, message: Union[Message, str], output_name: str) -> None:
         """Sends an event/message to the given module output.
 
         These are outgoing events and are meant to be "output events".
@@ -673,7 +687,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         current_version=device_constant.VERSION,
         details="We recommend that you use the .on_message_received property to set a handler instead",
     )
-    def receive_message_on_input(self, input_name, block=True, timeout=None):
+    def receive_message_on_input(
+        self, input_name: str, block: bool = True, timeout: Optional[int] = None
+    ) -> Optional[Message]:
         """Receive an input message that has been sent from another Module to a specific input.
 
         :param str input_name: The input name to receive a message on.
@@ -687,7 +703,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
             self._enable_feature(pipeline_constant.INPUT_MSG)
-        input_inbox = self._inbox_manager.get_input_message_inbox(input_name)
+        if self._inbox_manager is not None:
+            input_inbox : Queue[Message] = self._inbox_manager.get_input_message_inbox(input_name)
 
         logger.info("Waiting for input message on: " + input_name + "...")
         try:
@@ -698,7 +715,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
             logger.info("No input message received on: " + input_name)
         return message
 
-    def invoke_method(self, method_params, device_id, module_id=None):
+    def invoke_method(self, method_params: dict, device_id: str, module_id=None):
         """Invoke a method from your client onto a device or module client, and receive the response to the method call.
 
         :param dict method_params: Should contain a methodName (str), payload (str),

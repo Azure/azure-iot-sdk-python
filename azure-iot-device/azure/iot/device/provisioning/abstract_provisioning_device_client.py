@@ -10,15 +10,21 @@ Device Provisioning Service.
 
 import abc
 import logging
+from typing_extensions import Self
+from typing import Any, Dict, List, Optional
 from azure.iot.device.provisioning import pipeline
 
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common import auth, handle_exceptions
+from .pipeline import MQTTPipeline
+from azure.iot.device.common.models import X509
+from azure.iot.device.custom_typing import ProvisioningPayload
+from azure.iot.device.provisioning.models import RegistrationResult
 
 logger = logging.getLogger(__name__)
 
 
-def _validate_kwargs(exclude=[], **kwargs):
+def _validate_kwargs(exclude: Optional[List[str]] = [], **kwargs):
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
 
@@ -33,16 +39,16 @@ def _validate_kwargs(exclude=[], **kwargs):
     ]
 
     for kwarg in kwargs:
-        if (kwarg not in valid_kwargs) or (kwarg in exclude):
+        if (kwarg not in valid_kwargs) or (exclude is not None and kwarg in exclude):
             raise TypeError("Unsupported keyword argument '{}'".format(kwarg))
 
 
-def validate_registration_id(reg_id):
+def validate_registration_id(reg_id: str) -> None:
     if not (reg_id and reg_id.strip()):
         raise ValueError("Registration Id can not be none, empty or blank.")
 
 
-def _get_config_kwargs(**kwargs):
+def _get_config_kwargs(**kwargs) -> Dict[str, Any]:
     """Get the subset of kwargs which pertain the config object"""
     valid_config_kwargs = [
         "server_verification_cert",
@@ -60,7 +66,7 @@ def _get_config_kwargs(**kwargs):
     return config_kwargs
 
 
-def _form_sas_uri(id_scope, registration_id):
+def _form_sas_uri(id_scope: str, registration_id: str) -> str:
     return "{id_scope}/registrations/{registration_id}".format(
         id_scope=id_scope, registration_id=registration_id
     )
@@ -71,7 +77,7 @@ class AbstractProvisioningDeviceClient(abc.ABC):
     Super class for any client that can be used to register devices to Device Provisioning Service.
     """
 
-    def __init__(self, pipeline):
+    def __init__(self, pipeline: MQTTPipeline):
         """
         Initializes the provisioning client.
 
@@ -89,8 +95,8 @@ class AbstractProvisioningDeviceClient(abc.ABC):
 
     @classmethod
     def create_from_symmetric_key(
-        cls, provisioning_host, registration_id, id_scope, symmetric_key, **kwargs
-    ):
+        cls, provisioning_host: str, registration_id: str, id_scope: str, symmetric_key: str, **kwargs
+    ) -> Self:
         """
         Create a client which can be used to run the registration of a device with provisioning service
         using Symmetric Key authentication.
@@ -163,8 +169,8 @@ class AbstractProvisioningDeviceClient(abc.ABC):
 
     @classmethod
     def create_from_x509_certificate(
-        cls, provisioning_host, registration_id, id_scope, x509, **kwargs
-    ):
+        cls, provisioning_host: str, registration_id: str, id_scope: str, x509: X509, **kwargs
+    ) -> Self:
         """
         Create a client which can be used to run the registration of a device with
         provisioning service using X509 certificate authentication.
@@ -224,18 +230,18 @@ class AbstractProvisioningDeviceClient(abc.ABC):
         return cls(mqtt_provisioning_pipeline)
 
     @abc.abstractmethod
-    def register(self):
+    def register(self) -> RegistrationResult:
         """
         Register the device with the Device Provisioning Service.
         """
         pass
 
     @property
-    def provisioning_payload(self):
+    def provisioning_payload(self) -> ProvisioningPayload:
         return self._provisioning_payload
 
     @provisioning_payload.setter
-    def provisioning_payload(self, provisioning_payload):
+    def provisioning_payload(self, provisioning_payload: ProvisioningPayload):
         """
         Set the payload that will form the request payload in a registration request.
 
@@ -245,7 +251,7 @@ class AbstractProvisioningDeviceClient(abc.ABC):
         self._provisioning_payload = provisioning_payload
 
 
-def log_on_register_complete(result=None):
+def log_on_register_complete(result: Optional[RegistrationResult] = None) -> None:
     # This could be a failed/successful registration result from DPS
     # or a error from polling machine. Response should be given appropriately
     if result is not None:

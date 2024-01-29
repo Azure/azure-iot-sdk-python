@@ -8,9 +8,11 @@ This module contains user-facing asynchronous Provisioning Device Client for Azu
 Device SDK. This client uses Symmetric Key and X509 authentication to register devices with an
 IoT Hub via the Device Provisioning Service.
 """
-
+from __future__ import annotations  # Needed for annotation bug < 3.10
 import logging
+from typing import Any
 from azure.iot.device.common import async_adapter
+from azure.iot.device.custom_typing import FunctionOrCoroutine
 from azure.iot.device.provisioning.abstract_provisioning_device_client import (
     AbstractProvisioningDeviceClient,
 )
@@ -20,11 +22,12 @@ from azure.iot.device.provisioning.abstract_provisioning_device_client import (
 from azure.iot.device.provisioning.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.provisioning.pipeline import constant as dps_constant
+from azure.iot.device.provisioning.models import RegistrationResult
 
 logger = logging.getLogger(__name__)
 
 
-async def handle_result(callback):
+async def handle_result(callback: FunctionOrCoroutine[[Any], Any]) -> Any:
     try:
         return await callback.completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
@@ -49,7 +52,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
     using Symmetric Key or X509 authentication.
     """
 
-    async def register(self):
+    async def register(self) -> RegistrationResult:
         """
         Register the device with the provisioning service.
 
@@ -94,7 +97,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         return result
 
-    async def _enable_responses(self):
+    async def _enable_responses(self) -> None:
         """Enable to receive responses from Device Provisioning Service."""
         logger.info("Enabling reception of response from Device Provisioning Service...")
         subscribe_async = async_adapter.emulate_async(self._pipeline.enable_responses)
