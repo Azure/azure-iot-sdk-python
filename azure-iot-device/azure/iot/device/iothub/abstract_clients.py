@@ -231,7 +231,10 @@ class AbstractIoTHubClient(abc.ABC):
             raise ValueError("Provided SasToken is for a device")
         if self._mqtt_pipeline.pipeline_configuration.device_id != vals["device_id"]:
             raise ValueError("Provided SasToken does not match existing device id")
-        if vals["module_id"] != "" and self._mqtt_pipeline.pipeline_configuration.module_id != vals["module_id"]:
+        if (
+            vals["module_id"] != ""
+            and self._mqtt_pipeline.pipeline_configuration.module_id != vals["module_id"]
+        ):
             raise ValueError("Provided SasToken does not match existing module id")
         if self._mqtt_pipeline.pipeline_configuration.hostname != vals["hostname"]:
             raise ValueError("Provided SasToken does not match existing hostname")
@@ -433,9 +436,7 @@ class AbstractIoTHubClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def send_method_response(
-        self, method_response: MethodResponse
-    ) -> None:
+    def send_method_response(self, method_response: MethodResponse) -> None:
         pass
 
     @abc.abstractmethod
@@ -607,7 +608,6 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             device_id=device_id, hostname=hostname, x509=x509, **config_kwargs
         )
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
-        pipeline_configuration.ensure_desired_properties = True
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
@@ -680,7 +680,6 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             device_id=device_id, hostname=hostname, sastoken=sastoken, **config_kwargs
         )
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
-        pipeline_configuration.ensure_desired_properties = True
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
@@ -844,8 +843,6 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             server_verification_cert=server_verification_cert,
             **config_kwargs,
         )
-        pipeline_configuration.ensure_desired_properties = True
-
         pipeline_configuration.method_invoke = (
             True  # Method Invoke is allowed on modules created from edge environment
         )
@@ -912,7 +909,6 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         pipeline_configuration = pipeline.IoTHubPipelineConfig(
             device_id=device_id, module_id=module_id, hostname=hostname, x509=x509, **config_kwargs
         )
-        pipeline_configuration.ensure_desired_properties = True
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
