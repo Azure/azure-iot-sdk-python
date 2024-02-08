@@ -28,12 +28,8 @@ async def main():
         print("content Type: {0}".format(message.content_type))
         print("")
 
-    def background_exception_handler(e):
-        print("Exception raised in background thread: {}".format(e))
-
     # set the message received handler on the client
     device_client.on_message_received = message_received_handler
-    device_client.on_background_exception = background_exception_handler
 
     # define behavior for halting the application
     def stdin_listener():
