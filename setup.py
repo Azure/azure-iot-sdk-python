@@ -88,6 +88,7 @@ setup(
     ],
     python_requires=">=3.7, <4",
     packages=find_namespace_packages(where="azure-iot-device"),
+    package_data={"azure.iot.device": ["py.typed"]},
     package_dir={"": "azure-iot-device"},
     zip_safe=False,
 )
