@@ -6,7 +6,6 @@
 
 import logging
 import pytest
-import pytest_asyncio
 import asyncio
 import time
 import urllib
@@ -46,12 +45,6 @@ from ..shared_client_tests import (
 
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
-
-# Python 3.6 only supports pytest_asyncio==0.16.0 which doesn't have pytest_asyncio.fixture.
-try:
-    asyncio_fixture = pytest_asyncio.fixture
-except AttributeError:
-    asyncio_fixture = pytest.fixture
 
 
 async def create_completed_future(result=None):
@@ -1259,7 +1252,7 @@ class IoTHubDeviceClientTestsConfig(object):
     def client_class(self):
         return IoTHubDeviceClient
 
-    @asyncio_fixture
+    @pytest.fixture
     async def client(self, mqtt_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
@@ -1781,7 +1774,7 @@ class IoTHubModuleClientTestsConfig(object):
     def client_class(self):
         return IoTHubModuleClient
 
-    @asyncio_fixture
+    @pytest.fixture
     async def client(self, mqtt_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
