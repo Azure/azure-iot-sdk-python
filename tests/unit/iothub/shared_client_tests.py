@@ -165,6 +165,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
     @pytest.mark.it(
         "Sets the 'ensure_desired_properties' user option parameter on the PipelineConfig, if provided"
     )
+    @pytest.mark.parametrize("edp_value", [True, False])
     def test_ensure_desired_properties_option(
         self,
         option_test_required_patching,
@@ -172,9 +173,10 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         create_method_args,
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
+        edp_value,
     ):
 
-        client_create_method(*create_method_args, ensure_desired_properties=True)
+        client_create_method(*create_method_args, ensure_desired_properties=edp_value)
 
         # Get configuration object, and ensure it was used for both protocol pipelines
         assert mock_mqtt_pipeline_init.call_count == 1
@@ -182,11 +184,12 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert isinstance(config, IoTHubPipelineConfig)
         assert config == mock_http_pipeline_init.call_args[0][0]
 
-        assert config.ensure_desired_properties is True
+        assert config.ensure_desired_properties is edp_value
 
     @pytest.mark.it(
         "Sets the 'websockets' user option parameter on the PipelineConfig, if provided"
     )
+    @pytest.mark.parametrize("ws_value", [True, False])
     def test_websockets_option(
         self,
         option_test_required_patching,
@@ -194,9 +197,10 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         create_method_args,
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
+        ws_value,
     ):
 
-        client_create_method(*create_method_args, websockets=True)
+        client_create_method(*create_method_args, websockets=ws_value)
 
         # Get configuration object, and ensure it was used for both protocol pipelines
         assert mock_mqtt_pipeline_init.call_count == 1
@@ -204,7 +208,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert isinstance(config, IoTHubPipelineConfig)
         assert config == mock_http_pipeline_init.call_args[0][0]
 
-        assert config.websockets
+        assert config.websockets is ws_value
 
     # TODO: Show that input in the wrong format is formatted to the correct one. This test exists
     # in the IoTHubPipelineConfig object already, but we do not currently show that this is felt
@@ -320,6 +324,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
     @pytest.mark.it(
         "Sets the 'auto_connect' user option parameter on the PipelineConfig, if provided"
     )
+    @pytest.mark.parametrize("auto_connect_value", [True, False])
     def test_auto_connect_option(
         self,
         option_test_required_patching,
@@ -327,8 +332,8 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         create_method_args,
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
+        auto_connect_value,
     ):
-        auto_connect_value = False
         client_create_method(*create_method_args, auto_connect=auto_connect_value)
 
         # Get configuration object, and ensure it was used for both protocol pipelines
@@ -342,6 +347,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
     @pytest.mark.it(
         "Sets the 'connection_retry' user option parameter on the PipelineConfig, if provided"
     )
+    @pytest.mark.parametrize("connection_retry_value", [True, False])
     def test_connection_retry_option(
         self,
         option_test_required_patching,
@@ -349,6 +355,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         create_method_args,
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
+        connection_retry_value,
     ):
         connection_retry_value = False
         client_create_method(*create_method_args, connection_retry=connection_retry_value)

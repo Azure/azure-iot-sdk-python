@@ -1,4 +1,4 @@
-pytest
+pytest < 8.0.0
 pytest-asyncio <= 0.16
 pytest-mock
 pytest-testdox>=1.1.1
