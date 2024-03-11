@@ -55,7 +55,7 @@ if registration_result.status == "assigned":
         device_client.send_message(msg)
         time.sleep(1)
 
-        # finally, disconnect
-        device_client.disconnect()
+    # finally, disconnect
+    device_client.disconnect()
 else:
     print("Can not send telemetry from the provisioned device")
