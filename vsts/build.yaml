@@ -85,6 +85,7 @@ jobs:
 
   - script: |
       pip install wheel
+      pip install setuptools
       python scripts/build_packages.py
     displayName: Build source and wheel distribution
 
