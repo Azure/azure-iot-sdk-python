@@ -73,15 +73,12 @@ setup(
     install_requires=[
         # Define sub-dependencies due to pip dependency resolution bug
         # https://github.com/pypa/pip/issues/988
-        # ---requests dependencies---
-        # requests 2.22+ does not support urllib3 1.25.0 or 1.25.1 (https://github.com/psf/requests/pull/5092)
-        # Security issue below 1.26.5
-        "urllib3>=1.26.5,<1.27",
+        "urllib3>=2.2.2,<3.0.0",
         # Actual project dependencies
         "deprecation>=2.1.0,<3.0.0",
         "paho-mqtt>=1.6.1,<2.0.0",
-        "requests>=2.20.0,<2.32.0",  # 2.32.0 breaks requests-unixsocket
-        "requests-unixsocket>=0.1.5,<1.0.0",
+        "requests>=2.32.3,<3.0.0",
+        "requests-unixsocket2>=0.4.1",
         "janus",
         "PySocks",
         "typing_extensions",
