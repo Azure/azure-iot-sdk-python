@@ -17,8 +17,8 @@ jobs:
         imageName: 'windows-latest'
         consumerGroup: 'cg2'
 
-      py37_linux_mqttws:
-        pv: '3.7'
+      py38_linux_mqttws:
+        pv: '3.8'
         transport: 'mqttws'
         imageName: 'Ubuntu 20.04'
         consumerGroup: 'cg4'
@@ -37,6 +37,11 @@ jobs:
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
         consumerGroup: 'cg7'
+      py311_linux_mqtt:
+        pv: '3.11'
+        transport: 'mqtt'
+        imageName: 'Ubuntu 20.04'
+        consumerGroup: 'cg8'
 
   pool:
     vmImage: $(imageName)

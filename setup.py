@@ -65,10 +65,10 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
     install_requires=[
         # Define sub-dependencies due to pip dependency resolution bug
@@ -83,7 +83,7 @@ setup(
         "PySocks",
         "typing_extensions",
     ],
-    python_requires=">=3.7, <4",
+    python_requires=">=3.8, <4",
     packages=find_namespace_packages(where="azure-iot-device"),
     package_data={"azure.iot.device": ["py.typed"]},
     package_dir={"": "azure-iot-device"},
