@@ -16,7 +16,6 @@ jobs:
         transport: 'mqttws'
         imageName: 'windows-latest'
         consumerGroup: 'cg2'
-
       py38_linux_mqttws:
         pv: '3.8'
         transport: 'mqttws'
