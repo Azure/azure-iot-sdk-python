@@ -11,8 +11,6 @@ from azure.iot.device.iothub import MethodResponse
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.fixture
 def method_name():

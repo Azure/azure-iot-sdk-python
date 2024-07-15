@@ -11,8 +11,6 @@ import parametrize
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.mark.skipif(
     test_config.config.auth not in test_config.AUTH_WITH_RENEWING_TOKEN,
