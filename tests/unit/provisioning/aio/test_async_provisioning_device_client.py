@@ -20,7 +20,6 @@ from ..shared_client_tests import (
 
 
 logging.basicConfig(level=logging.DEBUG)
-pytestmark = pytest.mark.asyncio
 
 
 async def create_completed_future(result=None):
