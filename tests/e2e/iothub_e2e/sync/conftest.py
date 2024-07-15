@@ -20,7 +20,7 @@ def brand_new_client(device_identity, client_kwargs, service_helper, device_id, 
     # Keep this here.  It is useful to see this info inside the inside devops pipeline test failures.
     logger.info(
         "Connecting device_id={}, module_id={}, to hub={} at {} (UTC)".format(
-            device_id, module_id, test_env.IOTHUB_HOSTNAME, datetime.datetime.utcnow()
+            device_id, module_id, test_env.IOTHUB_HOSTNAME, datetime.datetime.now(datetime.UTC)
         )
     )
 
