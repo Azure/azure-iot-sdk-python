@@ -321,8 +321,7 @@ class MQTTTransport(object):
         This method creates the SSLContext object used by Paho to authenticate the connection.
         """
         logger.debug("creating a SSL context")
-        # Note that PROTOCOL_TLS_CLIENT implies ssl.CERT_REQUIRED and check_hostname == true
-        ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
 
         if self._server_verification_cert:
             logger.debug("configuring SSL context with custom server verification cert")
@@ -346,6 +345,9 @@ class MQTTTransport(object):
                 self._x509_cert.key_file,
                 self._x509_cert.pass_phrase,
             )
+
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
+        ssl_context.check_hostname = True
 
         return ssl_context
 

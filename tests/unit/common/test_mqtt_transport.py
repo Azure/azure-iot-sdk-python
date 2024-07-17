@@ -267,9 +267,9 @@ class TestInstantiation(object):
 
         # Verify correctness of TLS/SSL Context
         assert mock_ssl_context_constructor.call_count == 1
-        assert mock_ssl_context_constructor.call_args == mocker.call(
-            protocol=ssl.PROTOCOL_TLS_CLIENT
-        )
+        assert mock_ssl_context_constructor.call_args == mocker.call(protocol=ssl.PROTOCOL_TLSv1_2)
+        assert mock_ssl_context.check_hostname is True
+        assert mock_ssl_context.verify_mode == ssl.CERT_REQUIRED
 
         # Verify context has been set
         assert mock_mqtt_client.tls_set_context.call_count == 1

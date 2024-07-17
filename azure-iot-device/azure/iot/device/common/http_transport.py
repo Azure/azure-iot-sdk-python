@@ -69,8 +69,7 @@ class HTTPTransport(object):
         This method creates the SSLContext object used to authenticate the connection. The generated context is used by the http_client and is necessary when authenticating using a self-signed X509 cert or trusted X509 cert
         """
         logger.debug("creating a SSL context")
-        # Note that PROTOCOL_TLS_CLIENT implies ssl.CERT_REQUIRED and check_hostname == true
-        ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
 
         if self._server_verification_cert:
             ssl_context.load_verify_locations(cadata=self._server_verification_cert)
@@ -91,6 +90,9 @@ class HTTPTransport(object):
                 self._x509_cert.key_file,
                 self._x509_cert.pass_phrase,
             )
+
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
+        ssl_context.check_hostname = True
 
         return ssl_context
 

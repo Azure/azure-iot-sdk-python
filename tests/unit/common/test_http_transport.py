@@ -100,13 +100,14 @@ class TestInstantiation(object):
     )
     def test_configures_tls_context(self, mocker):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
+        mock_ssl_context = mock_ssl_context_constructor.return_value
 
         HTTPTransport(hostname=fake_hostname)
         # Verify correctness of TLS/SSL Context
         assert mock_ssl_context_constructor.call_count == 1
-        assert mock_ssl_context_constructor.call_args == mocker.call(
-            protocol=ssl.PROTOCOL_TLS_CLIENT
-        )
+        assert mock_ssl_context_constructor.call_args == mocker.call(protocol=ssl.PROTOCOL_TLSv1_2)
+        assert mock_ssl_context.check_hostname is True
+        assert mock_ssl_context.verify_mode == ssl.CERT_REQUIRED
 
     @pytest.mark.it(
         "Configures TLS/SSL context using default certificates if protocol wrapper not instantiated with a server verification certificate"
