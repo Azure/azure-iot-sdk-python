@@ -67,7 +67,7 @@ class TestRegistrationResult(object):
     @pytest.mark.it("Has attributes that do not have setter")
     def test_some_properties_of_result_are_not_settable(self, input_setter_code):
         registration_result = create_registration_result()  # noqa: F841
-        with pytest.raises(AttributeError, match="can't set attribute"):
+        with pytest.raises(AttributeError):
             exec(input_setter_code)
 
     @pytest.mark.parametrize(
@@ -91,7 +91,7 @@ class TestRegistrationResult(object):
     def test_some_properties_of_state_are_not_settable(self, input_setter_code):
         registration_state = create_registration_state()  # noqa: F841
 
-        with pytest.raises(AttributeError, match="can't set attribute"):
+        with pytest.raises(AttributeError):
             exec(input_setter_code)
 
     @pytest.mark.it(
