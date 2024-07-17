@@ -21,7 +21,7 @@ The Azure IoT Device library is available on PyPI:
 pip install azure-iot-device
 ```
 
-Python 3.7 or higher is required in order to use the library
+Python 3.8 or higher is required in order to use the library
 
 ## Using the library
 API documentation for this package is available via [**Microsoft Docs**](https://docs.microsoft.com/python/api/azure-iot-device/azure.iot.device?view=azure-python).
