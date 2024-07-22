@@ -11,8 +11,6 @@ from azure.iot.device.exceptions import ClientError
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 
 # TODO: tests with drop_incoming and reject_incoming
 
