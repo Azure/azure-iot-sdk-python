@@ -20,6 +20,7 @@ from threading import Timer
 
 logger = logging.getLogger(__name__)
 
+import pdb;
 
 class CommonProvisioningStage(PipelineStage):
     """
@@ -60,10 +61,9 @@ class CommonProvisioningStage(PipelineStage):
                 last_update_date_time=decoded_state.get("lastUpdatedDateTimeUtc", None),
                 etag=decoded_state.get("etag", None),
                 payload=decoded_state.get("payload", None),
-                client_cert=decoded_state.get("issuedClientCertificate", None),
-                trust_bundle=decoded_state.get("trustBundle", None),
+                issued_certificate_chain=decoded_state.get("issuedCertificateChain", None),
             )
-
+        pdb.set_trace();
         registration_result = RegistrationResult(
             operation_id=operation_id, status=status, registration_state=registration_state
         )
@@ -85,6 +85,7 @@ class CommonProvisioningStage(PipelineStage):
                 body=request_response_op.response_body,
             )
         )
+        pdb.set_trace();
         original_provisioning_op.complete(
             error=exceptions.ServiceError(
                 "{prov_op_name} request returned a service error status code {status_code}".format(
@@ -436,6 +437,7 @@ class RegistrationStage(CommonProvisioningStage):
                 client_csr=initial_register_op.client_csr,
             )
             json_request = registration_payload.get_json_string()
+            pdb.set_trace();
             logger.debug(
                 "{}({}): Sending json payload {} to provisioning".format(
                     self.name, op.name, json_request
@@ -466,7 +468,7 @@ class DeviceRegistrationPayload(object):
         # DPS service spec needs the name to be exact for it to work
         self.registrationId = registration_id
         self.payload = custom_payload
-        self.clientCertificateCsr = client_csr
+        self.csr = client_csr
 
     def get_json_string(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)

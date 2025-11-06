@@ -22,6 +22,7 @@ from azure.iot.device.provisioning.pipeline import constant as provisioning_cons
 
 logger = logging.getLogger(__name__)
 
+import pdb;
 
 class MQTTPipeline(object):
     def __init__(self, pipeline_configuration):
@@ -272,7 +273,7 @@ class MQTTPipeline(object):
                 callback(error=error, result=None)
             else:
                 callback(result=op.registration_result)
-
+        pdb.set_trace();
         self._pipeline.run_op(
             pipeline_ops_provisioning.RegisterOperation(
                 request_payload=payload,

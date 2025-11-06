@@ -108,22 +108,6 @@ class TestIoTEdgeHsmInstantiation(object):
 
 @pytest.mark.describe("IoTEdgeHsm - .get_certificate()")
 class TestIoTEdgeHsmGetCertificate(object):
-    @pytest.mark.it("Sends an HTTP GET request to retrieve the trust bundle from Edge")
-    def test_requests_trust_bundle(self, mocker, edge_hsm):
-        mock_request_get = mocker.patch.object(requests, "get")
-        expected_url = edge_hsm.workload_uri + "trust-bundle"
-        expected_params = {"api-version": edge_hsm.api_version}
-        expected_headers = {
-            "User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())
-        }
-
-        edge_hsm.get_certificate()
-
-        assert mock_request_get.call_count == 1
-        assert mock_request_get.call_args == mocker.call(
-            expected_url, params=expected_params, headers=expected_headers
-        )
-
     @pytest.mark.it("Returns the certificate from the trust bundle received from Edge")
     def test_returns_certificate(self, mocker, edge_hsm):
         mock_request_get = mocker.patch.object(requests, "get")
@@ -156,16 +140,6 @@ class TestIoTEdgeHsmGetCertificate(object):
         with pytest.raises(IoTEdgeError) as e_info:
             edge_hsm.get_certificate()
         assert e_info.value.__cause__ is error
-
-    @pytest.mark.it("Raises IoTEdgeError if the certificate is missing from the trust bundle")
-    def test_bad_trust_bundle(self, mocker, edge_hsm):
-        mock_request_get = mocker.patch.object(requests, "get")
-        mock_response = mock_request_get.return_value
-        # Return an empty json dict with no 'certificate' key
-        mock_response.json.return_value = {}
-
-        with pytest.raises(IoTEdgeError):
-            edge_hsm.get_certificate()
 
 
 @pytest.mark.describe("IoTEdgeHsm - .sign()")

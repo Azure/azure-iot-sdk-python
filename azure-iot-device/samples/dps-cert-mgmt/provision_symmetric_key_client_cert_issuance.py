@@ -11,54 +11,83 @@ from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import Message
 import uuid
 from azure.iot.device import X509
+import logging
+
+import pdb;
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 messages_to_send = 10
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
-symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
 
-csr_file = os.getenv("CSR_FILE")
-key_file = os.getenv("X509_KEY_FILE")
-issued_cert_file = os.getenv("X509_CERT_FILE")
+dps_x509_cert_file = os.getenv("PROVISIONING_X509_CERT_FILE")
+dps_x509_key_file = os.getenv("PROVISIONING_X509_KEY_FILE")
 
+dps_sas_key = os.getenv("PROVISIONING_SAS_KEY")
+
+csr_data = os.getenv("PROVISIONING_CSR")
+csr_key_file = os.getenv("PROVISIONING_CSR_KEY_FILE")
+issued_cert_file = os.getenv("PROVISIONING_ISSUED_CERT_FILE")
+
+def x509_certificate_list_to_pem(cert_list):
+    begin_cert_header = "-----BEGIN CERTIFICATE-----\r\n"
+    end_cert_footer = "\r\n-----END CERTIFICATE-----"
+    separator = end_cert_footer + "\r\n" + begin_cert_header
+    return begin_cert_header + separator.join(cert_list) + end_cert_footer
 
 async def main():
-    provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
-        provisioning_host=provisioning_host,
-        registration_id=registration_id,
-        id_scope=id_scope,
-        symmetric_key=symmetric_key,  # authenticate for DPS
-    )
-    with open(csr_file, "r") as csr:
-        csr_data = csr.read()
-        # set the CSR on the client
-        provisioning_device_client.client_csr = str(csr_data)
+    if dps_x509_cert_file is not None and dps_x509_key_file is not None:
+        dps_x509 = X509(
+            cert_file=dps_x509_cert_file,
+            key_file=dps_x509_key_file,
+        )
+
+        provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certificate(
+            provisioning_host=provisioning_host,
+            registration_id=registration_id,
+            id_scope=id_scope,
+            x509=dps_x509,
+        )
+    else if dps_sas_key is not None:
+        provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+            provisioning_host=provisioning_host,
+            registration_id=registration_id,
+            id_scope=id_scope,
+            symmetric_key==dps_sas_key,
+    else
+        print("Either provide PROVISIONING_X509_CERT_FILE and PROVISIONING_X509_KEY_FILE or PROVISIONING_SAS_KEY")
+        sys.exit(1)
+
+    # set the CSR on the client
+    provisioning_device_client.client_certificate_signing_request = csr_data
 
     registration_result = await provisioning_device_client.register()
 
     print("The complete registration result is")
     print(registration_result.registration_state)
+    pdb.set_trace();
 
     with open(issued_cert_file, "w") as out_ca_pem:
         # Write the issued certificate on the file.
-        cert_data = registration_result.registration_state.issued_client_certificate
-        out_ca_pem.write(cert_data)
+        out_ca_pem.write(x509_certificate_list_to_pem(registration_result.registration_state.issued_client_certificate))
 
     if registration_result.status == "assigned":
         print("Will send telemetry from the provisioned device")
 
-        x509 = X509(
+        iot_hub_x509 = X509(
             cert_file=issued_cert_file,
-            key_file=key_file,
-            pass_phrase=os.getenv("PASS_PHRASE"),
+            key_file=csr_key_file,
         )
 
         device_client = IoTHubDeviceClient.create_from_x509_certificate(
             hostname=registration_result.registration_state.assigned_hub,
             device_id=registration_result.registration_state.device_id,
-            x509=x509,
+            x509=iot_hub_x509,
         )
+
         # Connect the client.
         await device_client.connect()
 
