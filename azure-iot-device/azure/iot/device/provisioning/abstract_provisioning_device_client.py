@@ -23,8 +23,6 @@ from azure.iot.device.provisioning.models import RegistrationResult
 
 logger = logging.getLogger(__name__)
 
-import pdb;
-
 def _validate_kwargs(exclude: Optional[List[str]] = [], **kwargs):
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
@@ -166,7 +164,6 @@ class AbstractProvisioningDeviceClient(abc.ABC):
 
         # Pipeline setup
         mqtt_provisioning_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
-        pdb.set_trace();
         return cls(mqtt_provisioning_pipeline)
 
     @classmethod

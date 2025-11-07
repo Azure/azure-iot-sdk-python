@@ -13,8 +13,6 @@ import uuid
 from azure.iot.device import X509
 import logging
 
-import pdb;
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -51,13 +49,14 @@ async def main():
             id_scope=id_scope,
             x509=dps_x509,
         )
-    else if dps_sas_key is not None:
+    elif dps_sas_key is not None:
         provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
             provisioning_host=provisioning_host,
             registration_id=registration_id,
             id_scope=id_scope,
-            symmetric_key==dps_sas_key,
-    else
+            symmetric_key=dps_sas_key,
+        )
+    else:
         print("Either provide PROVISIONING_X509_CERT_FILE and PROVISIONING_X509_KEY_FILE or PROVISIONING_SAS_KEY")
         sys.exit(1)
 
@@ -68,7 +67,6 @@ async def main():
 
     print("The complete registration result is")
     print(registration_result.registration_state)
-    pdb.set_trace();
 
     with open(issued_cert_file, "w") as out_ca_pem:
         # Write the issued certificate on the file.

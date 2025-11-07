@@ -20,10 +20,7 @@ from .pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.provisioning.models import RegistrationResult
 
-
 logger = logging.getLogger(__name__)
-
-import pdb;
 
 def handle_result(callback: FunctionOrCoroutine[[Any], None]) -> RegistrationResult:
     try:
@@ -84,7 +81,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         # Register
         register_complete = EventedCallback(return_arg_name="result")
-        pdb.set_trace();
+
         self._pipeline.register(
             payload=self._provisioning_payload,
             callback=register_complete,

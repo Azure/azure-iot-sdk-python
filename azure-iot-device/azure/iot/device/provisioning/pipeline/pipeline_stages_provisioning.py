@@ -20,8 +20,6 @@ from threading import Timer
 
 logger = logging.getLogger(__name__)
 
-import pdb;
-
 class CommonProvisioningStage(PipelineStage):
     """
     This is a super stage that the RegistrationStage and PollingStatusStage of
@@ -63,7 +61,7 @@ class CommonProvisioningStage(PipelineStage):
                 payload=decoded_state.get("payload", None),
                 issued_certificate_chain=decoded_state.get("issuedCertificateChain", None),
             )
-        pdb.set_trace();
+
         registration_result = RegistrationResult(
             operation_id=operation_id, status=status, registration_state=registration_state
         )
@@ -85,7 +83,7 @@ class CommonProvisioningStage(PipelineStage):
                 body=request_response_op.response_body,
             )
         )
-        pdb.set_trace();
+
         original_provisioning_op.complete(
             error=exceptions.ServiceError(
                 "{prov_op_name} request returned a service error status code {status_code}".format(
@@ -437,7 +435,7 @@ class RegistrationStage(CommonProvisioningStage):
                 client_csr=initial_register_op.client_csr,
             )
             json_request = registration_payload.get_json_string()
-            pdb.set_trace();
+
             logger.debug(
                 "{}({}): Sending json payload {} to provisioning".format(
                     self.name, op.name, json_request
