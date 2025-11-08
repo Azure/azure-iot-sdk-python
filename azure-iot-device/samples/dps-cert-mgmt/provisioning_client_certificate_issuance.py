@@ -38,6 +38,7 @@ def x509_certificate_list_to_pem(cert_list):
 
 async def main():
     if dps_x509_cert_file is not None and dps_x509_key_file is not None:
+        print("Using x509 authentication")
         dps_x509 = X509(
             cert_file=dps_x509_cert_file,
             key_file=dps_x509_key_file,
@@ -50,6 +51,7 @@ async def main():
             x509=dps_x509,
         )
     elif dps_sas_key is not None:
+        print("Using symmetric-key authentication")
         provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
             provisioning_host=provisioning_host,
             registration_id=registration_id,
