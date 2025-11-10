@@ -157,7 +157,7 @@ class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, Registratio
 
     @pytest.fixture
     def request_body(self, request_payload, request_client_csr):
-        return '{{"clientCertificateCsr": {json_csr}, "payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
+        return '{{"csr": {json_csr}, "payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
             reg_id=fake_registration_id,
             json_payload=json.dumps(request_payload),
             json_csr=json.dumps(request_client_csr),
@@ -480,7 +480,7 @@ class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
 
     @pytest.fixture
     def request_body(self, request_payload):
-        return '{{"clientCertificateCsr": null, "payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
+        return '{{"csr": null, "payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
             reg_id=fake_registration_id, json_payload=json.dumps(request_payload)
         )
 
