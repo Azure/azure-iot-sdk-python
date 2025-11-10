@@ -1,67 +1,152 @@
-# DPS CERTIFICATE MANAGEMENT
+# Azure Device Provisioning Certificate Management
 
-In a nutshell, IoT Device can request a client certificate from a CA through DPS. 
-* Connect DPS to the private CA hosted by one of our CA partners. 
-* IoT device sends a CSR to DPS
-* DPS forwards it to the CA for signing and returns an X.509 client certificate to device. 
-* Device uses certificate to authenticate with IoT Hub.
+Azure Device Provisioning Service is capable (through pairing with Azure Device Registry service) of issuing a certificate chain for Azure IoT Hub authentication.
+This is done by sending a Certificate Signing Request when the device registration is performed against the Device Provisioning Service.
 
-## Steps for making it work in preview (api-version=2021-11-01-preview)
+This sample shows how to use the Azure IoT Python SDK Device Provisiong Client to perform a registration with Certificate-Signing Request and authenticate against the Azure IoT Hub with the issued certificate chain.
 
-### Prerequisite Steps for DPS , enrollment and CA
+# Requirements
 
-These steps must be done for any scenario inside DPS Cert Management.
+- An Azure Device Provisioning Service and Azure IoT Hub configured for CA-based certificate issuance and authentication.
 
-* A new DPS instance must created in __West Central US__.
-* Create an Enrollment Group or Individual Enrollment in this DPS instance.
-    * Choose to use symmetric key, TPM key or X.509 for this enrollment.
-    * Link an IoT Hub to the enrollment.
-* Create an internal-use test account with one of Microsoft CA partners by emailing _iotcerts@microsoft.com_
-    * Additionally, request them to add the DPS Service Endpoint to the allow list. `What allow list?`
-* Once the CA account is created there are 2 pieces of that will be provided.
-    * `api_key` -  DigiCert API key AND `profile_id` - DigiCert Client Cert Profile ID.
-* Use DPS Service API to associate the CA object above to the DPS. 
-    ```bash
-    curl -k -L -i -X PUT https://<dps_service_endpoint>/certificateAuthorities/<ca_name>?api-version=2021-11-01-preview -H 'Authorization: <service_api_sas_token>' -H 'Content-Type: application/json' -H 'Content-Encoding: utf-8' -d'{"certificateAuthorityType":"DigiCertCertificateAuthority","apiKey":"<api_key>","profileName":"<profile_id>"}'
-    ```
-   where,
-    * `dps_service_endpoint` - available in overview blade of the DPS details.
-    * `ca_name` - this is an user chosen friendly name (e.g. myca1).
-    * `service_api_sas_token` - generated using shared access policy `provisioningserviceowner`
-    * `api_key` and `profile_id` obtained before.
-* Query the Service API for the individual or group enrollment and save it to a file called enrollment.json. 
-_NOTE: This is a preferred way so that for updating the enrollment only modification of the enrollment.json file is needed._
-    ```bash
-    curl -X GET -H "Content-Type: application/json" -H "Content-Encoding:  utf-8" -H "Authorization: <service_api_sas_token>" https://<dps_service_endpoint>/enrollments/<registration_id>?api-version=2021-11-01-preview > enrollment.json
-    ```
-     
-### Client Certificate Issuance
-* All prerequisite steps must be done before following the rest.
-* Use DPS Service API to connect the CA to the __individual__ enrollment or group enrollment.
-    * First, update the enrollment.json file to add the following
-    ```
-    "clientCertificateIssuancePolicy": {"certificateAuthorityName": "<ca_name>"}
-    ```
-    where,
-    * `ca_name` - The friendly name that was assigned to the CA created in previous 5 (e.g. myca1).
-    * Then, update the enrollment information:
-   ```bash
-   curl -k -L -i -X PUT -H "Content-Type: application/json" -H "Content-Encoding:  utf-8" -H "Authorization: <service_api_sas_token>" https://<dps_service_endpoint>/enrollments/<registration_id>?api-version=2021-11-01-preview -H "If-Match: <etag>" -d @enrollment.json 
-   ```
-   where,
-    * `dps_service_endpoint` - available in overview blade of the DPS details.
-    * `registration_id` – Is your individual enrollment registration id (e.g. mydevice1).
-    * `service_api_sas_token` - The DPS Service API shared access token generated previously.
-    
-* If a group enrollment was created then similar command must be performed for the group.
-* Generate an ECC P-256 keypair using OpenSSL as follows:
-    ```bash
-    openssl ecparam -genkey -name prime256v1 -out ec256-key-pair.key
-    ```
-* Generate a CSR using OpenSSL. Replace the CN with the registration ID of the device. __Important: DPS has character set restrictions for registration ID.__
-Note: The same CSR can be reused and sent to DPS multiple times.
-    ```bash
-    openssl req -new -key ec256-key-pair.key -out ecc256.csr -subj '/CN=<registration_id>'
-    ```
-* Run [sample](provision_symmetric_key_client_cert_issuance_send_message_x509.py) for DPS. Use the file path of the above generated csr for the environment variable `CSR_FILE` and 
-use file path for the key file for the environment variable `X509_KEY_FILE`.
+- Azure Device Provisioning Service with a group or individual enrollment created to support Certificate Management.
+
+- If using enrollment group, create the [derived certificate](https://learn.microsoft.com/en-us/azure/iot-dps/concepts-x509-attestation) or [symmetric-key](https://learn.microsoft.com/en-us/azure/iot-dps/concepts-symmetric-key-attestation?tabs=linux#group-enrollments-with-symmetric-keys) for attestation. 
+
+# Sample Configuration
+
+Environment variables are used to configure the `provisioning_client_certificate_issuance.py` sample.
+
+This is a common set of environment variables that must be defined:
+
+Linux:
+
+```bash
+export PROVISIONING_HOST="global.azure-devices-provisioning.net" # Or your specific Azure DPS service hostname.
+export PROVISIONING_IDSCOPE=<ID_SCOPE of your Azure Device Provisioning Service>
+export PROVISIONING_REGISTRATION_ID=<Registration ID> # I.e., the ID of the device to be registered.
+```
+
+Windows:
+```powershell
+$env:$PROVISIONING_HOST="global.azure-devices-provisioning.net" # Or your specific Azure DPS service hostname.
+$env:PROVISIONING_IDSCOPE="<ID_SCOPE of your Azure Device Provisioning Service>"
+$env:PROVISIONING_REGISTRATION_ID="<Registration ID>" # I.e., the ID of the device to be registered.
+```
+
+If using x509-based attestation, set:
+
+Linux
+```bash
+export PROVISIONING_X509_CERT_FILE=<path to enrollment certificate pem file>
+export PROVISIONING_X509_KEY_FILE=<path to enrollment certificate private key pem file>
+```
+
+Windows:
+```powershell
+$env:PROVISIONING_X509_CERT_FILE="<path to enrollment certificate pem file>"
+$env:PROVISIONING_X509_KEY_FILE="<path to enrollment certificate private key pem file>"
+```
+
+Otherwise, if using symmetric-key attestation, set:
+
+Linux
+```bash
+export PROVISIONING_SAS_KEY="<individual enrollment key or enrollment group derived key>"
+```
+
+Windows:
+```powershell
+$env:PROVISIONING_SAS_KEY="<individual enrollment key or enrollment group derived key>"
+```
+
+Finally, set the variables for the certificate-signing request feature.
+
+Linux
+```bash
+export PROVISIONING_CSR_KEY_FILE=<path to certificate private key used for certificate-signing-request>
+export PROVISIONING_CSR=<base64-encoded certificate-signing-request>
+export PROVISIONING_ISSUED_CERT_FILE=<arbitrary path where to store issued certificate chain>
+```
+
+Windows:
+```powershell
+$env:PROVISIONING_CSR_KEY_FILE="<path to certificate private key used for certificate-signing-request>"
+$env:PROVISIONING_CSR="<base64-encoded certificate-signing-request>"
+$env:PROVISIONING_ISSUED_CERT_FILE="<arbitrary path where to store issued certificate chain>"
+```
+
+## Generating a Certificate Key and Certificate-Signing-Request for Testing
+
+The steps below can be used **for testing only**.
+
+**Do not use the key or certificate-sigining-request below in production.**
+
+Linux:
+```bash`
+export PROVISIONING_REGISTRATION_ID=<Registration ID> # If not done already above.
+export PROVISIONING_CSR_KEY_FILE=$(pwd)/${PROVISIONING_REGISTRATION_ID}-csr-private-key.pem
+
+openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt -out $PROVISIONING_CSR_KEY_FILE
+
+export PROVISIONING_CSR=$(openssl req -new -key $PROVISIONING_CSR_KEY_FILE -subj "/CN=$PROVISIONING_REGISTRATION_ID" -outform DER | openssl base64 -A)
+```
+
+Windows:
+```powershell
+$env:PROVISIONING_REGISTRATION_ID="<Registration ID>" # If not done already above.
+$env:PROVISIONING_CSR_KEY_FILE="$(pwd)\${env:PROVISIONING_REGISTRATION_ID}-csr-private-key.pem"
+
+$privateKey = [System.Security.Cryptography.ECDsa]::Create([System.Security.Cryptography.ECCurve]::CreateFromFriendlyName("nistP256"))
+
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+   $base64pkcs8PrivateKey = [Convert]::ToBase64String($privateKey.Key.Export([System.Security.Cryptography.CngKeyBlobFormat]::Pkcs8PrivateBlob), 'InsertLineBreaks')
+} else {
+   $base64pkcs8PrivateKey = [Convert]::ToBase64String($privateKey.ExportPkcs8PrivateKey(), 'InsertLineBreaks')
+}
+
+$dn = New-Object System.Security.Cryptography.X509Certificates.X500DistinguishedName("CN=$env:PROVISIONING_REGISTRATION_ID")
+$csr = New-Object System.Security.Cryptography.X509Certificates.CertificateRequest($dn, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+$env:PROVISIONING_CSR = [Convert]::ToBase64String($csr.CreateSigningRequest())
+
+echo "-----BEGIN PRIVATE KEY-----`n$base64pkcs8PrivateKey`n-----END PRIVATE KEY-----" > $env:PROVISIONING_CSR_KEY_FILE
+```
+
+# Running the Sample
+
+```bash
+git clone -b feature/dps-csr-preview https://github.com/Azure/azure-iot-sdk-python
+cd azure-iot-sdk-python
+python3 azure-iot-device/samples/dps-cert-mgmt/provisioning_client_certificate_issuance.py
+```
+
+Example of sample output:
+```bash
+Using x509 authentication
+The complete registration result is
+myDeviceId
+myAssignedIoTHub.azure-devices.net
+reprovisionedToInitialAssignment
+null
+Will send telemetry from the provisioned device
+sending message #1
+sending message #2
+sending message #3
+sending message #4
+sending message #5
+sending message #6
+sending message #7
+sending message #8
+sending message #9
+sending message #10
+done sending message #1
+done sending message #2
+done sending message #3
+done sending message #4
+done sending message #5
+done sending message #6
+done sending message #7
+done sending message #8
+done sending message #9
+done sending message #10
+```
