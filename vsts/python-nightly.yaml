@@ -44,12 +44,12 @@ jobs:
       py312_linux_mqtt:
         pv: '3.12'
         transport: 'mqtt'
-        imageName: 'Ubuntu 20.04'
+        imageName: 'ubuntu-20.04'
         consumerGroup: 'cg9'
       py312_linux_mqttws:
         pv: '3.12'
         transport: 'mqttws'
-        imageName: 'Ubuntu 20.04'
+        imageName: 'ubuntu-20.04'
         consumerGroup: 'cg10'
 
 
