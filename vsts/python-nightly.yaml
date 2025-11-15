@@ -61,7 +61,7 @@ jobs:
       inputs:
         versionSpec: $(pv)
         architecture: 'x64'
-
+        addToPath: true
     - script: 'python scripts/env_setup.py --no_dev'
       displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
