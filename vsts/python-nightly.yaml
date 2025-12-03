@@ -1,7 +1,7 @@
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 
 stages:
-- stage: Create Azure Resources
+- stage: create_azure_resources
   jobs:
   - job: Create IoT Hub & DPS
     steps:
@@ -25,7 +25,7 @@ stages:
 
         az iot hub delete -g $resource_group --name $iothub_name
       displayName: Create IoT Hub & DPS
-- stage: Build & Tests
+- stage: build_and_tests
   jobs:
   - job: 'Test'
 
@@ -107,4 +107,4 @@ stages:
         displayName: 'Publish Test Results'
 
         condition: always()
-- stage: Destroy Azure Resources
+- stage: destroy_azure_resources
