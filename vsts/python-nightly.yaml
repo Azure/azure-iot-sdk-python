@@ -3,7 +3,7 @@ name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName)
 stages:
 - stage: create_azure_resources
   jobs:
-  - job: Create IoT Hub & DPS
+  - job: create_iot_hub_and_dps
     steps:
     - script: |
         sudo apt-get install -y uuid
@@ -107,4 +107,4 @@ stages:
         displayName: 'Publish Test Results'
 
         condition: always()
-- stage: destroy_azure_resources
+# - stage: destroy_azure_resources
