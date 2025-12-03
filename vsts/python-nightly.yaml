@@ -4,6 +4,8 @@ stages:
 - stage: create_azure_resources
   jobs:
   - job: create_iot_hub_and_dps
+    pool:
+      vmImage: 'ubuntu-24.04'
     steps:
     - script: |
         sudo apt-get install -y uuid
