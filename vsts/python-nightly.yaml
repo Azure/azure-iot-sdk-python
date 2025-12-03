@@ -7,25 +7,30 @@ stages:
     pool:
       vmImage: 'ubuntu-24.04'
     steps:
-    - script: |
-        sudo apt-get install -y uuid
+    - task: AzureCLI@2
+      inputs:
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          sudo apt-get install -y uuid
 
-        azure_region="westus2"
-        resource_group="aziotsdkpython$(date +%Y%m%d%H%M%S)$(hostname)"
-        iothub_name="aziotsdkpython$(uuid)"
+          azure_region="westus2"
+          resource_group="aziotsdkpython$(date +%Y%m%d%H%M%S)$(hostname)"
+          iothub_name="aziotsdkpython$(uuid)"
 
-        az login --identity
-        az group create -g $resource_group -l $azure_region
+          az login --identity
+          az group create -g $resource_group -l $azure_region
 
-        az iot hub create -g $resource_group -n $iothub_name --dla false --mintls 1.2 --partition-count 4 --sku S1
+          time az iot hub create -g $resource_group -n $iothub_name --dla false --mintls 1.2 --partition-count 4 --sku S1
 
-        IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $resource_group --hub-name $iothub_name --pn iothubowner --query "connectionString" --output tsv)
+          IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $resource_group --hub-name $iothub_name --pn iothubowner --query "connectionString" --output tsv)
 
-        EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $resource_group --hub-name $iothub_name --eh --query "connectionString" --output tsv)
+          EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $resource_group --hub-name $iothub_name --eh --query "connectionString" --output tsv)
 
-        az iot hub consumer-group create -g $resource_group --hub-name $iothub_name --name cg9
+          printenv
+          az iot hub consumer-group create -g $resource_group --hub-name $iothub_name --name cg9
 
-        az iot hub delete -g $resource_group --name $iothub_name
+          time az group delete -y -g $resource_group
       displayName: Create IoT Hub & DPS
 - stage: build_and_tests
   jobs:
