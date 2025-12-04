@@ -38,7 +38,10 @@ stages:
 
           export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
 
-          az iot hub consumer-group create -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --name cg9
+          for i in $(seq 1 10); do
+              cg_name="cg$i"
+              az iot hub consumer-group create -g "$AZURE_RESOURCE_GROUP" --hub-name "$AZURE_IOTHUB_NAME" --name "$cg_name"
+          done
 
           printenv | sort
 
@@ -69,27 +72,27 @@ stages:
         py38_linux_mqttws:
           pv: '3.8'
           transport: 'mqttws'
-          imageName: 'Ubuntu 20.04'
+          imageName: 'ubuntu-22.04'
           consumerGroup: 'cg4'
         py38_linux_mqtt:
           pv: '3.8'
           transport: 'mqtt'
-          imageName: 'Ubuntu 20.04'
+          imageName: 'ubuntu-22.04'
           consumerGroup: 'cg5'
         py39_linux_mqttws:
           pv: '3.9'
           transport: 'mqttws'
-          imageName: 'Ubuntu 20.04'
+          imageName: 'ubuntu-22.04'
           consumerGroup: 'cg6'
         py310_linux_mqtt:
           pv: '3.10'
           transport: 'mqtt'
-          imageName: 'Ubuntu 20.04'
+          imageName: 'ubuntu-22.04'
           consumerGroup: 'cg7'
         py311_linux_mqtt:
           pv: '3.11'
           transport: 'mqtt'
-          imageName: 'Ubuntu 20.04'
+          imageName: 'ubuntu-22.04'
           consumerGroup: 'cg8'
         py312_linux_mqtt:
           pv: '3.12'
@@ -149,4 +152,6 @@ stages:
 
           az group list --query "[?contains(name, 'python')].name" -o tsv | xargs -I {} az group delete --name {} --yes
       displayName: Destroy Azure Resource Group
+      env:
+        AZURE_RESOURCE_GROUP: $(AZURE_RESOURCE_GROUP)
       condition: always() # Run step even if the pipeline run is cancelled.
