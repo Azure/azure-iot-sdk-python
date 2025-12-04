@@ -50,9 +50,6 @@ stages:
 - stage: build_and_tests
   jobs:
   - job: 'Test'
-    variables:
-      IOTHUB_CONNECTION_STRING: $[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.IOTHUB_CONNECTION_STRING'] ]
-      EVENTHUB_CONNECTION_STRING: $[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.EVENTHUB_CONNECTION_STRING'] ]
     strategy:
       maxParallel: 4
       matrix:
@@ -122,8 +119,8 @@ stages:
           pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" -m "not x"
         displayName: 'E2E Device Client MQTT Connection String'
         env:
-          IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
-          IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(EVENTHUB_CONNECTION_STRING)
+          IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.IOTHUB_CONNECTION_STRING'] ]
+          IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.EVENTHUB_CONNECTION_STRING'] ]
           IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumerGroup)
           PYTHONUNBUFFERED: True
 
@@ -145,7 +142,7 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          time az group delete -y -g $AZURE_RESOURCE_GROUP
+          time az group delete -y -g $(AZURE_RESOURCE_GROUP)
 
           az group list --query "[?contains(name, 'python')].name" -o tsv | xargs -I {} az group delete --name {} --yes
       displayName: Destroy Azure Resource Group
