@@ -1,7 +1,7 @@
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 
 stages:
-- stage: create_azure_resources
+- stage: setup
   jobs:
   - job: create_iot_hub_and_dps
     pool:
@@ -9,11 +9,12 @@ stages:
     steps:
     - script: |
         sudo apt-get install -y uuid
-        resource_group="aziotsdkpython$(uuid)"
-        iothub_name="aziotsdkpython$(uuid)"
+        AZURE_RESOURCE_GROUP="aziotsdkpython$(uuid)"
+        AZURE_IOTHUB_NAME="aziotsdkpython$(uuid)"
 
-        echo "##vso[task.setvariable variable=AZURE_RESOURCE_GROUP;isOutput=true]$resource_group"
-        echo "##vso[task.setvariable variable=AZURE_IOTHUB_NAME;isOutput=true]$iothub_name"
+        # Export variables to other stages/jobs/steps.
+        echo "##vso[task.setvariable variable=AZURE_RESOURCE_GROUP;isOutput=true]$AZURE_RESOURCE_GROUP"
+        echo "##vso[task.setvariable variable=AZURE_IOTHUB_NAME;isOutput=true]$AZURE_IOTHUB_NAME"
       name: azResourceNames
       displayName: Set Azure Resource Names
     - task: AzureCLI@2
@@ -22,19 +23,21 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          az group create -g $AZURE_RESOURCE_GROUP -l $(AZURE_REGION)
+          set -e
 
-          time az iot hub create -g $AZURE_RESOURCE_GROUP -n $AZURE_IOTHUB_NAME --dla false --mintls 1.2 --partition-count 4 --sku S1
+          az group create -g $(AZURE_RESOURCE_GROUP) -l $(AZURE_REGION)
 
-          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --query "connectionString" --output tsv)
+          time az iot hub create -g $(AZURE_RESOURCE_GROUP) -n $(AZURE_IOTHUB_NAME) --dla false --mintls 1.2 --partition-count 4 --sku S1
 
-          export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
+          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $(AZURE_RESOURCE_GROUP) --hub-name $(AZURE_IOTHUB_NAME) --pn iothubowner --query "connectionString" --output tsv)
 
-          az iot hub consumer-group create -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --name cg9
+          export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $(AZURE_RESOURCE_GROUP) --hub-name $(AZURE_IOTHUB_NAME) --eh --query "connectionString" --output tsv)
+
+          az iot hub consumer-group create -g $(AZURE_RESOURCE_GROUP) --hub-name $(AZURE_IOTHUB_NAME) --name cg9
 
           printenv | sort
 
-          # Export variables so they can be accessed by other stages/jobs.
+          # Export variables to other stages/jobs/steps.
           echo "##vso[task.setvariable variable=IOTHUB_CONNECTION_STRING;isOutput=true]$IOTHUB_CONNECTION_STRING"
           echo "##vso[task.setvariable variable=EVENTHUB_CONNECTION_STRING;isOutput=true]$EVENTHUB_CONNECTION_STRING"
       displayName: Create IoT Hub & DPS
