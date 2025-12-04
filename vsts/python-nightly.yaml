@@ -51,8 +51,8 @@ stages:
   jobs:
   - job: 'Test'
     variables:
-      IOTHUB_CONNECTION_STRING: $[ dependencies.Build.outputs['BuildJob.createAzureResources.IOTHUB_CONNECTION_STRING'] ]
-      EVENTHUB_CONNECTION_STRING: $[ dependencies.Build.outputs['BuildJob.createAzureResources.EVENTHUB_CONNECTION_STRING'] ]
+      IOTHUB_CONNECTION_STRING: $[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.IOTHUB_CONNECTION_STRING'] ]
+      EVENTHUB_CONNECTION_STRING: $[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.EVENTHUB_CONNECTION_STRING'] ]
     strategy:
       maxParallel: 4
       matrix:
@@ -137,7 +137,7 @@ stages:
   - job: destroy_azure_resource_group
     condition: always() # Run job even if the pipeline run is cancelled.
     variables:
-      AZURE_RESOURCE_GROUP: $[ dependencies.Build.outputs['BuildJob.setResourceNames.AZURE_RESOURCE_GROUP'] ]
+      AZURE_RESOURCE_GROUP: $[ dependencies.setup.outputs['create_iot_hub_and_dps.setResourceNames.AZURE_RESOURCE_GROUP'] ]
     steps:
     - task: AzureCLI@2
       inputs:
@@ -145,7 +145,7 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          time az group delete -y -g $(AZURE_RESOURCE_GROUP)
+          time az group delete -y -g $AZURE_RESOURCE_GROUP
 
           az group list --query "[?contains(name, 'python')].name" -o tsv | xargs -I {} az group delete --name {} --yes
       displayName: Destroy Azure Resource Group
