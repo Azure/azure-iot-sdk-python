@@ -30,15 +30,15 @@ stages:
 
           printenv | sort
 
-          az group create -g $(AZURE_RESOURCE_GROUP) -l $(AZURE_REGION)
+          az group create -g $AZURE_RESOURCE_GROUP -l $(AZURE_REGION)
 
-          time az iot hub create -g $(AZURE_RESOURCE_GROUP) -n $(AZURE_IOTHUB_NAME) --dla false --mintls 1.2 --partition-count 4 --sku S1
+          time az iot hub create -g $AZURE_RESOURCE_GROUP -n $AZURE_IOTHUB_NAME --dla false --mintls 1.2 --partition-count 4 --sku S1
 
-          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $(AZURE_RESOURCE_GROUP) --hub-name $(AZURE_IOTHUB_NAME) --pn iothubowner --query "connectionString" --output tsv)
+          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --query "connectionString" --output tsv)
 
-          export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $(AZURE_RESOURCE_GROUP) --hub-name $(AZURE_IOTHUB_NAME) --eh --query "connectionString" --output tsv)
+          export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
 
-          az iot hub consumer-group create -g $(AZURE_RESOURCE_GROUP) --hub-name $(AZURE_IOTHUB_NAME) --name cg9
+          az iot hub consumer-group create -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --name cg9
 
           printenv | sort
 
