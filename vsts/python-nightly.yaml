@@ -113,14 +113,17 @@ stages:
         displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
       - script: |
+          export IOTHUB_E2E_IOTHUB_CONNECTION_STRING=$[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.IOTHUB_CONNECTION_STRING'] ]
+          export IOTHUB_E2E_EVENTHUB_CONNECTION_STRING=$[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.EVENTHUB_CONNECTION_STRING'] ]
+
           cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
           echo "Using consumer group: ${IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP}"
           # "not x" means "include all tests that don't have the tag named 'x'", which is everything.
           pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" -m "not x"
         displayName: 'E2E Device Client MQTT Connection String'
         env:
-          IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.IOTHUB_CONNECTION_STRING'] ]
-          IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.EVENTHUB_CONNECTION_STRING'] ]
+          # IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.IOTHUB_CONNECTION_STRING'] ]
+          # IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $[ dependencies.setup.outputs['create_iot_hub_and_dps.createAzureResources.EVENTHUB_CONNECTION_STRING'] ]
           IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumerGroup)
           PYTHONUNBUFFERED: True
 
@@ -133,8 +136,6 @@ stages:
   jobs:
   - job: destroy_azure_resource_group
     condition: always() # Run job even if the pipeline run is cancelled.
-    variables:
-      AZURE_RESOURCE_GROUP: $[ dependencies.setup.outputs['create_iot_hub_and_dps.setResourceNames.AZURE_RESOURCE_GROUP'] ]
     steps:
     - task: AzureCLI@2
       inputs:
@@ -142,7 +143,9 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          time az group delete -y -g $(AZURE_RESOURCE_GROUP)
+          export AZURE_RESOURCE_GROUP=$[ dependencies.setup.outputs['create_iot_hub_and_dps.setResourceNames.AZURE_RESOURCE_GROUP'] ]
+
+          time az group delete -y -g $AZURE_RESOURCE_GROUP
 
           az group list --query "[?contains(name, 'python')].name" -o tsv | xargs -I {} az group delete --name {} --yes
       displayName: Destroy Azure Resource Group
