@@ -7,37 +7,44 @@ stages:
     pool:
       vmImage: 'ubuntu-24.04'
     steps:
+    - script: |
+        sudo apt-get install -y uuid
+        resource_group="aziotsdkpython$(uuid)"
+        iothub_name="aziotsdkpython$(uuid)"
+
+        echo "##vso[task.setvariable variable=AZURE_RESOURCE_GROUP;isOutput=true]$resource_group"
+        echo "##vso[task.setvariable variable=AZURE_IOTHUB_NAME;isOutput=true]$iothub_name"
+      name: azResourceNames
+      displayName: Set Azure Resource Names
     - task: AzureCLI@2
       inputs:
-        azureSubscription: '29eb3433-3679-4ff7-b455-dfb9637c9ddc'
+        azureSubscription: 'iot hub sdk service connection'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          printenv
+          az group create -g $AZURE_RESOURCE_GROUP -l $(AZURE_REGION)
 
-          sudo apt-get install -y uuid
+          time az iot hub create -g $AZURE_RESOURCE_GROUP -n $AZURE_IOTHUB_NAME --dla false --mintls 1.2 --partition-count 4 --sku S1
 
-          azure_region="westus2"
-          resource_group="aziotsdkpython$(date +%Y%m%d%H%M%S)$(hostname)"
-          iothub_name="aziotsdkpython$(uuid)"
+          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --query "connectionString" --output tsv)
 
-          az group create -g $resource_group -l $azure_region
+          export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
 
-          time az iot hub create -g $resource_group -n $iothub_name --dla false --mintls 1.2 --partition-count 4 --sku S1
+          az iot hub consumer-group create -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --name cg9
 
-          IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $resource_group --hub-name $iothub_name --pn iothubowner --query "connectionString" --output tsv)
+          printenv | sort
 
-          EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $resource_group --hub-name $iothub_name --eh --query "connectionString" --output tsv)
-
-          printenv
-          az iot hub consumer-group create -g $resource_group --hub-name $iothub_name --name cg9
-
-          time az group delete -y -g $resource_group
+          # Export variables so they can be accessed by other stages/jobs.
+          echo "##vso[task.setvariable variable=IOTHUB_CONNECTION_STRING;isOutput=true]$IOTHUB_CONNECTION_STRING"
+          echo "##vso[task.setvariable variable=EVENTHUB_CONNECTION_STRING;isOutput=true]$EVENTHUB_CONNECTION_STRING"
       displayName: Create IoT Hub & DPS
+      name: createAzureResources
 - stage: build_and_tests
   jobs:
   - job: 'Test'
-
+    variables:
+      IOTHUB_CONNECTION_STRING: $[ dependencies.Build.outputs['BuildJob.createAzureResources.IOTHUB_CONNECTION_STRING'] ]
+      EVENTHUB_CONNECTION_STRING: $[ dependencies.Build.outputs['BuildJob.createAzureResources.EVENTHUB_CONNECTION_STRING'] ]
     strategy:
       maxParallel: 4
       matrix:
@@ -107,8 +114,8 @@ stages:
           pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" -m "not x"
         displayName: 'E2E Device Client MQTT Connection String'
         env:
-          IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
-          IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
+          IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
+          IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(EVENTHUB_CONNECTION_STRING)
           IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumerGroup)
           PYTHONUNBUFFERED: True
 
@@ -116,4 +123,20 @@ stages:
         displayName: 'Publish Test Results'
 
         condition: always()
-# - stage: destroy_azure_resources
+- stage: cleanup
+  condition: always() # Run stage even if the pipeline run is cancelled.
+  jobs:
+  - job: destroy_azure_resource_group
+    condition: always() # Run job even if the pipeline run is cancelled.
+    variables:
+      AZURE_RESOURCE_GROUP: $[ dependencies.Build.outputs['BuildJob.azResourceNames.AZURE_RESOURCE_GROUP'] ]
+    steps:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'iot hub sdk service connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          time az group delete -y -g $AZURE_RESOURCE_GROUP
+      displayName: Destroy Azure Resource Group
+      condition: always() # Run step even if the pipeline run is cancelled.
