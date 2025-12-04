@@ -15,7 +15,7 @@ stages:
         # Export variables to other stages/jobs/steps.
         echo "##vso[task.setvariable variable=AZURE_RESOURCE_GROUP;isOutput=true]$AZURE_RESOURCE_GROUP"
         echo "##vso[task.setvariable variable=AZURE_IOTHUB_NAME;isOutput=true]$AZURE_IOTHUB_NAME"
-      name: azResourceNames
+      name: setResourceNames
       displayName: Set Azure Resource Names
     - task: AzureCLI@2
       inputs:
@@ -24,6 +24,11 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           set -e
+
+          export AZURE_RESOURCE_GROUP=$(setResourceNames.AZURE_RESOURCE_GROUP)
+          export AZURE_IOTHUB_NAME=$(setResourceNames.AZURE_IOTHUB_NAME)
+
+          printenv | sort
 
           az group create -g $(AZURE_RESOURCE_GROUP) -l $(AZURE_REGION)
 
@@ -132,7 +137,7 @@ stages:
   - job: destroy_azure_resource_group
     condition: always() # Run job even if the pipeline run is cancelled.
     variables:
-      AZURE_RESOURCE_GROUP: $[ dependencies.Build.outputs['BuildJob.azResourceNames.AZURE_RESOURCE_GROUP'] ]
+      AZURE_RESOURCE_GROUP: $[ dependencies.Build.outputs['BuildJob.setResourceNames.AZURE_RESOURCE_GROUP'] ]
     steps:
     - task: AzureCLI@2
       inputs:
