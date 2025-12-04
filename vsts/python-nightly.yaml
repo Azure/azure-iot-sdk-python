@@ -145,6 +145,8 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          time az group delete -y -g $AZURE_RESOURCE_GROUP
+          time az group delete -y -g $(AZURE_RESOURCE_GROUP)
+
+          az group list --query "[?contains(name, 'python')].name" -o tsv | xargs -I {} az group delete --name {} --yes
       displayName: Destroy Azure Resource Group
       condition: always() # Run step even if the pipeline run is cancelled.
