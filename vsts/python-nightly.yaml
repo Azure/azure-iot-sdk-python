@@ -139,8 +139,6 @@ stages:
   jobs:
   - job: destroy_azure_resource_group
     condition: always() # Run job even if the pipeline run is cancelled.
-    variables:
-      AZURE_RESOURCE_GROUP: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['setResourceNames.AZURE_RESOURCE_GROUP']]
     steps:
     - task: AzureCLI@2
       inputs:
@@ -157,5 +155,5 @@ stages:
           az group list --query "[?contains(name, 'python')].name" -o tsv | xargs -I {} az group delete --name {} --yes
       displayName: Destroy Azure Resource Group
       env:
-        AZURE_RESOURCE_GROUP: $(AZURE_RESOURCE_GROUP)
+        AZURE_RESOURCE_GROUP: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['setResourceNames.AZURE_RESOURCE_GROUP']]
       condition: always() # Run step even if the pipeline run is cancelled.
