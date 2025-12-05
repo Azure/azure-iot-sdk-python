@@ -148,7 +148,11 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          time az group delete -y -g $(AZURE_RESOURCE_GROUP)
+          set -e
+
+          printenv | sort | grep -i azure
+
+          time az group delete --name $AZURE_RESOURCE_GROUP --yes
 
           az group list --query "[?contains(name, 'python')].name" -o tsv | xargs -I {} az group delete --name {} --yes
       displayName: Destroy Azure Resource Group
