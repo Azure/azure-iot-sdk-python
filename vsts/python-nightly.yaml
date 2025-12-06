@@ -69,16 +69,16 @@ stages:
           transport: 'mqttws'
           imageName: 'windows-latest'
           consumerGroup: 'cg2'
-        py38_linux_mqttws:
-          pv: '3.8'
-          transport: 'mqttws'
-          imageName: 'ubuntu-22.04'
-          consumerGroup: 'cg4'
-        py38_linux_mqtt:
-          pv: '3.8'
-          transport: 'mqtt'
-          imageName: 'ubuntu-22.04'
-          consumerGroup: 'cg5'
+        # py38_linux_mqttws:
+        #   pv: '3.8'
+        #   transport: 'mqttws'
+        #   imageName: 'ubuntu-22.04'
+        #   consumerGroup: 'cg4'
+        # py38_linux_mqtt:
+        #   pv: '3.8'
+        #   transport: 'mqtt'
+        #   imageName: 'ubuntu-22.04'
+        #   consumerGroup: 'cg5'
         py39_linux_mqttws:
           pv: '3.9'
           transport: 'mqttws'
@@ -135,10 +135,13 @@ stages:
 
         condition: always()
 - stage: cleanup
+  dependsOn: setup
   condition: always() # Run stage even if the pipeline run is cancelled.
   jobs:
   - job: destroy_azure_resource_group
     condition: always() # Run job even if the pipeline run is cancelled.
+    variables:
+        AZURE_RESOURCE_GROUP: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['setResourceNames.AZURE_RESOURCE_GROUP']]
     steps:
     - task: AzureCLI@2
       inputs:
@@ -146,14 +149,12 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          set -e
+          # set -e
 
           printenv | sort | grep -i azure
 
-          time az group delete --name $AZURE_RESOURCE_GROUP --yes
+          time az group delete --name $(AZURE_RESOURCE_GROUP) --yes
 
           az group list --query "[?contains(name, 'python')].name" -o tsv | xargs -I {} az group delete --name {} --yes
       displayName: Destroy Azure Resource Group
-      env:
-        AZURE_RESOURCE_GROUP: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['setResourceNames.AZURE_RESOURCE_GROUP']]
       condition: always() # Run step even if the pipeline run is cancelled.
