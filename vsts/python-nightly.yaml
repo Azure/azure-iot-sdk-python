@@ -28,22 +28,17 @@ stages:
           export AZURE_RESOURCE_GROUP=$(setResourceNames.AZURE_RESOURCE_GROUP)
           export AZURE_IOTHUB_NAME=$(setResourceNames.AZURE_IOTHUB_NAME)
 
-          printenv | sort
-
           az group create -g $AZURE_RESOURCE_GROUP -l $(AZURE_REGION)
 
           time az iot hub create -g $AZURE_RESOURCE_GROUP -n $AZURE_IOTHUB_NAME --dla false --mintls 1.2 --partition-count 4 --sku S1
 
           export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --query "connectionString" --output tsv)
-
           export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
 
-          for i in $(seq 1 10); do
+          for i in $(seq 1 7); do
               cg_name="cg$i"
               az iot hub consumer-group create -g "$AZURE_RESOURCE_GROUP" --hub-name "$AZURE_IOTHUB_NAME" --name "$cg_name"
           done
-
-          printenv | sort
 
           # Export variables to other stages/jobs/steps.
           echo "##vso[task.setvariable variable=IOTHUB_CONNECTION_STRING;isOutput=true]$IOTHUB_CONNECTION_STRING"
@@ -69,41 +64,31 @@ stages:
           transport: 'mqttws'
           imageName: 'windows-latest'
           consumerGroup: 'cg2'
-        # py38_linux_mqttws:
-        #   pv: '3.8'
-        #   transport: 'mqttws'
-        #   imageName: 'ubuntu-22.04'
-        #   consumerGroup: 'cg4'
-        # py38_linux_mqtt:
-        #   pv: '3.8'
-        #   transport: 'mqtt'
-        #   imageName: 'ubuntu-22.04'
-        #   consumerGroup: 'cg5'
         py39_linux_mqttws:
           pv: '3.9'
           transport: 'mqttws'
           imageName: 'ubuntu-22.04'
-          consumerGroup: 'cg6'
+          consumerGroup: 'cg3'
         py310_linux_mqtt:
           pv: '3.10'
           transport: 'mqtt'
           imageName: 'ubuntu-22.04'
-          consumerGroup: 'cg7'
+          consumerGroup: 'cg4'
         py311_linux_mqtt:
           pv: '3.11'
           transport: 'mqtt'
           imageName: 'ubuntu-22.04'
-          consumerGroup: 'cg8'
+          consumerGroup: 'cg5'
         py312_linux_mqtt:
           pv: '3.12'
           transport: 'mqtt'
           imageName: 'ubuntu-22.04'
-          consumerGroup: 'cg9'
+          consumerGroup: 'cg6'
         py312_linux_mqttws:
           pv: '3.12'
           transport: 'mqttws'
           imageName: 'ubuntu-22.04'
-          consumerGroup: 'cg10'
+          consumerGroup: 'cg7'
 
 
     pool:
@@ -156,7 +141,5 @@ stages:
           printenv | sort | grep -i azure
 
           time az group delete --name $(AZURE_RESOURCE_GROUP) --yes
-
-          az group list --query "[?contains(name, 'python')].name" -o tsv | xargs -I {} az group delete --name {} --yes
       displayName: Destroy Azure Resource Group
       condition: always() # Run step even if the pipeline run is cancelled.
