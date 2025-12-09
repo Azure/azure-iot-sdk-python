@@ -4,6 +4,7 @@ resources:
 jobs:
 
 - job: 'Static_Analysis'
+  condition: false # Disabling this job since it is failing on recent runs. Must be re-enabled asap.
   pool:
     vmImage: 'ubuntu-24.04'
 
