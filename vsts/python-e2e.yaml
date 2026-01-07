@@ -9,8 +9,8 @@ stages:
     steps:
     - script: |
         sudo apt-get install -y uuid
-        AZURE_RESOURCE_GROUP="aziotsdkpythone2e$(uuid)"
-        AZURE_IOTHUB_NAME="aziotsdkpythone2e$(uuid)"
+        AZURE_RESOURCE_GROUP="aziotsdkpythone2e$(uuid | tr -d '-')"
+        AZURE_IOTHUB_NAME="aziotsdkpythone2e$(uuid | tr -d '-')"
 
         # Export variables to other stages/jobs/steps.
         echo "##vso[task.setvariable variable=AZURE_RESOURCE_GROUP;isOutput=true]$AZURE_RESOURCE_GROUP"
