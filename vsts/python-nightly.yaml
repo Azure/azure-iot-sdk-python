@@ -52,7 +52,7 @@ stages:
       IOTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.IOTHUB_CONNECTION_STRING']]
       EVENTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.EVENTHUB_CONNECTION_STRING']]
     strategy:
-      maxParallel: 4
+      maxParallel: 9
       matrix:
         py39_windows_mqtt:
           pv: '3.9'
@@ -99,16 +99,17 @@ stages:
           transport: 'mqttws'
           imageName: 'ubuntu-22.04'
           consumerGroup: 'cg9'
-        py314_linux_mqtt:
-          pv: '3.14'
-          transport: 'mqtt'
-          imageName: 'ubuntu-22.04'
-          consumerGroup: 'cg10'
-        py314_linux_mqttws:
-          pv: '3.14'
-          transport: 'mqttws'
-          imageName: 'ubuntu-22.04'
-          consumerGroup: 'cg11'
+        # These are failing due to uamqp compilation errors, used in tests.
+        # py314_linux_mqtt:
+        #   pv: '3.14'
+        #   transport: 'mqtt'
+        #   imageName: 'ubuntu-22.04'
+        #   consumerGroup: 'cg10'
+        # py314_linux_mqttws:
+        #   pv: '3.14'
+        #   transport: 'mqttws'
+        #   imageName: 'ubuntu-22.04'
+        #   consumerGroup: 'cg11'
 
 
     pool:
