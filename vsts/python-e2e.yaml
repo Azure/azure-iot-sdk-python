@@ -83,6 +83,9 @@ stages:
         condition: always()
 
   - job: 'Test_Linux'
+    variables:
+      IOTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.IOTHUB_CONNECTION_STRING']]
+      EVENTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.EVENTHUB_CONNECTION_STRING']]
     pool:
       vmImage: 'ubuntu-22.04'
 
@@ -106,8 +109,8 @@ stages:
           pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
         displayName: 'E2E Device Client MQTT Connection String'
         env:
-          IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
-          IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
+          IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
+          IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(EVENTHUB_CONNECTION_STRING)
           IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumer_group)
           PYTHONUNBUFFERED: True
 
