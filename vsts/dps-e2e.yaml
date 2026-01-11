@@ -207,10 +207,10 @@ stages:
           time az iot dps linked-hub create -g $AZURE_RESOURCE_GROUP --dps-name $AZURE_DPS_NAME --connection-string "$IOTHUB_CONNECTION_STRING"
 
           echo ">>>>>"
-          az iot dps connection-string show -g $AZURE_RESOURCE_GROUP --name $AZURE_DPS_NAME
+          az iot dps connection-string show -g $AZURE_RESOURCE_GROUP --dps-name $AZURE_DPS_NAME
           echo "<<<<<"
 
-          export DPS_CONNECTION_STRING=$(az iot dps connection-string show -g $AZURE_RESOURCE_GROUP --name $AZURE_DPS_NAME --pn provisioningserviceowner --query "connectionString" --output tsv)
+          export DPS_CONNECTION_STRING=$(az iot dps connection-string show -g $AZURE_RESOURCE_GROUP --dps-name $AZURE_DPS_NAME --policy-name provisioningserviceowner --query "connectionString" --output tsv)
           export DPS_ID_SCOPE=$(az iot dps show --name $AZURE_DPS_NAME -g $AZURE_RESOURCE_GROUP --query properties.idScope --output tsv)
           export DPS_HOSTNAME=$(az iot dps show --name $AZURE_DPS_NAME -g $AZURE_RESOURCE_GROUP --query properties.deviceProvisioningHostName --output tsv)
 
