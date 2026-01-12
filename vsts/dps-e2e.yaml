@@ -169,16 +169,11 @@ stages:
 
         export DPS_ROOT_CA_CERT_PATH=$(pwd)/certs/azure-iot-test-only.root.ca.cert.pem
         export DPS_ROOT_CA_PK_PATH=$(pwd)/private/azure-iot-test-only.root.ca.key.pem
-        export DPS_ROOT_CA_CERT_BASE64=$(base64 $DPS_ROOT_CA_CERT_PATH)
-        export DPS_ROOT_CA_PK_BASE64=$(base64 $DPS_ROOT_CA_PK_PATH)
         export DPS_ROOT_CA_PASSWORD=1234
 
-        echo "DPS_ROOT_CA_CERT_BASE64=$DPS_ROOT_CA_CERT_BASE64"
 
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT_PATH;isOutput=true]$DPS_ROOT_CA_CERT_PATH"
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK_PATH;isOutput=true]$DPS_ROOT_CA_PK_PATH"
-        echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT_BASE64;isOutput=true]$DPS_ROOT_CA_CERT_BASE64"
-        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK_BASE64;isOutput=true]$DPS_ROOT_CA_PK_BASE64"
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_PASSWORD;isOutput=true]$DPS_ROOT_CA_PASSWORD"
       name: testCertificates
       displayName: Create Test Certificates
@@ -233,8 +228,8 @@ stages:
       DPS_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_CONNECTION_STRING']]
       DPS_ID_SCOPE: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_ID_SCOPE']]
       DPS_HOSTNAME: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_HOSTNAME']]
-      DPS_ROOT_CA_CERT_BASE64: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_CERT_BASE64']]
-      DPS_ROOT_CA_PK_BASE64: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PK_BASE64']]
+      DPS_ROOT_CA_CERT_PATH: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_CERT_PATH']]
+      DPS_ROOT_CA_PK_PATH: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PK_PATH']]
       DPS_ROOT_CA_PASSWORD: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PASSWORD']]
     pool:
       vmImage: 'ubuntu-22.04'
@@ -258,8 +253,12 @@ stages:
       displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
 
     - script: |
+        export PROVISIONING_ROOT_CERT=$(base64 $PROVISIONING_ROOT_CERT_PATH)
+        export PROVISIONING_ROOT_CERT_KEY=$(base64 $PROVISIONING_ROOT_CERT_KEY_PATH)
+
         echo "DPS_ROOT_CA_CERT_BASE64=$DPS_ROOT_CA_CERT_BASE64"
         echo "PROVISIONING_ROOT_CERT=$PROVISIONING_ROOT_CERT"
+        echo "PROVISIONING_ROOT_CERT_KEY=$PROVISIONING_ROOT_CERT_KEY"
 
         printenv | sort | grep DPS
         printenv | sort | grep PROV
@@ -276,8 +275,8 @@ stages:
         PROVISIONING_SERVICE_CONNECTION_STRING: $(DPS_CONNECTION_STRING)
         PROVISIONING_DEVICE_IDSCOPE: $(DPS_ID_SCOPE)
 
-        PROVISIONING_ROOT_CERT: $(DPS_ROOT_CA_CERT_BASE64)
-        PROVISIONING_ROOT_CERT_KEY: $(DPS_ROOT_CA_PK_BASE64)
+        PROVISIONING_ROOT_CERT_PATH: $(DPS_ROOT_CA_CERT_PATH)
+        PROVISIONING_ROOT_CERT_KEY_PATH: $(DPS_ROOT_CA_PK_PATH)
         PROVISIONING_ROOT_PASSWORD: $(DPS_ROOT_CA_PASSWORD)
         PYTHONUNBUFFERED: True
 
@@ -295,6 +294,8 @@ stages:
   jobs:
   - job: destroy_azure_resource_group
     condition: always() # Run job even if the pipeline run is cancelled.
+    pool:
+      vmImage: 'ubuntu-24.04'
     variables:
         AZURE_RESOURCE_GROUP: $[stageDependencies.setup.create_azure_resources.outputs['setResourceNames.AZURE_RESOURCE_GROUP']]
     steps:
