@@ -173,6 +173,8 @@ stages:
         export DPS_ROOT_CA_PK_BASE64=$(base64 $DPS_ROOT_CA_PK_PATH)
         export DPS_ROOT_CA_PASSWORD=1234
 
+        echo "DPS_ROOT_CA_CERT_BASE64=$DPS_ROOT_CA_CERT_BASE64"
+
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT_PATH;isOutput=true]$DPS_ROOT_CA_CERT_PATH"
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK_PATH;isOutput=true]$DPS_ROOT_CA_PK_PATH"
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT_BASE64;isOutput=true]$DPS_ROOT_CA_CERT_BASE64"
@@ -256,6 +258,12 @@ stages:
       displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
 
     - script: |
+        echo "DPS_ROOT_CA_CERT_BASE64=$DPS_ROOT_CA_CERT_BASE64"
+        echo "PROVISIONING_ROOT_CERT=$PROVISIONING_ROOT_CERT"
+
+        printenv | sort | grep DPS
+        printenv | sort | grep PROV
+
         cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
         pytest --junitxml=junit/dps-e2e-test-results.xml
       displayName: 'Run Specified E2E Test with env variables'
