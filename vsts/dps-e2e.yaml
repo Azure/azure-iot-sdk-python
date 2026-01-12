@@ -167,18 +167,16 @@ stages:
         # Root CA Certificate (create)
         openssl req -new -x509 -config ./openssl_root_ca.cnf -passin pass:1234 -key ./private/azure-iot-test-only.root.ca.key.pem -subj '/CN=Azure IoT Hub CA Cert Test Only' -days 30 -sha256 -extensions v3_ca -out ./certs/azure-iot-test-only.root.ca.cert.pem
 
-        export DPS_ROOT_CA_CERT=$(pwd)/certs/azure-iot-test-only.root.ca.cert.pem
-        export DPS_ROOT_CA_PK=$(pwd)/private/azure-iot-test-only.root.ca.key.pem
+        export DPS_ROOT_CA_CERT_PATH=$(pwd)/certs/azure-iot-test-only.root.ca.cert.pem
+        export DPS_ROOT_CA_PK_PATH=$(pwd)/private/azure-iot-test-only.root.ca.key.pem
+        export DPS_ROOT_CA_CERT_BASE64=$(base64 $DPS_ROOT_CA_CERT_PATH)
+        export DPS_ROOT_CA_PK_BASE64=$(base64 $DPS_ROOT_CA_PK_PATH)
         export DPS_ROOT_CA_PASSWORD=1234
 
-        echo ">>>>>"
-        ls -l $DPS_ROOT_CA_CERT
-        ls -l $DPS_ROOT_CA_PK
-        base64 -d $DPS_ROOT_CA_CERT
-        echo "<<<<<"
-
-        echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT;isOutput=true]$DPS_ROOT_CA_CERT"
-        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK;isOutput=true]$DPS_ROOT_CA_PK"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT_PATH;isOutput=true]$DPS_ROOT_CA_CERT_PATH"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK_PATH;isOutput=true]$DPS_ROOT_CA_PK_PATH"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT_BASE64;isOutput=true]$DPS_ROOT_CA_CERT_BASE64"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK_BASE64;isOutput=true]$DPS_ROOT_CA_PK_BASE64"
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_PASSWORD;isOutput=true]$DPS_ROOT_CA_PASSWORD"
       name: testCertificates
       displayName: Create Test Certificates
@@ -233,8 +231,8 @@ stages:
       DPS_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_CONNECTION_STRING']]
       DPS_ID_SCOPE: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_ID_SCOPE']]
       DPS_HOSTNAME: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_HOSTNAME']]
-      DPS_ROOT_CA_CERT: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_CERT']]
-      DPS_ROOT_CA_PK: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PK']]
+      DPS_ROOT_CA_CERT_BASE64: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_CERT_BASE64']]
+      DPS_ROOT_CA_PK_BASE64: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PK_BASE64']]
       DPS_ROOT_CA_PASSWORD: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PASSWORD']]
     pool:
       vmImage: 'ubuntu-22.04'
@@ -258,12 +256,6 @@ stages:
       displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
 
     - script: |
-        echo ">>>>>"
-        ls -l $PROVISIONING_ROOT_CERT
-        ls -l $PROVISIONING_ROOT_CERT_KEY
-        base64 -d $PROVISIONING_ROOT_CERT
-        echo "<<<<<"
-
         cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
         pytest --junitxml=junit/dps-e2e-test-results.xml
       displayName: 'Run Specified E2E Test with env variables'
@@ -276,8 +268,8 @@ stages:
         PROVISIONING_SERVICE_CONNECTION_STRING: $(DPS_CONNECTION_STRING)
         PROVISIONING_DEVICE_IDSCOPE: $(DPS_ID_SCOPE)
 
-        PROVISIONING_ROOT_CERT: $(DPS_ROOT_CA_CERT)
-        PROVISIONING_ROOT_CERT_KEY: $(DPS_ROOT_CA_PK)
+        PROVISIONING_ROOT_CERT: $(DPS_ROOT_CA_CERT_BASE64)
+        PROVISIONING_ROOT_CERT_KEY: $(DPS_ROOT_CA_PK_BASE64)
         PROVISIONING_ROOT_PASSWORD: $(DPS_ROOT_CA_PASSWORD)
         PYTHONUNBUFFERED: True
 
