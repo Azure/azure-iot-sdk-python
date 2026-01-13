@@ -1,67 +1,143 @@
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 
-jobs:
-- job: 'Test_Windows'
-  pool:
-    vmImage: 'windows-latest'
-
-  strategy:
-    matrix:
-      py38_mqtt:              { pv: '3.8', transport: 'mqtt', consumer_group: 'e2e-consumer-group-1' }
-      py312_mqttws:           { pv: '3.12', transport: 'mqttws', consumer_group: 'e2e-consumer-group-2' }
-
-  steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: $(pv)
-        architecture: 'x64'
-
-    - script: 'python scripts/env_setup.py --no_dev'
-      displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
-
+stages:
+- stage: setup
+  jobs:
+  - job: create_iot_hub_and_dps
+    pool:
+      vmImage: 'ubuntu-24.04'
+    steps:
     - script: |
-        cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
-        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
-      displayName: 'E2E Device Client MQTT Connection String'
-      env:
-        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumer_group)
-        PYTHONUNBUFFERED: True
+        sudo apt-get install -y uuid
+        AZURE_RESOURCE_GROUP="aziotsdkpythone2e$(uuid | tr -d '-')"
+        AZURE_IOTHUB_NAME="aziotsdkpythone2e$(uuid | tr -d '-')"
 
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results'
-      condition: always()
-
-- job: 'Test_Linux'
-  pool:
-    vmImage: 'Ubuntu 20.04'
-
-  strategy:
-    matrix:
-      py311_mqtt:              { pv: '3.11', transport: 'mqtt', consumer_group: 'e2e-consumer-group-3' }
-      py310_mqtt_ws:           { pv: '3.10', transport: 'mqttws', consumer_group: 'e2e-consumer-group-4' }
-
-  steps:
-    - task: UsePythonVersion@0
+        # Export variables to other stages/jobs/steps.
+        echo "##vso[task.setvariable variable=AZURE_RESOURCE_GROUP;isOutput=true]$AZURE_RESOURCE_GROUP"
+        echo "##vso[task.setvariable variable=AZURE_IOTHUB_NAME;isOutput=true]$AZURE_IOTHUB_NAME"
+      name: setResourceNames
+      displayName: Set Azure Resource Names
+    - task: AzureCLI@2
       inputs:
-        versionSpec: $(pv)
-        architecture: 'x64'
+        azureSubscription: 'iot hub sdk service connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          set -e
 
-    - script: 'python scripts/env_setup.py --no_dev'
-      displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+          export AZURE_RESOURCE_GROUP=$(setResourceNames.AZURE_RESOURCE_GROUP)
+          export AZURE_IOTHUB_NAME=$(setResourceNames.AZURE_IOTHUB_NAME)
 
-    - script: |
-        cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
-        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
-      displayName: 'E2E Device Client MQTT Connection String'
-      env:
-        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumer_group)
-        PYTHONUNBUFFERED: True
+          az group create -g $AZURE_RESOURCE_GROUP -l $(AZURE_REGION)
 
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results'
-      condition: always()
+          time az iot hub create -g $AZURE_RESOURCE_GROUP -n $AZURE_IOTHUB_NAME --dla false --mintls 1.2 --partition-count 4 --sku S1
 
+          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --query "connectionString" --output tsv)
+          export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
+
+          for i in $(seq 1 4); do
+              cg_name="cg$i"
+              az iot hub consumer-group create -g "$AZURE_RESOURCE_GROUP" --hub-name "$AZURE_IOTHUB_NAME" --name "$cg_name"
+          done
+
+          # Export variables to other stages/jobs/steps.
+          echo "##vso[task.setvariable variable=IOTHUB_CONNECTION_STRING;isOutput=true]$IOTHUB_CONNECTION_STRING"
+          echo "##vso[task.setvariable variable=EVENTHUB_CONNECTION_STRING;isOutput=true]$EVENTHUB_CONNECTION_STRING"
+      displayName: Create IoT Hub & DPS
+      name: createAzureResources
+- stage: build_and_tests
+  jobs:
+  - job: 'Test_Windows'
+    variables:
+      IOTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.IOTHUB_CONNECTION_STRING']]
+      EVENTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.EVENTHUB_CONNECTION_STRING']]
+    pool:
+      vmImage: 'windows-latest'
+
+    strategy:
+      matrix:
+        py38_mqtt:              { pv: '3.8', transport: 'mqtt', consumer_group: 'cg1' }
+        py312_mqttws:           { pv: '3.12', transport: 'mqttws', consumer_group: 'cg2' }
+
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: $(pv)
+          architecture: 'x64'
+
+      - script: 'python scripts/env_setup.py --no_dev'
+        displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+
+      - script: |
+          cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
+          pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
+        displayName: 'E2E Device Client MQTT Connection String'
+        env:
+          IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
+          IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(EVENTHUB_CONNECTION_STRING)
+          IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumer_group)
+          PYTHONUNBUFFERED: True
+
+      - task: PublishTestResults@2
+        displayName: 'Publish Test Results'
+        condition: always()
+
+  - job: 'Test_Linux'
+    variables:
+      IOTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.IOTHUB_CONNECTION_STRING']]
+      EVENTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.EVENTHUB_CONNECTION_STRING']]
+    pool:
+      vmImage: 'ubuntu-22.04'
+
+    strategy:
+      matrix:
+        # Not covering Python 3.14 as it is failing on pipeline (published uamqp wheel fails to compile).
+        py313_mqtt:              { pv: '3.13', transport: 'mqtt', consumer_group: 'cg3' }
+        py312_mqtt_ws:           { pv: '3.12', transport: 'mqttws', consumer_group: 'cg4' }
+
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: $(pv)
+          architecture: 'x64'
+
+      - script: 'python scripts/env_setup.py --no_dev'
+        displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+
+      - script: |
+          cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
+          pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
+        displayName: 'E2E Device Client MQTT Connection String'
+        env:
+          IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
+          IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(EVENTHUB_CONNECTION_STRING)
+          IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumer_group)
+          PYTHONUNBUFFERED: True
+
+      - task: PublishTestResults@2
+        displayName: 'Publish Test Results'
+        condition: always()
+- stage: cleanup
+  dependsOn:
+  - setup
+  - build_and_tests
+  condition: always() # Run stage even if the pipeline run is cancelled.
+  jobs:
+  - job: destroy_azure_resource_group
+    condition: always() # Run job even if the pipeline run is cancelled.
+    variables:
+        AZURE_RESOURCE_GROUP: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['setResourceNames.AZURE_RESOURCE_GROUP']]
+    steps:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'iot hub sdk service connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          # set -e
+
+          printenv | sort | grep -i azure
+
+          time az group delete --name $(AZURE_RESOURCE_GROUP) --yes
+      displayName: Destroy Azure Resource Group
+      condition: always() # Run step even if the pipeline run is cancelled.
