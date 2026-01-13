@@ -224,10 +224,6 @@ stages:
           # Set DPS Root CA
           export DPS_ROOT_CA_CERT_NAME="azure-iot-test-only"
 
-          echo ">>> DPS_ROOT_CA_CERT_PATH=$DPS_ROOT_CA_CERT_PATH"
-          cat $DPS_ROOT_CA_CERT_PATH
-          echo "<<<"
-
           time az iot dps certificate create --dps-name $AZURE_DPS_NAME --resource-group $AZURE_RESOURCE_GROUP --name $DPS_ROOT_CA_CERT_NAME --path $DPS_ROOT_CA_CERT_PATH
 
           etag=$(az iot dps certificate show --dps-name $AZURE_DPS_NAME --resource-group $AZURE_RESOURCE_GROUP --name $DPS_ROOT_CA_CERT_NAME --query etag -o tsv)
