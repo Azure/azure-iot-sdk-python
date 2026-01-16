@@ -68,9 +68,7 @@ jobs:
 
   - task: PublishCodeCoverageResults@2
     inputs:
-      #codeCoverageTool: 'cobertura'
       summaryFileLocation: '$(Build.SourcesDirectory)/coverage.xml'
-      #reportDirectory: '$(Build.SourcesDirectory)/coverage'
       failIfCoverageEmpty: true
 
 - job: 'Publish'
