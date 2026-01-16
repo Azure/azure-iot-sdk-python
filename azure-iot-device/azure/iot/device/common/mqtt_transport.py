@@ -140,6 +140,7 @@ class MQTTTransport(object):
         if self._websockets:
             logger.info("Creating client for connecting using MQTT over websockets")
             mqtt_client = mqtt.Client(
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
                 client_id=self._client_id,
                 clean_session=False,
                 protocol=mqtt.MQTTv311,
@@ -149,7 +150,10 @@ class MQTTTransport(object):
         else:
             logger.info("Creating client for connecting using MQTT over TCP")
             mqtt_client = mqtt.Client(
-                client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
+                client_id=self._client_id,
+                clean_session=False,
+                protocol=mqtt.MQTTv311,
             )
 
         if self._proxy_options:

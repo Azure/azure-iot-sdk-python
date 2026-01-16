@@ -65,26 +65,25 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
     ],
     install_requires=[
-        # Define sub-dependencies due to pip dependency resolution bug
-        # https://github.com/pypa/pip/issues/988
-        "urllib3>=2.2.2,<3.0.0",
-        # Actual project dependencies
+        # # Define sub-dependencies due to pip dependency resolution bug
+        # # https://github.com/pypa/pip/issues/988
+        # "urllib3>=2.2.2,<3.0.0",
+        # # Actual project dependencies
         "deprecation>=2.1.0,<3.0.0",
-        "paho-mqtt>=1.6.1,<2.0.0",
+        "paho-mqtt>=2.0.0,<3.0.0",
         "requests>=2.32.3,<3.0.0",
-        "requests-unixsocket2>=0.4.1",
+        "requests-unixsocket>=0.4.1,<1.0.0",
         "janus",
         "PySocks",
         "typing_extensions",
     ],
-    python_requires=">=3.8, <4",
+    python_requires=">=3.9, <4",
     packages=find_namespace_packages(where="azure-iot-device"),
     package_data={"azure.iot.device": ["py.typed"]},
     package_dir={"": "azure-iot-device"},

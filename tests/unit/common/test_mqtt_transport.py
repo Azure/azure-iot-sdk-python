@@ -202,7 +202,10 @@ class TestInstantiation(object):
 
         assert mock_mqtt_client_constructor.call_count == 1
         assert mock_mqtt_client_constructor.call_args == mocker.call(
-            client_id=fake_device_id, clean_session=False, protocol=mqtt.MQTTv311
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
+            client_id=fake_device_id,
+            clean_session=False,
+            protocol=mqtt.MQTTv311,
         )
 
     @pytest.mark.it(
@@ -221,6 +224,7 @@ class TestInstantiation(object):
 
         assert mock_mqtt_client_constructor.call_count == 1
         assert mock_mqtt_client_constructor.call_args == mocker.call(
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
             client_id=fake_device_id,
             clean_session=False,
             protocol=mqtt.MQTTv311,
