@@ -35,15 +35,15 @@ def get_device_id_from_event(event):
     """
     Helper function to get the device_id from an EventHub message
     """
-    return event.message.annotations["iothub-connection-device-id".encode()].decode()
+    return event.system_properties["iothub-connection-device-id".encode()].decode()
 
 
 def get_module_id_from_event(event):
     """
     Helper function to get the module_id from an EventHub message
     """
-    if "iothub-connection-module_id" in event.message.annotations:
-        return event.message.annotations["iothub-connection-module-id".encode()].decode()
+    if "iothub-connection-module_id" in event.system_properties:
+        return event.system_properties["iothub-connection-module-id".encode()].decode()
     else:
         return None
 
@@ -52,7 +52,8 @@ def get_message_source_from_event(event):
     """
     Helper function to get the message source from an EventHub message
     """
-    return event.message.annotations["iothub-message-source".encode()].decode()
+    # event.message.annotations -> event.system_properties
+    return event.system_properties["iothub-message-source".encode()].decode()
 
 
 class EventhubEvent(object):
