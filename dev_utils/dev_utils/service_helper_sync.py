@@ -3,7 +3,7 @@
 # full license information.
 import logging
 import threading
-from six.moves import queue
+import queue
 import copy
 import time
 import uuid
