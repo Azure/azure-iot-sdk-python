@@ -1,5 +1,5 @@
 pytest < 9.0.0
-pytest-asyncio
+pytest-asyncio <= 1.2.0
 pytest-mock
 pytest-testdox>=1.1.1
 pytest-cov
