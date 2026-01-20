@@ -10,7 +10,6 @@ from dev_utils import get_random_dict
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
 
 # TODO: add tests for various application properties
 # TODO: is there a way to call send_c2d so it arrives as an object rather than a JSON string?
@@ -20,8 +19,9 @@ pytestmark = pytest.mark.asyncio
 class TestReceiveC2d(object):
     @pytest.mark.it("Can receive C2D")
     @pytest.mark.quicktest_suite
-    async def test_receive_c2d(self, client, service_helper, event_loop, leak_tracker):
+    async def test_receive_c2d(self, client, service_helper, leak_tracker):
         leak_tracker.set_initial_object_list()
+        event_loop = asyncio.get_running_loop()
 
         message = json.dumps(get_random_dict())
 
