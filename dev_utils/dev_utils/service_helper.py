@@ -12,25 +12,15 @@ class ServiceHelper:
         iothub_connection_string,
         eventhub_connection_string,
         eventhub_consumer_group,
-        event_loop=None,
         executor=None,
     ):
-        # Keep the passed-in loop as a fallback, but prefer the currently running loop when
-        # scheduling work so we never attach futures to a different loop than the caller.
-        self._event_loop_override = event_loop
         self._executor = executor or concurrent.futures.ThreadPoolExecutor()
         self._inner_object = ServiceHelperSync(
             iothub_connection_string, eventhub_connection_string, eventhub_consumer_group
         )
 
-    def _get_event_loop(self):
-        try:
-            return asyncio.get_running_loop()
-        except RuntimeError:
-            return self._event_loop_override or asyncio.get_event_loop()
-
     async def _run_in_executor(self, func, *args):
-        loop = self._get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(self._executor, func, *args)
 
     def set_identity(self, device_id, module_id):
