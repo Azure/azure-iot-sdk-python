@@ -16,7 +16,6 @@ from azure.iot.device.iothub.sync_handler_manager import MESSAGE, METHOD, TWIN_D
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
 
-pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
 
 # NOTE ON TEST IMPLEMENTATION:

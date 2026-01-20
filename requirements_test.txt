@@ -1,5 +1,5 @@
-pytest < 8.0.0
-pytest-asyncio <= 0.16
+pytest>=8,<9
+pytest-asyncio~=1.2
 pytest-mock
 pytest-testdox>=1.1.1
 pytest-cov
@@ -9,4 +9,4 @@ azure-iot-hub                                    # Only needed for iothub e2e
 azure-iothub-provisioningserviceclient >= 1.2.0  # Only needed for provisioning e2e
 azure-eventhub                                   # Only needed for iothub e2e
 psutil                                           # Only needed for iothub e2e
-six                                              # Only needed for tests and should be removed ASAP a python2 backcompat should not be needed anymore.
+six                                              # Needed due to a missing dependency in azure-iot-hub

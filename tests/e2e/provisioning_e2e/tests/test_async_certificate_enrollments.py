@@ -29,7 +29,6 @@ from create_x509_chain_crypto import (
 )
 
 
-pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
 
 

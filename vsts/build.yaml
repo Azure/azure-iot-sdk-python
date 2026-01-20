@@ -66,11 +66,9 @@ jobs:
       testRunTitle: 'Python $(python.version)'
     condition: always()
 
-  - task: PublishCodeCoverageResults@1
+  - task: PublishCodeCoverageResults@2
     inputs:
-      codeCoverageTool: 'cobertura'
       summaryFileLocation: '$(Build.SourcesDirectory)/coverage.xml'
-      reportDirectory: '$(Build.SourcesDirectory)/coverage'
       failIfCoverageEmpty: true
 
 - job: 'Publish'

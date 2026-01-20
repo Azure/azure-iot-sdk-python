@@ -11,8 +11,6 @@ from azure.iot.device.exceptions import OperationCancelled, ClientError
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.mark.describe("Client send_message method")
 class TestSendMessage(object):
