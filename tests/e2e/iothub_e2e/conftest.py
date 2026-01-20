@@ -43,7 +43,9 @@ def transport():
 
 @pytest.fixture(scope="session")
 def executor():
-    return concurrent.futures.ThreadPoolExecutor()
+    executor = concurrent.futures.ThreadPoolExecutor()
+    yield executor
+    executor.shutdown()
 
 
 @pytest.fixture(scope="function")

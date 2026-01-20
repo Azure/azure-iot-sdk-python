@@ -201,6 +201,16 @@ class ServiceHelperSync(object):
         if self._eventhub_consumer_client:
             self._eventhub_consumer_client.close()
 
+        if self._eventhub_future:
+            try:
+                # Ensure the EventHub receive loop exits before tearing down the executor
+                self._eventhub_future.result(timeout=30)
+            except Exception:
+                logger.warning("_eventhub_thread did not exit cleanly", exc_info=True)
+
+        if self._executor:
+            self._executor.shutdown(wait=True)
+
     def _convert_incoming_event(self, event):
         try:
             event_body = event.body_as_json()
