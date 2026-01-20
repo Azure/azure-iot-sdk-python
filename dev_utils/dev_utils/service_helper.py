@@ -5,6 +5,8 @@ from .service_helper_sync import ServiceHelperSync
 import asyncio
 import concurrent.futures
 
+# TODO: Consider removing injectable executors.
+
 
 class ServiceHelper:
     def __init__(
@@ -16,6 +18,7 @@ class ServiceHelper:
         executor=None,
     ):
         self._event_loop = event_loop or asyncio.get_event_loop()
+        self._owns_executor = executor is None
         self._executor = executor or concurrent.futures.ThreadPoolExecutor()
         self._inner_object = ServiceHelperSync(
             iothub_connection_string, eventhub_connection_string, eventhub_consumer_group
@@ -73,4 +76,7 @@ class ServiceHelper:
         )
 
     async def shutdown(self):
-        return await self._event_loop.run_in_executor(self._executor, self._inner_object.shutdown)
+        await self._event_loop.run_in_executor(self._executor, self._inner_object.shutdown)
+
+        if self._owns_executor:
+            self._executor.shutdown(wait=True)
