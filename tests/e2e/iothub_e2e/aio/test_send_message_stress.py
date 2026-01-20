@@ -15,7 +15,6 @@ from retry_async import retry_exponential_backoff_with_jitter
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
 
 # Settings that apply to all tests in this module
 TELEMETRY_PAYLOAD_SIZE = 16 * 1024

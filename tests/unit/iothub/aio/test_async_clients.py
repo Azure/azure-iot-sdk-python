@@ -44,7 +44,6 @@ from ..shared_client_tests import (
     SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests,
 )
 
-pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
 
 
