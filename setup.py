@@ -78,7 +78,7 @@ setup(
         "deprecation>=2.1.0,<3.0.0",
         "paho-mqtt>=1.6.1,<2.0.0",
         "requests>=2.32.3,<3.0.0",
-        "requests-unixsocket2>=0.4.1",
+        "requests-unixsocket>=0.4.1",
         "janus",
         "PySocks",
         "typing_extensions",
