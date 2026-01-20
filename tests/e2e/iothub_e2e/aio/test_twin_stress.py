@@ -157,13 +157,14 @@ class TestTwinStress(object):
     )
     @pytest.mark.it("Can receive continuous desired property updates that were sent one-at-a-time")
     async def test_stress_serial_desired_property_updates(
-        self, client, service_helper, toxic, iteration_count, event_loop, leak_tracker
+        self, client, service_helper, toxic, iteration_count, leak_tracker
     ):
         """
         Update desired properties, one at a time, and verify that the desired property arrives
         at the client before the next update.
         """
         leak_tracker.set_initial_object_list()
+        event_loop = asyncio.get_running_loop()
 
         patches = asyncio.Queue()
 
@@ -200,13 +201,14 @@ class TestTwinStress(object):
         "Can receive continuous desired property updates that may have been sent in parallel"
     )
     async def test_stress_parallel_desired_property_updates(
-        self, client, service_helper, toxic, iteration_count, batch_size, event_loop, leak_tracker
+        self, client, service_helper, toxic, iteration_count, batch_size, leak_tracker
     ):
         """
         Update desired properties in batches. Each batch updates `batch_size` properties,
         with each property being updated in it's own `PATCH`.
         """
         leak_tracker.set_initial_object_list()
+        event_loop = asyncio.get_running_loop()
 
         patches = asyncio.Queue()
 

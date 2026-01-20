@@ -190,10 +190,9 @@ class TestReportedPropertiesDroppedConnection(object):
 class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
     @pytest.mark.quicktest_suite
-    async def test_receives_simple_desired_patch(
-        self, client, event_loop, service_helper, leak_tracker
-    ):
+    async def test_receives_simple_desired_patch(self, client, service_helper, leak_tracker):
         leak_tracker.set_initial_object_list()
+        event_loop = asyncio.get_running_loop()
 
         received_patch = None
         received = asyncio.Event()
