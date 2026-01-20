@@ -10,3 +10,4 @@ azure-iothub-provisioningserviceclient >= 1.2.0  # Only needed for provisioning 
 azure-eventhub                                   # Only needed for iothub e2e
 psutil                                           # Only needed for iothub e2e
 six                                              # Needed due to a missing dependency in azure-iot-hub
+urllib3<3.0.0                                    # Needed for mocking the requests stack
