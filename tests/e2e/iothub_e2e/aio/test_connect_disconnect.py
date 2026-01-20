@@ -9,8 +9,6 @@ import parametrize
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.mark.describe("Client object")
 class TestConnectDisconnect(object):
@@ -44,7 +42,7 @@ class TestConnectDisconnect(object):
     # see "This assert fails because of initial and secondary disconnects" below
     @pytest.mark.skip(reason="two stage disconnect causes assertion in test code")
     async def test_connect_in_the_middle_of_disconnect(
-        self, brand_new_client, event_loop, service_helper, random_message, leak_tracker
+        self, brand_new_client, service_helper, random_message, leak_tracker
     ):
         """
         Explanation: People will call `connect` inside `on_connection_state_change` handlers.
@@ -54,6 +52,7 @@ class TestConnectDisconnect(object):
         assert client
 
         leak_tracker.set_initial_object_list()
+        event_loop = asyncio.get_running_loop()
 
         reconnected_event = asyncio.Event()
 
@@ -112,7 +111,6 @@ class TestConnectDisconnect(object):
     async def test_disconnect_in_the_middle_of_connect(
         self,
         brand_new_client,
-        event_loop,
         service_helper,
         random_message,
         first_connect,
@@ -128,6 +126,7 @@ class TestConnectDisconnect(object):
         disconnect_on_next_connect_event = False
 
         leak_tracker.set_initial_object_list()
+        event_loop = asyncio.get_running_loop()
 
         disconnected_event = asyncio.Event()
 
