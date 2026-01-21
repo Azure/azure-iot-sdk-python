@@ -27,6 +27,7 @@ class HTTPTransport(object):
         hostname,
         server_verification_cert=None,
         x509_cert=None,
+        ssl_context=None,
         cipher=None,
         proxy_options=None,
     ):
@@ -37,11 +38,13 @@ class HTTPTransport(object):
         :param str server_verification_cert: Certificate which can be used to validate a server-side TLS connection (optional).
         :param str cipher: Cipher string in OpenSSL cipher list format (optional)
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
+        :param ssl_context: Use a custom ssl_context (optional).
         :param proxy_options: Options for sending traffic through proxy servers.
         """
         self._hostname = hostname
         self._server_verification_cert = server_verification_cert
         self._x509_cert = x509_cert
+        self._ssl_context = ssl_context
         self._cipher = cipher
         self._proxies = format_proxies(proxy_options)
         self._http_adapter = self._create_http_adapter()
@@ -51,7 +54,11 @@ class HTTPTransport(object):
         This method creates a custom HTTPAdapter for use with a requests library session.
         It will allow for use of a custom configured SSL context.
         """
-        ssl_context = self._create_ssl_context()
+
+        if self._ssl_context is None:
+            ssl_context = self._create_ssl_context()
+        else:
+            ssl_context = self._ssl_context
 
         class CustomSSLContextHTTPAdapter(requests.adapters.HTTPAdapter):
             def init_poolmanager(self, *args, **kwargs):

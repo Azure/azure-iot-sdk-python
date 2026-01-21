@@ -153,6 +153,7 @@ class MQTTTransportStage(PipelineStage):
                 username=op.username,
                 server_verification_cert=self.nucleus.pipeline_configuration.server_verification_cert,
                 x509_cert=self.nucleus.pipeline_configuration.x509,
+                ssl_context=self.nucleus.pipeline_configuration.ssl_context,
                 websockets=self.nucleus.pipeline_configuration.websockets,
                 cipher=self.nucleus.pipeline_configuration.cipher,
                 proxy_options=self.nucleus.pipeline_configuration.proxy_options,

@@ -12,6 +12,9 @@ import threading
 import os
 import io
 import time
+import ssl
+import OpenSSL
+
 from . import pipeline
 from .pipeline import constant as pipeline_constant
 from azure.iot.device.common.auth import connection_string as cs
@@ -616,6 +619,66 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
+    def create_from_ssl_context(
+        cls,
+        ssl_context: ssl.SSLContext | OpenSSL.SSL.Context,
+        hostname: str,
+        device_id: str,
+        **kwargs,
+    ) -> Self:
+        """
+        Instantiate a client using X509 certificate authentication.
+
+        :param str hostname: Host running the IotHub.
+            Can be found in the Azure portal in the Overview tab as the string hostname.
+        :param ssl_context: Custom ssl.SSLContext
+        :param str device_id: The ID used to uniquely identify a device in the IoTHub
+
+        :param str server_verification_cert: Configuration Option. The trusted certificate chain.
+            Necessary when using connecting to an endpoint which has a non-standard root of trust,
+            such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
+            over websockets.
+        :param str product_info: Configuration Option. Default is empty string. The string contains
+            arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type proxy_options: :class:`azure.iot.device.ProxyOptions`
+        :param int keep_alive: Maximum period in seconds between communications with the
+            broker. If no other messages are being exchanged, this controls the
+            rate at which the client will send ping messages to the broker.
+            If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
+        :param bool ensure_desired_properties: Ensure the most recent desired properties patch has
+            been received upon re-connections (Default:True)
+
+        :raises: TypeError if given an unsupported parameter.
+
+        :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
+        """
+        # Ensure no invalid kwargs were passed by the user
+        excluded_kwargs = ["sastoken_ttl"]
+        _validate_kwargs(exclude=excluded_kwargs, **kwargs)
+
+        # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(
+            device_id=device_id, hostname=hostname, ssl_context=ssl_context, **config_kwargs
+        )
+        pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
+
+        # Pipeline setup
+        http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
+
+        return cls(mqtt_pipeline, http_pipeline)
+
+    @classmethod
     def create_from_symmetric_key(
         cls, symmetric_key: str, hostname: str, device_id: str, **kwargs
     ) -> Self:
@@ -913,6 +976,72 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
+        return cls(mqtt_pipeline, http_pipeline)
+
+    @classmethod
+    def create_from_ssl_context(
+        cls,
+        ssl_context: ssl.SSLContext | OpenSSL.SSL.Context,
+        hostname: str,
+        device_id: str,
+        module_id: str,
+        **kwargs,
+    ) -> Self:
+        """
+        Instantiate a client using X509 certificate authentication.
+
+        :param str hostname: Host running the IotHub.
+            Can be found in the Azure portal in the Overview tab as the string hostname.
+        :param ssl_context: Custom ssl.SSLContext
+        :param str device_id: The ID used to uniquely identify a device in the IoTHub
+        :param str module_id: The ID used to uniquely identify a module on a device on the IoTHub.
+
+        :param str server_verification_cert: Configuration Option. The trusted certificate chain.
+            Necessary when using connecting to an endpoint which has a non-standard root of trust,
+            such as a protocol gateway.
+        :param str gateway_hostname: Configuration Option. The gateway hostname for the gateway
+            device.
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
+            over websockets.
+        :param str product_info: Configuration Option. Default is empty string. The string contains
+            arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type proxy_options: :class:`azure.iot.device.ProxyOptions`
+        :param int keep_alive: Maximum period in seconds between communications with the
+            broker. If no other messages are being exchanged, this controls the
+            rate at which the client will send ping messages to the broker.
+            If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
+        :param bool ensure_desired_properties: Ensure the most recent desired properties patch has
+            been received upon re-connections (Default:True)
+
+        :raises: TypeError if given an unsupported parameter.
+
+        :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
+        """
+        # Ensure no invalid kwargs were passed by the user
+        excluded_kwargs = ["sastoken_ttl"]
+        _validate_kwargs(exclude=excluded_kwargs, **kwargs)
+
+        # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(
+            device_id=device_id,
+            module_id=module_id,
+            hostname=hostname,
+            ssl_context=ssl_context,
+            **config_kwargs,
+        )
+        pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
+
+        # Pipeline setup
+        http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
+
         return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod

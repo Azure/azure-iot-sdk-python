@@ -27,6 +27,7 @@ class BasePipelineConfig(abc.ABC):
         gateway_hostname=None,
         sastoken=None,
         x509=None,
+        ssl_context=None,
         server_verification_cert=None,
         websockets=False,
         cipher="",
@@ -69,8 +70,9 @@ class BasePipelineConfig(abc.ABC):
         # Auth
         self.sastoken = sastoken
         self.x509 = x509
-        if (not sastoken and not x509) or (sastoken and x509):
-            raise ValueError("One of either 'sastoken' or 'x509' must be provided")
+        self.ssl_context = ssl_context
+        if (not sastoken and not x509 and not ssl_context) or (sastoken and x509):
+            raise ValueError("One of either 'sastoken' or 'x509', 'ssl_context' must be provided")
         self.server_verification_cert = server_verification_cert
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)

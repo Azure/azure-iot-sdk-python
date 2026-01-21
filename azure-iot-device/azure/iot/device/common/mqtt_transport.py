@@ -94,6 +94,7 @@ class MQTTTransport(object):
         username,
         server_verification_cert=None,
         x509_cert=None,
+        ssl_context=None,
         websockets=False,
         cipher=None,
         proxy_options=None,
@@ -106,6 +107,7 @@ class MQTTTransport(object):
         :param str username: Username for login to the remote broker.
         :param str server_verification_cert: Certificate which can be used to validate a server-side TLS connection (optional).
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
+        :param ssl_context: Use a custom ssl_context (optional).
         :param bool websockets: Indicates whether or not to enable a websockets connection in the Transport.
         :param str cipher: Cipher string in OpenSSL cipher list format
         :param proxy_options: Options for sending traffic through proxy servers.
@@ -116,6 +118,7 @@ class MQTTTransport(object):
         self._mqtt_client = None
         self._server_verification_cert = server_verification_cert
         self._x509_cert = x509_cert
+        self._ssl_context = ssl_context
         self._websockets = websockets
         self._cipher = cipher
         self._proxy_options = proxy_options
@@ -165,7 +168,10 @@ class MQTTTransport(object):
         mqtt_client.enable_logger(logging.getLogger("paho"))
 
         # Configure TLS/SSL
-        ssl_context = self._create_ssl_context()
+        if self._ssl_context is None:
+            ssl_context = self._create_ssl_context()
+        else:
+            ssl_context = self._ssl_context
         mqtt_client.tls_set_context(context=ssl_context)
 
         # Set event handlers.  Use weak references back into this object to prevent leaks
