@@ -224,6 +224,16 @@ class MQTTTransportStage(PipelineStage):
                 # The connect after the disconnect will be triggered upon completion of the
                 # disconnect in the on_disconnected handler
                 self.transport.disconnect(clear_inflight=op.hard)
+            except transport_exceptions.NoConnectionError:
+                # If we're already disconnected, that's fine - we wanted to
+                # disconnect and we're disconnected. Treat this as success, not an error.
+                # This can happen in race conditions where the socket was cleaned up before
+                # the explicit disconnect call, particularly when callbacks trigger client disconnects.
+                logger.info(
+                    "transport.disconnect raised NoConnectionError - already disconnected, treating as success"
+                )
+                self._pending_connection_op = None
+                op.complete()
             except Exception as e:
                 logger.info("transport.disconnect raised error while disconnecting")
                 logger.info(traceback.format_exc())
