@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import paho.mqtt.client as mqtt
+from paho.mqtt.enums import MQTTErrorCode
 import logging
 import ssl
 import threading
@@ -16,61 +17,91 @@ import socks
 
 logger = logging.getLogger(__name__)
 
-# Mapping of Paho CONNACK rc codes to Error object classes
-# Used for connection callbacks
-paho_connack_rc_to_error = {
-    mqtt.CONNACK_REFUSED_PROTOCOL_VERSION: exceptions.ProtocolClientError,
-    mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED: exceptions.ProtocolClientError,
-    mqtt.CONNACK_REFUSED_SERVER_UNAVAILABLE: exceptions.ConnectionFailedError,
-    mqtt.CONNACK_REFUSED_BAD_USERNAME_PASSWORD: exceptions.UnauthorizedError,
-    mqtt.CONNACK_REFUSED_NOT_AUTHORIZED: exceptions.UnauthorizedError,
+# Mapping of MQTT 5.0 CONNACK reason codes to Error object classes
+# Used for VERSION2 callbacks where Paho converts legacy MQTT 3.1.1 codes to MQTT 5 reason codes.
+# Only includes the 5 codes that can result from MQTT 3.1.1 CONNACK conversion.
+mqtt5_connack_reason_code_to_error = {
+    132: exceptions.ProtocolClientError,  # Unsupported protocol version (from legacy code 1)
+    133: exceptions.ProtocolClientError,  # Client identifier not valid (from legacy code 2)
+    134: exceptions.UnauthorizedError,  # Bad user name or password (from legacy code 4)
+    135: exceptions.UnauthorizedError,  # Not authorized (from legacy code 5)
+    136: exceptions.ConnectionFailedError,  # Server unavailable (from legacy code 3)
 }
 
-# Mapping of Paho rc codes to Error object classes
-# Used for responses to Paho APIs and non-connection callbacks
-paho_rc_to_error = {
-    mqtt.MQTT_ERR_NOMEM: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_PROTOCOL: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_INVAL: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_NO_CONN: exceptions.NoConnectionError,
-    mqtt.MQTT_ERR_CONN_REFUSED: exceptions.ConnectionFailedError,
-    mqtt.MQTT_ERR_NOT_FOUND: exceptions.ConnectionFailedError,
-    mqtt.MQTT_ERR_CONN_LOST: exceptions.ConnectionDroppedError,
-    mqtt.MQTT_ERR_TLS: exceptions.UnauthorizedError,
-    mqtt.MQTT_ERR_PAYLOAD_SIZE: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_NOT_SUPPORTED: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_AUTH: exceptions.UnauthorizedError,
-    mqtt.MQTT_ERR_ACL_DENIED: exceptions.UnauthorizedError,
-    mqtt.MQTT_ERR_UNKNOWN: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_ERRNO: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_QUEUE_SIZE: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_KEEPALIVE: exceptions.ConnectionDroppedError,
+# Mapping of MQTT 5.0 DISCONNECT reason codes to Error object classes
+# Used for VERSION2 on_disconnect callbacks where Paho converts MQTTErrorCode to MQTT 5 reason codes.
+# Only includes codes that can result from MQTT 3.1.1 disconnect error conversion.
+mqtt5_disconnect_reason_code_to_error = {
+    128: exceptions.ConnectionDroppedError,  # Unspecified error (from MQTT_ERR_CONN_LOST and others)
+    141: exceptions.ConnectionDroppedError,  # Keep alive timeout (from MQTT_ERR_KEEPALIVE)
+}
+
+# Mapping of Paho MQTT error codes to Error object classes
+# Used for responses to Paho APIs
+paho_mqtt_error_code_to_error = {
+    MQTTErrorCode.MQTT_ERR_NOMEM: exceptions.ProtocolClientError,
+    MQTTErrorCode.MQTT_ERR_PROTOCOL: exceptions.ProtocolClientError,
+    MQTTErrorCode.MQTT_ERR_INVAL: exceptions.ProtocolClientError,
+    MQTTErrorCode.MQTT_ERR_NO_CONN: exceptions.NoConnectionError,
+    MQTTErrorCode.MQTT_ERR_CONN_REFUSED: exceptions.ConnectionFailedError,
+    MQTTErrorCode.MQTT_ERR_NOT_FOUND: exceptions.ConnectionFailedError,
+    MQTTErrorCode.MQTT_ERR_CONN_LOST: exceptions.ConnectionDroppedError,
+    MQTTErrorCode.MQTT_ERR_TLS: exceptions.UnauthorizedError,
+    MQTTErrorCode.MQTT_ERR_PAYLOAD_SIZE: exceptions.ProtocolClientError,
+    MQTTErrorCode.MQTT_ERR_NOT_SUPPORTED: exceptions.ProtocolClientError,
+    MQTTErrorCode.MQTT_ERR_AUTH: exceptions.UnauthorizedError,
+    MQTTErrorCode.MQTT_ERR_ACL_DENIED: exceptions.UnauthorizedError,
+    MQTTErrorCode.MQTT_ERR_UNKNOWN: exceptions.ProtocolClientError,
+    MQTTErrorCode.MQTT_ERR_ERRNO: exceptions.ProtocolClientError,
+    MQTTErrorCode.MQTT_ERR_QUEUE_SIZE: exceptions.ProtocolClientError,
+    MQTTErrorCode.MQTT_ERR_KEEPALIVE: exceptions.ConnectionDroppedError,
 }
 
 
-def _create_error_from_connack_rc_code(rc):
-    """
-    Given a paho CONNACK rc code, return an Exception that can be raised
-    """
-    message = mqtt.connack_string(rc)
-    if rc in paho_connack_rc_to_error:
-        return paho_connack_rc_to_error[rc](message)
-    else:
-        return exceptions.ProtocolClientError("Unknown CONNACK rc={}".format(rc))
-
-
-def _create_error_from_rc_code(rc):
+def _create_error_from_mqtt_error_code(rc):
     """
     Given a paho rc code, return an Exception that can be raised
     """
     if rc == 1:
         # Paho returns rc=1 to mean "something went wrong.  stop".  We manually translate this to a ConnectionDroppedError.
         return exceptions.ConnectionDroppedError("Paho returned rc==1")
-    elif rc in paho_rc_to_error:
+    elif rc in paho_mqtt_error_code_to_error:
         message = mqtt.error_string(rc)
-        return paho_rc_to_error[rc](message)
+        return paho_mqtt_error_code_to_error[rc](message)
     else:
         return exceptions.ProtocolClientError("Unknown rc=={}".format(rc))
+
+
+def _create_error_from_connack_reason_code(reason_code):
+    """
+    Given a paho CONNACK reason code, return an Exception that can be raised.
+    In Paho 2.x with VERSION2 callbacks, reason_code is a ReasonCode object
+    that has been converted to MQTT 5.0 space (even for MQTT 3.1.1 connections).
+    """
+    rc = reason_code.value
+    message = str(reason_code)
+    if rc in mqtt5_connack_reason_code_to_error:
+        return mqtt5_connack_reason_code_to_error[rc](message)
+    else:
+        return exceptions.ProtocolClientError("Unknown CONNACK reason code={}".format(rc))
+
+
+def _create_error_from_disconnect_reason_code(reason_code):
+    """
+    Given a paho disconnect reason code, return an Exception that can be raised.
+    In Paho 2.x with VERSION2 callbacks and MQTT 3.1.1, the disconnect reason_code
+    is a ReasonCode object that has been converted to MQTT 5.0 space.
+    """
+    rc = reason_code.value
+    message = str(reason_code)
+
+    if rc in mqtt5_disconnect_reason_code_to_error:
+        return mqtt5_disconnect_reason_code_to_error[rc](message)
+    else:
+        # Unrecognized reason code - defensive fallback
+        return exceptions.ProtocolClientError(
+            "Unexpected DISCONNECT reason code: {}".format(message)
+        )
 
 
 class MQTTTransport(object):
@@ -140,7 +171,7 @@ class MQTTTransport(object):
         if self._websockets:
             logger.info("Creating client for connecting using MQTT over websockets")
             mqtt_client = mqtt.Client(
-                callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
                 client_id=self._client_id,
                 clean_session=False,
                 protocol=mqtt.MQTTv311,
@@ -150,7 +181,7 @@ class MQTTTransport(object):
         else:
             logger.info("Creating client for connecting using MQTT over TCP")
             mqtt_client = mqtt.Client(
-                callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
                 client_id=self._client_id,
                 clean_session=False,
                 protocol=mqtt.MQTTv311,
@@ -175,15 +206,15 @@ class MQTTTransport(object):
         # Set event handlers.  Use weak references back into this object to prevent leaks
         self_weakref = weakref.ref(self)
 
-        def on_connect(client, userdata, flags, rc):
+        def on_connect(client, userdata, connect_flags, reason_code, properties):
             this = self_weakref()
-            logger.info("connected with result code: {}".format(rc))
+            logger.info("connected with result code: {}".format(reason_code))
 
-            if rc:  # i.e. if there is an error
+            if reason_code.is_failure:  # i.e. if there is an error
                 if this.on_mqtt_connection_failure_handler:
                     try:
                         this.on_mqtt_connection_failure_handler(
-                            _create_error_from_connack_rc_code(rc)
+                            _create_error_from_connack_reason_code(reason_code)
                         )
                     except Exception:
                         logger.warning(
@@ -203,16 +234,18 @@ class MQTTTransport(object):
             else:
                 logger.debug("No event handler callback set for on_mqtt_connected_handler")
 
-        def on_disconnect(client, userdata, rc):
+        def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
             this = self_weakref()
-            logger.info("disconnected with result code: {}".format(rc))
 
             cause = None
-            if rc:  # i.e. if there is an error
+            if reason_code.is_failure:
+                logger.info("Connection lost: {}".format(reason_code))
                 logger.debug("".join(traceback.format_stack()))
-                cause = _create_error_from_rc_code(rc)
+                cause = _create_error_from_disconnect_reason_code(reason_code)
                 if this:
                     this._force_transport_disconnect_and_cleanup()
+            else:
+                logger.info("Disconnected successfully: {}".format(reason_code))
 
             if not this:
                 # Paho will sometimes call this after we've been garbage collected,  If so, we have to
@@ -231,25 +264,28 @@ class MQTTTransport(object):
                 else:
                     logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
 
-        def on_subscribe(client, userdata, mid, granted_qos):
+        def on_subscribe(client, userdata, mid, reason_codes, properties):
             this = self_weakref()
             logger.info("suback received for {}".format(mid))
-            # subscribe failures are returned from the subscribe() call.  This is just
-            # a notification that a SUBACK was received, so there is no failure case here
+            # TODO: BUG - subscribe failures can be indicated via reason_codes (e.g. reason_codes[0].is_failure).
+            # Currently this code assumes SUBACK = success, but that's not always true.
+            # The reason_codes list contains one ReasonCode per subscribed topic.
+            # This should be fixed to check for failures and handle them appropriately.
             this._op_manager.complete_operation(mid)
 
-        def on_unsubscribe(client, userdata, mid):
+        def on_unsubscribe(client, userdata, mid, reason_codes, properties):
             this = self_weakref()
             logger.info("UNSUBACK received for {}".format(mid))
-            # unsubscribe failures are returned from the unsubscribe() call.  This is just
-            # a notification that a SUBACK was received, so there is no failure case here
+            # In MQTT 3.1.1, UNSUBACK contains no return codes - it's just an acknowledgement.
+            # The protocol has no mechanism to report unsubscribe failures.
+            # (reason_codes will be an empty list for MQTT 3.1.1)
             this._op_manager.complete_operation(mid)
 
-        def on_publish(client, userdata, mid):
+        def on_publish(client, userdata, mid, reason_code, properties):
             this = self_weakref()
             logger.info("payload published for {}".format(mid))
-            # publish failures are returned from the publish() call.  This is just
-            # a notification that a PUBACK was received, so there is no failure case here
+            # In MQTT 3.1.1, PUBACK contains no return codes - it's just an acknowledgement.
+            # The protocol has no mechanism to report publish failures in the PUBACK.
             this._op_manager.complete_operation(mid)
 
         def on_message(client, userdata, mqtt_message):
@@ -311,9 +347,12 @@ class MQTTTransport(object):
 
         self._mqtt_client.loop_stop()
 
-        # Finally, because of a bug in Paho, we need to null out the _thread pointer.  This
-        # is necessary because the code that sets _thread to None only gets called if you
-        # call loop_stop from an external thread (and we're still inside the Paho thread here).
+        # Paho's _thread_main() sets _thread = None in a finally block when the thread exits.
+        # However, when we call loop_stop() from inside a callback (on the Paho thread), the
+        # thread hasn't exited yet, so _thread still references the old thread object.
+        # If we later call loop_start() to reconnect, it checks `if self._thread is not None`
+        # and returns MQTT_ERR_INVAL, causing reconnection to fail.
+        # We manually null _thread here to ensure subsequent reconnects work correctly.
         if threading.current_thread() == self._mqtt_client._thread:
             logger.debug("in paho thread.  nulling _thread")
             self._mqtt_client._thread = None
@@ -429,7 +468,7 @@ class MQTTTransport(object):
 
         logger.debug("_mqtt_client.connect returned rc={}".format(rc))
         if rc:
-            raise _create_error_from_rc_code(rc)
+            raise _create_error_from_mqtt_error_code(rc)
         self._mqtt_client.loop_start()
 
     def disconnect(self, clear_inflight=False):
@@ -450,6 +489,7 @@ class MQTTTransport(object):
         finally:
             self._mqtt_client.loop_stop()
 
+            # See comment in _force_transport_disconnect_and_cleanup for why this is needed.
             if threading.current_thread() == self._mqtt_client._thread:
                 logger.debug("in paho thread.  nulling _thread")
                 self._mqtt_client._thread = None
@@ -459,7 +499,7 @@ class MQTTTransport(object):
             # This could result in ConnectionDroppedError or ProtocolClientError
             # No matter what, we always raise here to give upper layers a chance to respond
             # to this error.
-            err = _create_error_from_rc_code(rc)
+            err = _create_error_from_mqtt_error_code(rc)
             raise err
         else:
             # Clear pending ops if instructed, but only if the disconnect was successful.
@@ -493,7 +533,7 @@ class MQTTTransport(object):
         logger.debug("_mqtt_client.subscribe returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
-            raise _create_error_from_rc_code(rc)
+            raise _create_error_from_mqtt_error_code(rc)
         self._op_manager.establish_operation(mid, callback)
 
     def unsubscribe(self, topic, callback=None):
@@ -520,7 +560,7 @@ class MQTTTransport(object):
         logger.debug("_mqtt_client.unsubscribe returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
-            raise _create_error_from_rc_code(rc)
+            raise _create_error_from_mqtt_error_code(rc)
         self._op_manager.establish_operation(mid, callback)
 
     def publish(self, topic, payload, qos=1, callback=None):
@@ -554,7 +594,7 @@ class MQTTTransport(object):
         logger.debug("_mqtt_client.publish returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
-            raise _create_error_from_rc_code(rc)
+            raise _create_error_from_mqtt_error_code(rc)
         self._op_manager.establish_operation(mid, callback)
 
 
