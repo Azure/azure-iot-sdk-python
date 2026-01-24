@@ -140,6 +140,7 @@ class MQTTTransport(object):
         if self._websockets:
             logger.info("Creating client for connecting using MQTT over websockets")
             mqtt_client = mqtt.Client(
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
                 client_id=self._client_id,
                 clean_session=False,
                 protocol=mqtt.MQTTv311,
@@ -149,7 +150,10 @@ class MQTTTransport(object):
         else:
             logger.info("Creating client for connecting using MQTT over TCP")
             mqtt_client = mqtt.Client(
-                client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
+                client_id=self._client_id,
+                clean_session=False,
+                protocol=mqtt.MQTTv311,
             )
 
         if self._proxy_options:
@@ -436,7 +440,6 @@ class MQTTTransport(object):
         :raises: ConnectionDroppedError in unexpected cases.
         :raises: UnauthorizedError in unexpected cases.
         :raises: ConnectionFailedError in unexpected cases.
-        :raises: NoConnectionError if the client isn't actually connected.
         """
         logger.info("disconnecting MQTT client")
         try:
@@ -452,11 +455,22 @@ class MQTTTransport(object):
 
         logger.debug("_mqtt_client.disconnect returned rc={}".format(rc))
         if rc:
-            # This could result in ConnectionDroppedError or ProtocolClientError
-            # No matter what, we always raise here to give upper layers a chance to respond
-            # to this error.
-            err = _create_error_from_rc_code(rc)
-            raise err
+            # Special case: MQTT_ERR_NO_CONN (rc=4) during disconnect means the socket
+            # is already closed. In Paho 2.x, this can happen even after a successful
+            # disconnect because the on_disconnect callback fires (with rc=0) before
+            # disconnect() returns, and Paho's internal cleanup closes the socket.
+            # Since we wanted to disconnect and we're disconnected, treat this as success.
+            if rc == mqtt.MQTT_ERR_NO_CONN:
+                logger.debug(
+                    "disconnect returned MQTT_ERR_NO_CONN - socket already closed, treating as success"
+                )
+                # Still clear inflight operations since we're effectively disconnected
+                if clear_inflight:
+                    self._op_manager.cancel_all_operations()
+            else:
+                # This could result in ConnectionDroppedError or ProtocolClientError
+                err = _create_error_from_rc_code(rc)
+                raise err
         else:
             # Clear pending ops if instructed, but only if the disconnect was successful.
             # Technically the disconnect could still fail upon response, however that would then
