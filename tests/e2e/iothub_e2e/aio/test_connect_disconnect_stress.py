@@ -13,7 +13,6 @@ logger.setLevel(level=logging.INFO)
 
 @pytest.mark.stress
 @pytest.mark.describe("Client object connect/disconnect stress")
-@pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
 class TestConnectDisconnectStress(object):
     @pytest.mark.parametrize("iteration_count", [10, 50])
     @pytest.mark.it("Can do many non-overlapped connects and disconnects")
