@@ -258,6 +258,19 @@ class ServiceHelperSync(object):
                 for event in events:
                     device_id = get_device_id_from_event(event)
                     module_id = get_module_id_from_event(event)
+                    message_source = get_message_source_from_event(event)
+
+                    # TODO: Remove this verbose logging after debugging twin change event issue
+                    # Log all incoming events with their message source for debugging
+                    logger.info(
+                        "EventHub event received: device_id={}, module_id={}, message_source={}, "
+                        "annotations={}".format(
+                            device_id,
+                            module_id,
+                            message_source,
+                            event.message.annotations if event.message else "N/A",
+                        )
+                    )
 
                     if device_id == self.device_id and module_id == self.module_id:
 
