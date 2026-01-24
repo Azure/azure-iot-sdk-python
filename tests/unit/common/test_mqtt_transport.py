@@ -124,6 +124,12 @@ operation_return_codes = [
     },
 ]
 
+# For disconnect, MQTT_ERR_NO_CONN is treated as success (socket already closed)
+# so we exclude it from the error return codes for disconnect tests
+disconnect_operation_return_codes = [
+    x for x in operation_return_codes if x["rc"] != mqtt.MQTT_ERR_NO_CONN
+]
+
 
 @pytest.fixture
 def mock_mqtt_client(mocker, fake_paho_thread):
@@ -806,8 +812,11 @@ class TestDisconnect(object):
     @pytest.mark.it("Raises a custom Exception if Paho disconnect returns a failing rc code")
     @pytest.mark.parametrize(
         "error_params",
-        operation_return_codes,
-        ids=["{}->{}".format(x["name"], x["error"].__name__) for x in operation_return_codes],
+        disconnect_operation_return_codes,
+        ids=[
+            "{}->{}".format(x["name"], x["error"].__name__)
+            for x in disconnect_operation_return_codes
+        ],
     )
     def test_client_returns_failing_rc_code(
         self, mocker, mock_mqtt_client, transport, error_params
