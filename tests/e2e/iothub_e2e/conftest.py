@@ -67,7 +67,7 @@ def random_reported_props():
 all_objects_can_leak = []
 one_object_can_leak = [
     "<class 'azure.iot.device.common.alarm.Alarm'>",
-    "<class 'paho.mqtt.client.WebsocketWrapper'>",
+    "<class 'paho.mqtt.client._WebsocketWrapper'>",
 ]
 
 
