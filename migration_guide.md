@@ -5,14 +5,7 @@ code base. Note that this guide assumes the use of asynchronous code.
 
 ## Installing the IoTHub Python SDK
 
-- v1
-
-```Shell
-pip install azure-iothub-device-client
-
-```
-
-- v2
+IoTHub Python v2 code is installed via a new package name:
 
 ```Shell
 pip install azure-iot-device
