@@ -8,6 +8,7 @@
 
 # Feature names
 C2D_MSG = "c2d"
+CSR = "csr"
 INPUT_MSG = "input"
 METHODS = "methods"
 TWIN = "twin"

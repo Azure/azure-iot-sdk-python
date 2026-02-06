@@ -101,3 +101,19 @@ class PatchTwinReportedPropertiesOperation(PipelineOperation):
         """
         super().__init__(callback=callback)
         self.patch = patch
+
+class CertificateSigningRequestOperation(PipelineOperation):
+    """
+    A PipelineOperation object which contains arguments used to send a reported properties patch to the Azure
+    IoT Hub or Azure IoT Edge Hub service.
+    """
+
+    def __init__(self, request, callback):
+        """
+        Initializer for CertificateSigningRequestOperation object
+
+        :param patch: The reported properties patch to send to the service.
+        :type patch: dict, str, int, float, bool, or None (JSON compatible values)
+        """
+        super().__init__(callback=callback)
+        self.request = request

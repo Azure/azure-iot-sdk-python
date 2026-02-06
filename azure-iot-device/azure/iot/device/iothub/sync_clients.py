@@ -535,6 +535,45 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             return None
         return patch
 
+    def send_certificate_signing_request(self, request: CertificateSigningRequest) -> CertificateSigningResponse:
+        """
+        Update reported properties with the Azure IoT Hub or Azure IoT Edge Hub service.
+
+        This is a synchronous call, meaning that this function will not return until the patch
+        has been sent to the service and acknowledged.
+
+        If the service returns an error on the patch operation, this function will raise the
+        appropriate error.
+
+        :param reported_properties_patch: Twin Reported Properties patch as a JSON dict
+        :type reported_properties_patch: dict
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.CSR]:
+            self._enable_feature(pipeline_constant.CSR)
+
+        callback = EventedCallback(return_arg_name="csr")
+        self._mqtt_pipeline.send_certificate_signing_request(
+            request=request, callback=callback
+        )
+        certificate_signing_response = handle_result(callback)
+
+        logger.info("Received certificate signing response")
+        return certificate_signing_response
+
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """A synchronous device client that connects to an Azure IoT Hub instance."""

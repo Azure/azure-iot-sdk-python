@@ -112,6 +112,18 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             )
             self.send_op_down(worker_op)
 
+        elif isinstance(op, pipeline_ops_iothub.CertificateSigningRequestOperation):
+            # Sending a Method Response gets translated into an MQTT Publish operation
+            topic = mqtt_topic_iothub.get_certificate_signing_request_topic_for_publish(
+                op.method_response.request_id, op.method_response.status
+            )
+            payload = json.dumps(op.method_response.payload)
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation, topic=topic, payload=payload
+            )
+            self.send_op_down(worker_op)
+
+
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # Enabling a feature gets translated into an MQTT subscribe operation
             topic = self._get_feature_subscription_topic(op.feature_name)
@@ -134,6 +146,16 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                     method=op.method,
                     resource_location=op.resource_location,
                     request_id=op.request_id,
+                )
+                worker_op = op.spawn_worker_op(
+                    worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
+                    topic=topic,
+                    payload=op.request_body,
+                )
+                self.send_op_down(worker_op)
+            elif op.request_type == pipeline_constant.CSR:
+                topic = mqtt_topic_iothub.get_certificate_signing_request_topic_for_publish(
+                    request_id=op.request_id
                 )
                 worker_op = op.spawn_worker_op(
                     worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
@@ -220,6 +242,15 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 self.send_event_up(
                     pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
                         patch=json.loads(event.payload.decode("utf-8") or 'null')
+                    )
+                )
+
+            elif mqtt_topic_iothub.is_certificate_signing_response_topic(topic):
+                request_id = mqtt_topic_iothub.get_certificate_signing_response_request_id_from_topic(topic)
+                status_code = int(mqtt_topic_iothub.get_certificate_signing_response_status_from_topic(topic))
+                self.send_event_up(
+                    pipeline_events_base.ResponseEvent(
+                        request_id=request_id, status_code=status_code, response_body=event.payload
                     )
                 )
 

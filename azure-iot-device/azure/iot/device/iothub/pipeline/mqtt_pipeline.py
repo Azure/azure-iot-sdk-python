@@ -34,6 +34,7 @@ class MQTTPipeline(object):
 
         self.feature_enabled = {
             constant.C2D_MSG: False,
+            constant.CSR: False,
             constant.INPUT_MSG: False,
             constant.METHODS: False,
             constant.TWIN: False,
@@ -479,6 +480,45 @@ class MQTTPipeline(object):
         self._pipeline.run_op(
             pipeline_ops_iothub.PatchTwinReportedPropertiesOperation(
                 patch=patch, callback=on_complete
+            )
+        )
+
+    def send_certificate_signing_request(self, request, callback):
+        """
+        Send a patch for a twin's reported properties to the service.
+
+        :param patch: the reported properties patch to send
+        :param callback: callback which is called when the request attempt is complete.
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.PipelineNotRunning` if the
+            pipeline has previously been shut down
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+
+        The following exceptions can be returned via the "error" parameter only if auto-connect
+        is enabled in the pipeline configuration:
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationTimeout`
+        """
+        self._verify_running()
+        logger.debug("Starting CertificateSigningRequestOperation on the pipeline")
+
+        def on_complete(op, error):
+            if error:
+                callback(error=error, twin=None)
+            else:
+                callback(twin=op.twin)
+
+        self._pipeline.run_op(
+            pipeline_ops_iothub.CertificateSigningRequestOperation(
+                request=request, callback=on_complete
             )
         )
 

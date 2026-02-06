@@ -451,6 +451,10 @@ class AbstractIoTHubClient(abc.ABC):
     def receive_twin_desired_properties_patch(self) -> TwinPatch:
         pass
 
+    @abc.abstractmethod
+    def send_certificate_signing_request(self, certificate_signing_request: CertificateSigningRequest) -> CertificateSigningResponse:
+        pass
+
     @property
     def connected(self) -> bool:
         """
