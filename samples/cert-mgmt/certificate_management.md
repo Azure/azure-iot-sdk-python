@@ -83,7 +83,7 @@ The steps below can be used **for testing only**.
 **Do not use the key or certificate-sigining-request below in production.**
 
 Linux:
-```bash`
+```bash
 export PROVISIONING_REGISTRATION_ID=<Registration ID> # If not done already above.
 export PROVISIONING_CSR_KEY_FILE=$(pwd)/${PROVISIONING_REGISTRATION_ID}-csr-private-key.pem
 
