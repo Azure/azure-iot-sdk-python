@@ -10,8 +10,11 @@ import os
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import Message
 import uuid
+import secrets
 from azure.iot.device import X509
+from azure.iot.device.iothub.models import CertificateSigningRequest
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -30,12 +33,12 @@ csr_data = os.getenv("PROVISIONING_CSR")
 csr_key_file = os.getenv("PROVISIONING_CSR_KEY_FILE")
 issued_cert_file = os.getenv("PROVISIONING_ISSUED_CERT_FILE")
 
+
 def x509_certificate_list_to_pem(cert_list):
     begin_cert_header = "-----BEGIN CERTIFICATE-----\r\n"
     end_cert_footer = "\r\n-----END CERTIFICATE-----"
-    separator = end_cert_footer + "\r\n" + begin_cert_header
-    # return begin_cert_header + separator.join(cert_list) + end_cert_footer
     return begin_cert_header + cert_list[0] + end_cert_footer
+
 
 async def main():
     if dps_x509_cert_file is not None and dps_x509_key_file is not None:
@@ -60,7 +63,9 @@ async def main():
             symmetric_key=dps_sas_key,
         )
     else:
-        print("Either provide PROVISIONING_X509_CERT_FILE and PROVISIONING_X509_KEY_FILE or PROVISIONING_SAS_KEY")
+        print(
+            "Either provide PROVISIONING_X509_CERT_FILE and PROVISIONING_X509_KEY_FILE or PROVISIONING_SAS_KEY"
+        )
         sys.exit(1)
 
     # set the CSR on the client
@@ -73,7 +78,11 @@ async def main():
 
     with open(issued_cert_file, "w") as out_ca_pem:
         # Write the issued certificate on the file.
-        out_ca_pem.write(x509_certificate_list_to_pem(registration_result.registration_state.issued_client_certificate))
+        out_ca_pem.write(
+            x509_certificate_list_to_pem(
+                registration_result.registration_state.issued_client_certificate
+            )
+        )
 
     if registration_result.status == "assigned":
         print("Will send telemetry from the provisioned device")
@@ -102,14 +111,12 @@ async def main():
         # send `messages_to_send` messages in parallel
         await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
 
-        # # Get new issued certificate from IoT Hub
-        # csr_request = CertificateSigningRequest(
-        #     registration_id,
-        #     csr_data,
-        #     None
-        # )
+        # Get new issued certificate from IoT Hub
+        csr_request_id = secrets.randbelow(1000)  # This range is arbitrary.
+        csr_request = CertificateSigningRequest(csr_request_id, registration_id, csr_data, None)
 
-        # csr_response = await device_client.send_certificate_signing_request(csr_request)
+        # csr_response =
+        await device_client.send_certificate_signing_request(csr_request)
 
         # finally, disconnect
         await device_client.shutdown()

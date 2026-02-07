@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 """This module contains a class representing messages that are sent or received.
 """
-from azure.iot.device import constant
 import sys
 
 
@@ -17,9 +16,7 @@ class CertificateSigningRequest(object):
     :ivar replace: Replace any active credential operation for this device.
     """
 
-    def __init__(
-        self, device_id, csr, replace=None
-    ):
+    def __init__(self, request_id, device_id, csr, replace=None):
         """
         Initializer for CertificateSigningRequest
 
@@ -27,6 +24,7 @@ class CertificateSigningRequest(object):
         :param str csr: The base64-encoded certificate signing request.
         :param str replace: Replace any active credential operation for this device.
         """
+        self.request_id = request_id
         self.device_id = device_id
         self.csr = csr
         self.replace = replace
@@ -36,12 +34,14 @@ class CertificateSigningRequest(object):
 
     def get_size(self) -> int:
         total = 0
-        total = total + sum(
-            sys.getsizeof(v)
-            for v in self.__dict__.values()
-            if v is not None
-        )
+        total = total + sum(sys.getsizeof(v) for v in self.__dict__.values() if v is not None)
         return total
+
+    def to_json(obj):
+        data = obj.__dict__.copy()
+        data.pop("request_id", None)
+        return data
+
 
 class CertificateSigningResponse(object):
     """Represents a message to or from IoTHub
@@ -51,9 +51,7 @@ class CertificateSigningResponse(object):
     :ivar replace: Replace any active credential operation for this device.
     """
 
-    def __init__(
-        self, correlation_id, certificates
-    ):
+    def __init__(self, correlation_id, certificates):
         """
         Initializer for CertificateSigningRequest
 
@@ -63,5 +61,3 @@ class CertificateSigningResponse(object):
         """
         self.correlation_id = correlation_id
         self.certificates = certificates
-
-

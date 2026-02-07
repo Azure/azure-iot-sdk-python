@@ -115,14 +115,13 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         elif isinstance(op, pipeline_ops_iothub.CertificateSigningRequestOperation):
             # Sending a Method Response gets translated into an MQTT Publish operation
             topic = mqtt_topic_iothub.get_certificate_signing_request_topic_for_publish(
-                op.method_response.request_id, op.method_response.status
+                request_id=op.request.request_id
             )
-            payload = json.dumps(op.method_response.payload)
+            payload = json.dumps(op.request)
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation, topic=topic, payload=payload
             )
             self.send_op_down(worker_op)
-
 
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # Enabling a feature gets translated into an MQTT subscribe operation
@@ -153,16 +152,6 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                     payload=op.request_body,
                 )
                 self.send_op_down(worker_op)
-            elif op.request_type == pipeline_constant.CSR:
-                topic = mqtt_topic_iothub.get_certificate_signing_request_topic_for_publish(
-                    request_id=op.request_id
-                )
-                worker_op = op.spawn_worker_op(
-                    worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
-                    topic=topic,
-                    payload=op.request_body,
-                )
-                self.send_op_down(worker_op)
             else:
                 raise pipeline_exceptions.OperationError(
                     "RequestOperation request_type {} not supported".format(op.request_type)
@@ -178,6 +167,8 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             return mqtt_topic_iothub.get_c2d_topic_for_subscribe(
                 self.nucleus.pipeline_configuration.device_id
             )
+        elif feature == pipeline_constant.CSR:
+            return mqtt_topic_iothub.get_certificate_signing_response_topic_for_subscribe()
         elif feature == pipeline_constant.INPUT_MSG:
             return mqtt_topic_iothub.get_input_topic_for_subscribe(
                 self.nucleus.pipeline_configuration.device_id,
@@ -225,7 +216,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 method_received = MethodRequest(
                     request_id=request_id,
                     name=method_name,
-                    payload=json.loads(event.payload.decode("utf-8") or 'null'),
+                    payload=json.loads(event.payload.decode("utf-8") or "null"),
                 )
                 self.send_event_up(pipeline_events_iothub.MethodRequestEvent(method_received))
 
@@ -241,13 +232,17 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             elif mqtt_topic_iothub.is_twin_desired_property_patch_topic(topic):
                 self.send_event_up(
                     pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
-                        patch=json.loads(event.payload.decode("utf-8") or 'null')
+                        patch=json.loads(event.payload.decode("utf-8") or "null")
                     )
                 )
 
             elif mqtt_topic_iothub.is_certificate_signing_response_topic(topic):
-                request_id = mqtt_topic_iothub.get_certificate_signing_response_request_id_from_topic(topic)
-                status_code = int(mqtt_topic_iothub.get_certificate_signing_response_status_from_topic(topic))
+                request_id = (
+                    mqtt_topic_iothub.get_certificate_signing_response_request_id_from_topic(topic)
+                )
+                status_code = int(
+                    mqtt_topic_iothub.get_certificate_signing_response_status_from_topic(topic)
+                )
                 self.send_event_up(
                     pipeline_events_base.ResponseEvent(
                         request_id=request_id, status_code=status_code, response_body=event.payload
