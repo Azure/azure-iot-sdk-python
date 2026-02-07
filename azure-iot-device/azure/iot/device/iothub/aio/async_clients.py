@@ -16,7 +16,13 @@ from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubDeviceClient,
     AbstractIoTHubModuleClient,
 )
-from azure.iot.device.iothub.models import Message, MethodRequest, MethodResponse
+from azure.iot.device.iothub.models import (
+    Message,
+    MethodRequest,
+    MethodResponse,
+    CertificateSigningRequest,
+    CertificateSigningResponse,
+)
 from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
@@ -519,6 +525,43 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         patch = await twin_patch_inbox.get()
         logger.info("twin patch received")
         return patch
+
+    async def send_certificate_signing_request(
+        self, request: CertificateSigningRequest
+    ) -> CertificateSigningResponse:
+        """
+        Gets the device or module twin from the Azure IoT Hub or Azure IoT Edge Hub service.
+
+        :returns: Complete Twin as a JSON dict
+        :rtype: dict
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        logger.info("Sending certificate signing request")
+
+        if not self._mqtt_pipeline.feature_enabled[constant.CSR]:
+            await self._enable_feature(constant.CSR)
+
+        send_certificate_signing_request_async = async_adapter.emulate_async(
+            self._mqtt_pipeline.send_certificate_signing_request
+        )
+
+        callback = async_adapter.AwaitableCallback(return_arg_name="csr")
+        await send_certificate_signing_request_async(request=request, callback=callback)
+        certificate_signing_response = await handle_result(callback)
+        logger.info("Received certificate signing response")
+        return certificate_signing_response
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):

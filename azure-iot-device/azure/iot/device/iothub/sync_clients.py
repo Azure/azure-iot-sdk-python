@@ -15,7 +15,13 @@ from .abstract_clients import (
     AbstractIoTHubDeviceClient,
     AbstractIoTHubModuleClient,
 )
-from .models import Message, MethodResponse, MethodRequest
+from .models import (
+    Message,
+    MethodResponse,
+    MethodRequest,
+    CertificateSigningRequest,
+    CertificateSigningResponse,
+)
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox, InboxEmpty
 from . import sync_handler_manager
@@ -379,7 +385,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             self._enable_feature(pipeline_constant.METHODS)
 
         if self._inbox_manager is not None:
-            method_inbox : Queue[MethodRequest] = self._inbox_manager.get_method_request_inbox(method_name)
+            method_inbox: Queue[MethodRequest] = self._inbox_manager.get_method_request_inbox(
+                method_name
+            )
 
         logger.info("Waiting for method request...")
         try:
@@ -524,7 +532,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
             self._enable_feature(pipeline_constant.TWIN_PATCHES)
         if self._inbox_manager is not None:
-            twin_patch_inbox : Queue[TwinPatch] = self._inbox_manager.get_twin_patch_inbox()
+            twin_patch_inbox: Queue[TwinPatch] = self._inbox_manager.get_twin_patch_inbox()
 
         logger.info("Waiting for twin patches...")
         try:
@@ -535,7 +543,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             return None
         return patch
 
-    def send_certificate_signing_request(self, request: CertificateSigningRequest) -> CertificateSigningResponse:
+    def send_certificate_signing_request(
+        self, request: CertificateSigningRequest
+    ) -> CertificateSigningResponse:
         """
         Update reported properties with the Azure IoT Hub or Azure IoT Edge Hub service.
 
@@ -566,9 +576,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             self._enable_feature(pipeline_constant.CSR)
 
         callback = EventedCallback(return_arg_name="csr")
-        self._mqtt_pipeline.send_certificate_signing_request(
-            request=request, callback=callback
-        )
+        self._mqtt_pipeline.send_certificate_signing_request(request=request, callback=callback)
         certificate_signing_response = handle_result(callback)
 
         logger.info("Received certificate signing response")
@@ -611,7 +619,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
             self._enable_feature(pipeline_constant.C2D_MSG)
         if self._inbox_manager is not None:
-            c2d_inbox : Queue[Message] = self._inbox_manager.get_c2d_message_inbox()
+            c2d_inbox: Queue[Message] = self._inbox_manager.get_c2d_message_inbox()
 
         logger.info("Waiting for message from Hub...")
         try:
@@ -743,7 +751,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
             self._enable_feature(pipeline_constant.INPUT_MSG)
         if self._inbox_manager is not None:
-            input_inbox : Queue[Message] = self._inbox_manager.get_input_message_inbox(input_name)
+            input_inbox: Queue[Message] = self._inbox_manager.get_input_message_inbox(input_name)
 
         logger.info("Waiting for input message on: " + input_name + "...")
         try:
