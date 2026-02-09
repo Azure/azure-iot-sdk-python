@@ -10,11 +10,16 @@ import os
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import Message
 import uuid
-import secrets
 from azure.iot.device import X509
 from azure.iot.device.iothub.models import CertificateSigningRequest
 import logging
 import sys
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(thread)s %(funcName)s %(message)s",
+    filename="certificate_issuance.log",
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -112,11 +117,11 @@ async def main():
         await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
 
         # Get new issued certificate from IoT Hub
-        csr_request_id = secrets.randbelow(1000)  # This range is arbitrary.
-        csr_request = CertificateSigningRequest(csr_request_id, registration_id, csr_data, None)
+        csr_request_id = uuid.uuid4()  # This range is arbitrary.
+        csr_request = CertificateSigningRequest(csr_request_id, registration_id, csr_data, "*")
 
-        # csr_response =
-        await device_client.send_certificate_signing_request(csr_request)
+        csr_response = await device_client.send_certificate_signing_request(csr_request)
+        print("csr_response={}".format(csr_response))
 
         # finally, disconnect
         await device_client.shutdown()

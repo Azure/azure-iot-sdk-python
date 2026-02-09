@@ -512,9 +512,9 @@ class MQTTPipeline(object):
 
         def on_complete(op, error):
             if error:
-                callback(error=error, twin=None)
+                callback(error=error, csr=None)
             else:
-                callback(twin=op.twin)
+                callback(csr=op)
 
         self._pipeline.run_op(
             pipeline_ops_iothub.CertificateSigningRequestOperation(

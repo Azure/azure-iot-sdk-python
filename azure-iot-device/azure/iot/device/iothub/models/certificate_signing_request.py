@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 """This module contains a class representing messages that are sent or received.
 """
-import sys
 
 
 class CertificateSigningRequest(object):
@@ -16,7 +15,7 @@ class CertificateSigningRequest(object):
     :ivar replace: Replace any active credential operation for this device.
     """
 
-    def __init__(self, request_id, device_id, csr, replace=None):
+    def __init__(self, request_id, device_id, csr, replace):
         """
         Initializer for CertificateSigningRequest
 
@@ -25,19 +24,14 @@ class CertificateSigningRequest(object):
         :param str replace: Replace any active credential operation for this device.
         """
         self.request_id = request_id
-        self.device_id = device_id
+        self.id = device_id  # TODO(ewertons): do not expose to customer, grab it from the internal state of the client.
         self.csr = csr
         self.replace = replace
 
     def __str__(self):
         return str(self.csr)
 
-    def get_size(self) -> int:
-        total = 0
-        total = total + sum(sys.getsizeof(v) for v in self.__dict__.values() if v is not None)
-        return total
-
-    def to_json(obj):
+    def to_dict(obj):
         data = obj.__dict__.copy()
         data.pop("request_id", None)
         return data
@@ -51,7 +45,7 @@ class CertificateSigningResponse(object):
     :ivar replace: Replace any active credential operation for this device.
     """
 
-    def __init__(self, correlation_id, certificates):
+    def __init__(self, request_id, status, certificates):
         """
         Initializer for CertificateSigningRequest
 
@@ -59,5 +53,6 @@ class CertificateSigningResponse(object):
         :param str csr: The base64-encoded certificate signing request.
         :param str replace: Replace any active credential operation for this device.
         """
-        self.correlation_id = correlation_id
+        self.request_id = request_id
+        self.status = status
         self.certificates = certificates

@@ -208,3 +208,53 @@ class TwinRequestResponseStage(PipelineStage):
 
         else:
             super()._run_op(op)
+
+
+class CertificateSigningRequestResponseStage(PipelineStage):
+    """
+    PipelineStage which handles twin operations. In particular, it converts twin GET and PATCH
+    operations into RequestAndResponseOperation operations.  This is done at the IoTHub level because
+    there is nothing protocol-specific about this code.  The protocol-specific implementation
+    for twin requests and responses is handled inside IoTHubMQTTTranslationStage, when it converts
+    the RequestOperation to a protocol-specific send operation and when it converts the
+    protocol-specific receive event into an ResponseEvent event.
+    """
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+        def map_twin_error(error, twin_op):
+            if error:
+                return error
+            elif twin_op.status_code >= 300:
+                # TODO map error codes to correct exceptions
+                logger.info("Error {} received from twin operation".format(twin_op.status_code))
+                logger.info("response body: {}".format(twin_op.response_body))
+                return exceptions.ServiceError(
+                    "twin operation returned status {}".format(twin_op.status_code)
+                )
+
+        if isinstance(op, pipeline_ops_iothub.CertificateSigningRequestOperation):
+
+            # Alias to avoid overload within the callback below
+            # CT-TODO: remove the need for this with better callback semantics
+            op_waiting_for_response = op
+
+            def on_twin_response(op, error):
+                logger.debug("{}({}): Got response for GetTwinOperation".format(self.name, op.name))
+                error = map_twin_error(error=error, twin_op=op)
+                if not error:
+                    op_waiting_for_response.twin = json.loads(op.response_body.decode("utf-8"))
+                op_waiting_for_response.complete(error=error)
+
+            self.send_op_down(
+                pipeline_ops_base.RequestAndResponseOperation(
+                    request_type=constant.CSR,
+                    method="GET",
+                    resource_location="/",
+                    request_body=" ",
+                    callback=on_twin_response,
+                )
+            )
+
+        else:
+            super()._run_op(op)

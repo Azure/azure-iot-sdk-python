@@ -117,7 +117,8 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             topic = mqtt_topic_iothub.get_certificate_signing_request_topic_for_publish(
                 request_id=op.request.request_id
             )
-            payload = json.dumps(op.request)
+            payload = json.dumps(op.request.to_dict())
+            logger.debug("CertificateSigningRequestOperation={}".format(payload))
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation, topic=topic, payload=payload
             )

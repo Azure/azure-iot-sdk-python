@@ -172,14 +172,16 @@ def get_certificate_signing_response_topic_for_subscribe():
     """
     return "$iothub/credentials/res/#"
 
+
 def get_certificate_signing_request_topic_for_publish(request_id):
     """
     :return: The topic for Certificate Signing Request messages. It is of the format
     ""
     """
-    return "$iothub/credentials/POST/?$rid={request_id}&$op=issueCertificate".format(
+    return "$iothub/credentials/POST/issueCertificate/?$rid={request_id}".format(
         request_id=request_id
     )
+
 
 def is_certificate_signing_response_topic(topic):
     """
@@ -189,6 +191,7 @@ def is_certificate_signing_response_topic(topic):
     :param str topic: The topic string.
     """
     return topic.startswith("$iothub/credentials/res/")
+
 
 def get_certificate_signing_response_request_id_from_topic(topic):
     """
@@ -201,14 +204,13 @@ def get_certificate_signing_response_request_id_from_topic(topic):
     if is_certificate_signing_response_topic(topic):
         parts = topic.split("/")
         if len(parts) == 5:
-            return urllib.parse.unquote(parts[3])
-
             properties = _extract_properties(topic.split("?")[1])
             return properties["rid"]
         else:
             raise ValueError("topic has incorrect format")
     else:
         raise ValueError("topic has incorrect format")
+
 
 def get_certificate_signing_response_status_from_topic(topic):
     """
@@ -226,6 +228,7 @@ def get_certificate_signing_response_status_from_topic(topic):
             raise ValueError("topic has incorrect format")
     else:
         raise ValueError("topic has incorrect format")
+
 
 def is_twin_response_topic(topic):
     """Topics for twin responses are of the following format:
