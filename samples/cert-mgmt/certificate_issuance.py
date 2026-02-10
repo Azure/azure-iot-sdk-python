@@ -39,10 +39,15 @@ csr_key_file = os.getenv("PROVISIONING_CSR_KEY_FILE")
 issued_cert_file = os.getenv("PROVISIONING_ISSUED_CERT_FILE")
 
 
-def x509_certificate_list_to_pem(cert_list):
+def x509_certificate_to_pem_format(certificate_info):
     begin_cert_header = "-----BEGIN CERTIFICATE-----\r\n"
     end_cert_footer = "\r\n-----END CERTIFICATE-----"
-    return begin_cert_header + cert_list[0] + end_cert_footer
+    return begin_cert_header + certificate_info + end_cert_footer
+
+
+def write_certificate_data_to_pem_file(certificate_info, certificate_file_path):
+    with open(certificate_file_path, "w") as out_cert_pem:
+        out_cert_pem.write(x509_certificate_to_pem_format(certificate_info))
 
 
 async def main():
@@ -78,16 +83,14 @@ async def main():
 
     registration_result = await provisioning_device_client.register()
 
-    print("The complete registration result is")
-    print(registration_result.registration_state)
+    print("The complete registration result is {}".format(registration_result.registration_state))
 
-    with open(issued_cert_file, "w") as out_ca_pem:
-        # Write the issued certificate on the file.
-        out_ca_pem.write(
-            x509_certificate_list_to_pem(
-                registration_result.registration_state.issued_client_certificate
-            )
-        )
+    write_certificate_data_to_pem_file(
+        registration_result.registration_state.issued_client_certificate[
+            0
+        ],  # Use only leaf-certificate.
+        issued_cert_file,
+    )
 
     if registration_result.status == "assigned":
         print("Will send telemetry from the provisioned device")
