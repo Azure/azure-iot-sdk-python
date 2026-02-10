@@ -113,7 +113,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_iothub.CertificateSigningRequestOperation):
-            # Sending a Method Response gets translated into an MQTT Publish operation
+            # Sending a Certificate Signing Request gets translated into an MQTT Publish operation
             topic = mqtt_topic_iothub.get_certificate_signing_request_topic_for_publish(
                 request_id=op.request_id
             )
@@ -127,8 +127,10 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 )
 
                 if error is None and op.parent.response is None:
-                    # This is a completion for the MQTT publish, but we must wait until a final response is received
-                    # for the Certificate Signing Request.
+                    # This is a completion for the MQTT publish, which would also complete the CertificateSigningRequestOperation.
+                    # However this was triggered by a provisional Certificate Signing response (202 Accepted).
+                    # We must cancel this completion and wait until a final response is received with the actual
+                    # newly-issued certificate.
                     op.halt_completion()
 
             worker_op = op.spawn_worker_op(
@@ -258,7 +260,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                     mqtt_topic_iothub.get_certificate_signing_response_request_id_from_topic(topic)
                 )
                 status_code = int(
-                    mqtt_topic_iothub.get_certificate_signing_response_status_from_topic(topic)
+                    mqtt_topic_iothub.get_certificate_signing_response_status_code_from_topic(topic)
                 )
                 self.send_event_up(
                     pipeline_events_iothub.CertificateSigningResponseEvent(

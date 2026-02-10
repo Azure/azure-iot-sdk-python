@@ -490,9 +490,9 @@ class MQTTPipeline(object):
 
     def send_certificate_signing_request(self, request, callback):
         """
-        Send a patch for a twin's reported properties to the service.
+        Send a certificate signing request to the service.
 
-        :param patch: the reported properties patch to send
+        :param request: the certificate signing request to send
         :param callback: callback which is called when the request attempt is complete.
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.PipelineNotRunning` if the

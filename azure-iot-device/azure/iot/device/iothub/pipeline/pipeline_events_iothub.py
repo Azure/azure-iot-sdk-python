@@ -62,8 +62,8 @@ class TwinDesiredPropertiesPatchEvent(PipelineEvent):
 
 class CertificateSigningResponseEvent(PipelineEvent):
     """
-    A PipelineEvent object which represents an incoming twin desired properties patch.  This
-    object is probably created by some converter stage based on a protocol-specific event.
+    A PipelineEvent object which represents an incoming response for a certificate signing request.  This
+    object is created by a Azure IoT Hub converter stage based on a protocol-specific event.
     """
 
     def __init__(self, request_id, status_code, payload):

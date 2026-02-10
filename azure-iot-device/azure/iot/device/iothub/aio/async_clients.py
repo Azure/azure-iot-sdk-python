@@ -530,10 +530,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self, request: CertificateSigningRequest
     ) -> CertificateSigningResponse:
         """
-        Gets the device or module twin from the Azure IoT Hub or Azure IoT Edge Hub service.
+        Sends a Certificate Signing Request to Azure IoT Hub.
 
-        :returns: Complete Twin as a JSON dict
-        :rtype: dict
+        :returns: The certificate issued by Azure IoT Hub for the certificate signing request provided.
+        :rtype: CertificateSigningResponse
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.

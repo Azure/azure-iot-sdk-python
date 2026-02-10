@@ -214,12 +214,16 @@ class TwinRequestResponseStage(PipelineStage):
 
 class CertificateSigningRequestResponseStage(PipelineStage):
     """
-    PipelineStage which handles twin operations. In particular, it converts twin GET and PATCH
-    operations into RequestAndResponseOperation operations.  This is done at the IoTHub level because
-    there is nothing protocol-specific about this code.  The protocol-specific implementation
-    for twin requests and responses is handled inside IoTHubMQTTTranslationStage, when it converts
-    the RequestOperation to a protocol-specific send operation and when it converts the
-    protocol-specific receive event into an ResponseEvent event.
+    PipelineStage which handles CertificateSigningRequestOperations.
+    More specifically, it
+    - generates a request id for it and
+    - queues it for later correlation with the incoming response for callback invokation, as well as
+    - properly handle any intermediary responses (202).
+    This is done at the IoTHub level because there is nothing protocol-specific about this code.
+    The protocol-specific implementation for certificate signing requests and responses is handled inside
+    IoTHubMQTTTranslationStage, when it converts the CertificateSigningRequestOperation to a protocol-specific
+    send operation and when it converts the protocol-specific receive event into individual properties
+    that are stored back into the CertificateSigningRequestOperation instance.
     """
 
     def __init__(self):
@@ -258,7 +262,7 @@ class CertificateSigningRequestResponseStage(PipelineStage):
             if event.request_id in self.pending_responses:
                 op = self.pending_responses[event.request_id]
 
-                if event.status_code == 202:
+                if event.status_code == 202:  # Meaning: request accepted.
                     logger.debug(
                         "{}: Certificate signing request {} accepted (status_code={}, payload={})".format(
                             self.name, event.request_id, event.status_code, event.payload

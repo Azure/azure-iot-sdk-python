@@ -8,9 +8,8 @@
 
 
 class CertificateSigningRequest(object):
-    """Represents a message to or from IoTHub
+    """Represents a Certificate Signing Request message to Azure IoT Hub
 
-    :ivar device_id: The ID of the device associated with the certificate signing request.
     :ivar csr: The base64-encoded certificate signing request.
     :ivar replace: Replace any active credential operation for this device.
     """
@@ -19,11 +18,10 @@ class CertificateSigningRequest(object):
         """
         Initializer for CertificateSigningRequest
 
-        :param str device_id: The ID of the device associated with the certificate signing request.
         :param str csr: The base64-encoded certificate signing request.
         :param str replace: Replace any active credential operation for this device.
         """
-        self.id = None
+        self.id = None  # The device id, filled internally by the pipeline configuration.
         self.csr = csr
         self.replace = replace
 
@@ -36,20 +34,18 @@ class CertificateSigningRequest(object):
 
 
 class CertificateSigningResponse(object):
-    """Represents a message to or from IoTHub
+    """Represents a Certificate Signing Response message from Azure IoT Hub
 
-    :ivar device_id: The ID of the device associated with the certificate signing request.
-    :ivar csr: The base64-encoded certificate signing request.
-    :ivar replace: Replace any active credential operation for this device.
+    :ivar status_code: The result code for the certificate signing request.
+    :ivar certificates: An array with the base64-encoded issued certificate chain (leaf, intermediate and root, in this order).
     """
 
     def __init__(self, status_code, certificates):
         """
-        Initializer for CertificateSigningRequest
+        Initializer for CertificateSigningResponse
 
-        :param str device_id: The ID of the device associated with the certificate signing request.
-        :param str csr: The base64-encoded certificate signing request.
-        :param str replace: Replace any active credential operation for this device.
+        :param status_code: The result code for the certificate signing request.
+        :param certificates: An array with the base64-encoded issued certificate chain (leaf, intermediate and root, in this order).
         """
         self.status_code = status_code
         self.certificates = certificates

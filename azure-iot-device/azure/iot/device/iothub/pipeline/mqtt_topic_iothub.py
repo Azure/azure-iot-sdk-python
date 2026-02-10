@@ -176,7 +176,7 @@ def get_certificate_signing_response_topic_for_subscribe():
 def get_certificate_signing_request_topic_for_publish(request_id):
     """
     :return: The topic for Certificate Signing Request messages. It is of the format
-    ""
+    "$iothub/credentials/POST/issueCertificate/?$rid={request_id}"
     """
     return "$iothub/credentials/POST/issueCertificate/?$rid={request_id}".format(
         request_id=request_id
@@ -212,11 +212,11 @@ def get_certificate_signing_response_request_id_from_topic(topic):
         raise ValueError("topic has incorrect format")
 
 
-def get_certificate_signing_response_status_from_topic(topic):
+def get_certificate_signing_response_status_code_from_topic(topic):
     """
-    Extract the status from the certificate signing response topic.
+    Extract the status-code from the certificate signing response topic.
     Topics for certificate signing responses are of the following format:
-    "$iothub/credentials/res/{status}/?$rid={request_id}"
+    "$iothub/credentials/res/{status-code}/?$rid={request_id}"
 
     :param str topic: The topic string
     """

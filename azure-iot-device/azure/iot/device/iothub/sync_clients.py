@@ -547,16 +547,16 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self, request: CertificateSigningRequest
     ) -> CertificateSigningResponse:
         """
-        Update reported properties with the Azure IoT Hub or Azure IoT Edge Hub service.
+        Sends a certificate signing request to Azure IoT Hub service.
 
-        This is a synchronous call, meaning that this function will not return until the patch
-        has been sent to the service and acknowledged.
+        This is a synchronous call, meaning that this function will not return until the response is
+        received.
 
-        If the service returns an error on the patch operation, this function will raise the
-        appropriate error.
+        If the service returns an error on the certificate signing operations operation,
+        this function will raise the appropriate error.
 
-        :param reported_properties_patch: Twin Reported Properties patch as a JSON dict
-        :type reported_properties_patch: dict
+        :param request: Certificate signing request to be sent
+        :type request: CertificateSigningRequest
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
