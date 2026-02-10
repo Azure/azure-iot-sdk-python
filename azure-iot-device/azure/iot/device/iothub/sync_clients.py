@@ -575,7 +575,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.CSR]:
             self._enable_feature(pipeline_constant.CSR)
 
-        callback = EventedCallback(return_arg_name="csr")
+        request.id = None
+
+        callback = EventedCallback(return_arg_name="response")
         self._mqtt_pipeline.send_certificate_signing_request(request=request, callback=callback)
         certificate_signing_response = handle_result(callback)
 

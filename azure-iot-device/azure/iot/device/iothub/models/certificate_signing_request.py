@@ -15,7 +15,7 @@ class CertificateSigningRequest(object):
     :ivar replace: Replace any active credential operation for this device.
     """
 
-    def __init__(self, request_id, device_id, csr, replace):
+    def __init__(self, csr, replace):
         """
         Initializer for CertificateSigningRequest
 
@@ -23,8 +23,7 @@ class CertificateSigningRequest(object):
         :param str csr: The base64-encoded certificate signing request.
         :param str replace: Replace any active credential operation for this device.
         """
-        self.request_id = request_id
-        self.id = device_id  # TODO(ewertons): do not expose to customer, grab it from the internal state of the client.
+        self.id = None
         self.csr = csr
         self.replace = replace
 
@@ -33,7 +32,6 @@ class CertificateSigningRequest(object):
 
     def to_dict(obj):
         data = obj.__dict__.copy()
-        data.pop("request_id", None)
         return data
 
 
@@ -45,7 +43,7 @@ class CertificateSigningResponse(object):
     :ivar replace: Replace any active credential operation for this device.
     """
 
-    def __init__(self, request_id, status, certificates):
+    def __init__(self, status, certificates):
         """
         Initializer for CertificateSigningRequest
 
@@ -53,6 +51,5 @@ class CertificateSigningResponse(object):
         :param str csr: The base64-encoded certificate signing request.
         :param str replace: Replace any active credential operation for this device.
         """
-        self.request_id = request_id
         self.status = status
         self.certificates = certificates

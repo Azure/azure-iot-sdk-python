@@ -102,6 +102,7 @@ class PatchTwinReportedPropertiesOperation(PipelineOperation):
         super().__init__(callback=callback)
         self.patch = patch
 
+
 class CertificateSigningRequestOperation(PipelineOperation):
     """
     A PipelineOperation object which contains arguments used to send a reported properties patch to the Azure
@@ -117,3 +118,5 @@ class CertificateSigningRequestOperation(PipelineOperation):
         """
         super().__init__(callback=callback)
         self.request = request
+        self.request_id = None
+        self.response = None

@@ -115,7 +115,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         elif isinstance(op, pipeline_ops_iothub.CertificateSigningRequestOperation):
             # Sending a Method Response gets translated into an MQTT Publish operation
             topic = mqtt_topic_iothub.get_certificate_signing_request_topic_for_publish(
-                request_id=op.request.request_id
+                request_id=op.request_id
             )
             payload = json.dumps(op.request.to_dict())
             logger.debug("CertificateSigningRequestOperation={}".format(payload))
@@ -245,8 +245,8 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                     mqtt_topic_iothub.get_certificate_signing_response_status_from_topic(topic)
                 )
                 self.send_event_up(
-                    pipeline_events_base.ResponseEvent(
-                        request_id=request_id, status_code=status_code, response_body=event.payload
+                    pipeline_events_iothub.CertificateSigningResponseEvent(
+                        request_id=request_id, status_code=status_code, payload=event.payload
                     )
                 )
 

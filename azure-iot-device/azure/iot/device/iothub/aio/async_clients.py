@@ -557,7 +557,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             self._mqtt_pipeline.send_certificate_signing_request
         )
 
-        callback = async_adapter.AwaitableCallback(return_arg_name="csr")
+        callback = async_adapter.AwaitableCallback(return_arg_name="response")
         await send_certificate_signing_request_async(request=request, callback=callback)
         certificate_signing_response = await handle_result(callback)
         logger.info("Received certificate signing response")

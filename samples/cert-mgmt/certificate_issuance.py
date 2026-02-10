@@ -117,8 +117,7 @@ async def main():
         await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
 
         # Get new issued certificate from IoT Hub
-        csr_request_id = uuid.uuid4()  # This range is arbitrary.
-        csr_request = CertificateSigningRequest(csr_request_id, registration_id, csr_data, "*")
+        csr_request = CertificateSigningRequest(csr_data, "*")
 
         csr_response = await device_client.send_certificate_signing_request(csr_request)
         print("csr_response={}".format(csr_response))

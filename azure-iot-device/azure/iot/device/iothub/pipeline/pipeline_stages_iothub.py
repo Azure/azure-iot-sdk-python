@@ -6,6 +6,7 @@
 
 import json
 import logging
+import uuid
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
@@ -13,6 +14,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_thread,
 )
 from azure.iot.device import exceptions
+from azure.iot.device.iothub.models import CertificateSigningResponse
 from . import pipeline_events_iothub, pipeline_ops_iothub
 from . import constant
 
@@ -220,41 +222,61 @@ class CertificateSigningRequestResponseStage(PipelineStage):
     protocol-specific receive event into an ResponseEvent event.
     """
 
+    def __init__(self):
+        super().__init__()
+        self.pending_responses = {}
+
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        def map_twin_error(error, twin_op):
-            if error:
-                return error
-            elif twin_op.status_code >= 300:
-                # TODO map error codes to correct exceptions
-                logger.info("Error {} received from twin operation".format(twin_op.status_code))
-                logger.info("response body: {}".format(twin_op.response_body))
-                return exceptions.ServiceError(
-                    "twin operation returned status {}".format(twin_op.status_code)
-                )
-
         if isinstance(op, pipeline_ops_iothub.CertificateSigningRequestOperation):
 
-            # Alias to avoid overload within the callback below
-            # CT-TODO: remove the need for this with better callback semantics
-            op_waiting_for_response = op
+            op.request.id = self.nucleus.pipeline_configuration.device_id
+            op.request_id = str(uuid.uuid4())
 
-            def on_twin_response(op, error):
-                logger.debug("{}({}): Got response for GetTwinOperation".format(self.name, op.name))
-                error = map_twin_error(error=error, twin_op=op)
-                if not error:
-                    op_waiting_for_response.twin = json.loads(op.response_body.decode("utf-8"))
-                op_waiting_for_response.complete(error=error)
-
-            self.send_op_down(
-                pipeline_ops_base.RequestAndResponseOperation(
-                    request_type=constant.CSR,
-                    method="GET",
-                    resource_location="/",
-                    request_body=" ",
-                    callback=on_twin_response,
+            logger.debug(
+                "{}({}): adding certificate signing request {} for {} to pending list".format(
+                    self.name, op.name, op.request_id, op.request.id
                 )
             )
+            self.pending_responses[op.request_id] = op
+
+            self.send_op_down(op)
 
         else:
             super()._run_op(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _handle_pipeline_event(self, event):
+        if isinstance(event, pipeline_events_iothub.CertificateSigningResponseEvent):
+
+            logger.debug(
+                "{}: Handling certificate signing response event with request_id {}".format(
+                    self.name, event.request_id
+                )
+            )
+
+            if event.request_id in self.pending_responses:
+                op = self.pending_responses[event.request_id]
+                del self.pending_responses[event.request_id]
+
+                logger.debug(
+                    "{}({}): Completing {} request with status {}".format(
+                        self.name,
+                        op.name,
+                        event.request_id,
+                        event.status_code,
+                    )
+                )
+
+                op.response = CertificateSigningResponse(event.status_code, event.payload)
+
+                op.complete()
+            else:
+                logger.info(
+                    "{}({}): request_id {} not found in pending list.  Nothing to do.  Dropping".format(
+                        self.name, event.name, event.request_id
+                    )
+                )
+
+        else:
+            self.send_event_up(event)

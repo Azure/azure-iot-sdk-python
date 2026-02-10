@@ -83,6 +83,11 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
             #
+            # CertificateSigningRequestResponseStage needs to be before IoTHubMQTTTranslationStage
+            # because that stage operates on ops that CertificateSigningRequestResponseStage produces
+            #
+            .append_stage(pipeline_stages_iothub.CertificateSigningRequestResponseStage())
+            #
             # IoTHubMQTTTranslationStage comes here because this is the point where we can translate
             # all operations directly into MQTT.  After this stage, only pipeline_stages_base stages
             # are allowed because IoTHubMQTTTranslationStage removes all the IoTHub-ness from the ops
@@ -512,9 +517,9 @@ class MQTTPipeline(object):
 
         def on_complete(op, error):
             if error:
-                callback(error=error, csr=None)
+                callback(error=error, response=None)
             else:
-                callback(csr=op)
+                callback(response=op.response)
 
         self._pipeline.run_op(
             pipeline_ops_iothub.CertificateSigningRequestOperation(
