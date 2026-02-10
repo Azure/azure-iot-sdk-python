@@ -257,20 +257,33 @@ class CertificateSigningRequestResponseStage(PipelineStage):
 
             if event.request_id in self.pending_responses:
                 op = self.pending_responses[event.request_id]
-                del self.pending_responses[event.request_id]
 
-                logger.debug(
-                    "{}({}): Completing {} request with status {}".format(
-                        self.name,
-                        op.name,
-                        event.request_id,
-                        event.status_code,
+                if event.status_code == 202:
+                    logger.debug(
+                        "{}: Certificate signing request {} accepted (status_code={}, payload={})".format(
+                            self.name, event.request_id, event.status_code, event.payload
+                        )
                     )
-                )
 
-                op.response = CertificateSigningResponse(event.status_code, event.payload)
+                else:
+                    del self.pending_responses[event.request_id]
 
-                op.complete()
+                    logger.debug(
+                        "{}({}): Completing {} request with status {}".format(
+                            self.name,
+                            op.name,
+                            event.request_id,
+                            event.status_code,
+                        )
+                    )
+
+                    parsed_payload = json.loads(event.payload.decode("utf-8") or "null")
+
+                    op.response = CertificateSigningResponse(
+                        event.status_code, parsed_payload["certificates"]
+                    )
+
+                    op.complete()
             else:
                 logger.info(
                     "{}({}): request_id {} not found in pending list.  Nothing to do.  Dropping".format(

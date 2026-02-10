@@ -24,7 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-messages_to_send = 10
+messages_to_send = 3
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
@@ -120,9 +120,13 @@ async def main():
         csr_request = CertificateSigningRequest(csr_data, "*")
 
         csr_response = await device_client.send_certificate_signing_request(csr_request)
-        print("csr_response={}".format(csr_response))
+        print(
+            "csr_response=[status={}, certificates={}]".format(
+                csr_response.status_code, csr_response.certificates
+            )
+        )
 
-        # finally, disconnect
+        # Now, disconnect and reconnect with the new issued certificate
         await device_client.shutdown()
     else:
         print("Can not send telemetry from the provisioned device")

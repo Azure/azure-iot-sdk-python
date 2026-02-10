@@ -118,10 +118,26 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 request_id=op.request_id
             )
             payload = json.dumps(op.request.to_dict())
-            logger.debug("CertificateSigningRequestOperation={}".format(payload))
+
+            def on_worker_op_complete(op, error):
+                logger.debug(
+                    "{}: Worker op ({}) for certificate signing request is completing (request_id={}, response={}, error={})".format(
+                        self.name, op.name, op.parent.request_id, op.parent.response, error
+                    )
+                )
+
+                if error is None and op.parent.response is None:
+                    # This is a completion for the MQTT publish, but we must wait until a final response is received
+                    # for the Certificate Signing Request.
+                    op.halt_completion()
+
             worker_op = op.spawn_worker_op(
-                worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation, topic=topic, payload=payload
+                worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
+                topic=topic,
+                payload=payload,
+                callback=on_worker_op_complete,
             )
+            worker_op.parent = op
             self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):

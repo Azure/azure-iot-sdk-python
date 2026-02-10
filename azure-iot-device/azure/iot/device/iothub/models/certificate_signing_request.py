@@ -43,7 +43,7 @@ class CertificateSigningResponse(object):
     :ivar replace: Replace any active credential operation for this device.
     """
 
-    def __init__(self, status, certificates):
+    def __init__(self, status_code, certificates):
         """
         Initializer for CertificateSigningRequest
 
@@ -51,5 +51,5 @@ class CertificateSigningResponse(object):
         :param str csr: The base64-encoded certificate signing request.
         :param str replace: Replace any active credential operation for this device.
         """
-        self.status = status
+        self.status_code = status_code
         self.certificates = certificates
