@@ -141,7 +141,7 @@ async def main():
             print("Performing Azure IoT Hub certificate re-issuance")
 
             # Get new issued certificate from IoT Hub
-            csr_request = CertificateSigningRequest(dps_csr_data, "*")
+            csr_request = CertificateSigningRequest(iothub_csr_data, "*")
 
             csr_response = await device_client.send_certificate_signing_request(csr_request)
             print(
