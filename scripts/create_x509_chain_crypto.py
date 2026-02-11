@@ -438,6 +438,7 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
     print("writing ca cert on a file")
     with open(in_cert_file_path, "w") as out_ca_pem:
         cert_pem_data = str(base64.b64decode(ca_cert), "ascii")
+        print("cert_pem_data=" + str(cert_pem_data))
         out_ca_pem.write(cert_pem_data)
         print("root cert content")
         print(cert_pem_data)

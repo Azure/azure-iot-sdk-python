@@ -24,7 +24,6 @@ from create_x509_chain_crypto import (
     delete_directories_certs_created_from_pipeline,
 )
 
-pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
 
 intermediate_common_name = "e2edpshomenum"

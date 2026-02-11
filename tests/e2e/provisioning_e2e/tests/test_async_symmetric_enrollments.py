@@ -13,7 +13,7 @@ import logging
 import os
 import uuid
 
-pytestmark = pytest.mark.asyncio
+
 logging.basicConfig(level=logging.DEBUG)
 
 PROVISIONING_HOST = os.getenv("PROVISIONING_DEVICE_ENDPOINT")

@@ -1,54 +1,335 @@
 resources:
 - repo: self
 #Multi-configuration and multi-agent job options are not exported to YAML. Configure these options using documentation guidance: https://docs.microsoft.com/vsts/pipelines/process/phases
-jobs:
 
-- job: 'Test'
-  pool:
-    vmImage: 'Ubuntu 20.04'
+stages:
+- stage: setup
+  jobs:
+  - job: create_azure_resources
+    pool:
+      vmImage: 'ubuntu-24.04'
+    steps:
+    - script: |
+        sudo apt-get install -y uuid
+        AZURE_RESOURCE_GROUP="iotpythondpse2e$(uuid | tr -d '-')"
+        AZURE_IOTHUB_NAME="iotpythondpse2e$(uuid | tr -d '-')"
+        AZURE_DPS_NAME="iotpythondpse2e$(uuid | tr -d '-')"
 
-  steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.8'
-      architecture: 'x64'
+        # Export variables to other stages/jobs/steps.
+        echo "##vso[task.setvariable variable=AZURE_RESOURCE_GROUP;isOutput=true]$AZURE_RESOURCE_GROUP"
+        echo "##vso[task.setvariable variable=AZURE_IOTHUB_NAME;isOutput=true]$AZURE_IOTHUB_NAME"
+        echo "##vso[task.setvariable variable=AZURE_DPS_NAME;isOutput=true]$AZURE_DPS_NAME"
+      name: setResourceNames
+      displayName: Set Azure Resource Names
 
-  - script: 'python scripts/env_setup.py --no_dev'
-    displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+    - script: |
+        set -e
 
-  - script: 'python -m pip install cryptography'
-    displayName: 'Install pyca/cryptography for X509 functionality'
+        mkdir certs csr newcerts private
+        touch index.txt
 
-  - script: |
-      cd $(Agent.WorkFolder)
-      cd ..
-      touch .rnd
-    displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
+        openssl rand -hex 16 > serial
 
-  - script: |
-      cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
-      pytest --junitxml=junit/dps-e2e-test-results.xml
-    displayName: 'Run Specified E2E Test with env variables'
+        cat > ./openssl_root_ca.cnf << 'EOF_1'
+        # OpenSSL root CA configuration file.
 
-    env:
-      IOTHUB_CONNECTION_STRING: $(PYTHONV2JAN-IOTHUB-CONNECTION-STRING)
-      IOTHUB_EVENTHUB_CONNECTION_STRING: $(PYTHONV2JAN-IOTHUB-EVENTHUB-CONNECTION-STRING)
-      IOTHUB_CA_ROOT_CERT: $(PYTHONV2JAN-LINUX-IOTHUB-CA-ROOT-CERT)
-      IOTHUB_CA_ROOT_CERT_KEY: $(PYTHONV2JAN-LINUX-IOTHUB-CA-ROOT-CERT-KEY)
-      STORAGE_CONNECTION_STRING: $(PYTHONV2JAN-IOTHUB-STORAGE-CONNECTION-STRING)
+        [ ca ]
+        default_ca = CA_default
 
-      PROVISIONING_DEVICE_ENDPOINT: $(PYTHONV2JAN-LINUX-DPS-DEVICE-ENDPOINT)
-      PROVISIONING_SERVICE_CONNECTION_STRING: $(PYTHONV2JAN-DPS-CONNECTION-STRING)
-      PROVISIONING_DEVICE_IDSCOPE: $(PYTHONV2JAN-LINUX-DPS-ID-SCOPE)
+        [ CA_default ]
+        # Directory and file locations.
+        dir               = .
+        certs             = $dir/certs
+        crl_dir           = $dir/crl
+        new_certs_dir     = $dir/newcerts
+        database          = $dir/index.txt
+        serial            = $dir/serial
+        RANDFILE          = $dir/private/.rand
 
-      PROVISIONING_ROOT_CERT: $(PYTHONV2JAN-LINUX-IOT-PROVISIONING-ROOT-CERT)
-      PROVISIONING_ROOT_CERT_KEY: $(PYTHONV2JAN-LINUX-IOT-PROVISIONING-ROOT-CERT-KEY)
-      PROVISIONING_ROOT_PASSWORD: $(PYTHONV2JAN-LINUX-ROOT-CERT-PASSWORD)
-      PYTHONUNBUFFERED: True
+        # The root key and root certificate.
+        private_key       = $dir/private/azure-iot-test-only.root.ca.key.pem
+        certificate       = $dir/certs/azure-iot-test-only.root.ca.cert.pem
 
-  - task: PublishTestResults@2
-    displayName: 'Publish Test Results'
-    condition: always()
-    inputs:
-      testResultsFiles: '**/dps-e2e-test-*.xml'
-      testRunTitle: 'Publish test results for Python $(python.version)'
+        # For certificate revocation lists.
+        crlnumber         = $dir/crlnumber
+        crl               = $dir/crl/azure-iot-test-only.intermediate.crl.pem
+        crl_extensions    = crl_ext
+        default_crl_days  = 30
+
+        # SHA-1 is deprecated, so use SHA-2 instead.
+        default_md        = sha256
+
+        name_opt          = ca_default
+        cert_opt          = ca_default
+        default_days      = 375
+        preserve          = no
+        policy            = policy_loose
+
+        [ policy_strict ]
+        # The root CA should only sign intermediate certificates that match.
+        countryName             = optional
+        stateOrProvinceName     = optional
+        organizationName        = optional
+        organizationalUnitName  = optional
+        #commonName              = supplied
+        commonName              = optional
+        emailAddress            = optional
+
+        [ policy_loose ]
+        # Allow the intermediate CA to sign a more diverse range of certificates.
+        countryName             = optional
+        stateOrProvinceName     = optional
+        localityName            = optional
+        organizationName        = optional
+        organizationalUnitName  = optional
+        #commonName              = supplied
+        commonName              = optional
+        emailAddress            = optional
+
+        [ req ]
+        default_bits        = 2048
+        distinguished_name  = req_distinguished_name
+        string_mask         = utf8only
+
+        # SHA-1 is deprecated, so use SHA-2 instead.
+        default_md          = sha256
+
+        # Extension to add when the -x509 option is used.
+        x509_extensions     = v3_ca
+
+        [ req_distinguished_name ]
+        # See <https://en.wikipedia.org/wiki/Certificate_signing_request>.
+        countryName                     = Country Name (2 letter code)
+        stateOrProvinceName             = State or Province Name
+        localityName                    = Locality Name
+        0.organizationName              = Organization Name
+        organizationalUnitName          = Organizational Unit Name
+        commonName                      = Common Name
+        emailAddress                    = Email Address
+
+        # Optionally, specify some defaults.
+        countryName_default             = US
+        stateOrProvinceName_default     = WA
+        localityName_default            =
+        0.organizationName_default      = My Organization
+        organizationalUnitName_default  =
+        emailAddress_default            =
+
+        [ v3_ca ]
+        # Extensions for a typical CA.
+        subjectKeyIdentifier = hash
+        authorityKeyIdentifier = keyid:always,issuer
+        basicConstraints = critical, CA:true
+        keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+
+        [ v3_intermediate_ca ]
+        # Extensions for a typical intermediate CA.
+        subjectKeyIdentifier = hash
+        authorityKeyIdentifier = keyid:always,issuer
+        basicConstraints = critical, CA:true
+        keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+
+        [ usr_cert ]
+        # Extensions for client certificates.
+        basicConstraints = CA:FALSE
+        nsComment = "OpenSSL Generated Client Certificate"
+        subjectKeyIdentifier = hash
+        authorityKeyIdentifier = keyid,issuer
+        keyUsage = critical, nonRepudiation, digitalSignature, keyEncipherment
+        extendedKeyUsage = clientAuth
+
+        [ server_cert ]
+        # Extensions for server certificates.
+        basicConstraints = CA:FALSE
+        nsComment = "OpenSSL Generated Server Certificate"
+        subjectKeyIdentifier = hash
+        authorityKeyIdentifier = keyid,issuer:always
+        keyUsage = critical, digitalSignature, keyEncipherment
+        extendedKeyUsage = serverAuth
+
+        [ crl_ext ]
+        # Extension for CRLs.
+        authorityKeyIdentifier=keyid:always
+
+        [ ocsp ]
+        # Extension for OCSP signing certificates.
+        basicConstraints = CA:FALSE
+        subjectKeyIdentifier = hash
+        authorityKeyIdentifier = keyid,issuer
+        keyUsage = critical, digitalSignature
+        extendedKeyUsage = critical, OCSPSigning
+
+        EOF_1
+
+        # Root CA Key (create)
+        export DPS_ROOT_CA_PASSWORD=1234
+
+        openssl genrsa -aes256 -passout pass:$DPS_ROOT_CA_PASSWORD -out ./private/azure-iot-test-only.root.ca.key.pem 4096
+
+        # Root CA Certificate (create)
+        export DPS_ROOT_CA_CONFIG_PATH=$(pwd)/openssl_root_ca.cnf
+        openssl req -new -x509 -config $DPS_ROOT_CA_CONFIG_PATH -passin pass:$DPS_ROOT_CA_PASSWORD -key ./private/azure-iot-test-only.root.ca.key.pem -subj '/CN=Azure IoT Hub CA Cert Test Only' -days 30 -sha256 -extensions v3_ca -out ./certs/azure-iot-test-only.root.ca.cert.pem
+
+        export DPS_ROOT_CA_CERT_PATH=$(pwd)/certs/azure-iot-test-only.root.ca.cert.pem
+        export DPS_ROOT_CA_PK_PATH=$(pwd)/private/azure-iot-test-only.root.ca.key.pem
+        export DPS_ROOT_CA_CERT_BASE64=$(base64 -w0 $DPS_ROOT_CA_CERT_PATH)
+        export DPS_ROOT_CA_PK_BASE64=$(base64 -w0 $DPS_ROOT_CA_PK_PATH)
+
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT_PATH;isOutput=true]$DPS_ROOT_CA_CERT_PATH"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK_PATH;isOutput=true]$DPS_ROOT_CA_PK_PATH"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT_BASE64;isOutput=true]$DPS_ROOT_CA_CERT_BASE64"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK_BASE64;isOutput=true]$DPS_ROOT_CA_PK_BASE64"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PASSWORD;isOutput=true]$DPS_ROOT_CA_PASSWORD"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_CONFIG_PATH;isOutput=true]$DPS_ROOT_CA_CONFIG_PATH"
+      name: testCertificates
+      displayName: Create Test Certificates
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'iot hub sdk service connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          set -e
+
+          export AZURE_RESOURCE_GROUP=$(setResourceNames.AZURE_RESOURCE_GROUP)
+          export AZURE_IOTHUB_NAME=$(setResourceNames.AZURE_IOTHUB_NAME)
+          export AZURE_DPS_NAME=$(setResourceNames.AZURE_DPS_NAME)
+          export DPS_ROOT_CA_CERT_PATH=$(testCertificates.DPS_ROOT_CA_CERT_PATH)
+          export DPS_ROOT_CA_PK_PATH=$(testCertificates.DPS_ROOT_CA_PK_PATH)
+          export DPS_ROOT_CA_CONFIG_PATH=$(testCertificates.DPS_ROOT_CA_CONFIG_PATH)
+          export DPS_ROOT_CA_PASSWORD=$(testCertificates.DPS_ROOT_CA_PASSWORD)
+
+          # Create Resource Group
+          az group create -g $AZURE_RESOURCE_GROUP -l $(AZURE_REGION)
+
+          # Create Azure IoT Hub
+          time az iot hub create -g $AZURE_RESOURCE_GROUP -n $AZURE_IOTHUB_NAME --dla false --mintls 1.2 --partition-count 4 --sku S1
+
+          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --query "connectionString" --output tsv)
+          export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
+
+          for i in $(seq 1 11); do
+              cg_name="cg$i"
+              az iot hub consumer-group create -g "$AZURE_RESOURCE_GROUP" --hub-name "$AZURE_IOTHUB_NAME" --name "$cg_name"
+          done
+
+          # Create Device Provisioning service
+          time az iot dps create -g $AZURE_RESOURCE_GROUP --name $AZURE_DPS_NAME -l $(AZURE_REGION)
+          time az iot dps linked-hub create -g $AZURE_RESOURCE_GROUP --dps-name $AZURE_DPS_NAME --connection-string "$IOTHUB_CONNECTION_STRING"
+
+          export DPS_CONNECTION_STRING=$(az iot dps connection-string show -g $AZURE_RESOURCE_GROUP --dps-name $AZURE_DPS_NAME --policy-name provisioningserviceowner --query "connectionString" --output tsv)
+          export DPS_ID_SCOPE=$(az iot dps show --name $AZURE_DPS_NAME -g $AZURE_RESOURCE_GROUP --query properties.idScope --output tsv)
+          export DPS_HOSTNAME=$(az iot dps show --name $AZURE_DPS_NAME -g $AZURE_RESOURCE_GROUP --query properties.deviceProvisioningHostName --output tsv)
+
+          # Set DPS Root CA
+          export DPS_ROOT_CA_CERT_NAME="azure-iot-test-only"
+
+          time az iot dps certificate create --dps-name $AZURE_DPS_NAME --resource-group $AZURE_RESOURCE_GROUP --name $DPS_ROOT_CA_CERT_NAME --path $DPS_ROOT_CA_CERT_PATH
+
+          etag=$(az iot dps certificate show --dps-name $AZURE_DPS_NAME --resource-group $AZURE_RESOURCE_GROUP --name $DPS_ROOT_CA_CERT_NAME --query etag -o tsv)
+          verification_cert=$(az iot dps certificate generate-verification-code --dps-name $AZURE_DPS_NAME --resource-group $AZURE_RESOURCE_GROUP --name $DPS_ROOT_CA_CERT_NAME --etag "$etag")
+          verification_code=$(echo $verification_cert | jq -r .properties.verificationCode)
+
+          verification_code_key_path=$(pwd)/verification-code.key.pem
+          verification_code_csr_pem_path=$(pwd)/verification-code.csr.pem
+          verification_code_pem_path=$(pwd)/verification-code.cert.pem
+
+          openssl genrsa -out $verification_code_key_path 4096
+
+          openssl req -config $DPS_ROOT_CA_CONFIG_PATH -key $verification_code_key_path -subj "/CN=$verification_code" -new -sha256 -out $verification_code_csr_pem_path
+
+          openssl ca -batch -config $DPS_ROOT_CA_CONFIG_PATH -passin pass:$DPS_ROOT_CA_PASSWORD -extensions usr_cert -days 30 -notext -md sha256 -in $verification_code_csr_pem_path -out $verification_code_pem_path
+
+          etag=$(az iot dps certificate show --dps-name $AZURE_DPS_NAME --resource-group $AZURE_RESOURCE_GROUP --name $DPS_ROOT_CA_CERT_NAME --query etag -o tsv)
+
+          time az iot dps certificate verify --dps-name $AZURE_DPS_NAME --resource-group $AZURE_RESOURCE_GROUP --name $DPS_ROOT_CA_CERT_NAME --path $verification_code_pem_path --etag $etag
+
+          # Export variables to other stages/jobs/steps.
+          echo "##vso[task.setvariable variable=IOTHUB_CONNECTION_STRING;isOutput=true]$IOTHUB_CONNECTION_STRING"
+          echo "##vso[task.setvariable variable=EVENTHUB_CONNECTION_STRING;isOutput=true]$EVENTHUB_CONNECTION_STRING"
+          echo "##vso[task.setvariable variable=DPS_CONNECTION_STRING;isOutput=true]$DPS_CONNECTION_STRING"
+          echo "##vso[task.setvariable variable=DPS_ID_SCOPE;isOutput=true]$DPS_ID_SCOPE"
+          echo "##vso[task.setvariable variable=DPS_HOSTNAME;isOutput=true]$DPS_HOSTNAME"
+      displayName: Create IoT Hub & DPS
+      name: createAzureResources
+- stage: build_and_tests
+  jobs:
+  - job: 'Test'
+    variables:
+      IOTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.IOTHUB_CONNECTION_STRING']]
+      EVENTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.EVENTHUB_CONNECTION_STRING']]
+      DPS_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_CONNECTION_STRING']]
+      DPS_ID_SCOPE: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_ID_SCOPE']]
+      DPS_HOSTNAME: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_HOSTNAME']]
+      DPS_ROOT_CA_CERT_BASE64: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_CERT_BASE64']]
+      DPS_ROOT_CA_PK_BASE64: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PK_BASE64']]
+      DPS_ROOT_CA_PASSWORD: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PASSWORD']]
+    pool:
+      vmImage: 'ubuntu-22.04'
+
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.9'
+        architecture: 'x64'
+
+    - script: 'python scripts/env_setup.py --no_dev'
+      displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+
+    - script: 'python -m pip install cryptography'
+      displayName: 'Install pyca/cryptography for X509 functionality'
+
+    - script: |
+        cd $(Agent.WorkFolder)
+        cd ..
+        touch .rnd
+      displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
+
+    - script: |
+        cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
+        pytest --junitxml=junit/dps-e2e-test-results.xml
+      displayName: 'Run Specified E2E Test with env variables'
+
+      env:
+        IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
+        IOTHUB_EVENTHUB_CONNECTION_STRING: $(EVENTHUB_CONNECTION_STRING)
+
+        PROVISIONING_DEVICE_ENDPOINT: $(DPS_HOSTNAME)
+        PROVISIONING_SERVICE_CONNECTION_STRING: $(DPS_CONNECTION_STRING)
+        PROVISIONING_DEVICE_IDSCOPE: $(DPS_ID_SCOPE)
+
+        PROVISIONING_ROOT_CERT: $(DPS_ROOT_CA_CERT_BASE64)
+        PROVISIONING_ROOT_CERT_KEY: $(DPS_ROOT_CA_PK_BASE64)
+        PROVISIONING_ROOT_PASSWORD: $(DPS_ROOT_CA_PASSWORD)
+        PYTHONUNBUFFERED: True
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      condition: always()
+      inputs:
+        testResultsFiles: '**/dps-e2e-test-*.xml'
+        testRunTitle: 'Publish test results for Python $(python.version)'
+- stage: cleanup
+  dependsOn:
+  - setup
+  - build_and_tests
+  condition: always() # Run stage even if the pipeline run is cancelled.
+  jobs:
+  - job: destroy_azure_resource_group
+    condition: always() # Run job even if the pipeline run is cancelled.
+    pool:
+      vmImage: 'ubuntu-24.04'
+    variables:
+        AZURE_RESOURCE_GROUP: $[stageDependencies.setup.create_azure_resources.outputs['setResourceNames.AZURE_RESOURCE_GROUP']]
+    steps:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'iot hub sdk service connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          # set -e
+
+          time az group delete --name $(AZURE_RESOURCE_GROUP) --yes
+      displayName: Destroy Azure Resource Group
+      condition: always() # Run step even if the pipeline run is cancelled.
