@@ -136,11 +136,7 @@ async def main():
             device_private_key=dps_csr_key_file,
         )
 
-        if (
-            iothub_csr_data is not None
-            and iothub_csr_key_file is not None
-            and iothub_issued_cert_file is not None
-        ):
+        if iothub_csr_data is not None and iothub_issued_cert_file is not None:
 
             print("Performing Azure IoT Hub certificate re-issuance")
 
