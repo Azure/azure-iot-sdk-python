@@ -1,59 +1,115 @@
 resources:
 - repo: self
 #Multi-configuration and multi-agent job options are not exported to YAML. Configure these options using documentation guidance: https://docs.microsoft.com/vsts/pipelines/process/phases
-jobs:
 
-- job: 'Test'
-  pool:
-    vmImage: 'Ubuntu 20.04'
+stages:
+- stage: setup
+  jobs:
+  - job: create_azure_resources
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - checkout: self
+      submodules: false
+      fetchDepth: 1
+      sparseCheckoutDirectories: testtools/scripts
+      displayName: "Checkout (scripts only)"
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'iot hub sdk service connection'
+        scriptType: 'ps'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          Invoke-WebRequest -Uri https://raw.githubusercontent.com/Azure/azure-iot-sdk-c/refs/heads/ewertons/pipelinefixes/testtools/scripts/Azure.Iot.Sdk.Test.psm1 -OutFile ./Azure.Iot.Sdk.Test.psm1
+          Import-Module ./Azure.Iot.Sdk.Test.psm1
 
-  steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.7'
-      architecture: 'x64'
+          $ResourceGroupName = New-AzureResourceGroupName -OutFile "test_config/azure-resource-group-name.txt"
+          $TestEnvInfo = New-AzIotTestEnvironment -AzureLocation $env:AZURE_LOCATION -ResourceGroup $ResourceGroupName -EnableFileUpload -IotHubX509ThumbprintDevices 1 -DpsX509IndividualEnrollments 1
+      displayName: Create Azure Resources and Test Config
+    - publish: test_config
+      artifact: test_config_scripts
+      displayName: Publish artifact (test config scripts)
+      condition: always()
+# - stage: build_and_tests
+#   jobs:
+#   - job: 'Test'
+#     variables:
+#       IOTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.IOTHUB_CONNECTION_STRING']]
+#       EVENTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.EVENTHUB_CONNECTION_STRING']]
+#       DPS_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_CONNECTION_STRING']]
+#       DPS_ID_SCOPE: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_ID_SCOPE']]
+#       DPS_HOSTNAME: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_HOSTNAME']]
+#       DPS_ROOT_CA_CERT_BASE64: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_CERT_BASE64']]
+#       DPS_ROOT_CA_PK_BASE64: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PK_BASE64']]
+#       DPS_ROOT_CA_PASSWORD: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PASSWORD']]
+#     pool:
+#       vmImage: 'ubuntu-22.04'
 
-  - script: 'python scripts/env_setup.py --no_dev'
-    displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+#     steps:
+#     - task: UsePythonVersion@0
+#       inputs:
+#         versionSpec: '3.9'
+#         architecture: 'x64'
 
-  - script: 'python -m pip install cryptography'
-    displayName: 'Install pyca/cryptography for X509 functionality'
+#     - script: 'python scripts/env_setup.py --no_dev'
+#       displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
-  - script: |
-      cd $(Agent.WorkFolder)
-      cd ..
-      touch .rnd
-    displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
+#     - script: 'python -m pip install cryptography'
+#       displayName: 'Install pyca/cryptography for X509 functionality'
 
-  - script: |
-      cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
-      pytest --junitxml=junit/dps-cert-mgmt-e2e-test-results.xml
-    displayName: 'Run Specified E2E Test with env variables'
+#     - script: |
+#         cd $(Agent.WorkFolder)
+#         cd ..
+#         touch .rnd
+#       displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
 
-    env:
-      IOTHUB_CONNECTION_STRING: $(DPSCERT-MAC-IOTHUB-CONNECTION-STRING)
-      IOTHUB_EVENTHUB_CONNECTION_STRING: $(DPSCERT-MAC-IOTHUB-EVENTHUB-CONNECTION-STRING)
-      IOTHUB_CA_ROOT_CERT: $(DPSCERT-MAC-IOTHUB-CA-ROOT-CERT)
-      IOTHUB_CA_ROOT_CERT_KEY: $(DPSCERT-MAC-IOTHUB-CA-ROOT-CERT-KEY)
-      STORAGE_CONNECTION_STRING: $(DPSCERT-MAC-STORAGE-CONNECTION-STRING)
+#     - script: |
+#         cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
+#         pytest --junitxml=junit/dps-e2e-test-results.xml
+#       displayName: 'Run Specified E2E Test with env variables'
 
-      PROVISIONING_DEVICE_ENDPOINT: $(DPSCERT-MAC-DPS-DEVICE-ENDPOINT)
-      PROVISIONING_SERVICE_CONNECTION_STRING: $(DPSCERT-MAC-DPS-CONNECTION-STRING)
-      PROVISIONING_DEVICE_IDSCOPE: $(DPSCERT-MAC-DPS-ID-SCOPE)
+#       env:
+#         IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
+#         IOTHUB_EVENTHUB_CONNECTION_STRING: $(EVENTHUB_CONNECTION_STRING)
 
-      PROVISIONING_ROOT_CERT: $(DPSCERT-MAC-IOT-PROVISIONING-ROOT-CERT)
-      PROVISIONING_ROOT_CERT_KEY: $(DPSCERT-MAC-IOT-PROVISIONING-ROOT-CERT-KEY)
-      PROVISIONING_ROOT_PASSWORD: $(DPSCERT-MAC-ROOT-CERT-PASSWORD)
-      PYTHONUNBUFFERED: True
+#         PROVISIONING_DEVICE_ENDPOINT: $(DPS_HOSTNAME)
+#         PROVISIONING_SERVICE_CONNECTION_STRING: $(DPS_CONNECTION_STRING)
+#         PROVISIONING_DEVICE_IDSCOPE: $(DPS_ID_SCOPE)
 
-      # Extra variable manually created
-      CLIENT_CERTIFICATE_AUTHORITY_NAME: $(DPSCERT-MAC-DPS-CLIENT-CERTIFICATE-AUTHORITY-NAME)
-      DPS_CERT_ISSUANCE_SYM_KEY_AIO: $(DPSCERT-MAC-DPS-CLIENT-CERT-ISSUE-SYM-KEY-ASYNC)
-      DPS_CERT_ISSUANCE_SYM_KEY_SYNC: $(DPSCERT-MAC-DPS-CLIENT-CERT-ISSUE-SYM-KEY-SYNC)
+#         PROVISIONING_ROOT_CERT: $(DPS_ROOT_CA_CERT_BASE64)
+#         PROVISIONING_ROOT_CERT_KEY: $(DPS_ROOT_CA_PK_BASE64)
+#         PROVISIONING_ROOT_PASSWORD: $(DPS_ROOT_CA_PASSWORD)
+#         PYTHONUNBUFFERED: True
 
-  - task: PublishTestResults@2
-    displayName: 'Publish Test Results'
-    condition: always()
-    inputs:
-      testResultsFiles: '**/dps-cert-mgmt-e2e-test-*.xml'
-      testRunTitle: 'Publish test results for Python $(python.version)'
+#     - task: PublishTestResults@2
+#       displayName: 'Publish Test Results'
+#       condition: always()
+#       inputs:
+#         testResultsFiles: '**/dps-e2e-test-*.xml'
+#         testRunTitle: 'Publish test results for Python $(python.version)'
+- stage: cleanup
+  dependsOn:
+  - setup
+  # - build_and_tests
+  condition: always() # Run stage even if the pipeline run is cancelled.
+  jobs:
+  - job: destroy_azure_resource_group
+    condition: always() # Run job even if the pipeline run is cancelled.
+    pool:
+      vmImage: 'ubuntu-24.04'
+    steps:
+    - checkout: none
+    - download: current
+      artifact: test_config_scripts
+      displayName: Download artifact (test config scripts)
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'iot hub sdk service connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          set -e
+          export AZURE_RESOURCE_GROUP=$(cat "$(Pipeline.Workspace)/test_config_scripts/azure-resource-group-name.txt")
+          az group delete --name $AZURE_RESOURCE_GROUP --yes --no-wait
+      displayName: Destroy Azure Resource Group
+      condition: always() # Run step even if the pipeline run is cancelled.
