@@ -84,10 +84,6 @@ class EnrollmentGroup(Model):
             "key": "customAllocationDefinition",
             "type": "CustomAllocationDefinition",
         },
-        "client_certificate_issuance_policy": {
-            "key": "clientCertificateIssuancePolicy",
-            "type": "ClientCertificateIssuancePolicy",
-        },
         "credential_policy_name": {"key": "credentialPolicyName", "type": "str"},
     }
 
@@ -105,7 +101,4 @@ class EnrollmentGroup(Model):
         self.allocation_policy = kwargs.get("allocation_policy", None)
         self.iot_hubs = kwargs.get("iot_hubs", None)
         self.custom_allocation_definition = kwargs.get("custom_allocation_definition", None)
-        self.client_certificate_issuance_policy = kwargs.get(
-            "client_certificate_issuance_policy", None
-        )
-        seltf.credential_policy_name = kwargs.get("credential_policy_name", None)
+        self.credential_policy_name = kwargs.get("credential_policy_name", None)
