@@ -32,7 +32,7 @@ registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
 dps_x509_cert_file = os.getenv("PROVISIONING_X509_CERT_FILE")
 dps_x509_key_file = os.getenv("PROVISIONING_X509_KEY_FILE")
 # Or
-dps_sas_key = os.getenv("PROVISIONING_SAS_KEY")
+dps_sas_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
 
 dps_csr_data = os.getenv("PROVISIONING_CSR")
 dps_csr_key_file = os.getenv("PROVISIONING_CSR_KEY_FILE")
@@ -108,7 +108,7 @@ async def main():
         )
     else:
         print(
-            "Either provide PROVISIONING_X509_CERT_FILE and PROVISIONING_X509_KEY_FILE or PROVISIONING_SAS_KEY"
+            "Either provide PROVISIONING_X509_CERT_FILE and PROVISIONING_X509_KEY_FILE or PROVISIONING_SYMMETRIC_KEY"
         )
         sys.exit(1)
 

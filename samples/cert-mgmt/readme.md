@@ -56,12 +56,12 @@ Otherwise, if using symmetric-key attestation, set:
 
 Linux
 ```bash
-export PROVISIONING_SAS_KEY="<individual enrollment key or enrollment group derived key>"
+export PROVISIONING_SYMMETRIC_KEY="<individual enrollment key or enrollment group derived key>"
 ```
 
 Windows:
 ```powershell
-$env:PROVISIONING_SAS_KEY="<individual enrollment key or enrollment group derived key>"
+$env:PROVISIONING_SYMMETRIC_KEY="<individual enrollment key or enrollment group derived key>"
 ```
 
 Finally, set the variables for the certificate-signing request feature.
