@@ -24,73 +24,58 @@ stages:
           Import-Module ./Azure.Iot.Sdk.Test.psm1
 
           $ResourceGroupName = New-AzureResourceGroupName -OutFile "test_config/azure-resource-group-name.txt"
-          $TestEnvInfo = New-AzIotTestEnvironment -AzureLocation $env:AZURE_LOCATION -ResourceGroup $ResourceGroupName -EnableFileUpload -IotHubX509ThumbprintDevices 1 -DpsX509IndividualEnrollments 1
+          $TestEnvInfo = New-AzIotTestEnvironment -AzureLocation $env:AZURE_LOCATION -ResourceGroup $ResourceGroupName -EnableFileUpload -IotHubX509ThumbprintDevices 1 -DpsX509IndividualEnrollments 1 -EnableCertificateManagement
+          New-AzIotPythonSDKE2ETestConfig -TestEnvInfo $TestEnvInfo -Target bash -OutFile test_config/set_e2e_test_env_vars.sh
       displayName: Create Azure Resources and Test Config
     - publish: test_config
       artifact: test_config_scripts
       displayName: Publish artifact (test config scripts)
       condition: always()
-# - stage: build_and_tests
-#   jobs:
-#   - job: 'Test'
-#     variables:
-#       IOTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.IOTHUB_CONNECTION_STRING']]
-#       EVENTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.EVENTHUB_CONNECTION_STRING']]
-#       DPS_CONNECTION_STRING: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_CONNECTION_STRING']]
-#       DPS_ID_SCOPE: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_ID_SCOPE']]
-#       DPS_HOSTNAME: $[stageDependencies.setup.create_azure_resources.outputs['createAzureResources.DPS_HOSTNAME']]
-#       DPS_ROOT_CA_CERT_BASE64: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_CERT_BASE64']]
-#       DPS_ROOT_CA_PK_BASE64: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PK_BASE64']]
-#       DPS_ROOT_CA_PASSWORD: $[stageDependencies.setup.create_azure_resources.outputs['testCertificates.DPS_ROOT_CA_PASSWORD']]
-#     pool:
-#       vmImage: 'ubuntu-22.04'
+- stage: build_and_tests
+  jobs:
+  - job: 'Test'
+    pool:
+      vmImage: 'ubuntu-22.04'
 
-#     steps:
-#     - task: UsePythonVersion@0
-#       inputs:
-#         versionSpec: '3.9'
-#         architecture: 'x64'
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.9'
+        architecture: 'x64'
 
-#     - script: 'python scripts/env_setup.py --no_dev'
-#       displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+    - download: current
+      artifact: test_config_scripts
+      displayName: Download artifact (test config scripts)
 
-#     - script: 'python -m pip install cryptography'
-#       displayName: 'Install pyca/cryptography for X509 functionality'
+    - script: 'python scripts/env_setup.py --no_dev'
+      displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
-#     - script: |
-#         cd $(Agent.WorkFolder)
-#         cd ..
-#         touch .rnd
-#       displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
+    - script: 'python -m pip install cryptography'
+      displayName: 'Install pyca/cryptography for X509 functionality'
 
-#     - script: |
-#         cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
-#         pytest --junitxml=junit/dps-e2e-test-results.xml
-#       displayName: 'Run Specified E2E Test with env variables'
+    - script: |
+        cd $(Agent.WorkFolder)
+        cd ..
+        touch .rnd
+      displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
 
-#       env:
-#         IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
-#         IOTHUB_EVENTHUB_CONNECTION_STRING: $(EVENTHUB_CONNECTION_STRING)
+    - script: |
+        set -e
+        source "$(Pipeline.Workspace)/test_config_scripts/set_e2e_test_env_vars.sh"
+        cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
+        pytest --junitxml=junit/dps-e2e-test-results.xml
+      displayName: 'Run Specified E2E Test with env variables'
 
-#         PROVISIONING_DEVICE_ENDPOINT: $(DPS_HOSTNAME)
-#         PROVISIONING_SERVICE_CONNECTION_STRING: $(DPS_CONNECTION_STRING)
-#         PROVISIONING_DEVICE_IDSCOPE: $(DPS_ID_SCOPE)
-
-#         PROVISIONING_ROOT_CERT: $(DPS_ROOT_CA_CERT_BASE64)
-#         PROVISIONING_ROOT_CERT_KEY: $(DPS_ROOT_CA_PK_BASE64)
-#         PROVISIONING_ROOT_PASSWORD: $(DPS_ROOT_CA_PASSWORD)
-#         PYTHONUNBUFFERED: True
-
-#     - task: PublishTestResults@2
-#       displayName: 'Publish Test Results'
-#       condition: always()
-#       inputs:
-#         testResultsFiles: '**/dps-e2e-test-*.xml'
-#         testRunTitle: 'Publish test results for Python $(python.version)'
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      condition: always()
+      inputs:
+        testResultsFiles: '**/dps-e2e-test-*.xml'
+        testRunTitle: 'Publish test results for Python $(python.version)'
 - stage: cleanup
   dependsOn:
   - setup
-  # - build_and_tests
+  - build_and_tests
   condition: always() # Run stage even if the pipeline run is cancelled.
   jobs:
   - job: destroy_azure_resource_group
