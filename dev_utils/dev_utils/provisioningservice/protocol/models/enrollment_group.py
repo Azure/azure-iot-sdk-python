@@ -88,6 +88,7 @@ class EnrollmentGroup(Model):
             "key": "clientCertificateIssuancePolicy",
             "type": "ClientCertificateIssuancePolicy",
         },
+        "credential_policy_name": {"key": "credentialPolicyName", "type": "str"},
     }
 
     def __init__(self, **kwargs):
@@ -107,3 +108,4 @@ class EnrollmentGroup(Model):
         self.client_certificate_issuance_policy = kwargs.get(
             "client_certificate_issuance_policy", None
         )
+        seltf.credential_policy_name = kwargs.get("credential_policy_name", None)

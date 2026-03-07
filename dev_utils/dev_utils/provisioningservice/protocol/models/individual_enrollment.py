@@ -99,6 +99,7 @@ class IndividualEnrollment(Model):
             "key": "clientCertificateIssuancePolicy",
             "type": "ClientCertificateIssuancePolicy",
         },
+        "credential_policy_name": {"key": "credentialPolicyName", "type": "str"},
     }
 
     def __init__(self, **kwargs):
@@ -121,3 +122,4 @@ class IndividualEnrollment(Model):
         self.client_certificate_issuance_policy = kwargs.get(
             "client_certificate_issuance_policy", None
         )
+        self.credential_policy_name = kwargs.get("credential_policy_name", None)
