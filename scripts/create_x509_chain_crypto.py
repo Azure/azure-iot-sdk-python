@@ -454,8 +454,14 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
         key_pem_data = str(base64.b64decode(ca_key), "ascii")
         out_ca_key.write(key_pem_data)
         encoded_key_pem_data = str.encode(key_pem_data)
+
+        if ca_password is not None and ca_password != "":
+            password_bytes = str.encode(ca_password)
+        else:
+            password_bytes = None
+
         root_private_key = serialization.load_pem_private_key(
-            encoded_key_pem_data, password=str.encode(ca_password), backend=default_backend()
+            encoded_key_pem_data, password=password_bytes, backend=default_backend()
         )
 
         if os.path.exists(in_key_file_path):
