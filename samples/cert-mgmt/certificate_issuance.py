@@ -11,7 +11,7 @@ from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import Message
 import uuid
 from azure.iot.device import X509
-from azure.iot.device.iothub.models import CertificateSigningRequest
+
 import logging
 import sys
 
@@ -141,9 +141,9 @@ async def main():
             print("Performing Azure IoT Hub certificate re-issuance")
 
             # Get new issued certificate from IoT Hub
-            csr_request = CertificateSigningRequest(iothub_csr_data, "*")
-
-            csr_response = await device_client.send_certificate_signing_request(csr_request)
+            csr_response = await device_client.send_certificate_signing_request(
+                iothub_csr_data, "*"
+            )
             print(
                 "IoT Hub certificate re-issuance completed. Status-code={}".format(
                     csr_response.status_code

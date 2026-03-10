@@ -19,9 +19,9 @@ from .models import (
     Message,
     MethodResponse,
     MethodRequest,
-    CertificateSigningRequest,
     CertificateSigningResponse,
 )
+from .models.certificate_signing_request import CertificateSigningRequest
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox, InboxEmpty
 from . import sync_handler_manager
@@ -544,7 +544,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         return patch
 
     def send_certificate_signing_request(
-        self, request: CertificateSigningRequest
+        self, csr: str, replace: str
     ) -> CertificateSigningResponse:
         """
         Sends a certificate signing request to Azure IoT Hub service.
@@ -555,8 +555,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the service returns an error on the certificate signing operations operation,
         this function will raise the appropriate error.
 
-        :param request: Certificate signing request to be sent
-        :type request: CertificateSigningRequest
+        :param str csr: The base64-encoded certificate signing request.
+        :param str replace: Replace any active credential operation for this device.
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -575,7 +575,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.CSR]:
             self._enable_feature(pipeline_constant.CSR)
 
-        request.id = None
+        request = CertificateSigningRequest(csr=csr, replace=replace)
 
         callback = EventedCallback(return_arg_name="response")
         self._mqtt_pipeline.send_certificate_signing_request(request=request, callback=callback)

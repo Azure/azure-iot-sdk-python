@@ -20,9 +20,9 @@ from azure.iot.device.iothub.models import (
     Message,
     MethodRequest,
     MethodResponse,
-    CertificateSigningRequest,
     CertificateSigningResponse,
 )
+from azure.iot.device.iothub.models.certificate_signing_request import CertificateSigningRequest
 from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
@@ -527,11 +527,13 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         return patch
 
     async def send_certificate_signing_request(
-        self, request: CertificateSigningRequest
+        self, csr: str, replace: str
     ) -> CertificateSigningResponse:
         """
         Sends a Certificate Signing Request to Azure IoT Hub.
 
+        :param str csr: The base64-encoded certificate signing request.
+        :param str replace: Replace any active credential operation for this device.
         :returns: The certificate issued by Azure IoT Hub for the certificate signing request provided.
         :rtype: CertificateSigningResponse
 
@@ -552,6 +554,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         if not self._mqtt_pipeline.feature_enabled[constant.CSR]:
             await self._enable_feature(constant.CSR)
+
+        request = CertificateSigningRequest(csr=csr, replace=replace)
 
         send_certificate_signing_request_async = async_adapter.emulate_async(
             self._mqtt_pipeline.send_certificate_signing_request

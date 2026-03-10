@@ -7,7 +7,7 @@
 from provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device.aio import ProvisioningDeviceClient, IoTHubDeviceClient
 from azure.iot.device.common import X509
-from azure.iot.device.iothub.models import CertificateSigningRequest
+
 from dev_utils.provisioningservice.protocol import models
 from dev_utils.provisioningservice.client import ProvisioningServiceClient
 
@@ -148,8 +148,9 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
                 csr_private_key, iot_csr_file, registration_result.registration_state.device_id
             )
 
-            iot_hub_csr_request = CertificateSigningRequest(read_csr_from_file(iot_csr_file), "*")
-            csr_response = await device_client.send_certificate_signing_request(iot_hub_csr_request)
+            csr_response = await device_client.send_certificate_signing_request(
+                read_csr_from_file(iot_csr_file), "*"
+            )
             assert csr_response.status_code == 200
             assert len(csr_response.certificates) == 3  # leaf, intermediate and root certs
 
@@ -227,8 +228,9 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_gro
                 csr_private_key, iot_csr_file, registration_result.registration_state.device_id
             )
 
-            iot_hub_csr_request = CertificateSigningRequest(read_csr_from_file(iot_csr_file), "*")
-            csr_response = await device_client.send_certificate_signing_request(iot_hub_csr_request)
+            csr_response = await device_client.send_certificate_signing_request(
+                read_csr_from_file(iot_csr_file), "*"
+            )
             assert csr_response.status_code == 200
             assert len(csr_response.certificates) == 3  # leaf, intermediate and root certs
 

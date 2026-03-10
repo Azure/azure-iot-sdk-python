@@ -18,6 +18,7 @@ from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.iothub import client_event
 from azure.iot.device.iothub.models import Message, MethodRequest, MethodResponse
+from azure.iot.device.iothub.models import CertificateSigningResponse
 from azure.iot.device.common.models import X509
 from azure.iot.device import exceptions
 from azure.iot.device.common import auth, handle_exceptions
@@ -452,7 +453,9 @@ class AbstractIoTHubClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def send_certificate_signing_request(self, certificate_signing_request: CertificateSigningRequest) -> CertificateSigningResponse:
+    def send_certificate_signing_request(
+        self, csr: str, replace: str
+    ) -> CertificateSigningResponse:
         pass
 
     @property

@@ -5,7 +5,4 @@ This package provides object models for use within the Azure IoT Hub Device SDK.
 
 from .message import Message  # noqa: F401
 from .methods import MethodRequest, MethodResponse  # noqa: F401
-from .certificate_signing_request import (  # noqa: F401
-    CertificateSigningRequest,
-    CertificateSigningResponse,
-)
+from .certificate_signing_request import CertificateSigningResponse  # noqa: F401
