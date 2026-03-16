@@ -555,6 +555,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the service returns an error on the certificate signing operations operation,
         this function will raise the appropriate error.
 
+        For more information about Certificate Management in Azure IoT, see the documentation:
+        https://learn.microsoft.com/azure/iot-hub/iot-hub-certificate-management-overview
+
         :param str csr: The base64-encoded certificate signing request.
         :param str replace: Replace any active credential operation for this device.
 

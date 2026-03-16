@@ -33,10 +33,10 @@ from create_x509_chain_crypto import (
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
 
-intermediate_common_name = "e2edpscsrintcn"
-intermediate_password = "password123"
-device_common_name = "e2edpscsr" + str(uuid.uuid4())
-device_password = "password123"
+intermediate_common_name = "e2edpswingardium"
+intermediate_password = "leviosa"
+device_common_name = "e2edpsexpecto" + str(uuid.uuid4())
+device_password = "patronum"
 
 service_client = ProvisioningServiceClient.create_from_connection_string(
     os.getenv("PROVISIONING_SERVICE_CONNECTION_STRING")

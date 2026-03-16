@@ -532,6 +532,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         Sends a Certificate Signing Request to Azure IoT Hub.
 
+        For more information about Certificate Management in Azure IoT, see the documentation:
+        https://learn.microsoft.com/azure/iot-hub/iot-hub-certificate-management-overview
+
         :param str csr: The base64-encoded certificate signing request.
         :param str replace: Replace any active credential operation for this device.
         :returns: The certificate issued by Azure IoT Hub for the certificate signing request provided.

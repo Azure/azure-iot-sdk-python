@@ -211,7 +211,7 @@ class TwinRequestResponseStage(PipelineStage):
         else:
             super()._run_op(op)
 
-
+# TODO: should be made more generic in the future.
 class CertificateSigningRequestResponseStage(PipelineStage):
     """
     PipelineStage which handles CertificateSigningRequestOperations.
