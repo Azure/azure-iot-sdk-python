@@ -235,14 +235,13 @@ class CertificateSigningRequestResponseStage(PipelineStage):
         if isinstance(op, pipeline_ops_iothub.CertificateSigningRequestOperation):
 
             op.request.id = self.nucleus.pipeline_configuration.device_id
-            op.request_id = str(uuid.uuid4())
 
             logger.debug(
                 "{}({}): adding certificate signing request {} for {} to pending list".format(
-                    self.name, op.name, op.request_id, op.request.id
+                    self.name, op.name, op.request.request_id, op.request.id
                 )
             )
-            self.pending_responses[op.request_id] = op
+            self.pending_responses[op.request.request_id] = op
 
             self.send_op_down(op)
 

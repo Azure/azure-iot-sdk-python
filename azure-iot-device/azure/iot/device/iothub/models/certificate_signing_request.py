@@ -14,13 +14,21 @@ class CertificateSigningRequest(object):
     :ivar replace: Replace any active credential operation for this device.
     """
 
-    def __init__(self, csr, replace):
+    def __init__(self, request_id, csr, replace):
         """
         Initializer for CertificateSigningRequest
 
+        :param str request_id: The unique identifier for the certificate signing request.
         :param str csr: The base64-encoded certificate signing request.
         :param str replace: Replace any active credential operation for this device.
         """
+        if request_id is None:
+            raise ValueError("Certificate Signing Request ID cannot be None.")
+
+        if csr is None:
+            raise ValueError("Certificate Signing Request cannot be None.")
+
+        self.request_id = request_id
         self.id = None  # The device id, filled internally by the pipeline configuration.
         self.csr = csr
         self.replace = replace
@@ -28,8 +36,10 @@ class CertificateSigningRequest(object):
     def __str__(self):
         return str(self.csr)
 
+    # Used for json serialization of CertificateSigningRequest.
     def to_dict(obj):
         data = obj.__dict__.copy()
+        data.pop("request_id") # request_id should not be serialized
         return data
 
 

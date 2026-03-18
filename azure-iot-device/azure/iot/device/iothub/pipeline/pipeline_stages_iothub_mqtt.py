@@ -115,14 +115,14 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         elif isinstance(op, pipeline_ops_iothub.CertificateSigningRequestOperation):
             # Sending a Certificate Signing Request gets translated into an MQTT Publish operation
             topic = mqtt_topic_iothub.get_certificate_signing_request_topic_for_publish(
-                request_id=op.request_id
+                request_id=op.request.request_id
             )
             payload = json.dumps(op.request.to_dict())
 
             def on_worker_op_complete(op, error):
                 logger.debug(
                     "{}: Worker op ({}) for certificate signing request is completing (request_id={}, response={}, error={})".format(
-                        self.name, op.name, op.parent.request_id, op.parent.response, error
+                        self.name, op.name, op.parent.request.request_id, op.parent.response, error
                     )
                 )
 
