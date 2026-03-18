@@ -229,7 +229,7 @@ async def test_device_register_with_client_cert_issuance_for_a_symmetric_key_gro
             )
 
             csr_response = await device_client.send_certificate_signing_request(
-                read_csr_from_file(iot_csr_file), "*"
+                uuid.uuid4(), read_csr_from_file(iot_csr_file), "*"
             )
             assert csr_response.status_code == 200
             assert len(csr_response.certificates) == 3  # leaf, intermediate and root certs
