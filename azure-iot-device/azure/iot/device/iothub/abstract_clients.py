@@ -702,6 +702,12 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     ) -> None:
         pass
 
+    @abc.abstractmethod
+    def send_certificate_signing_request(
+        self, csr: str, replace: str
+    ) -> CertificateSigningResponse:
+        pass
+
     @property
     def on_message_received(self) -> FunctionOrCoroutine[[Message], None]:
         """The handler function or coroutine that will be called when a message is received.
@@ -716,12 +722,6 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         self._generic_receive_handler_setter(
             "on_message_received", pipeline_constant.C2D_MSG, value
         )
-
-    @abc.abstractmethod
-    def send_certificate_signing_request(
-        self, csr: str, replace: str
-    ) -> CertificateSigningResponse:
-        pass
 
 
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
