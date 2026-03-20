@@ -22,11 +22,6 @@ class CertificateSigningRequest(object):
         :param str csr: The base64-encoded certificate signing request.
         :param str replace: Replace any active credential operation for this device.
         """
-        if request_id is None:
-            raise ValueError("Certificate Signing Request ID cannot be None.")
-
-        if csr is None:
-            raise ValueError("Certificate Signing Request cannot be None.")
 
         self.request_id = request_id
         self.id = None  # The device id, filled internally by the pipeline configuration.

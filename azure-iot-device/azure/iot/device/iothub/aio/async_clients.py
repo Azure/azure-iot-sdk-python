@@ -527,19 +527,16 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         return patch
 
     async def send_certificate_signing_request(
-        self, request_id: str, csr: str, replace: str
+        self, request_id: str, csr_data: str, replace: Optional[str] = None
     ) -> CertificateSigningResponse:
         """
         Sends a Certificate Signing Request to Azure IoT Hub.
 
-        For more information about Certificate Management in Azure IoT, see the documentation:
-        https://learn.microsoft.com/azure/iot-hub/iot-hub-certificate-management-overview
-
         :param str request_id: The unique identifier for the certificate signing request. Can only contain ASCII alphanumerics and dash. Must be 4 to 32 characters long and not begin or end with a dash.
-        :param str csr: The base64-encoded certificate signing request.
-        :param str replace: Replace any active credential operation for this device.
+        :param str csr_data: The base64-encoded PKCS#10 certificate signing request, without PEM header/footers or newlines.
+        :param str replace: Optionally provide the request_id of the previous pending request to be cancelled and replaced by the new one, or wildcard ("*") to replace/cancel any.
         :returns: The certificate issued by Azure IoT Hub for the certificate signing request provided.
-        :rtype: CertificateSigningResponse
+        :rtype: :class:`azure.iot.device.CertificateSigningResponse`
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -559,7 +556,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[constant.CSR]:
             await self._enable_feature(constant.CSR)
 
-        request = CertificateSigningRequest(request_id=request_id, csr=csr, replace=replace)
+        request = CertificateSigningRequest(request_id=request_id, csr=csr_data, replace=replace)
 
         send_certificate_signing_request_async = async_adapter.emulate_async(
             self._mqtt_pipeline.send_certificate_signing_request

@@ -5,15 +5,12 @@
 # --------------------------------------------------------------------------
 
 import asyncio
-from azure.iot.device.aio import ProvisioningDeviceClient
 import os
-from azure.iot.device.aio import IoTHubDeviceClient
-from azure.iot.device import Message
 import uuid
-from azure.iot.device import X509
-
 import logging
 import sys
+from azure.iot.device import Message
+from azure.iot.device.aio import IoTHubDeviceClient, ProvisioningDeviceClient, X509
 
 logging.basicConfig(
     level=logging.DEBUG,
