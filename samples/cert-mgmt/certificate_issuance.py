@@ -9,8 +9,8 @@ import os
 import uuid
 import logging
 import sys
-from azure.iot.device import Message
-from azure.iot.device.aio import IoTHubDeviceClient, ProvisioningDeviceClient, X509
+from azure.iot.device import Message, X509
+from azure.iot.device.aio import IoTHubDeviceClient, ProvisioningDeviceClient
 
 logging.basicConfig(
     level=logging.DEBUG,

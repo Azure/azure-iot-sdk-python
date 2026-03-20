@@ -452,12 +452,6 @@ class AbstractIoTHubClient(abc.ABC):
     def receive_twin_desired_properties_patch(self) -> TwinPatch:
         pass
 
-    @abc.abstractmethod
-    def send_certificate_signing_request(
-        self, csr: str, replace: str
-    ) -> CertificateSigningResponse:
-        pass
-
     @property
     def connected(self) -> bool:
         """
@@ -722,6 +716,12 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         self._generic_receive_handler_setter(
             "on_message_received", pipeline_constant.C2D_MSG, value
         )
+
+    @abc.abstractmethod
+    def send_certificate_signing_request(
+        self, csr: str, replace: str
+    ) -> CertificateSigningResponse:
+        pass
 
 
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):

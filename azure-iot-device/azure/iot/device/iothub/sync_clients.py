@@ -19,9 +19,9 @@ from .models import (
     Message,
     MethodResponse,
     MethodRequest,
+    CertificateSigningRequest,
     CertificateSigningResponse,
 )
-from .models.certificate_signing_request import CertificateSigningRequest
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox, InboxEmpty
 from . import sync_handler_manager
@@ -543,50 +543,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             return None
         return patch
 
-    def send_certificate_signing_request(
-        self, request_id: str, csr_data: str, replace: Optional[str] = None
-    ) -> CertificateSigningResponse:
-        """
-        Sends a certificate signing request to Azure IoT Hub service.
-
-        This is a synchronous call, meaning that this function will not return until the response is
-        received.
-
-        If the service returns an error on the certificate signing operations operation,
-        this function will raise the appropriate error.
-
-        :param str request_id: The unique identifier for the certificate signing request. Can only contain ASCII alphanumerics and dash. Must be 4 to 32 characters long and not begin or end with a dash.
-        :param str csr_data: The base64-encoded PKCS#10 certificate signing request, without PEM header/footers or newlines.
-        :param str replace: Optionally provide the request_id of the previous pending request to be cancelled and replaced by the new one, or wildcard ("*") to replace/cancel any.
-        :returns: The certificate issued by Azure IoT Hub for the certificate signing request provided.
-        :rtype: :class:`azure.iot.device.CertificateSigningResponse`
-
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
-            times out
-        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
-            during execution.
-        """
-
-        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.CSR]:
-            self._enable_feature(pipeline_constant.CSR)
-
-        request = CertificateSigningRequest(request_id=request_id, csr=csr_data, replace=replace)
-
-        callback = EventedCallback(return_arg_name="response")
-        self._mqtt_pipeline.send_certificate_signing_request(request=request, callback=callback)
-        certificate_signing_response = handle_result(callback)
-
-        logger.info("Received certificate signing response")
-        return certificate_signing_response
-
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """A synchronous device client that connects to an Azure IoT Hub instance."""
@@ -668,6 +624,51 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         )
         handle_result(callback)
         logger.info("Successfully notified blob upload status")
+
+
+    def send_certificate_signing_request(
+        self, request_id: str, csr_data: str, replace: Optional[str] = None
+    ) -> CertificateSigningResponse:
+        """
+        Sends a certificate signing request to Azure IoT Hub service.
+
+        This is a synchronous call, meaning that this function will not return until the response is
+        received.
+
+        If the service returns an error on the certificate signing operations operation,
+        this function will raise the appropriate error.
+
+        :param str request_id: The unique identifier for the certificate signing request. Can only contain ASCII alphanumerics and dash. Must be 4 to 32 characters long and not begin or end with a dash.
+        :param str csr_data: The base64-encoded PKCS#10 certificate signing request, without PEM header/footers or newlines.
+        :param str replace: Optionally provide the request_id of the previous pending request to be cancelled and replaced by the new one, or wildcard ("*") to replace/cancel any.
+        :returns: The certificate issued by Azure IoT Hub for the certificate signing request provided.
+        :rtype: :class:`azure.iot.device.CertificateSigningResponse`
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.CSR]:
+            self._enable_feature(pipeline_constant.CSR)
+
+        request = CertificateSigningRequest(request_id=request_id, csr=csr_data, replace=replace)
+
+        callback = EventedCallback(return_arg_name="response")
+        self._mqtt_pipeline.send_certificate_signing_request(request=request, callback=callback)
+        certificate_signing_response = handle_result(callback)
+
+        logger.info("Received certificate signing response")
+        return certificate_signing_response
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
