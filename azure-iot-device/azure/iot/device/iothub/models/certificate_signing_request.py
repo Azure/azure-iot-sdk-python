@@ -23,7 +23,7 @@ class CertificateSigningRequest(object):
         :param str replace: Replace any active credential operation for this device.
         """
 
-        self.request_id = request_id
+        self.request_id = str(request_id)
         self.id = None  # The device id, filled internally by the pipeline configuration.
         self.csr = csr
         self.replace = replace
