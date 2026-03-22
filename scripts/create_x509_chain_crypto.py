@@ -1,7 +1,7 @@
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 from datetime import datetime, timedelta
 import uuid
@@ -44,6 +44,37 @@ def create_private_key(key_file, password=None, key_size=4096):
             private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=encrypt_algo,
+            )
+        )
+
+    return private_key
+
+
+def create_ec_private_key(key_file, password=None, curve=None):
+    """
+    Create an EC private key and write it to a file in PKCS8 PEM format.
+    Equivalent to: openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt -out <key_file>
+    :param key_file: The file to store the key.
+    :param password: Optional password for the key. If None, the key is unencrypted.
+    :param curve: The elliptic curve to use. Defaults to SECP256R1 (prime256v1).
+    :return: The private key.
+    """
+    if password:
+        encrypt_algo = serialization.BestAvailableEncryption(str.encode(password))
+    else:
+        encrypt_algo = serialization.NoEncryption()
+
+    if curve is None:
+        curve = ec.SECP256R1()
+
+    private_key = ec.generate_private_key(curve, backend=default_backend())
+
+    with open(key_file, "wb") as f:
+        f.write(
+            private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm=encrypt_algo,
             )
         )
@@ -376,18 +407,12 @@ def delete_directories_certs_created_from_pipeline():
         shutil.rmtree(dirPath)
     except Exception:
         print("Error while deleting directory")
-    if os.path.exists("out_ca_cert.pem"):
-        os.remove("out_ca_cert.pem")
-    else:
-        print("The file does not exist")
-    if os.path.exists("out_ca_key.pem"):
-        os.remove("out_ca_key.pem")
-    else:
-        print("The file does not exist")
-    if os.path.exists(".rnd"):
-        os.remove(".rnd")
-    else:
-        print("The file does not exist")
+
+    for f in ["out_ca_cert.pem", "out_ca_key.pem", "ca_cert.pem", "ca_key.pem", ".rnd"]:
+        if os.path.exists(f):
+            os.remove(f)
+        else:
+            print(f"The file {f} does not exist")
 
 
 def before_cert_creation_from_pipeline():
@@ -454,8 +479,14 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
         key_pem_data = str(base64.b64decode(ca_key), "ascii")
         out_ca_key.write(key_pem_data)
         encoded_key_pem_data = str.encode(key_pem_data)
+
+        if ca_password is not None and ca_password != "":
+            password_bytes = str.encode(ca_password)
+        else:
+            password_bytes = None
+
         root_private_key = serialization.load_pem_private_key(
-            encoded_key_pem_data, password=str.encode(ca_password), backend=default_backend()
+            encoded_key_pem_data, password=password_bytes, backend=default_backend()
         )
 
         if os.path.exists(in_key_file_path):

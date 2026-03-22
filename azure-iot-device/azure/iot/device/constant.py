@@ -9,7 +9,7 @@
 VERSION = "2.15.0rc1"
 IOTHUB_IDENTIFIER = "azure-iot-device-iothub-py"
 PROVISIONING_IDENTIFIER = "azure-iot-device-provisioning-py"
-IOTHUB_API_VERSION = "2019-10-01"
+IOTHUB_API_VERSION = "2025-08-01-preview"
 PROVISIONING_API_VERSION = "2025-07-01-preview"
 SECURITY_MESSAGE_INTERFACE_ID = "urn:azureiot:Security:SecurityAgent:1"
 TELEMETRY_MESSAGE_SIZE_LIMIT = 262144

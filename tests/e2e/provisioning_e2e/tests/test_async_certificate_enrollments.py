@@ -287,18 +287,11 @@ def create_individual_enrollment_with_x509_client_certs(
     )
     attestation_mechanism = models.AttestationMechanism(type="x509", x509=x509)
 
-    client_certificate_issuance_policy = None
-    if client_ca_name:
-        client_certificate_issuance_policy = models.ClientCertificateIssuancePolicy(
-            certificate_authority_name=client_ca_name
-        )
-
     individual_provisioning_model = models.IndividualEnrollment(
         attestation=attestation_mechanism,
         registration_id=registration_id,
         reprovision_policy=reprovision_policy,
         device_id=device_id,
-        client_certificate_issuance_policy=client_certificate_issuance_policy,
     )
 
     return service_client.create_or_update_individual_enrollment(individual_provisioning_model)

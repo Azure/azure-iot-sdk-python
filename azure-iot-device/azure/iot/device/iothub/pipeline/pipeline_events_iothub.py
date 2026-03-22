@@ -58,3 +58,16 @@ class TwinDesiredPropertiesPatchEvent(PipelineEvent):
     def __init__(self, patch):
         super().__init__()
         self.patch = patch
+
+
+class CertificateSigningResponseEvent(PipelineEvent):
+    """
+    A PipelineEvent object which represents an incoming response for a certificate signing request.  This
+    object is created by a Azure IoT Hub converter stage based on a protocol-specific event.
+    """
+
+    def __init__(self, request_id, status_code, payload):
+        super().__init__()
+        self.request_id = request_id
+        self.status_code = status_code
+        self.payload = payload

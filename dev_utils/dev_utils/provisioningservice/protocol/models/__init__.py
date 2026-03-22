@@ -27,7 +27,6 @@ try:
     from .custom_allocation_definition import CustomAllocationDefinition
     from .individual_enrollment import IndividualEnrollment
     from .enrollment_group import EnrollmentGroup
-    from .client_certificate_issuance_policy import ClientCertificateIssuancePolicy
 except (ImportError) as e:
     print(e)
 
@@ -51,5 +50,4 @@ __all__ = [
     "CustomAllocationDefinition",
     "IndividualEnrollment",
     "EnrollmentGroup",
-    "ClientCertificateIssuancePolicy",
 ]

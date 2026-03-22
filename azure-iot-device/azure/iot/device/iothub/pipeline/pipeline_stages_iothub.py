@@ -13,6 +13,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_thread,
 )
 from azure.iot.device import exceptions
+from azure.iot.device.iothub.models import CertificateSigningResponse
 from . import pipeline_events_iothub, pipeline_ops_iothub
 from . import constant
 
@@ -208,3 +209,89 @@ class TwinRequestResponseStage(PipelineStage):
 
         else:
             super()._run_op(op)
+
+# TODO: should be made more generic in the future.
+class CertificateSigningRequestResponseStage(PipelineStage):
+    """
+    PipelineStage which handles CertificateSigningRequestOperations.
+    More specifically, it
+    - generates a request id for it and
+    - queues it for later correlation with the incoming response for callback invokation, as well as
+    - properly handle any intermediary responses (202).
+    This is done at the IoTHub level because there is nothing protocol-specific about this code.
+    The protocol-specific implementation for certificate signing requests and responses is handled inside
+    IoTHubMQTTTranslationStage, when it converts the CertificateSigningRequestOperation to a protocol-specific
+    send operation and when it converts the protocol-specific receive event into individual properties
+    that are stored back into the CertificateSigningRequestOperation instance.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.pending_responses = {}
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+        if isinstance(op, pipeline_ops_iothub.CertificateSigningRequestOperation):
+
+            op.request.id = self.nucleus.pipeline_configuration.device_id
+
+            logger.debug(
+                "{}({}): adding certificate signing request {} for {} to pending list".format(
+                    self.name, op.name, op.request.request_id, op.request.id
+                )
+            )
+            self.pending_responses[op.request.request_id] = op
+
+            self.send_op_down(op)
+
+        else:
+            super()._run_op(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _handle_pipeline_event(self, event):
+        if isinstance(event, pipeline_events_iothub.CertificateSigningResponseEvent):
+
+            logger.debug(
+                "{}: Handling certificate signing response event with request_id {}".format(
+                    self.name, event.request_id
+                )
+            )
+
+            if event.request_id in self.pending_responses:
+                op = self.pending_responses[event.request_id]
+
+                if event.status_code == 202:  # Meaning: request accepted.
+                    logger.debug(
+                        "{}: Certificate signing request {} accepted (status_code={}, payload={})".format(
+                            self.name, event.request_id, event.status_code, event.payload
+                        )
+                    )
+
+                else:
+                    del self.pending_responses[event.request_id]
+
+                    logger.debug(
+                        "{}({}): Completing {} request with status {}".format(
+                            self.name,
+                            op.name,
+                            event.request_id,
+                            event.status_code,
+                        )
+                    )
+
+                    parsed_payload = json.loads(event.payload.decode("utf-8") or "null")
+
+                    op.response = CertificateSigningResponse(
+                        event.status_code, parsed_payload["certificates"]
+                    )
+
+                    op.complete()
+            else:
+                logger.info(
+                    "{}({}): request_id {} not found in pending list.  Nothing to do.  Dropping".format(
+                        self.name, event.name, event.request_id
+                    )
+                )
+
+        else:
+            self.send_event_up(event)

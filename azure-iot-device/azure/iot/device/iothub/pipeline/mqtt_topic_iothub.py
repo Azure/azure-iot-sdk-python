@@ -90,6 +90,14 @@ def get_twin_patch_topic_for_subscribe():
     return "$iothub/twin/PATCH/properties/desired/#"
 
 
+def get_certificate_signing_response_topic_for_subscribe():
+    """
+    :return: The topic for Certificate Signing Response messages. It is of the format
+    "$iothub/credentials/res/#"
+    """
+    return "$iothub/credentials/res/#"
+
+
 def get_telemetry_topic_for_publish(device_id, module_id):
     """
     return the topic string used to publish telemetry
@@ -120,6 +128,16 @@ def get_twin_topic_for_publish(method, resource_location, request_id):
         method=method,
         resource_location=resource_location,
         request_id=urllib.parse.quote(str(request_id), safe=""),
+    )
+
+
+def get_certificate_signing_request_topic_for_publish(request_id):
+    """
+    :return: The topic for Certificate Signing Request messages. It is of the format
+    "$iothub/credentials/POST/issueCertificate/?$rid={request_id}"
+    """
+    return "$iothub/credentials/POST/issueCertificate/?$rid={request_id}".format(
+        request_id=urllib.parse.quote(str(request_id), safe="")
     )
 
 
@@ -163,6 +181,53 @@ def is_method_topic(topic):
     if "$iothub/methods/POST" in topic:
         return True
     return False
+
+
+def is_certificate_signing_response_topic(topic):
+    """
+    Topics for certificate signing responses are of the following format:
+    "$iothub/credentials/res/{status}/?$rid={request_id}"
+
+    :param str topic: The topic string.
+    """
+    return topic.startswith("$iothub/credentials/res/")
+
+
+def get_certificate_signing_response_request_id_from_topic(topic):
+    """
+    Extract the request id from the certificate signing response topic.
+    Topics for certificate signing responses are of the following format:
+    "$iothub/credentials/res/{status}/?$rid={request_id}"
+
+    :param str topic: The topic string
+    """
+    if is_certificate_signing_response_topic(topic):
+        parts = topic.split("/")
+        if len(parts) == 5:
+            properties = _extract_properties(topic.split("?")[1])
+            return properties["rid"]
+        else:
+            raise ValueError("topic has incorrect format")
+    else:
+        raise ValueError("topic has incorrect format")
+
+
+def get_certificate_signing_response_status_code_from_topic(topic):
+    """
+    Extract the status-code from the certificate signing response topic.
+    Topics for certificate signing responses are of the following format:
+    "$iothub/credentials/res/{status-code}/?$rid={request_id}"
+
+    :param str topic: The topic string
+    """
+    if is_certificate_signing_response_topic(topic):
+        parts = topic.split("/")
+        if len(parts) == 5:
+            return urllib.parse.unquote(parts[3])
+        else:
+            raise ValueError("topic has incorrect format")
+    else:
+        raise ValueError("topic has incorrect format")
 
 
 def is_twin_response_topic(topic):

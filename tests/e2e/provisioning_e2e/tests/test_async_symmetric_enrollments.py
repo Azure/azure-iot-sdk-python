@@ -90,17 +90,11 @@ def create_individual_enrollment(registration_id, device_id=None, client_ca_name
     """
     reprovision_policy = models.ReprovisionPolicy(migrate_device_data=True)
     attestation_mechanism = models.AttestationMechanism(type="symmetricKey")
-    client_certificate_issuance_policy = None
-    if client_ca_name:
-        client_certificate_issuance_policy = models.ClientCertificateIssuancePolicy(
-            certificate_authority_name=client_ca_name
-        )
     individual_provisioning_model = models.IndividualEnrollment(
         attestation=attestation_mechanism,
         registration_id=registration_id,
         device_id=device_id,
         reprovision_policy=reprovision_policy,
-        client_certificate_issuance_policy=client_certificate_issuance_policy,
     )
 
     return service_client.create_or_update_individual_enrollment(individual_provisioning_model)

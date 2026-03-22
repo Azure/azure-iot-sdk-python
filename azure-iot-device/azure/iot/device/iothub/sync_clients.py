@@ -15,7 +15,13 @@ from .abstract_clients import (
     AbstractIoTHubDeviceClient,
     AbstractIoTHubModuleClient,
 )
-from .models import Message, MethodResponse, MethodRequest
+from .models import (
+    Message,
+    MethodResponse,
+    MethodRequest,
+    CertificateSigningRequest,
+    CertificateSigningResponse,
+)
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox, InboxEmpty
 from . import sync_handler_manager
@@ -379,7 +385,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             self._enable_feature(pipeline_constant.METHODS)
 
         if self._inbox_manager is not None:
-            method_inbox : Queue[MethodRequest] = self._inbox_manager.get_method_request_inbox(method_name)
+            method_inbox: Queue[MethodRequest] = self._inbox_manager.get_method_request_inbox(
+                method_name
+            )
 
         logger.info("Waiting for method request...")
         try:
@@ -524,7 +532,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
             self._enable_feature(pipeline_constant.TWIN_PATCHES)
         if self._inbox_manager is not None:
-            twin_patch_inbox : Queue[TwinPatch] = self._inbox_manager.get_twin_patch_inbox()
+            twin_patch_inbox: Queue[TwinPatch] = self._inbox_manager.get_twin_patch_inbox()
 
         logger.info("Waiting for twin patches...")
         try:
@@ -572,7 +580,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
             self._enable_feature(pipeline_constant.C2D_MSG)
         if self._inbox_manager is not None:
-            c2d_inbox : Queue[Message] = self._inbox_manager.get_c2d_message_inbox()
+            c2d_inbox: Queue[Message] = self._inbox_manager.get_c2d_message_inbox()
 
         logger.info("Waiting for message from Hub...")
         try:
@@ -616,6 +624,51 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         )
         handle_result(callback)
         logger.info("Successfully notified blob upload status")
+
+
+    def send_certificate_signing_request(
+        self, request_id: str, csr_data: str, replace: Optional[str] = None
+    ) -> CertificateSigningResponse:
+        """
+        Sends a certificate signing request to Azure IoT Hub service.
+
+        This is a synchronous call, meaning that this function will not return until the response is
+        received.
+
+        If the service returns an error on the certificate signing operations operation,
+        this function will raise the appropriate error.
+
+        :param str request_id: The unique identifier for the certificate signing request. Can only contain ASCII alphanumerics and dash. Must be 4 to 32 characters long and not begin or end with a dash.
+        :param str csr_data: The base64-encoded PKCS#10 certificate signing request, without PEM header/footers or newlines.
+        :param str replace: Optionally provide the request_id of the previous pending request to be cancelled and replaced by the new one, or wildcard ("*") to replace/cancel any.
+        :returns: The certificate issued by Azure IoT Hub for the certificate signing request provided.
+        :rtype: :class:`azure.iot.device.CertificateSigningResponse`
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.CSR]:
+            self._enable_feature(pipeline_constant.CSR)
+
+        request = CertificateSigningRequest(request_id=request_id, csr=csr_data, replace=replace)
+
+        callback = EventedCallback(return_arg_name="response")
+        self._mqtt_pipeline.send_certificate_signing_request(request=request, callback=callback)
+        certificate_signing_response = handle_result(callback)
+
+        logger.info("Received certificate signing response")
+        return certificate_signing_response
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
@@ -704,7 +757,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
             self._enable_feature(pipeline_constant.INPUT_MSG)
         if self._inbox_manager is not None:
-            input_inbox : Queue[Message] = self._inbox_manager.get_input_message_inbox(input_name)
+            input_inbox: Queue[Message] = self._inbox_manager.get_input_message_inbox(input_name)
 
         logger.info("Waiting for input message on: " + input_name + "...")
         try:
