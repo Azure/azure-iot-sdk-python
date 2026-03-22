@@ -139,7 +139,7 @@ async def main():
 
             # Get new issued certificate from IoT Hub
             csr_response = await device_client.send_certificate_signing_request(
-                iothub_csr_data, "*"
+                str(uuid.uuid4()), iothub_csr_data, "*"
             )
             print(
                 "IoT Hub certificate re-issuance completed. Status-code={}".format(

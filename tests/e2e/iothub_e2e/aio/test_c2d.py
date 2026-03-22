@@ -16,6 +16,7 @@ logger.setLevel(level=logging.INFO)
 
 
 @pytest.mark.describe("Client C2d")
+@pytest.mark.timeout(120)
 class TestReceiveC2d(object):
     @pytest.mark.it("Can receive C2D")
     @pytest.mark.quicktest_suite
