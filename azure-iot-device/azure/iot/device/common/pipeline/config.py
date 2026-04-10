@@ -60,6 +60,12 @@ class BasePipelineConfig(abc.ABC):
         :param bool connection_retry: Indicates if dropped connection should result in attempts to
             re-establish it
         :param int connection_retry_interval: Interval (in seconds) between connection retries
+        :param minimum_tls_version: Configuration option. The lowest (inclusive) version of TLS that 
+        this client will support when negotiating TLS versions when connecting.
+        :type ssl.TLSVersion: :class:`ssl.TLSVersion` (Default: no minimum TLS version will be specified)
+        :param maximum_tls_version: Configuration option. The highest (inclusive) version of TLS that 
+        this client will support when negotiating TLS versions when connecting.
+        :type ssl.TLSVersion: :class:`ssl.TLSVersion` (Default: no maximum TLS version will be specified)
         """
         # Network
         self.hostname = hostname
@@ -75,6 +81,8 @@ class BasePipelineConfig(abc.ABC):
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)
         self.proxy_options = proxy_options
+        self.minimum_tls_version = minimum_tls_version
+        self.maximum_tls_version = maximum_tls_version
 
         # Pipeline
         self.auto_connect = auto_connect

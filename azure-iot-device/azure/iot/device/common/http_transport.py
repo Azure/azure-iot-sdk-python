@@ -29,6 +29,8 @@ class HTTPTransport(object):
         x509_cert=None,
         cipher=None,
         proxy_options=None,
+        minimum_tls_version=None,
+        maximum_tls_version=None,
     ):
         """
         Constructor to instantiate an HTTP protocol wrapper.
@@ -38,6 +40,12 @@ class HTTPTransport(object):
         :param str cipher: Cipher string in OpenSSL cipher list format (optional)
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
         :param proxy_options: Options for sending traffic through proxy servers.
+        :param minimum_tls_version: Configuration option. The lowest (inclusive) version of TLS that 
+        this client will support when negotiating TLS versions when connecting.
+        :type ssl.TLSVersion: :class:`ssl.TLSVersion` (Default: no minimum TLS version will be specified)
+        :param maximum_tls_version: Configuration option. The highest (inclusive) version of TLS that 
+        this client will support when negotiating TLS versions when connecting.
+        :type ssl.TLSVersion: :class:`ssl.TLSVersion` (Default: no maximum TLS version will be specified)
         """
         self._hostname = hostname
         self._server_verification_cert = server_verification_cert

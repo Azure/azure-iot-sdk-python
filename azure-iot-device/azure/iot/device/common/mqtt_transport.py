@@ -98,6 +98,8 @@ class MQTTTransport(object):
         cipher=None,
         proxy_options=None,
         keep_alive=None,
+        minimum_tls_version=None,
+        maximum_tls_version=None,
     ):
         """
         Constructor to instantiate an MQTT protocol wrapper.
@@ -109,6 +111,12 @@ class MQTTTransport(object):
         :param bool websockets: Indicates whether or not to enable a websockets connection in the Transport.
         :param str cipher: Cipher string in OpenSSL cipher list format
         :param proxy_options: Options for sending traffic through proxy servers.
+        :param minimum_tls_version: Configuration option. The lowest (inclusive) version of TLS that 
+        this client will support when negotiating TLS versions when connecting.
+        :type ssl.TLSVersion: :class:`ssl.TLSVersion` (Default: no minimum TLS version will be specified)
+        :param maximum_tls_version: Configuration option. The highest (inclusive) version of TLS that 
+        this client will support when negotiating TLS versions when connecting.
+        :type ssl.TLSVersion: :class:`ssl.TLSVersion` (Default: no maximum TLS version will be specified)
         """
         self._client_id = client_id
         self._hostname = hostname
@@ -338,6 +346,22 @@ class MQTTTransport(object):
             try:
                 logger.debug("configuring SSL context with cipher suites")
                 ssl_context.set_ciphers(self._cipher)
+            except ssl.SSLError as e:
+                # TODO: custom error with more detail?
+                raise e
+
+        if self._minimum_tls_version:
+            try:
+                logger.debug("configuring SSL context with minimum version")
+                context.minimum_version = _minimum_tls_version
+            except ssl.SSLError as e:
+                # TODO: custom error with more detail?
+                raise e
+
+        if self._maximum_tls_version:
+            try:
+                logger.debug("configuring SSL context with minimum version")
+                context.maximum_version = _maximum_tls_version
             except ssl.SSLError as e:
                 # TODO: custom error with more detail?
                 raise e

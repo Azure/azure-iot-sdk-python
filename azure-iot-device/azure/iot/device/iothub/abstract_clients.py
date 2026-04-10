@@ -46,6 +46,8 @@ def _validate_kwargs(exclude: Optional[List[str]] = [], **kwargs) -> None:
         "connection_retry",
         "connection_retry_interval",
         "ensure_desired_properties",
+        "minimum_tls_version",
+        "maximum_tls_version"
     ]
 
     for kwarg in kwargs:
@@ -67,6 +69,8 @@ def _get_config_kwargs(**kwargs) -> Dict[str, Any]:
         "connection_retry",
         "connection_retry_interval",
         "ensure_desired_properties",
+        "minimum_tls_version",
+        "maximum_tls_version"
     ]
 
     config_kwargs = {}
@@ -287,6 +291,12 @@ class AbstractIoTHubClient(abc.ABC):
             re-establish a dropped connection (Default: 10)
         :param bool ensure_desired_properties: Ensure the most recent desired properties patch has
             been received upon re-connections (Default:True)
+        :param minimum_tls_version: Configuration option. The lowest (inclusive) version of TLS that 
+        this client will support when negotiating TLS versions when connecting.
+        :type ssl.TLSVersion: :class:`ssl.TLSVersion` (Default: no minimum TLS version will be specified)
+        :param maximum_tls_version: Configuration option. The highest (inclusive) version of TLS that 
+        this client will support when negotiating TLS versions when connecting.
+        :type ssl.TLSVersion: :class:`ssl.TLSVersion` (Default: no maximum TLS version will be specified)
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unsupported parameter.
