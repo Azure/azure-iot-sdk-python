@@ -351,20 +351,12 @@ class MQTTTransport(object):
                 raise e
 
         if self._minimum_tls_version:
-            try:
-                logger.debug("configuring SSL context with minimum version")
-                context.minimum_version = _minimum_tls_version
-            except ssl.SSLError as e:
-                # TODO: custom error with more detail?
-                raise e
+            logger.debug("configuring SSL context with minimum version")
+            context.minimum_version = _minimum_tls_version
 
         if self._maximum_tls_version:
-            try:
-                logger.debug("configuring SSL context with minimum version")
-                context.maximum_version = _maximum_tls_version
-            except ssl.SSLError as e:
-                # TODO: custom error with more detail?
-                raise e
+            logger.debug("configuring SSL context with minimum version")
+            context.maximum_version = _maximum_tls_version
 
         if self._x509_cert is not None:
             logger.debug("configuring SSL context with client-side certificate and key")
