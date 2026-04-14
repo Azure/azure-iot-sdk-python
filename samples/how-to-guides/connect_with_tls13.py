@@ -10,18 +10,11 @@ from azure.iot.device import IoTHubDeviceClient, Message
 # The device connection string to authenticate the device with your IoT hub.
 CONNECTION_STRING = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 
-if CONNECTION_STRING is None:
-    print(
-        "Must set environment variable 'IOTHUB_DEVICE_CONNECTION_STRING' in the format '<hub name>.device.azure-devices.<dns suffix>' in order to use TLS 1.3"
-    )
-    raise Exception
-
 if ".device.azure-devices." not in CONNECTION_STRING:
     # classic connection strings that look like '<hub-name>.azure-devices.<dns suffix>' only support up to TLS 1.2
-    print(
+    raise ValueError(
         "Device connection string must match the format '<hub name>.device.azure-devices.<dns suffix>' in order to use TLS 1.3"
     )
-    raise Exception
 
 # The client object is used to interact with your Azure IoT hub.
 device_client = IoTHubDeviceClient.create_from_connection_string(CONNECTION_STRING)
