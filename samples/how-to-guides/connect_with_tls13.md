@@ -45,4 +45,6 @@ Note that the SDK behavior here is unchanged as it has always advertised support
 
 ## ADDITIONAL CONSIDERATIONS
 
-Note that this library currently uses the SSL library for all TLS connections. This SSL library has a few feature gaps as documented [here](https://docs.python.org/3/library/ssl.html#tls-1-3)
+This feature is not generally available yet nor is it available in preview for all IoT hubs. As such, the above connection string pattern my yield a "host not found" exception.
+
+Note that this library currently uses the SSL library for all TLS connections. This SSL library has a few feature gaps around TLS 1.3 specifically as documented [here](https://docs.python.org/3/library/ssl.html#tls-1-3)
