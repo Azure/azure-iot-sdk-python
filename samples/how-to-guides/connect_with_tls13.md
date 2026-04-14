@@ -35,7 +35,7 @@ service connection string:
 <hub name>.service.azure-devices.<dnsSuffix> 
 ```
 
-This sample expects a connection string that follows the device connection string pattern above
+This sample expects the environment variable "IOTHUB_DEVICE_CONNECTION_STRING" to contain a connection string that follows the device connection string pattern above
 
 ### SDK behavior
 
