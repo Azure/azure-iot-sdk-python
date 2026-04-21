@@ -109,7 +109,7 @@ class TestReportedProperties(object):
 @pytest.mark.dropped_connection
 @pytest.mark.describe("Client Reported Properties with dropped connection")
 @pytest.mark.keep_alive(5)
-@pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
+#@pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
 class TestReportedPropertiesDroppedConnection(object):
 
     # TODO: split drop tests between first and second patches
