@@ -115,6 +115,10 @@ class TestReportedPropertiesDroppedConnection(object):
     # TODO: split drop tests between first and second patches
 
     @pytest.mark.it("Updates reported properties if connection drops before sending")
+    # def test_sync_updates_reported_if_drop_before_sending(
+    #     self, client, random_reported_props, dropper, executor, leak_tracker
+    # ):
+    #NEW
     def test_sync_updates_reported_if_drop_before_sending(
         self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
     ):
@@ -135,16 +139,23 @@ class TestReportedPropertiesDroppedConnection(object):
 
         send_task.result()
 
-        received_patch = service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
+        # received_patch = service_helper.get_next_reported_patch_arrival()
+        # assert (
+        #     received_patch[const.REPORTED][const.TEST_CONTENT]
+        #     == random_reported_props[const.TEST_CONTENT]
+        # )
+        #NEW
+        reported = service_helper.wait_for_reported_properties(random_reported_props)
+        assert reported[const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
 
         # TODO: investigate leak
         # leak_tracker.check_for_leaks()
 
     @pytest.mark.it("Updates reported properties if connection rejects send")
+    # def test_sync_updates_reported_if_reject_before_sending(
+    #     self, client, random_reported_props, dropper, executor, leak_tracker
+    # ):
+    #NEW
     def test_sync_updates_reported_if_reject_before_sending(
         self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
     ):
@@ -165,11 +176,14 @@ class TestReportedPropertiesDroppedConnection(object):
 
         send_task.result()
 
-        received_patch = service_helper.get_next_reported_patch_arrival()
-        assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT]
-            == random_reported_props[const.TEST_CONTENT]
-        )
+        # received_patch = service_helper.get_next_reported_patch_arrival()
+        # assert (
+        #     received_patch[const.REPORTED][const.TEST_CONTENT]
+        #     == random_reported_props[const.TEST_CONTENT]
+        # )
+        #NEW
+        reported = service_helper.wait_for_reported_properties(random_reported_props)
+        assert reported[const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
 
         # TODO: investigate leak
         # leak_tracker.check_for_leaks()
@@ -178,6 +192,7 @@ class TestReportedPropertiesDroppedConnection(object):
 @pytest.mark.describe("Client Desired Properties")
 @pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
 class TestDesiredProperties(object):
+
     @pytest.mark.it("Receives a patch for a simple desired property")
     @pytest.mark.quicktest_suite
     def test_sync_receives_simple_desired_patch(self, client, service_helper, leak_tracker):

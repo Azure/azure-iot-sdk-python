@@ -5,6 +5,8 @@ import logging
 import threading
 import queue
 import copy
+#NEW
+import json
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -53,6 +55,26 @@ def get_message_source_from_event(event):
     Helper function to get the message source from an EventHub message
     """
     return event.message.annotations["iothub-message-source".encode()].decode()
+
+#NEW
+def _reported_properties_match(actual, expected):
+    if isinstance(expected, dict):
+        if not isinstance(actual, dict):
+            return False
+
+        for key, expected_value in expected.items():
+            if expected_value is None:
+                if key in actual and actual[key] is not None:
+                    return False
+            else:
+                if key not in actual:
+                    return False
+                if not _reported_properties_match(actual[key], expected_value):
+                    return False
+
+        return True
+
+    return actual == expected
 
 
 class EventhubEvent(object):
@@ -125,6 +147,36 @@ class ServiceHelperSync(object):
             self._registry_manager.update_twin(
                 self.device_id, Twin(properties=TwinProperties(desired=desired_props)), "*"
             )
+
+    #NEW
+    def get_service_twin(self):
+        if self.module_id:
+            return self._registry_manager.get_module_twin(self.device_id, self.module_id)
+        else:
+            return self._registry_manager.get_twin(self.device_id)
+
+    #NEW
+    def wait_for_reported_properties(self, expected_patch, timeout=240, poll_interval=1):
+        end_time = time.time() + timeout
+        last_reported = None
+
+        while time.time() < end_time:
+            twin = self.get_service_twin()
+            reported = ((twin.properties and twin.properties.reported) or {}).copy()
+            last_reported = reported
+
+            if _reported_properties_match(reported, expected_patch):
+                return reported
+
+            time.sleep(poll_interval)
+
+        raise Exception(
+            "reported properties did not match expected patch within {} seconds. expected={}, actual={}".format(
+                timeout,
+                json.dumps(expected_patch, sort_keys=True),
+                json.dumps(last_reported, sort_keys=True),
+            )
+        )
 
     def invoke_method(
         self,
