@@ -22,7 +22,7 @@ reset_reported_props = {const.TEST_CONTENT: None}
 class TestReportedProperties(object):
     @pytest.mark.it("Can set a simple reported property")
     @pytest.mark.quicktest_suite
-    @pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
+    # @pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
     def test_sync_sends_simple_reported_patch(
         self, client, random_reported_props, service_helper, leak_tracker
     ):
@@ -56,7 +56,7 @@ class TestReportedProperties(object):
 
     @pytest.mark.it("Can clear a reported property")
     @pytest.mark.quicktest_suite
-    @pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
+    # @pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
     def test_sync_clear_property(self, client, random_reported_props, service_helper, leak_tracker):
         leak_tracker.set_initial_object_list()
 
@@ -82,7 +82,7 @@ class TestReportedProperties(object):
 
     @pytest.mark.it("Connects the transport if necessary")
     @pytest.mark.quicktest_suite
-    @pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
+    # @pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
     def test_sync_patch_reported_connect_if_necessary(
         self, client, random_reported_props, service_helper, leak_tracker
     ):
