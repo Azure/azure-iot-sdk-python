@@ -40,6 +40,20 @@ stages:
               az iot hub consumer-group create -g "$AZURE_RESOURCE_GROUP" --hub-name "$AZURE_IOTHUB_NAME" --name "$cg_name"
           done
 
+          # Route twin change events to the built-in Event Hubs-compatible endpoint
+          # so reported-properties E2E tests can observe service-side patch arrivals.
+          az iot hub route create \
+            -g "$AZURE_RESOURCE_GROUP" \
+            --hub-name "$AZURE_IOTHUB_NAME" \
+            --route-name "twin-change-events" \
+            --endpoint-name "events" \
+            --source-type "twinchangeevents"
+
+          az iot hub route show \
+            -g "$AZURE_RESOURCE_GROUP" \
+            --hub-name "$AZURE_IOTHUB_NAME" \
+            --route-name "twin-change-events"
+
           # Export variables to other stages/jobs/steps.
           echo "##vso[task.setvariable variable=IOTHUB_CONNECTION_STRING;isOutput=true]$IOTHUB_CONNECTION_STRING"
           echo "##vso[task.setvariable variable=EVENTHUB_CONNECTION_STRING;isOutput=true]$EVENTHUB_CONNECTION_STRING"
