@@ -125,7 +125,7 @@ class TestInstantiation(object):
                 "malicious-password\\r\\nX-Evil-Header: injected-value",
                 "malicious-user%5Cr%5CnX-Evil-Header%3A%20injected-value",
                 "malicious-password%5Cr%5CnX-Evil-Header%3A%20injected-value",
-                id="URL encoding of malicious chars",
+                id="URL encoding of malicious inputs",
             ),
         ],
     )
