@@ -186,12 +186,14 @@ def format_proxies(proxy_options):
     if proxy_options:
         # Basic address/port formatting
         proxy = "{address}:{port}".format(
-            address=urllib.parse.quote(proxy_options.proxy_address, safe=""), port=proxy_options.proxy_port
+            address=urllib.parse.quote(proxy_options.proxy_address, safe=""),
+            port=proxy_options.proxy_port,
         )
         # Add credentials if necessary
         if proxy_options.proxy_username and proxy_options.proxy_password:
             auth = "{username}:{password}".format(
-                username=urllib.parse.quote(proxy_options.proxy_username, safe=""), password=urllib.parse.quote(proxy_options.proxy_password, safe="")
+                username=urllib.parse.quote(proxy_options.proxy_username, safe=""),
+                password=urllib.parse.quote(proxy_options.proxy_password, safe=""),
             )
             proxy = auth + "@" + proxy
         # Set proxy for use on HTTP or HTTPS connections

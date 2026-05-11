@@ -28,28 +28,52 @@ fake_cipher = "DHE-RSA-AES128-SHA"
 
 @pytest.mark.describe("HTTPTransport - Instantiation")
 class TestInstantiation(object):
+    # @pytest.fixture(
+    #     params=["HTTP", "SOCKS4", "SOCKS5"]
+    # )
+    # def proxy_type(self, request):
+    #     return request.param
+
+    # @pytest.fixture(params=[
+    #     pytest.param((None, None), id="No Auth"),
+    #     pytest.param(("fake_username", "fake_password"), id="Auth (standard chars)"),
+    #     pytest.param(("malicious-user\\r\\nX-Evil-Header: injected-value", "fake_password"), id="Auth (malicious chars)")
+    # ])
+    # def proxy_auth(self, request):
+    #     return request.param
+
+    # @pytest.fixture
+    # def proxy_options(self, proxy_type, proxy_auth):
+    #     return ProxyOptions(
+    #         proxy_type=proxy_type,
+    #         proxy_addr="127.0.0.1",
+    #         proxy_port=1080,
+    #         proxy_username=proxy_auth[0],
+    #         proxy_password=proxy_auth[1],
+    #     )
+
+    @pytest.fixture(params=["HTTP", "SOCKS4", "SOCKS5"])
+    def proxy_type(self, request):
+        return request.param
+
     @pytest.fixture(
-        params=["HTTP", "SOCKS4", "SOCKS5"]
+        params=[
+            pytest.param((None, None), id="No Auth"),
+            pytest.param(("fake_username", "fake_password"), id="Auth"),
+        ]
     )
-    def proxy_type(request):
+    def proxy_auth(self, request):
         return request.param
 
-    @pytest.fixture(params=["No Auth", "Auth (standard chars)", "Auth (special chars)"])
-    def proxy_auth_type(request):
-        return request.param
-
-    def proxy_options(self, proxy_type, proxy_auth_type):
-        if "No Auth" in proxy_auth_type:
-            proxy = ProxyOptions(proxy_type=proxy_type, proxy_addr="127.0.0.1", proxy_port=1080)
-        else:
-            proxy = ProxyOptions(
-                proxy_type=proxy_type,
-                proxy_addr="127.0.0.1",
-                proxy_port=1080,
-                proxy_username="fake_username",
-                proxy_password="fake_password",
-            )
-        return proxy
+    @pytest.fixture
+    def proxy_options(self, proxy_type, proxy_auth):
+        return ProxyOptions(
+            proxy_type=proxy_type,
+            proxy_addr="127.0.0.1",
+            proxy_port=1080,
+            proxy_username=proxy_auth[0],
+            proxy_password=proxy_auth[1],
+        )
 
     @pytest.mark.it("Stores the hostname for later use")
     def test_sets_required_parameters(self, mocker):
@@ -69,7 +93,6 @@ class TestInstantiation(object):
     @pytest.mark.it(
         "Creates a dictionary of proxies from the 'proxy_options' parameter, if the parameter is provided"
     )
-
     def test_proxy_format(self, proxy_options):
         http_transport_object = HTTPTransport(hostname=fake_hostname, proxy_options=proxy_options)
 
@@ -93,6 +116,70 @@ class TestInstantiation(object):
             expected_proxy_string = "socks5://" + expected_proxy_string
 
         assert isinstance(http_transport_object._proxies, dict)
+        assert http_transport_object._proxies["http"] == expected_proxy_string
+        assert http_transport_object._proxies["https"] == expected_proxy_string
+
+    @pytest.mark.it("URL encodes the proxy username and password when creating the proxy strings")
+    @pytest.mark.parametrize(
+        "proxy_username, proxy_password, encoded_username, encoded_password",
+        [
+            pytest.param(
+                "u$ern@me",
+                "p@$$w?rd",
+                "u%24ern%40me",
+                "p%40%24%24w%3Frd",
+                id="Standard URL encoding",
+            ),
+            pytest.param(
+                "user name with spaces",
+                "password with spaces",
+                "user%20name%20with%20spaces",
+                "password%20with%20spaces",
+                id="URL encoding of ' ' character",
+            ),
+            pytest.param(
+                "user/name/with/slashes",
+                "password/with/slashes",
+                "user%2Fname%2Fwith%2Fslashes",
+                "password%2Fwith%2Fslashes",
+                id="URL encoding of '/' character",
+            ),
+            pytest.param(
+                "malicious-user\\r\\nX-Evil-Header: injected-value",
+                "malicious-password\\r\\nX-Evil-Header: injected-value",
+                "malicious-user%5Cr%5CnX-Evil-Header%3A%20injected-value",
+                "malicious-password%5Cr%5CnX-Evil-Header%3A%20injected-value",
+                id="URL encoding of malicious chars",
+            ),
+        ],
+    )
+    def test_proxy_auth_url_encoded(
+        self, proxy_type, proxy_username, proxy_password, encoded_username, encoded_password
+    ):
+        proxy_options = ProxyOptions(
+            proxy_type=proxy_type,
+            proxy_addr="127.0.0.1",
+            proxy_port=1080,
+            proxy_username=proxy_username,
+            proxy_password=proxy_password,
+        )
+
+        http_transport_object = HTTPTransport(hostname=fake_hostname, proxy_options=proxy_options)
+
+        expected_proxy_string = "{username}:{password}@{address}:{port}".format(
+            username=encoded_username,
+            password=encoded_password,
+            address=proxy_options.proxy_address,
+            port=proxy_options.proxy_port,
+        )
+
+        if proxy_options.proxy_type == "HTTP":
+            expected_proxy_string = "http://" + expected_proxy_string
+        elif proxy_options.proxy_type == "SOCKS4":
+            expected_proxy_string = "socks4://" + expected_proxy_string
+        else:
+            expected_proxy_string = "socks5://" + expected_proxy_string
+
         assert http_transport_object._proxies["http"] == expected_proxy_string
         assert http_transport_object._proxies["https"] == expected_proxy_string
 
