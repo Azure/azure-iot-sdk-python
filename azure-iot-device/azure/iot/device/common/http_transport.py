@@ -7,6 +7,7 @@
 import logging
 import ssl
 import requests  # type: ignore
+import urllib
 from . import transport_exceptions as exceptions
 from .pipeline import pipeline_thread
 
@@ -185,12 +186,12 @@ def format_proxies(proxy_options):
     if proxy_options:
         # Basic address/port formatting
         proxy = "{address}:{port}".format(
-            address=proxy_options.proxy_address, port=proxy_options.proxy_port
+            address=urllib.parse.quote(proxy_options.proxy_address, safe=""), port=proxy_options.proxy_port
         )
         # Add credentials if necessary
         if proxy_options.proxy_username and proxy_options.proxy_password:
             auth = "{username}:{password}".format(
-                username=proxy_options.proxy_username, password=proxy_options.proxy_password
+                username=urllib.parse.quote(proxy_options.proxy_username, safe=""), password=urllib.parse.quote(proxy_options.proxy_password, safe="")
             )
             proxy = auth + "@" + proxy
         # Set proxy for use on HTTP or HTTPS connections

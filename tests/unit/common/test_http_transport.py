@@ -29,17 +29,17 @@ fake_cipher = "DHE-RSA-AES128-SHA"
 @pytest.mark.describe("HTTPTransport - Instantiation")
 class TestInstantiation(object):
     @pytest.fixture(
-        params=["HTTP - No Auth", "HTTP - Auth", "SOCKS4", "SOCKS5 - No Auth", "SOCKS5 - Auth"]
+        params=["HTTP", "SOCKS4", "SOCKS5"]
     )
-    def proxy_options(self, request):
-        if "HTTP" in request.param:
-            proxy_type = "HTTP"
-        elif "SOCKS4" in request.param:
-            proxy_type = "SOCKS4"
-        else:
-            proxy_type = "SOCKS5"
+    def proxy_type(request):
+        return request.param
 
-        if "No Auth" in request.param:
+    @pytest.fixture(params=["No Auth", "Auth (standard chars)", "Auth (special chars)"])
+    def proxy_auth_type(request):
+        return request.param
+
+    def proxy_options(self, proxy_type, proxy_auth_type):
+        if "No Auth" in proxy_auth_type:
             proxy = ProxyOptions(proxy_type=proxy_type, proxy_addr="127.0.0.1", proxy_port=1080)
         else:
             proxy = ProxyOptions(
@@ -69,6 +69,7 @@ class TestInstantiation(object):
     @pytest.mark.it(
         "Creates a dictionary of proxies from the 'proxy_options' parameter, if the parameter is provided"
     )
+
     def test_proxy_format(self, proxy_options):
         http_transport_object = HTTPTransport(hostname=fake_hostname, proxy_options=proxy_options)
 
