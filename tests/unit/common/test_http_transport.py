@@ -28,30 +28,6 @@ fake_cipher = "DHE-RSA-AES128-SHA"
 
 @pytest.mark.describe("HTTPTransport - Instantiation")
 class TestInstantiation(object):
-    # @pytest.fixture(
-    #     params=["HTTP", "SOCKS4", "SOCKS5"]
-    # )
-    # def proxy_type(self, request):
-    #     return request.param
-
-    # @pytest.fixture(params=[
-    #     pytest.param((None, None), id="No Auth"),
-    #     pytest.param(("fake_username", "fake_password"), id="Auth (standard chars)"),
-    #     pytest.param(("malicious-user\\r\\nX-Evil-Header: injected-value", "fake_password"), id="Auth (malicious chars)")
-    # ])
-    # def proxy_auth(self, request):
-    #     return request.param
-
-    # @pytest.fixture
-    # def proxy_options(self, proxy_type, proxy_auth):
-    #     return ProxyOptions(
-    #         proxy_type=proxy_type,
-    #         proxy_addr="127.0.0.1",
-    #         proxy_port=1080,
-    #         proxy_username=proxy_auth[0],
-    #         proxy_password=proxy_auth[1],
-    #     )
-
     @pytest.fixture(params=["HTTP", "SOCKS4", "SOCKS5"])
     def proxy_type(self, request):
         return request.param
