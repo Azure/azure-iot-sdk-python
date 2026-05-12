@@ -39,7 +39,6 @@ def wrap_as_reported_property(value, key=None):
 @pytest.mark.describe("Client Stress")
 @pytest.mark.parametrize(*parametrize.auto_connect_disabled)
 @pytest.mark.parametrize(*parametrize.connection_retry_disabled)
-@pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
 class TestTwinStress(object):
     @pytest.mark.parametrize(
         "iteration_count", [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")]
