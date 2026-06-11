@@ -41,8 +41,10 @@ jobs:
         Python313:
           python.version: '3.13'
         # Disabled as it is failing on pipeline (published uamqp wheel fails to compile)
-        # Python314:
-        #   python.version: '3.14'
+        Python314:
+          python.version: '3.14'
+        # Python315:
+        #   python.version: '3.15'
   steps:
   - task: UsePythonVersion@0
     displayName: 'Use Python $(python.version)'
