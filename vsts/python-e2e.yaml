@@ -70,7 +70,7 @@ stages:
 
     strategy:
       matrix:
-        py39_mqtt:              { pv: '3.9', transport: 'mqtt', consumer_group: 'cg1' }
+        py310_mqtt:             { pv: '3.10', transport: 'mqtt', consumer_group: 'cg1' }
         py312_mqttws:           { pv: '3.12', transport: 'mqttws', consumer_group: 'cg2' }
 
     steps:
