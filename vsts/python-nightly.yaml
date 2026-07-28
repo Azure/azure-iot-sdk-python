@@ -1,8 +1,5 @@
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 
-# Nightly suite is scheduled-only; do not run on PR gate.
-pr: none
-
 stages:
 - stage: setup
   jobs:
