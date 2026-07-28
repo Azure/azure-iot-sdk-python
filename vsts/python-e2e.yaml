@@ -70,7 +70,7 @@ stages:
 
     strategy:
       matrix:
-        py39_mqtt:              { pv: '3.9', transport: 'mqtt', consumer_group: 'cg1' }
+        py310_mqtt:             { pv: '3.10', transport: 'mqtt', consumer_group: 'cg1' }
         py312_mqttws:           { pv: '3.12', transport: 'mqttws', consumer_group: 'cg2' }
 
     steps:
@@ -105,7 +105,7 @@ stages:
 
     strategy:
       matrix:
-        # Not covering Python 3.14 as it is failing on pipeline (published uamqp wheel fails to compile).
+        py314_mqtt:              { pv: '3.14', transport: 'mqtt', consumer_group: 'cg1' }
         py313_mqtt:              { pv: '3.13', transport: 'mqtt', consumer_group: 'cg3' }
         py312_mqtt_ws:           { pv: '3.12', transport: 'mqttws', consumer_group: 'cg4' }
 
