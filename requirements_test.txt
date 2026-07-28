@@ -5,7 +5,7 @@ pytest-testdox>=1.1.1
 pytest-cov
 pytest-timeout
 flake8
-azure-iot-hub                                    # Only needed for iothub e2e
+azure-iot-hub @ git+https://github.com/Azure/azure-iot-hub-python.git@3f3d8a1567773a433d8065f02d3d35ae25f74c8d  # Only needed for iothub e2e
 azure-iothub-provisioningserviceclient >= 1.2.0  # Only needed for provisioning e2e
 azure-eventhub                                   # Only needed for iothub e2e
 psutil                                           # Only needed for iothub e2e
