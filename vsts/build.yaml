@@ -1,7 +1,40 @@
 resources:
 - repo: self
+
+variables:
+  # CodeQL is auto-injected into every job by the 1ES policy decorator. Off by
+  # default so the python test matrix (5 parallel jobs) does not each build and
+  # upload a competing database -- S360 records arg_max(SnapshotDate) per
+  # (repo, language). The dedicated 'CodeQL' job below opts back in.
+  # See https://aka.ms/codeql3000 and https://aka.ms/sdlfaqcodeql.
+  Codeql.Enabled: false
+
 #Multi-configuration and multi-agent job options are not exported to YAML. Configure these options using documentation guidance: https://docs.microsoft.com/vsts/pipelines/process/phases
 jobs:
+
+# Owns the 'python' and 'javascript' CodeQL snapshots for this repo
+# (Microsoft.Security.CodeQL.10000). Both are interpreted languages, so CodeQL
+# extracts them straight from the checked-out sources and no build step is
+# needed between Init and Finalize. 'javascript' is graded because of
+# sdklab/meantimerecovery/aedes/aedes_server.js.
+- job: 'CodeQL'
+  displayName: 'CodeQL (python, javascript)'
+  variables:
+    # Only on main; this pipeline also runs on PRs, which need no snapshot.
+    Codeql.Enabled: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+    Codeql.Language: python,javascript
+  pool:
+    vmImage: 'ubuntu-24.04'
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.x'
+      architecture: 'x64'
+  - task: CodeQL3000Init@0
+    displayName: 'Initialize CodeQL'
+  - task: CodeQL3000Finalize@0
+    displayName: 'Finalize CodeQL'
+    condition: always()
 
 - job: 'Static_Analysis'
   condition: false # Disabling this job since it is failing on recent runs. Must be re-enabled asap.
