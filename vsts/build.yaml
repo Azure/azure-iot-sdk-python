@@ -19,8 +19,10 @@ jobs:
 # sdklab/meantimerecovery/aedes/aedes_server.js.
 - job: 'CodeQL'
   displayName: 'CodeQL (python, javascript)'
+  # Skip the job outright on PRs rather than only disabling the tasks, so PR runs
+  # do not pay for an agent, a checkout and a python install for nothing.
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
   variables:
-    # Only on main; this pipeline also runs on PRs, which need no snapshot.
     Codeql.Enabled: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
     Codeql.Language: python,javascript
   pool:
