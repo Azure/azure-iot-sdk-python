@@ -177,20 +177,55 @@ class LeakTracker(object):
 
         return remaining_objects
 
-    def check_for_leaks(self):
+    def _remove_collected_objects(self, objects):
+        """
+        Return a new list with objects that have already been collected removed.
+
+        The leak list is built from a snapshot of the garbage collector, so an object can
+        be collected between the moment the snapshot is taken and the moment the leak is
+        reported.  Objects that we could not take a weak reference to are always kept
+        since there is no way to know whether they were collected.
+        """
+        return [obj for obj in objects if obj.weakref is None or obj.weakref() is not None]
+
+    def check_for_leaks(self, attempts=5, delay=5):
         """
         Get all tracked objects from the garbage collector.  If any objects remain, list
         them and assert so the test fails.
+
+        Objects that are still being used by the pipeline (or callback) threads when this
+        runs are transiently reachable and show up as false positives.  This happens, for
+        example, while a SAS token renewal is in flight, since the operations driving that
+        renewal are collected shortly after they complete.  To avoid failing on these
+        transients, the check is retried for a bounded amount of time, and a leak is only
+        reported if the objects are still alive at the end.
+
+        :param attempts: How many times to check before reporting a leak.
+        :param delay: How many seconds to wait between attempts.
         """
-        remaining_objects = self.get_leaks()
+        attempts = max(1, attempts)
 
-        if self.filter_callback:
-            remaining_objects = self.filter_callback(remaining_objects)
+        for attempt in range(attempts):
+            remaining_objects = self.get_leaks()
 
-        if len(remaining_objects):
-            self.dump_leak_report(remaining_objects)
-        else:
-            logger.info("No leaks")
+            if self.filter_callback:
+                remaining_objects = self.filter_callback(remaining_objects)
+
+            remaining_objects = self._remove_collected_objects(remaining_objects)
+
+            if not remaining_objects:
+                logger.info("No leaks")
+                return
+
+            if attempt < attempts - 1:
+                logger.info(
+                    "{} objects still allocated after attempt {} of {}. Waiting {} seconds to see if they get collected".format(
+                        len(remaining_objects), attempt + 1, attempts, delay
+                    )
+                )
+                time.sleep(delay)
+
+        self.dump_leak_report(remaining_objects)
 
     def dump_leak_report(self, leaked_objects):
         """
