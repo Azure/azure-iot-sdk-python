@@ -1,5 +1,13 @@
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 
+variables:
+  # E2E pipeline: it provisions an IoT Hub and runs tests, it does not build the
+  # product. Auto-injected CodeQL here produces incidental databases that
+  # displace the ones from the dedicated 'CodeQL' job in vsts/build.yaml,
+  # because S360 records arg_max(SnapshotDate) per (repo, language).
+  # See https://aka.ms/codeql3000.
+  Codeql.Enabled: false
+
 stages:
 - stage: setup
   jobs:
