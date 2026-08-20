@@ -62,6 +62,17 @@ stages:
 - stage: build_and_tests
   jobs:
   - job: 'Test'
+    # The Windows legs of this matrix run right up against Azure Pipelines' implicit
+    # 60-minute job timeout, so they get cancelled mid-run even though the suite
+    # itself passes. Measured in build 161689:
+    #   py39_windows_mqtt     60.4 min -> CANCELLED (pytest had already reported
+    #                                     "74 passed, 33 skipped" in 57:16)
+    #   py39_windows_mqttws   52.9 min -> passed, with only ~7 minutes of headroom
+    #   the seven linux legs  31.9 - 34.7 min
+    # Whichever Windows leg is slower on the day is the one that dies, which is why
+    # the failure appears to wander between py39_windows_mqtt and py39_windows_mqttws.
+    # Give the job a realistic budget instead.
+    timeoutInMinutes: 90
     variables:
       IOTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.IOTHUB_CONNECTION_STRING']]
       EVENTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.EVENTHUB_CONNECTION_STRING']]

@@ -13,7 +13,10 @@ JSON_CONTENT_ENCODING = "utf-8"
 
 def get_random_string(length, random_length=False):
     if random_length:
-        length = random.randint(0, length)
+        # The lower bound is 1 (unless `length` is 0) because callers use the returned
+        # value as a truthy sentinel (eg. `if not value:`). An empty string would silently
+        # be treated as "no value", which makes tests fail in ways that are hard to diagnose.
+        length = random.randint(min(1, length), length)
 
     return "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(length))
 
