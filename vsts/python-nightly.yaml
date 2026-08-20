@@ -1,4 +1,4 @@
-pr: none
+trigger: none
 
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 
