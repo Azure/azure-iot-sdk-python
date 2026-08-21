@@ -6,26 +6,21 @@ jobs:
   strategy:
     maxParallel: 4
     matrix:
-      py39_windows_mqtt:
-        pv: '3.9'
+      py310_windows_mqtt:
+        pv: '3.10'
         transport: 'mqtt'
         imageName: 'windows-latest'
         consumerGroup: 'cg1'
-      py39_windows_mqttws:
-        pv: '3.9'
+      py310_windows_mqttws:
+        pv: '3.10'
         transport: 'mqttws'
         imageName: 'windows-latest'
         consumerGroup: 'cg2'
-      py39_linux_mqttws:
-        pv: '3.9'
+      py310_linux_mqttws:
+        pv: '3.10'
         transport: 'mqttws'
         imageName: 'Ubuntu 20.04'
         consumerGroup: 'cg4'
-      py39_linux_mqtt:
-        pv: '3.9'
-        transport: 'mqtt'
-        imageName: 'Ubuntu 20.04'
-        consumerGroup: 'cg5'
       py310_linux_mqtt:
         pv: '3.10'
         transport: 'mqtt'

@@ -53,8 +53,6 @@ class TestTwinStress(object):
         """
         leak_tracker.set_initial_object_list()
 
-        leak_tracker.set_initial_object_list()
-
         await call_with_retry(client, client.patch_twin_reported_properties, reset_reported_props)
 
         for i in range(iteration_count):
@@ -97,8 +95,6 @@ class TestTwinStress(object):
         with `batch_size` overlapped calls in a batch. Verify that the updates arrive
         at the service.
         """
-        leak_tracker.set_initial_object_list()
-
         leak_tracker.set_initial_object_list()
 
         await call_with_retry(client, client.patch_twin_reported_properties, reset_reported_props)
@@ -304,8 +300,6 @@ class TestTwinStress(object):
                 assert twin[const.REPORTED][const.TEST_CONTENT] == last_property_value
 
         assert last_property_value, "No patches with updated properties were received"
-
-        leak_tracker.check_for_leaks()
 
         leak_tracker.check_for_leaks()
 
