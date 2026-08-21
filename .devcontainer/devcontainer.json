@@ -6,7 +6,7 @@
 		"dockerfile": "Dockerfile",
 		"context": "..",
 		"args": { 
-			// Update 'VARIANT' to pick a Python version: 3, 3.9
+			// Update 'VARIANT' to pick a Python version: 3, 3.10
 			"VARIANT": "3",
 			// Options
 			"NODE_VERSION": "lts/*"
