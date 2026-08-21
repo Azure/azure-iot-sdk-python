@@ -175,7 +175,7 @@ class MQTTTransport(object):
         # Set event handlers.  Use weak references back into this object to prevent leaks
         self_weakref = weakref.ref(self)
 
-        def get_transport_or_stop_loop(client, callback_name):
+        def get_transport_from_weakref_or_stop_loop(client, callback_name):
             this = self_weakref()
             if this is None:
                 logger.info(
@@ -188,7 +188,7 @@ class MQTTTransport(object):
 
         def on_connect(client, userdata, flags, rc):
             logger.info("connected with result code: {}".format(rc))
-            this = get_transport_or_stop_loop(client, "on_connect")
+            this = get_transport_from_weakref_or_stop_loop(client, "on_connect")
             if this is None:
                 return
 
@@ -218,7 +218,7 @@ class MQTTTransport(object):
 
         def on_disconnect(client, userdata, rc):
             logger.info("disconnected with result code: {}".format(rc))
-            this = get_transport_or_stop_loop(client, "on_disconnect")
+            this = get_transport_from_weakref_or_stop_loop(client, "on_disconnect")
             if this is None:
                 return
 
@@ -239,7 +239,7 @@ class MQTTTransport(object):
 
         def on_subscribe(client, userdata, mid, granted_qos):
             logger.info("suback received for {}".format(mid))
-            this = get_transport_or_stop_loop(client, "on_subscribe")
+            this = get_transport_from_weakref_or_stop_loop(client, "on_subscribe")
             if this is None:
                 return
             # subscribe failures are returned from the subscribe() call.  This is just
@@ -248,7 +248,7 @@ class MQTTTransport(object):
 
         def on_unsubscribe(client, userdata, mid):
             logger.info("UNSUBACK received for {}".format(mid))
-            this = get_transport_or_stop_loop(client, "on_unsubscribe")
+            this = get_transport_from_weakref_or_stop_loop(client, "on_unsubscribe")
             if this is None:
                 return
             # unsubscribe failures are returned from the unsubscribe() call.  This is just
@@ -257,7 +257,7 @@ class MQTTTransport(object):
 
         def on_publish(client, userdata, mid):
             logger.info("payload published for {}".format(mid))
-            this = get_transport_or_stop_loop(client, "on_publish")
+            this = get_transport_from_weakref_or_stop_loop(client, "on_publish")
             if this is None:
                 return
             # publish failures are returned from the publish() call.  This is just
@@ -266,7 +266,7 @@ class MQTTTransport(object):
 
         def on_message(client, userdata, mqtt_message):
             logger.info("message received on {}".format(mqtt_message.topic))
-            this = get_transport_or_stop_loop(client, "on_message")
+            this = get_transport_from_weakref_or_stop_loop(client, "on_message")
             if this is None:
                 return
 
