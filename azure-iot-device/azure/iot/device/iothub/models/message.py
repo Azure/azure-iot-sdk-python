@@ -5,8 +5,64 @@
 # --------------------------------------------------------------------------
 """This module contains a class representing messages that are sent or received.
 """
+from datetime import date
+
 from azure.iot.device import constant
-import sys
+
+
+def _encode_message_data(data):
+    if isinstance(data, str):
+        return data.encode("utf-8")
+    if isinstance(data, (int, float)):
+        return str(data).encode("ascii")
+    if data is None:
+        return b""
+    if not isinstance(data, (bytes, bytearray)):
+        raise TypeError("Message data must be a string, bytes, bytearray, int, float, or None.")
+    return data
+
+
+def _get_system_properties(message):
+    properties = []
+    if message.output_name:
+        properties.append(("$.on", str(message.output_name)))
+    if message.message_id:
+        properties.append(("$.mid", str(message.message_id)))
+    if message.correlation_id:
+        properties.append(("$.cid", str(message.correlation_id)))
+    if message.user_id:
+        properties.append(("$.uid", str(message.user_id)))
+    if message.content_type:
+        properties.append(("$.ct", str(message.content_type)))
+    if message.content_encoding:
+        properties.append(("$.ce", str(message.content_encoding)))
+    if message.iothub_interface_id:
+        properties.append(("$.ifid", str(message.iothub_interface_id)))
+    if message.expiry_time_utc:
+        expiry_time = (
+            message.expiry_time_utc.isoformat()
+            if isinstance(message.expiry_time_utc, date)
+            else message.expiry_time_utc
+        )
+        properties.append(("$.exp", str(expiry_time)))
+    return properties
+
+
+def _get_custom_properties(message):
+    if not message.custom_properties:
+        return []
+
+    properties = [(str(key), str(value)) for key, value in message.custom_properties.items()]
+    properties.sort()
+
+    keys = [key for key, _ in properties]
+    if len(keys) != len(set(keys)):
+        raise ValueError("Duplicate keys in custom properties!")
+    return properties
+
+
+def _get_string_size(value):
+    return len(value.encode("utf-8"))
 
 
 class Message(object):
@@ -65,14 +121,22 @@ class Message(object):
         return str(self.data)
 
     def get_size(self) -> int:
-        total = 0
-        total = total + sum(
-            sys.getsizeof(v)
-            for v in self.__dict__.values()
-            if v is not None and v is not self.custom_properties
+        """Return the message size in bytes as measured by IoT Hub.
+
+        The size is the encoded body plus system property values and application property names
+        and values. Strings are measured as UTF-8, matching the MQTT transport; bytes and
+        bytearrays are measured as-is. MQTT topic and packet overhead are not included.
+
+        :raises TypeError: If the message data is not a payload type supported by the MQTT
+            transport.
+        :raises ValueError: If custom property keys are duplicated after string conversion.
+        """
+        payload_size = len(_encode_message_data(self.data))
+        system_property_size = sum(
+            _get_string_size(value) for _, value in _get_system_properties(self)
         )
-        if self.custom_properties:
-            total = total + sum(
-                sys.getsizeof(v) for v in self.custom_properties.values() if v is not None
-            )
-        return total
+        application_property_size = sum(
+            _get_string_size(key) + _get_string_size(value)
+            for key, value in _get_custom_properties(self)
+        )
+        return payload_size + system_property_size + application_property_size

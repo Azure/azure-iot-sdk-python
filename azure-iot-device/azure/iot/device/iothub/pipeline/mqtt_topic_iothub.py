@@ -5,8 +5,12 @@
 # --------------------------------------------------------------------------
 
 import logging
-from datetime import date
 import urllib
+
+from azure.iot.device.iothub.models.message import (
+    _get_custom_properties,
+    _get_system_properties,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -343,58 +347,16 @@ def encode_message_properties_in_topic(message_to_send, topic):
     "devices/<deviceId>/modules/<moduleId>/messages/events/
     :return: The topic which has been uri-encoded
     """
-    system_properties = []
-    if message_to_send.output_name:
-        system_properties.append(("$.on", str(message_to_send.output_name)))
-    if message_to_send.message_id:
-        system_properties.append(("$.mid", str(message_to_send.message_id)))
-
-    if message_to_send.correlation_id:
-        system_properties.append(("$.cid", str(message_to_send.correlation_id)))
-
-    if message_to_send.user_id:
-        system_properties.append(("$.uid", str(message_to_send.user_id)))
-
-    if message_to_send.content_type:
-        system_properties.append(("$.ct", str(message_to_send.content_type)))
-
-    if message_to_send.content_encoding:
-        system_properties.append(("$.ce", str(message_to_send.content_encoding)))
-
-    if message_to_send.iothub_interface_id:
-        system_properties.append(("$.ifid", str(message_to_send.iothub_interface_id)))
-
-    if message_to_send.expiry_time_utc:
-        system_properties.append(
-            (
-                "$.exp",
-                message_to_send.expiry_time_utc.isoformat()  # returns string
-                if isinstance(message_to_send.expiry_time_utc, date)
-                else message_to_send.expiry_time_utc,
-            )
-        )
-
+    system_properties = _get_system_properties(message_to_send)
     system_properties_encoded = urllib.parse.urlencode(
         system_properties, quote_via=urllib.parse.quote
     )
     topic += system_properties_encoded
 
-    if message_to_send.custom_properties and len(message_to_send.custom_properties) > 0:
+    custom_prop_seq = _get_custom_properties(message_to_send)
+    if custom_prop_seq:
         if system_properties and len(system_properties) > 0:
             topic += "&"
-
-        # Convert the custom properties to a sorted list in order to ensure the
-        # resulting ordering in the topic string is consistent across versions of Python.
-        # Convert to the properties to strings for safety.
-        custom_prop_seq = [
-            (str(i[0]), str(i[1])) for i in list(message_to_send.custom_properties.items())
-        ]
-        custom_prop_seq.sort()
-
-        # Validate that string conversion has not created duplicate keys
-        keys = [i[0] for i in custom_prop_seq]
-        if len(keys) != len(set(keys)):
-            raise ValueError("Duplicate keys in custom properties!")
 
         user_properties_encoded = urllib.parse.urlencode(
             custom_prop_seq, quote_via=urllib.parse.quote
