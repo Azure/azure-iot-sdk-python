@@ -1,3 +1,5 @@
+trigger: none
+
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 
 stages:
