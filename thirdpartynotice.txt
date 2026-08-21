@@ -8,40 +8,21 @@ are set out below.  This Third Party Code is licensed to you under their origina
 Microsoft Corporation reserves all other rights not expressly granted, whether by implication, estoppel or otherwise.
 
 
-1.) License Notice for urllib3 from https://raw.githubusercontent.com/urllib3/urllib3/master/LICENSE.txt
+1.) License Notice for deprecation from https://raw.githubusercontent.com/briancurtin/deprecation/master/LICENSE
 -----------------------------------------------------------------------------------------------------------------------
 
-MIT License
+deprecation is licensed under the Apache License, Version 2.0. The full text of
+that license is reproduced in section 4 below.
 
-Copyright (c) 2008-2019 Andrey Petrov and contributors (see CONTRIBUTORS.txt)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-3.) License Notice for paho-mqtt from https://raw.githubusercontent.com/PyCQA/astroid/master/COPYING
+2.) License Notice for paho-mqtt from https://raw.githubusercontent.com/eclipse-paho/paho.mqtt.python/master/LICENSE.txt
 -----------------------------------------------------------------------------------------------------------------------
 
-This project is dual licensed under the Eclipse Public License 1.0 and the
-Eclipse Distribution License 1.0 as described in the epl-v10 and edl-v10 files.
+This project is dual licensed under the Eclipse Public License 2.0 and the
+Eclipse Distribution License 1.0 as described in the epl-v20 and edl-v10 files.
 
 
 
-4.) License Notice for requests from https://raw.githubusercontent.com/psf/requests/master/LICENSE
+3.) License Notice for requests from https://raw.githubusercontent.com/psf/requests/main/LICENSE
 --------------------------------------------------------------------------------------------------------------------
 
 Copyright 2019 Kenneth Reitz
@@ -58,7 +39,7 @@ Copyright 2019 Kenneth Reitz
    See the License for the specific language governing permissions and
    limitations under the License.
 
-5.) License Notice for requests-unixsocket from https://raw.githubusercontent.com/msabramo/requests-unixsocket/master/LICENSE
+4.) License Notice for requests-unixsocket from https://raw.githubusercontent.com/msabramo/requests-unixsocket/master/LICENSE
 ------------------------------------------------------------------------------------------------------------------------------
 
 Apache License
@@ -264,7 +245,7 @@ Apache License
    limitations under the License.
 
 
-6.) License Notice for janus from https://raw.githubusercontent.com/aio-libs/janus/master/LICENSE
+5.) License Notice for janus from https://raw.githubusercontent.com/aio-libs/janus/master/LICENSE
 -------------------------------------------------------------------------------------------------------
 
                                  Apache License
@@ -469,7 +450,7 @@ Apache License
    See the License for the specific language governing permissions and
    limitations under the License.
 
-7.) License Notice for futures from https://raw.githubusercontent.com/agronholm/pythonfutures/master/LICENSE
+6.) License Notice for typing_extensions from https://raw.githubusercontent.com/python/typing_extensions/main/LICENSE
 -----------------------------------------------------------------------------------------------------------------------
 
 PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
@@ -480,14 +461,14 @@ PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
 otherwise using this software ("Python") in source or binary form and
 its associated documentation.
 
-2. Subject to the terms and conditions of this License Agreement, PSF
-hereby grants Licensee a nonexclusive, royalty-free, world-wide
-license to reproduce, analyze, test, perform and/or display publicly,
-prepare derivative works, distribute, and otherwise use Python
-alone or in any derivative version, provided, however, that PSF's
-License Agreement and PSF's notice of copyright, i.e., "Copyright (c)
-2001, 2002, 2003, 2004, 2005, 2006 Python Software Foundation; All Rights
-Reserved" are retained in Python alone or in any derivative version
+2. Subject to the terms and conditions of this License Agreement, PSF hereby
+grants Licensee a nonexclusive, royalty-free, world-wide license to reproduce,
+analyze, test, perform and/or display publicly, prepare derivative works,
+distribute, and otherwise use Python alone or in any derivative version,
+provided, however, that PSF's License Agreement and PSF's notice of copyright,
+i.e., "Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023 Python Software Foundation;
+All Rights Reserved" are retained in Python alone or in any derivative version
 prepared by Licensee.
 
 3. In the event Licensee prepares a derivative work that is based on
@@ -522,27 +503,28 @@ agrees to be bound by the terms and conditions of this License
 Agreement.
 
 
-8.) License Notice for msrest from https://raw.githubusercontent.com/Azure/msrest-for-python/master/LICENSE.md
+7.) License Notice for PySocks from https://raw.githubusercontent.com/Anorov/PySocks/master/LICENSE
 -----------------------------------------------------------------------------------------------------------------------
 
-MIT License
+Copyright 2006 Dan-Haim. All rights reserved.
 
-Copyright (c) 2016 Microsoft Azure
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+3. Neither the name of Dan Haim nor the names of his contributors may be used
+   to endorse or promote products derived from this software without specific
+   prior written permission.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THIS SOFTWARE IS PROVIDED BY DAN HAIM "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL DAN HAIM OR HIS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA
+OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMANGE.

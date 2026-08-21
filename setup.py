@@ -52,7 +52,7 @@ setup(
     version=version,
     description="Microsoft Azure IoT Device Library",
     license="MIT License",
-    license_files=("LICENSE",),
+    license_files=("LICENSE", "thirdpartynotice.txt"),
     url="https://github.com/Azure/azure-iot-sdk-python/",
     author="Microsoft Corporation",
     author_email="opensource@microsoft.com",
