@@ -64,24 +64,35 @@ stages:
 - stage: build_and_tests
   jobs:
   - job: 'Test'
+    # The Windows legs of this matrix run right up against Azure Pipelines' implicit
+    # 60-minute job timeout, so they get cancelled mid-run even though the suite
+    # itself passes. Historical Python 3.9 measurements from build 161689:
+    #   Windows MQTT leg       60.4 min -> CANCELLED (pytest had already reported
+    #                                      "74 passed, 33 skipped" in 57:16)
+    #   Windows MQTTWS leg     52.9 min -> passed, with only ~7 minutes of headroom
+    #   the seven linux legs  31.9 - 34.7 min
+    # Whichever Windows leg is slower on the day is the one that dies, which is why
+    # the failure appears to wander between the Windows MQTT and MQTTWS legs.
+    # Give the job a realistic budget instead.
+    timeoutInMinutes: 90
     variables:
       IOTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.IOTHUB_CONNECTION_STRING']]
       EVENTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.EVENTHUB_CONNECTION_STRING']]
     strategy:
       maxParallel: 9
       matrix:
-        py39_windows_mqtt:
-          pv: '3.9'
+        py310_windows_mqtt:
+          pv: '3.10'
           transport: 'mqtt'
           imageName: 'windows-latest'
           consumerGroup: 'cg1'
-        py39_windows_mqttws:
-          pv: '3.9'
+        py310_windows_mqttws:
+          pv: '3.10'
           transport: 'mqttws'
           imageName: 'windows-latest'
           consumerGroup: 'cg2'
-        py39_linux_mqttws:
-          pv: '3.9'
+        py310_linux_mqttws:
+          pv: '3.10'
           transport: 'mqttws'
           imageName: 'ubuntu-22.04'
           consumerGroup: 'cg3'
@@ -115,17 +126,16 @@ stages:
           transport: 'mqttws'
           imageName: 'ubuntu-22.04'
           consumerGroup: 'cg9'
-        # These are failing due to uamqp compilation errors, used in tests.
-        # py314_linux_mqtt:
-        #   pv: '3.14'
-        #   transport: 'mqtt'
-        #   imageName: 'ubuntu-22.04'
-        #   consumerGroup: 'cg10'
-        # py314_linux_mqttws:
-        #   pv: '3.14'
-        #   transport: 'mqttws'
-        #   imageName: 'ubuntu-22.04'
-        #   consumerGroup: 'cg11'
+        py314_linux_mqtt:
+          pv: '3.14'
+          transport: 'mqtt'
+          imageName: 'ubuntu-22.04'
+          consumerGroup: 'cg10'
+        py314_linux_mqttws:
+          pv: '3.14'
+          transport: 'mqttws'
+          imageName: 'ubuntu-22.04'
+          consumerGroup: 'cg11'
 
 
     pool:
