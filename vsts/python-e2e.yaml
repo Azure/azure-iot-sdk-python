@@ -90,7 +90,7 @@ stages:
       - script: 'python -m pip install uv'
         displayName: 'Install uv'
 
-      - script: 'uv sync --locked --python "$(pv)" --no-dev --group test --group e2e'
+      - script: 'uv sync --upgrade --python "$(pv)" --no-dev --group test --group e2e'
         displayName: 'Sync E2E environment'
 
       - script: |
@@ -129,7 +129,7 @@ stages:
       - script: 'python -m pip install uv'
         displayName: 'Install uv'
 
-      - script: 'uv sync --locked --python "$(pv)" --no-dev --group test --group e2e'
+      - script: 'uv sync --upgrade --python "$(pv)" --no-dev --group test --group e2e'
         displayName: 'Sync E2E environment'
 
       - script: |

@@ -85,6 +85,7 @@ dev-utils = { path = "dev_utils", editable = true }
 
 [tool.black]
 line-length = 100
+target-version = ["py310"]
 exclude = '''
 /(
         \.git
@@ -102,6 +103,7 @@ filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.ruff]
 line-length = 100
+target-version = "py310"
 exclude = ["tests/e2e/provisioning_e2e/iothubservice20180630"]
 
 [tool.ruff.lint]

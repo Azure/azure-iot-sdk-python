@@ -276,7 +276,7 @@ stages:
     - script: 'python -m pip install uv'
       displayName: 'Install uv'
 
-    - script: 'uv sync --locked --python 3.10 --no-dev --group test --group e2e'
+    - script: 'uv sync --upgrade --python 3.10 --no-dev --group test --group e2e'
       displayName: 'Sync E2E environment'
 
     - script: |

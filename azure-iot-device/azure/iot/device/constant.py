@@ -3,8 +3,8 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-"""This module defines constants for use across the azure-iot-device package
-"""
+"""This module defines constants for use across the azure-iot-device package"""
+
 from importlib.metadata import version
 
 VERSION = version("azure-iot-device")

@@ -21,6 +21,8 @@ uv run pre-commit install
 
 `uv sync` installs the SDK and all development dependency groups into `.venv`. Source changes are immediately reflected because the SDK and `dev_utils` are installed editably.
 
+The checked-in `uv.lock` provides a reproducible contributor environment. CI deliberately runs `uv sync --upgrade` so the library is also tested against the newest compatible dependencies.
+
 Common commands:
 
 ```console
