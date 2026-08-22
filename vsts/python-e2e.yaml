@@ -87,12 +87,15 @@ stages:
           versionSpec: $(pv)
           architecture: 'x64'
 
-      - script: 'python scripts/env_setup.py --no_dev'
-        displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+      - script: 'python -m pip install uv'
+        displayName: 'Install uv'
+
+      - script: 'uv sync --locked --python "$(pv)" --no-dev --group test --group e2e'
+        displayName: 'Sync E2E environment'
 
       - script: |
           cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
-          pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
+          uv run --no-sync pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
         displayName: 'E2E Device Client MQTT Connection String'
         env:
           IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
@@ -123,12 +126,15 @@ stages:
           versionSpec: $(pv)
           architecture: 'x64'
 
-      - script: 'python scripts/env_setup.py --no_dev'
-        displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+      - script: 'python -m pip install uv'
+        displayName: 'Install uv'
+
+      - script: 'uv sync --locked --python "$(pv)" --no-dev --group test --group e2e'
+        displayName: 'Sync E2E environment'
 
       - script: |
           cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
-          pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
+          uv run --no-sync pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
         displayName: 'E2E Device Client MQTT Connection String'
         env:
           IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
