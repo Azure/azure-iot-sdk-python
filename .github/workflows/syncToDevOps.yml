@@ -5,6 +5,8 @@ name: Sync issue to Azure DevOps work item
     types:
       [opened, reopened, deleted, closed, assigned]
 
+permissions: {}
+
 jobs:
   alert:
     runs-on: ubuntu-latest
