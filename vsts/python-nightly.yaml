@@ -147,14 +147,17 @@ stages:
           versionSpec: $(pv)
           architecture: 'x64'
           addToPath: true
-      - script: 'python scripts/env_setup.py --no_dev'
-        displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+      - script: 'python -m pip install uv'
+        displayName: 'Install uv'
+
+      - script: 'uv sync --locked --python "$(pv)" --no-dev --group test --group e2e'
+        displayName: 'Sync E2E environment'
 
       - script: |
           cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
           echo "Using consumer group: ${IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP}"
           # "not x" means "include all tests that don't have the tag named 'x'", which is everything.
-          pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" -m "not x"
+          uv run --no-sync pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" -m "not x"
         displayName: 'E2E Device Client MQTT Connection String'
         env:
           IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
