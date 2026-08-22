@@ -1,8 +1,8 @@
-# See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.192.0/containers/python-3/.devcontainer/base.Dockerfile
+# See https://github.com/devcontainers/images/tree/main/src/python for image contents.
 
-# [Choice] Python version: 3, 3.10
-ARG VARIANT="3.10"
-FROM mcr.microsoft.com/vscode/devcontainers/python:0-${VARIANT}
+# [Choice] Python version and Debian release
+ARG VARIANT="3.12-bookworm"
+FROM mcr.microsoft.com/devcontainers/python:1-${VARIANT}
 
 # [Choice] Node.js version: none, lts/*, 16, 14, 12, 10
 ARG NODE_VERSION="none"

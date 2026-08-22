@@ -56,7 +56,7 @@ jobs:
   - script: 'python -m pip install uv'
     displayName: 'Install uv'
 
-  - script: 'uv sync --locked --no-dev --group lint'
+  - script: 'uv sync --upgrade --no-dev --group lint'
     displayName: 'Sync lint environment'
 
   - script: 'uv run --no-sync ruff check .'
@@ -87,7 +87,7 @@ jobs:
   - script: 'python -m pip install uv'
     displayName: 'Install uv'
 
-  - script: 'uv sync --locked --python "$(python.version)" --no-dev --group test'
+  - script: 'uv sync --upgrade --python "$(python.version)" --no-dev --group test'
     displayName: 'Sync test environment'
 
   - script: 'uv run --no-sync pytest tests --junitxml=junit/azure-iot-device-test-results.xml --cov=azure --cov-report=xml:coverage.xml --cov-report=html:coverage --cov-append'

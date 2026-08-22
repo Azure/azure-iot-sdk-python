@@ -1,12 +1,12 @@
 repos:
-- repo: local
+  - repo: local
     hooks:
-    - id: ruff-check
+      - id: ruff-check
         name: ruff check
         entry: uv run ruff check --fix
         language: system
         types: [python]
-    - id: black
+      - id: black
         name: black
         entry: uv run black
         language: system
