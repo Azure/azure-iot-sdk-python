@@ -38,6 +38,8 @@ class TestMethods(object):
     ):
         leak_tracker.set_initial_object_list()
 
+        actual_request = None
+
         if include_request_payload:
             request_payload = get_random_dict()
         else:
