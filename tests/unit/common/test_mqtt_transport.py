@@ -152,6 +152,18 @@ def transport(mock_mqtt_client):
 
 
 @pytest.fixture
+def collected_transport_weakref(mock_mqtt_client):
+    transport = MQTTTransport(
+        client_id=fake_device_id, hostname=fake_hostname, username=fake_username
+    )
+    transport_weakref = weakref.ref(transport)
+    transport = None
+    gc.collect(2)
+    assert transport_weakref() is None
+    return transport_weakref
+
+
+@pytest.fixture
 def fake_paho_thread(mocker):
     thread = mocker.MagicMock(spec=threading.Thread)
     thread.name = "_fake_paho_thread_"
@@ -663,6 +675,17 @@ class TestEventConnectComplete(object):
         assert callback.call_args == mocker.call()
 
     @pytest.mark.it(
+        "Stops Paho's network loop if the MQTTTransport was garbage collected before a successful connect completed"
+    )
+    def test_stops_loop_after_gc(self, mocker, mock_mqtt_client, collected_transport_weakref):
+        mock_mqtt_client.on_connect(
+            client=mock_mqtt_client, userdata=None, flags=None, rc=fake_success_rc
+        )
+
+        assert mock_mqtt_client.loop_stop.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
+
+    @pytest.mark.it(
         "Skips on_mqtt_connected_handler event handler if set to 'None' upon successful connect completion"
     )
     def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, transport):
@@ -732,6 +755,17 @@ class TestEventConnectionFailure(object):
         # Verify transport.on_mqtt_connection_failure_handler was called
         assert callback.call_count == 1
         assert isinstance(callback.call_args[0][0], error_params["error"])
+
+    @pytest.mark.it(
+        "Stops Paho's network loop if the MQTTTransport was garbage collected before a failed connect completed"
+    )
+    def test_stops_loop_after_gc(self, mocker, mock_mqtt_client, collected_transport_weakref):
+        mock_mqtt_client.on_connect(
+            client=mock_mqtt_client, userdata=None, flags=None, rc=failed_connack_rc
+        )
+
+        assert mock_mqtt_client.loop_stop.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
 
     @pytest.mark.it(
         "Skips on_mqtt_connection_failure_handler event handler if set to 'None' upon failed connect completion"
@@ -976,18 +1010,6 @@ class TestDisconnect(object):
 
 @pytest.mark.describe("MQTTTransport - OCCURRENCE: Disconnect Completed")
 class TestEventDisconnectCompleted(object):
-    @pytest.fixture
-    def collected_transport_weakref(self, mock_mqtt_client):
-        # return a weak reference to an MQTTTransport that has already been collected
-        transport = MQTTTransport(
-            client_id=fake_device_id, hostname=fake_hostname, username=fake_username
-        )
-        transport_weakref = weakref.ref(transport)
-        transport = None
-        gc.collect(2)  # 2 == collect as much as possible
-        assert transport_weakref() is None
-        return transport_weakref
-
     @pytest.fixture(
         params=[fake_success_rc, fake_failed_rc], ids=["success rc code", "failed rc code"]
     )
@@ -1284,6 +1306,17 @@ class TestSubscribe(object):
         assert callback.call_count == 1
 
     @pytest.mark.it(
+        "Stops Paho's network loop if the MQTTTransport was garbage collected before subscribe completed"
+    )
+    def test_stops_loop_after_gc(self, mocker, mock_mqtt_client, collected_transport_weakref):
+        mock_mqtt_client.on_subscribe(
+            client=mock_mqtt_client, userdata=None, mid=fake_mid, granted_qos=fake_qos
+        )
+
+        assert mock_mqtt_client.loop_stop.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
+
+    @pytest.mark.it(
         "Triggers callback upon subscribe completion when Paho event handler triggered early"
     )
     def test_triggers_callback_when_paho_on_subscribe_event_called_early(
@@ -1545,6 +1578,15 @@ class TestUnsubscribe(object):
 
         # Check callback has now been called
         assert callback.call_count == 1
+
+    @pytest.mark.it(
+        "Stops Paho's network loop if the MQTTTransport was garbage collected before unsubscribe completed"
+    )
+    def test_stops_loop_after_gc(self, mocker, mock_mqtt_client, collected_transport_weakref):
+        mock_mqtt_client.on_unsubscribe(client=mock_mqtt_client, userdata=None, mid=fake_mid)
+
+        assert mock_mqtt_client.loop_stop.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
 
     @pytest.mark.it(
         "Triggers callback upon unsubscribe completion when Paho event handler triggered early"
@@ -1854,6 +1896,15 @@ class TestPublish(object):
         assert callback.call_count == 1
 
     @pytest.mark.it(
+        "Stops Paho's network loop if the MQTTTransport was garbage collected before publish completed"
+    )
+    def test_stops_loop_after_gc(self, mocker, mock_mqtt_client, collected_transport_weakref):
+        mock_mqtt_client.on_publish(client=mock_mqtt_client, userdata=None, mid=fake_mid)
+
+        assert mock_mqtt_client.loop_stop.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
+
+    @pytest.mark.it(
         "Triggers callback upon publish completion when Paho event handler triggered early"
     )
     def test_triggers_callback_when_paho_on_publish_event_called_early(
@@ -2096,6 +2147,17 @@ class TestMessageReceived(object):
         # Verify transport.on_mqtt_message_received_handler was called
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(message.topic, message.payload)
+
+    @pytest.mark.it(
+        "Stops Paho's network loop if the MQTTTransport was garbage collected before message handling"
+    )
+    def test_stops_loop_after_gc(
+        self, mocker, mock_mqtt_client, collected_transport_weakref, message
+    ):
+        mock_mqtt_client.on_message(client=mock_mqtt_client, userdata=None, mqtt_message=message)
+
+        assert mock_mqtt_client.loop_stop.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
 
     @pytest.mark.it(
         "Skips on_mqtt_message_received_handler event handler if set to 'None' upon receiving message"
