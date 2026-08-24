@@ -17,7 +17,10 @@ def _read_source_tree_version():
             with pyproject_path.open("rb") as f:
                 project_metadata = tomllib.load(f).get("project", {})
             if project_metadata.get("name") == "azure-iot-device":
-                return project_metadata["version"]
+                source_tree_version = project_metadata.get("version")
+                if source_tree_version is not None:
+                    return source_tree_version
+                raise PackageNotFoundError("azure-iot-device")
     raise PackageNotFoundError("azure-iot-device")
 
 
