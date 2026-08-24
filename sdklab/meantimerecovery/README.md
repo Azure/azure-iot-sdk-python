@@ -46,6 +46,18 @@ dead_duration : the amount of time the MQTT broker will be taken down for.
 
 Before running the the `mean_time_recover_with_docker.py` script make sure your docker engine is running.
 
+#### Connection string
+
+Both `mean_time_recover_with_docker.py` and `simple_send_message.py` read the device connection
+string from the `IOTHUB_DEVICE_CONNECTION_STRING` environment variable; neither script contains a
+connection string or key of its own. The local `aedes` broker does not verify the key, so any
+base64 value works, for example:
+
+`export IOTHUB_DEVICE_CONNECTION_STRING="HostName=localhost;DeviceId=devicemtr;SharedAccessKey=<base64 key>"`
+
+Use a throwaway value here. Never place a real IoT Hub device key in a shell history or a file
+that can be committed.
+
 #### Certificate creation
 
 There is another script which will create some self signed certificates for use in the `aedes` server.
