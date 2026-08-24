@@ -40,6 +40,22 @@
     {
       "file": "\\tests\\unit\\iothub\\aio\\test_async_clients.py",
       "_justification": "Test containing fake signed data"
+    },
+    {
+      "file": "\\tests\\unit\\iothub\\pipeline\\test_pipeline_stages_iothub.py",
+      "_justification": "Test containing fake keys"
+    },
+    {
+      "file": "\\tests\\unit\\provisioning\\shared_client_tests.py",
+      "_justification": "Test containing fake keys"
+    },
+    {
+      "file": "\\tests\\unit\\provisioning\\pipeline\\test_pipeline_stages_provisioning.py",
+      "_justification": "Test containing fake keys"
+    },
+    {
+      "file": "\\tests\\unit\\common\\pipeline\\test_pipeline_stages_base.py",
+      "_justification": "Test containing fake signed data"
     }
   ]
 
