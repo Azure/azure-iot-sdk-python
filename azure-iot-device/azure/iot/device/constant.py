@@ -12,15 +12,22 @@ import tomllib
 
 def _read_source_tree_version():
     for parent in Path(__file__).resolve().parents:
-        pyproject_path = parent / "pyproject.toml"
-        if pyproject_path.exists():
-            with pyproject_path.open("rb") as f:
-                project_metadata = tomllib.load(f).get("project", {})
-            if project_metadata.get("name") == "azure-iot-device":
-                source_tree_version = project_metadata.get("version")
-                if source_tree_version is not None:
-                    return source_tree_version
-                raise PackageNotFoundError("azure-iot-device")
+        if parent.name == "azure-iot-device":
+            pyproject_path = parent.parent / "pyproject.toml"
+            break
+    else:
+        raise PackageNotFoundError("azure-iot-device")
+
+    try:
+        with pyproject_path.open("rb") as f:
+            project_metadata = tomllib.load(f).get("project", {})
+    except (OSError, tomllib.TOMLDecodeError):
+        raise PackageNotFoundError("azure-iot-device")
+
+    if project_metadata.get("name") == "azure-iot-device":
+        source_tree_version = project_metadata.get("version")
+        if source_tree_version is not None:
+            return source_tree_version
     raise PackageNotFoundError("azure-iot-device")
 
 
