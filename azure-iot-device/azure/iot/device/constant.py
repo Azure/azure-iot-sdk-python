@@ -5,9 +5,12 @@
 # --------------------------------------------------------------------------
 """This module defines constants for use across the azure-iot-device package"""
 
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
-VERSION = version("azure-iot-device")
+try:
+    VERSION = version("azure-iot-device")
+except PackageNotFoundError:
+    VERSION = "2.15.0rc1"
 IOTHUB_IDENTIFIER = "azure-iot-device-iothub-py"
 PROVISIONING_IDENTIFIER = "azure-iot-device-provisioning-py"
 IOTHUB_API_VERSION = "2019-10-01"
