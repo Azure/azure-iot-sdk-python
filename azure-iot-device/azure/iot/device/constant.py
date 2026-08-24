@@ -28,6 +28,7 @@ try:
     VERSION = version("azure-iot-device")
 except PackageNotFoundError:
     VERSION = _read_source_tree_version()
+
 IOTHUB_IDENTIFIER = "azure-iot-device-iothub-py"
 PROVISIONING_IDENTIFIER = "azure-iot-device-provisioning-py"
 IOTHUB_API_VERSION = "2019-10-01"
