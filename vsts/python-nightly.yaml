@@ -9,10 +9,11 @@ stages:
     pool:
       vmImage: 'ubuntu-24.04'
     steps:
+    - checkout: none
     - script: |
-        sudo apt-get install -y uuid
-        AZURE_RESOURCE_GROUP="aziotsdkpython$(uuid)"
-        AZURE_IOTHUB_NAME="aziotsdkpython$(uuid)"
+        RESOURCE_SUFFIX=$(tr -d '-' < /proc/sys/kernel/random/uuid)
+        AZURE_RESOURCE_GROUP="aziotsdkpython$RESOURCE_SUFFIX"
+        AZURE_IOTHUB_NAME="aziotsdkpython$RESOURCE_SUFFIX"
 
         # Export variables to other stages/jobs/steps.
         echo "##vso[task.setvariable variable=AZURE_RESOURCE_GROUP;isOutput=true]$AZURE_RESOURCE_GROUP"
@@ -37,10 +38,26 @@ stages:
           export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --query "connectionString" --output tsv)
           export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
 
+          # Limit Azure API concurrency while creating independent groups faster.
+          wait_for_consumer_groups() {
+              local failed=0
+              for pid in "$@"; do
+                  wait "$pid" || failed=1
+              done
+              return "$failed"
+          }
+
+          consumer_group_pids=()
           for i in $(seq 1 11); do
               cg_name="cg$i"
-              az iot hub consumer-group create -g "$AZURE_RESOURCE_GROUP" --hub-name "$AZURE_IOTHUB_NAME" --name "$cg_name"
+              az iot hub consumer-group create -g "$AZURE_RESOURCE_GROUP" --hub-name "$AZURE_IOTHUB_NAME" --name "$cg_name" &
+              consumer_group_pids+=("$!")
+              if (( ${#consumer_group_pids[@]} == 4 )); then
+                  wait_for_consumer_groups "${consumer_group_pids[@]}"
+                  consumer_group_pids=()
+              fi
           done
+          wait_for_consumer_groups "${consumer_group_pids[@]}"
 
           # Route twin change events to the built-in Event Hubs-compatible endpoint
           # so reported-properties E2E tests can observe service-side patch arrivals.
@@ -57,8 +74,8 @@ stages:
             --route-name "twin-change-events"
 
           # Export variables to other stages/jobs/steps.
-          echo "##vso[task.setvariable variable=IOTHUB_CONNECTION_STRING;isOutput=true]$IOTHUB_CONNECTION_STRING"
-          echo "##vso[task.setvariable variable=EVENTHUB_CONNECTION_STRING;isOutput=true]$EVENTHUB_CONNECTION_STRING"
+          echo "##vso[task.setvariable variable=IOTHUB_CONNECTION_STRING;isOutput=true;isSecret=true]$IOTHUB_CONNECTION_STRING"
+          echo "##vso[task.setvariable variable=EVENTHUB_CONNECTION_STRING;isOutput=true;isSecret=true]$EVENTHUB_CONNECTION_STRING"
       displayName: Create IoT Hub & DPS
       name: createAzureResources
 - stage: build_and_tests
@@ -79,7 +96,8 @@ stages:
       IOTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.IOTHUB_CONNECTION_STRING']]
       EVENTHUB_CONNECTION_STRING: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['createAzureResources.EVENTHUB_CONNECTION_STRING']]
     strategy:
-      maxParallel: 9
+      # Each leg has an isolated consumer group, so all legs can run together.
+      maxParallel: 11
       matrix:
         py310_windows_mqtt:
           pv: '3.10'
@@ -147,11 +165,22 @@ stages:
           versionSpec: $(pv)
           architecture: 'x64'
           addToPath: true
+      # Cache downloads without reusing the job environment.
+      - task: Cache@2
+        displayName: 'Cache uv'
+        inputs:
+          key: '"uv" | "$(Agent.OS)" | "$(pv)" | uv.lock'
+          restoreKeys: |
+            "uv" | "$(Agent.OS)" | "$(pv)"
+            "uv" | "$(Agent.OS)"
+          path: $(Pipeline.Workspace)/.uv-cache
       - script: 'python -m pip install uv'
         displayName: 'Install uv'
 
       - script: 'uv sync --upgrade --python "$(pv)" --no-dev --group test --group e2e'
         displayName: 'Sync E2E environment'
+        env:
+          UV_CACHE_DIR: $(Pipeline.Workspace)/.uv-cache
 
       - script: |
           cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
@@ -180,6 +209,7 @@ stages:
     variables:
         AZURE_RESOURCE_GROUP: $[stageDependencies.setup.create_iot_hub_and_dps.outputs['setResourceNames.AZURE_RESOURCE_GROUP']]
     steps:
+    - checkout: none
     - task: AzureCLI@2
       inputs:
         azureSubscription: 'iot hub sdk service connection'
@@ -187,8 +217,6 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           # set -e
-
-          printenv | sort | grep -i azure
 
           time az group delete --name $(AZURE_RESOURCE_GROUP) --yes
       displayName: Destroy Azure Resource Group

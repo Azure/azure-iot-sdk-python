@@ -51,9 +51,6 @@ jobs:
       alertWarningLevel: 'High'
 
 - job: 'Publish'
-  dependsOn:
-  - 'Static_Analysis'
-
   pool:
     vmImage: 'ubuntu-24.04'
 
@@ -66,8 +63,20 @@ jobs:
   - script: 'python -m pip install uv'
     displayName: 'Install uv'
 
+  # Cache downloads without reusing the job environment.
+  - task: Cache@2
+    displayName: 'Cache uv'
+    inputs:
+      key: '"uv" | "$(Agent.OS)" | "build" | uv.lock'
+      restoreKeys: |
+        "uv" | "$(Agent.OS)" | "build"
+        "uv" | "$(Agent.OS)"
+      path: $(Pipeline.Workspace)/.uv-cache
+
   - script: 'uv build'
     displayName: Build source and wheel distribution
+    env:
+      UV_CACHE_DIR: $(Pipeline.Workspace)/.uv-cache
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish artifact dist'
