@@ -175,9 +175,22 @@ class MQTTTransport(object):
         # Set event handlers.  Use weak references back into this object to prevent leaks
         self_weakref = weakref.ref(self)
 
-        def on_connect(client, userdata, flags, rc):
+        def get_transport_from_weakref_or_stop_loop(client, callback_name):
             this = self_weakref()
+            if this is None:
+                logger.info(
+                    "{} called after MQTTTransport was garbage collected; stopping Paho network loop".format(
+                        callback_name
+                    )
+                )
+                client.loop_stop()
+            return this
+
+        def on_connect(client, userdata, flags, rc):
             logger.info("connected with result code: {}".format(rc))
+            this = get_transport_from_weakref_or_stop_loop(client, "on_connect")
+            if this is None:
+                return
 
             if rc:  # i.e. if there is an error
                 if this.on_mqtt_connection_failure_handler:
@@ -204,57 +217,58 @@ class MQTTTransport(object):
                 logger.debug("No event handler callback set for on_mqtt_connected_handler")
 
         def on_disconnect(client, userdata, rc):
-            this = self_weakref()
             logger.info("disconnected with result code: {}".format(rc))
+            this = get_transport_from_weakref_or_stop_loop(client, "on_disconnect")
+            if this is None:
+                return
 
             cause = None
             if rc:  # i.e. if there is an error
                 logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_rc_code(rc)
-                if this:
-                    this._force_transport_disconnect_and_cleanup()
+                this._force_transport_disconnect_and_cleanup()
 
-            if not this:
-                # Paho will sometimes call this after we've been garbage collected,  If so, we have to
-                # stop the loop to make sure the Paho thread shuts down.
-                logger.info(
-                    "on_disconnect called with transport==None. Transport must have been garbage collected. stopping loop"
-                )
-                client.loop_stop()
+            if this.on_mqtt_disconnected_handler:
+                try:
+                    this.on_mqtt_disconnected_handler(cause)
+                except Exception:
+                    logger.warning("Unexpected error calling on_mqtt_disconnected_handler")
+                    logger.warning(traceback.format_exc())
             else:
-                if this.on_mqtt_disconnected_handler:
-                    try:
-                        this.on_mqtt_disconnected_handler(cause)
-                    except Exception:
-                        logger.warning("Unexpected error calling on_mqtt_disconnected_handler")
-                        logger.warning(traceback.format_exc())
-                else:
-                    logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
+                logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
 
         def on_subscribe(client, userdata, mid, granted_qos):
-            this = self_weakref()
             logger.info("suback received for {}".format(mid))
+            this = get_transport_from_weakref_or_stop_loop(client, "on_subscribe")
+            if this is None:
+                return
             # subscribe failures are returned from the subscribe() call.  This is just
             # a notification that a SUBACK was received, so there is no failure case here
             this._op_manager.complete_operation(mid)
 
         def on_unsubscribe(client, userdata, mid):
-            this = self_weakref()
             logger.info("UNSUBACK received for {}".format(mid))
+            this = get_transport_from_weakref_or_stop_loop(client, "on_unsubscribe")
+            if this is None:
+                return
             # unsubscribe failures are returned from the unsubscribe() call.  This is just
             # a notification that a SUBACK was received, so there is no failure case here
             this._op_manager.complete_operation(mid)
 
         def on_publish(client, userdata, mid):
-            this = self_weakref()
             logger.info("payload published for {}".format(mid))
+            this = get_transport_from_weakref_or_stop_loop(client, "on_publish")
+            if this is None:
+                return
             # publish failures are returned from the publish() call.  This is just
             # a notification that a PUBACK was received, so there is no failure case here
             this._op_manager.complete_operation(mid)
 
         def on_message(client, userdata, mqtt_message):
-            this = self_weakref()
             logger.info("message received on {}".format(mqtt_message.topic))
+            this = get_transport_from_weakref_or_stop_loop(client, "on_message")
+            if this is None:
+                return
 
             if this.on_mqtt_message_received_handler:
                 try:

@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 import docker
 import asyncio
+import os
 import uuid
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import Message
@@ -124,6 +125,14 @@ def start_timer(duration, restart_count, signal_to_quit):
 
 async def main():
 
+    conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+    if not conn_str:
+        raise RuntimeError(
+            "Set the IOTHUB_DEVICE_CONNECTION_STRING environment variable to the connection "
+            "string of the device used against the local test broker, e.g. "
+            "HostName=localhost;DeviceId=devicemtr;SharedAccessKey=<base64 key>"
+        )
+
     ca_cert = "self_cert_localhost.pem"
     certfile = open(ca_cert)
     root_ca_cert = certfile.read()
@@ -140,7 +149,6 @@ async def main():
 
     # Do not delete sleep from here. Server needs some time to start.
     await asyncio.sleep(5)
-    conn_str = "HostName=localhost;DeviceId=devicemtr;SharedAccessKey=Zm9vYmFy"
     device_client = IoTHubDeviceClient.create_from_connection_string(
         conn_str, keep_alive=KEEP_ALIVE, server_verification_cert=root_ca_cert
     )
