@@ -4,7 +4,7 @@
     <h1> azure-iot-device </h1>
 </div>
 
-![Build Status](https://azure-iot-sdks.visualstudio.com/azure-iot-sdks/_apis/build/status/Azure.azure-iot-sdk-python)
+[![Build Status](https://github.com/Azure/azure-iot-sdk-python/actions/workflows/ci.yml/badge.svg)](https://github.com/Azure/azure-iot-sdk-python/actions/workflows/ci.yml)
 
 The Azure IoT Device SDK for Python enables Python developers to easily create IoT device solutions that seamlessly connect to the Azure IoT Hub ecosystem.
 
