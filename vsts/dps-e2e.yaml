@@ -273,11 +273,11 @@ stages:
         versionSpec: '3.10'
         architecture: 'x64'
 
-    - script: 'python scripts/env_setup.py --no_dev'
-      displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+    - script: 'python -m pip install uv'
+      displayName: 'Install uv'
 
-    - script: 'python -m pip install cryptography'
-      displayName: 'Install pyca/cryptography for X509 functionality'
+    - script: 'uv sync --upgrade --python 3.10 --no-dev --group test --group e2e'
+      displayName: 'Sync E2E environment'
 
     - script: |
         cd $(Agent.WorkFolder)
@@ -287,7 +287,7 @@ stages:
 
     - script: |
         cd $(Build.SourcesDirectory)/tests/e2e/provisioning_e2e
-        pytest --junitxml=junit/dps-e2e-test-results.xml
+        uv run --no-sync pytest --junitxml=junit/dps-e2e-test-results.xml
       displayName: 'Run Specified E2E Test with env variables'
 
       env:

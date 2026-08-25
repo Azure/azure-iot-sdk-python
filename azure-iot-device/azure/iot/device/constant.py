@@ -3,10 +3,11 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-"""This module defines constants for use across the azure-iot-device package
-"""
+"""This module defines constants for use across the azure-iot-device package"""
 
-VERSION = "2.15.0rc1"
+from importlib.metadata import version
+
+VERSION = version("azure-iot-device")
 IOTHUB_IDENTIFIER = "azure-iot-device-iothub-py"
 PROVISIONING_IDENTIFIER = "azure-iot-device-provisioning-py"
 IOTHUB_API_VERSION = "2019-10-01"

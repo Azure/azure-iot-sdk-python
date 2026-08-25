@@ -1,12 +1,13 @@
 repos:
--   repo: https://github.com/ambv/black
-    rev: 22.3.0
+  - repo: local
     hooks:
-    - id: black
-      language_version: python3
--   repo: https://github.com/pycqa/flake8
-    rev: 7.0.0  # Use the ref you want to point at
-    hooks:
-    -   id: flake8
-        args: ['--config=.flake8']
-        additional_dependencies: ['importlib_metadata==4.3']
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: black
+        name: black
+        entry: uv run black
+        language: system
+        types: [python]

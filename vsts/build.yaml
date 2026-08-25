@@ -39,7 +39,6 @@ jobs:
     condition: always()
 
 - job: 'Static_Analysis'
-  condition: false # Disabling this job since it is failing on recent runs. Must be re-enabled asap.
   pool:
     vmImage: 'ubuntu-24.04'
 
@@ -54,11 +53,14 @@ jobs:
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
   
-  - script: 'python scripts/env_setup.py --no_dev'
-    displayName: 'Prepare environment (install packages + dependencies + tools)'
+  - script: 'python -m pip install uv'
+    displayName: 'Install uv'
 
-  - script: 'flake8 .'
-    displayName: 'Flake8'
+  - script: 'uv sync --upgrade --no-dev --group lint'
+    displayName: 'Sync lint environment'
+
+  - script: 'uv run --no-sync ruff check .'
+    displayName: 'Ruff check'
 
 - job: 'Test'
   pool:
@@ -82,13 +84,13 @@ jobs:
       versionSpec: '$(python.version)'
       architecture: 'x64'
 
-  - script: 'python -m pip install --upgrade pip'
-    displayName: 'Update pip'
+  - script: 'python -m pip install uv'
+    displayName: 'Install uv'
 
-  - script: 'python scripts/env_setup.py --no_dev'
-    displayName: 'Prepare environment (install packages + dependencies + tools)'
+  - script: 'uv sync --upgrade --python "$(python.version)" --no-dev --group test'
+    displayName: 'Sync test environment'
 
-  - script: 'pytest tests --junitxml=junit/azure-iot-device-test-results.xml --cov=azure --cov-report=xml:coverage.xml --cov-report=html:coverage --cov-append'
+  - script: 'uv run --no-sync pytest tests --junitxml=junit/azure-iot-device-test-results.xml --cov=azure --cov-report=xml:coverage.xml --cov-report=html:coverage --cov-append'
     displayName: pytest
 
   - task: PublishTestResults@2
@@ -117,10 +119,10 @@ jobs:
       versionSpec: '3.x'
       architecture: 'x64'
 
-  - script: |
-      pip install wheel
-      pip install setuptools
-      python scripts/build_packages.py
+  - script: 'python -m pip install uv'
+    displayName: 'Install uv'
+
+  - script: 'uv build'
     displayName: Build source and wheel distribution
 
   - task: PublishBuildArtifacts@1

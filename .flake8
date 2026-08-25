@@ -1,9 +1,0 @@
-[flake8]
-# E501: line length (handled by black)
-# W503, E203: Not PEP8 compliant (incompatible with black)
-# Ignore generated code
-ignore = E501,W503,E203
-exclude =
-    .git,
-    __pycache__,
-    tests/e2e/provisioning_e2e/iothubservice20180630/*
