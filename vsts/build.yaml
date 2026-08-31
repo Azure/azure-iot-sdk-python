@@ -3,9 +3,9 @@ resources:
 
 variables:
   # CodeQL is auto-injected into every job by the 1ES policy decorator. Off by
-  # default so the python test matrix (5 parallel jobs) does not each build and
-  # upload a competing database -- S360 records arg_max(SnapshotDate) per
-  # (repo, language). The dedicated 'CodeQL' job below opts back in.
+  # default so other jobs do not build and upload competing databases -- S360
+  # records arg_max(SnapshotDate) per (repo, language). The dedicated 'CodeQL'
+  # job below opts back in.
   # See https://aka.ms/codeql3000 and https://aka.ms/sdlfaqcodeql.
   Codeql.Enabled: false
 
@@ -39,77 +39,18 @@ jobs:
     condition: always()
 
 - job: 'Static_Analysis'
+  displayName: 'Component Governance'
   pool:
     vmImage: 'ubuntu-24.04'
 
   steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.x'
-      architecture: 'x64'
   - task: ComponentGovernanceComponentDetection@0
     inputs:
       scanType: 'Register'
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
-  
-  - script: 'python -m pip install uv'
-    displayName: 'Install uv'
-
-  - script: 'uv sync --upgrade --no-dev --group lint'
-    displayName: 'Sync lint environment'
-
-  - script: 'uv run --no-sync ruff check .'
-    displayName: 'Ruff check'
-
-- job: 'Test'
-  pool:
-    vmImage: 'ubuntu-24.04'
-  strategy:
-      matrix:
-        Python310:
-          python.version: '3.10'
-        Python311:
-          python.version: '3.11'
-        Python312:
-          python.version: '3.12'
-        Python313:
-          python.version: '3.13'
-        Python314:
-          python.version: '3.14'
-  steps:
-  - task: UsePythonVersion@0
-    displayName: 'Use Python $(python.version)'
-    inputs:
-      versionSpec: '$(python.version)'
-      architecture: 'x64'
-
-  - script: 'python -m pip install uv'
-    displayName: 'Install uv'
-
-  - script: 'uv sync --upgrade --python "$(python.version)" --no-dev --group test'
-    displayName: 'Sync test environment'
-
-  - script: 'uv run --no-sync pytest tests --junitxml=junit/azure-iot-device-test-results.xml --cov=azure --cov-report=xml:coverage.xml --cov-report=html:coverage --cov-append'
-    displayName: pytest
-
-  - task: PublishTestResults@2
-    displayName: 'Publish Test Results **/*-test-results.xml'
-    inputs:
-      testResultsFiles: '**/*-test-results.xml'
-      testRunTitle: 'Python $(python.version)'
-    condition: always()
-
-  - task: PublishCodeCoverageResults@2
-    inputs:
-      summaryFileLocation: '$(Build.SourcesDirectory)/coverage.xml'
-      failIfCoverageEmpty: true
 
 - job: 'Publish'
-  dependsOn:
-  - 'Test'
-  - 'Static_Analysis'
-
   pool:
     vmImage: 'ubuntu-24.04'
 
@@ -122,8 +63,20 @@ jobs:
   - script: 'python -m pip install uv'
     displayName: 'Install uv'
 
+  # Cache downloads without reusing the job environment.
+  - task: Cache@2
+    displayName: 'Cache uv'
+    inputs:
+      key: '"uv" | "$(Agent.OS)" | "build" | uv.lock'
+      restoreKeys: |
+        "uv" | "$(Agent.OS)" | "build"
+        "uv" | "$(Agent.OS)"
+      path: $(Pipeline.Workspace)/.uv-cache
+
   - script: 'uv build'
     displayName: Build source and wheel distribution
+    env:
+      UV_CACHE_DIR: $(Pipeline.Workspace)/.uv-cache
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish artifact dist'
