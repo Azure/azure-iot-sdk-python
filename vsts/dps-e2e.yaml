@@ -9,11 +9,12 @@ stages:
     pool:
       vmImage: 'ubuntu-24.04'
     steps:
+    - checkout: none
     - script: |
-        sudo apt-get install -y uuid
-        AZURE_RESOURCE_GROUP="iotpythondpse2e$(uuid | tr -d '-')"
-        AZURE_IOTHUB_NAME="iotpythondpse2e$(uuid | tr -d '-')"
-        AZURE_DPS_NAME="iotpythondpse2e$(uuid | tr -d '-')"
+        RESOURCE_SUFFIX=$(tr -d '-' < /proc/sys/kernel/random/uuid)
+        AZURE_RESOURCE_GROUP="iotpythondpse2e$RESOURCE_SUFFIX"
+        AZURE_IOTHUB_NAME="iotpythondpse2e$RESOURCE_SUFFIX"
+        AZURE_DPS_NAME="iotpythondpse2e$RESOURCE_SUFFIX"
 
         # Export variables to other stages/jobs/steps.
         echo "##vso[task.setvariable variable=AZURE_RESOURCE_GROUP;isOutput=true]$AZURE_RESOURCE_GROUP"
@@ -178,8 +179,8 @@ stages:
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT_PATH;isOutput=true]$DPS_ROOT_CA_CERT_PATH"
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK_PATH;isOutput=true]$DPS_ROOT_CA_PK_PATH"
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_CERT_BASE64;isOutput=true]$DPS_ROOT_CA_CERT_BASE64"
-        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK_BASE64;isOutput=true]$DPS_ROOT_CA_PK_BASE64"
-        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PASSWORD;isOutput=true]$DPS_ROOT_CA_PASSWORD"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PK_BASE64;isOutput=true;isSecret=true]$DPS_ROOT_CA_PK_BASE64"
+        echo "##vso[task.setvariable variable=DPS_ROOT_CA_PASSWORD;isOutput=true;isSecret=true]$DPS_ROOT_CA_PASSWORD"
         echo "##vso[task.setvariable variable=DPS_ROOT_CA_CONFIG_PATH;isOutput=true]$DPS_ROOT_CA_CONFIG_PATH"
       name: testCertificates
       displayName: Create Test Certificates
@@ -202,19 +203,22 @@ stages:
           # Create Resource Group
           az group create -g $AZURE_RESOURCE_GROUP -l $(AZURE_REGION)
 
-          # Create Azure IoT Hub
-          time az iot hub create -g $AZURE_RESOURCE_GROUP -n $AZURE_IOTHUB_NAME --dla false --mintls 1.2 --partition-count 4 --sku S1
+          # Create independent resources concurrently, then wait before linking them.
+          time az iot hub create -g $AZURE_RESOURCE_GROUP -n $AZURE_IOTHUB_NAME --dla false --mintls 1.2 --partition-count 4 --sku S1 &
+          iothub_create_pid=$!
+          time az iot dps create -g $AZURE_RESOURCE_GROUP --name $AZURE_DPS_NAME -l $(AZURE_REGION) &
+          dps_create_pid=$!
+
+          create_failed=0
+          wait "$iothub_create_pid" || create_failed=1
+          wait "$dps_create_pid" || create_failed=1
+          if (( create_failed )); then
+              exit 1
+          fi
 
           export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --query "connectionString" --output tsv)
           export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
 
-          for i in $(seq 1 11); do
-              cg_name="cg$i"
-              az iot hub consumer-group create -g "$AZURE_RESOURCE_GROUP" --hub-name "$AZURE_IOTHUB_NAME" --name "$cg_name"
-          done
-
-          # Create Device Provisioning service
-          time az iot dps create -g $AZURE_RESOURCE_GROUP --name $AZURE_DPS_NAME -l $(AZURE_REGION)
           time az iot dps linked-hub create -g $AZURE_RESOURCE_GROUP --dps-name $AZURE_DPS_NAME --connection-string "$IOTHUB_CONNECTION_STRING"
 
           export DPS_CONNECTION_STRING=$(az iot dps connection-string show -g $AZURE_RESOURCE_GROUP --dps-name $AZURE_DPS_NAME --policy-name provisioningserviceowner --query "connectionString" --output tsv)
@@ -245,9 +249,9 @@ stages:
           time az iot dps certificate verify --dps-name $AZURE_DPS_NAME --resource-group $AZURE_RESOURCE_GROUP --name $DPS_ROOT_CA_CERT_NAME --path $verification_code_pem_path --etag $etag
 
           # Export variables to other stages/jobs/steps.
-          echo "##vso[task.setvariable variable=IOTHUB_CONNECTION_STRING;isOutput=true]$IOTHUB_CONNECTION_STRING"
-          echo "##vso[task.setvariable variable=EVENTHUB_CONNECTION_STRING;isOutput=true]$EVENTHUB_CONNECTION_STRING"
-          echo "##vso[task.setvariable variable=DPS_CONNECTION_STRING;isOutput=true]$DPS_CONNECTION_STRING"
+          echo "##vso[task.setvariable variable=IOTHUB_CONNECTION_STRING;isOutput=true;isSecret=true]$IOTHUB_CONNECTION_STRING"
+          echo "##vso[task.setvariable variable=EVENTHUB_CONNECTION_STRING;isOutput=true;isSecret=true]$EVENTHUB_CONNECTION_STRING"
+          echo "##vso[task.setvariable variable=DPS_CONNECTION_STRING;isOutput=true;isSecret=true]$DPS_CONNECTION_STRING"
           echo "##vso[task.setvariable variable=DPS_ID_SCOPE;isOutput=true]$DPS_ID_SCOPE"
           echo "##vso[task.setvariable variable=DPS_HOSTNAME;isOutput=true]$DPS_HOSTNAME"
       displayName: Create IoT Hub & DPS
@@ -273,11 +277,23 @@ stages:
         versionSpec: '3.10'
         architecture: 'x64'
 
+    # Cache downloads without reusing the job environment.
+    - task: Cache@2
+      displayName: 'Cache uv'
+      inputs:
+        key: '"uv" | "$(Agent.OS)" | "3.10" | uv.lock'
+        restoreKeys: |
+          "uv" | "$(Agent.OS)" | "3.10"
+          "uv" | "$(Agent.OS)"
+        path: $(Pipeline.Workspace)/.uv-cache
+
     - script: 'python -m pip install uv'
       displayName: 'Install uv'
 
     - script: 'uv sync --upgrade --python 3.10 --no-dev --group test --group e2e'
       displayName: 'Sync E2E environment'
+      env:
+        UV_CACHE_DIR: $(Pipeline.Workspace)/.uv-cache
 
     - script: |
         cd $(Agent.WorkFolder)
@@ -322,6 +338,7 @@ stages:
     variables:
         AZURE_RESOURCE_GROUP: $[stageDependencies.setup.create_azure_resources.outputs['setResourceNames.AZURE_RESOURCE_GROUP']]
     steps:
+    - checkout: none
     - task: AzureCLI@2
       inputs:
         azureSubscription: 'iot hub sdk service connection'
