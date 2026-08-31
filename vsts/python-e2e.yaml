@@ -1,3 +1,13 @@
+trigger:
+  branches:
+    include:
+    - main
+
+pr:
+  branches:
+    include:
+    - main
+
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 
 variables:
