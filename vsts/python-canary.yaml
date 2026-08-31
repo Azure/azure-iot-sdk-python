@@ -4,7 +4,8 @@ jobs:
 - job: 'Test'
 
   strategy:
-    maxParallel: 4
+    # Each leg has an isolated consumer group, so all legs can run together.
+    maxParallel: 7
     matrix:
       py310_windows_mqtt:
         pv: '3.10'
@@ -19,27 +20,27 @@ jobs:
       py310_linux_mqttws:
         pv: '3.10'
         transport: 'mqttws'
-        imageName: 'Ubuntu 20.04'
+        imageName: 'ubuntu-24.04'
         consumerGroup: 'cg4'
       py310_linux_mqtt:
         pv: '3.10'
         transport: 'mqtt'
-        imageName: 'Ubuntu 20.04'
+        imageName: 'ubuntu-24.04'
         consumerGroup: 'cg6'
       py311_linux_mqtt:
         pv: '3.11'
         transport: 'mqtt'
-        imageName: 'Ubuntu 20.04'
+        imageName: 'ubuntu-24.04'
         consumerGroup: 'cg7'
       py312_linux_mqtt:
         pv: '3.12'
         transport: 'mqtt'
-        imageName: 'Ubuntu 20.04'
+        imageName: 'ubuntu-24.04'
         consumerGroup: 'cg8'
       py312_linux_mqttws:
         pv: '3.12'
         transport: 'mqttws'
-        imageName: 'Ubuntu 20.04'
+        imageName: 'ubuntu-24.04'
         consumerGroup: 'cg9'
 
   pool:
@@ -51,11 +52,23 @@ jobs:
         versionSpec: $(pv)
         architecture: 'x64'
 
+    # Cache downloads without reusing the job environment.
+    - task: Cache@2
+      displayName: 'Cache uv'
+      inputs:
+        key: '"uv" | "$(Agent.OS)" | "$(pv)" | uv.lock'
+        restoreKeys: |
+          "uv" | "$(Agent.OS)" | "$(pv)"
+          "uv" | "$(Agent.OS)"
+        path: $(Pipeline.Workspace)/.uv-cache
+
     - script: 'python -m pip install uv'
       displayName: 'Install uv'
 
     - script: 'uv sync --upgrade --python "$(pv)" --no-dev --group test --group e2e'
       displayName: 'Sync E2E environment'
+      env:
+        UV_CACHE_DIR: $(Pipeline.Workspace)/.uv-cache
 
     - script: |
         cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
