@@ -18,6 +18,8 @@ def service_helper():
     helper._eventhub_ready = threading.Event()
     helper._eventhub_future = concurrent.futures.Future()
     helper._eventhub_start_position = "eventhub-start-position"
+    helper.cv = threading.Condition()
+    helper.incoming_eventhub_events = {}
     return helper
 
 
@@ -112,3 +114,24 @@ class TestShutdown(object):
 
         assert service_helper._eventhub_consumer_client.close.call_count == 1
         assert service_helper._eventhub_future.result.call_args == mocker.call(timeout=30)
+
+
+@pytest.mark.describe("ServiceHelperSync - .wait_for_eventhub_arrival()")
+class TestWaitForEventHubArrival(object):
+    @pytest.mark.it("Returns the first event matching the supplied filter")
+    def test_filters_arrivals(self, mocker, service_helper):
+        stale_event = mocker.MagicMock(message_body="stale")
+        expected_event = mocker.MagicMock(message_body="expected")
+        service_helper.incoming_eventhub_events = {
+            "stale": stale_event,
+            "expected": expected_event,
+        }
+
+        event = service_helper.wait_for_eventhub_arrival(
+            None,
+            timeout=0.1,
+            event_filter=lambda event: event.message_body == "expected",
+        )
+
+        assert event is expected_event
+        assert service_helper.incoming_eventhub_events == {"stale": stale_event}

@@ -66,7 +66,10 @@ class TestSendMessage(object):
 
         client.send_message(message)
 
-        event = service_helper.wait_for_eventhub_arrival(None)
+        expected_body = json.loads(message)
+        event = service_helper.wait_for_eventhub_arrival(
+            None, event_filter=lambda event: event.message_body == expected_body
+        )
         assert json.dumps(event.message_body) == message
 
         leak_tracker.check_for_leaks()
@@ -79,7 +82,9 @@ class TestSendMessage(object):
 
         client.send_message(message)
 
-        event = service_helper.wait_for_eventhub_arrival(None)
+        event = service_helper.wait_for_eventhub_arrival(
+            None, event_filter=lambda event: event.message_body == message
+        )
         assert event.message_body == message
 
         leak_tracker.check_for_leaks()

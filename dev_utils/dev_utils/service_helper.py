@@ -57,11 +57,12 @@ class ServiceHelper:
     ):
         return await self._run_in_executor(self._inner_object.send_c2d, payload, properties)
 
-    async def wait_for_eventhub_arrival(self, message_id, timeout=60):
+    async def wait_for_eventhub_arrival(self, message_id, timeout=60, event_filter=None):
         return await self._run_in_executor(
             self._inner_object.wait_for_eventhub_arrival,
             message_id,
             timeout,
+            event_filter,
         )
 
     async def get_next_reported_patch_arrival(self, block=True, timeout=240):
