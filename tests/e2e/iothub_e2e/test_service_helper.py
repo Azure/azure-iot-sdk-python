@@ -17,6 +17,7 @@ def service_helper():
     helper = object.__new__(ServiceHelperSync)
     helper._eventhub_ready = threading.Event()
     helper._eventhub_future = concurrent.futures.Future()
+    helper._eventhub_start_position = "eventhub-start-position"
     return helper
 
 
@@ -93,7 +94,10 @@ class TestEventHubConsumer(object):
         service_helper._eventhub_thread()
 
         assert service_helper._eventhub_ready.is_set()
-        assert eventhub_client.receive_batch.call_args.kwargs["starting_position"] == "-1"
+        assert (
+            eventhub_client.receive_batch.call_args.kwargs["starting_position"]
+            == service_helper._eventhub_start_position
+        )
 
 
 @pytest.mark.describe("ServiceHelperSync - .shutdown()")

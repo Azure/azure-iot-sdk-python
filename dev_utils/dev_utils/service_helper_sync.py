@@ -7,6 +7,7 @@ import queue
 import copy
 import time
 import uuid
+import datetime
 import concurrent.futures
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.protocol.models import Twin, TwinProperties, CloudToDeviceMethod
@@ -94,6 +95,7 @@ class ServiceHelperSync(object):
         self.incoming_patch_queue = queue.Queue()
         self.cv = threading.Condition()
         self.incoming_eventhub_events = {}
+        self._eventhub_start_position = datetime.datetime.now(datetime.timezone.utc)
         self._eventhub_ready = threading.Event()
         self._eventhub_future = self._start_eventhub_thread()
         self._eventhub_future.add_done_callback(lambda _: self._eventhub_ready.set())
@@ -320,7 +322,7 @@ class ServiceHelperSync(object):
                 logger.info("Starting EventHub receive")
                 self._eventhub_consumer_client.receive_batch(
                     max_wait_time=2,
-                    starting_position="-1",
+                    starting_position=self._eventhub_start_position,
                     on_event_batch=on_event_batch,
                     on_error=on_error,
                     on_partition_initialize=on_partition_initialize,
