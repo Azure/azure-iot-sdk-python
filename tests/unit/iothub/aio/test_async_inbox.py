@@ -8,11 +8,9 @@ import pytest
 import asyncio
 import logging
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
+from tests.unit.helpers import PROMPT_TIMEOUT
 
 logging.basicConfig(level=logging.DEBUG)
-
-# get() crosses the client internal event loop, but an available item should return promptly.
-PROMPT_GET_TIMEOUT = 0.1
 
 # Note that some small delays need to be added at the end of async tests due to
 # RuntimeWarnings being thrown by the test ending before janus can correctly
@@ -42,7 +40,7 @@ class TestAsyncClientInbox(object):
         assert inbox.empty()
         inbox.put(mocker.MagicMock())
         assert not inbox.empty()
-        await asyncio.wait_for(inbox.get(), timeout=PROMPT_GET_TIMEOUT)
+        await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT)
         assert inbox.empty()
         await asyncio.sleep(0.01)  # Do this to prevent RuntimeWarning from janus
 
@@ -57,9 +55,9 @@ class TestAsyncClientInbox(object):
         inbox.put(item2)
         inbox.put(item3)
 
-        assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_GET_TIMEOUT) is item1
-        assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_GET_TIMEOUT) is item2
-        assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_GET_TIMEOUT) is item3
+        assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT) is item1
+        assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT) is item2
+        assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT) is item3
 
         await asyncio.sleep(0.01)  # Do this to prevent RuntimeWarning from janus
 
@@ -86,7 +84,7 @@ class TestAsyncClientInboxGet(object):
         item = mocker.MagicMock()
         inbox.put(item)
         assert not inbox.empty()
-        retrieved_item = await asyncio.wait_for(inbox.get(), timeout=PROMPT_GET_TIMEOUT)
+        retrieved_item = await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT)
         assert retrieved_item is item
         assert inbox.empty()
 
@@ -106,7 +104,7 @@ class TestAsyncClientInboxGet(object):
         assert not get_task.done()
         # Add the item, allowing the get task to complete
         inbox.put(item)
-        assert await asyncio.wait_for(get_task, timeout=PROMPT_GET_TIMEOUT) is item
+        assert await asyncio.wait_for(get_task, timeout=PROMPT_TIMEOUT) is item
 
 
 @pytest.mark.describe("AsyncClientInbox - .clear()")
