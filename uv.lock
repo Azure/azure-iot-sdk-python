@@ -95,7 +95,7 @@ requires-dist = [
     { name = "pysocks" },
     { name = "requests", specifier = ">=2.32.3,<3.0.0" },
     { name = "requests-unixsocket", specifier = ">=0.4.1" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", specifier = ">=4.0.0,<5.0.0" },
 ]
 
 [package.metadata.requires-dev]
