@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import importlib
 import pytest
 import logging
 import requests
@@ -11,7 +12,7 @@ import requests_unixsocket
 import json
 import base64
 import urllib
-from azure.iot.device.iothub.edge_hsm import IoTEdgeHsm, IoTEdgeError
+from azure.iot.device.iothub import edge_hsm as edge_hsm_module
 from azure.iot.device import user_agent
 
 logging.basicConfig(level=logging.DEBUG)
@@ -19,21 +20,31 @@ logging.basicConfig(level=logging.DEBUG)
 
 @pytest.fixture
 def edge_hsm():
-    return IoTEdgeHsm(
+    hsm = edge_hsm_module.IoTEdgeHsm(
         module_id="my_module_id",
         generation_id="module_generation_id",
         workload_uri="unix:///var/run/iotedge/workload.sock",
         api_version="my_api_version",
     )
+    yield hsm
+    hsm.close()
 
 
 @pytest.mark.describe("IoTEdgeHsm - Instantiation")
 class TestIoTEdgeHsmInstantiation(object):
+    @pytest.mark.it("Does not monkeypatch the global requests API when imported")
+    def test_does_not_monkeypatch_requests(self, mocker):
+        mock_monkeypatch = mocker.patch.object(requests_unixsocket, "monkeypatch")
+
+        importlib.reload(edge_hsm_module)
+
+        assert mock_monkeypatch.call_count == 0
+
     @pytest.mark.it("Creates a private Unix socket requests session")
     def test_creates_unix_socket_session(self, mocker):
         mock_session_constructor = mocker.patch.object(requests_unixsocket, "Session")
 
-        edge_hsm = IoTEdgeHsm(
+        edge_hsm = edge_hsm_module.IoTEdgeHsm(
             module_id="my_module_id",
             generation_id="my_generation_id",
             workload_uri="unix:///var/run/iotedge/workload.sock",
@@ -50,7 +61,7 @@ class TestIoTEdgeHsmInstantiation(object):
         api_version = "my_api_version"
         workload_uri = "unix:///var/run/iotedge/workload.sock"
 
-        edge_hsm = IoTEdgeHsm(
+        edge_hsm = edge_hsm_module.IoTEdgeHsm(
             module_id=module_id,
             generation_id=generation_id,
             workload_uri=workload_uri,
@@ -78,7 +89,7 @@ class TestIoTEdgeHsmInstantiation(object):
         generation_id = "my_generation_id"
         api_version = "my_api_version"
 
-        edge_hsm = IoTEdgeHsm(
+        edge_hsm = edge_hsm_module.IoTEdgeHsm(
             module_id=module_id,
             generation_id=generation_id,
             workload_uri=workload_uri,
@@ -94,7 +105,7 @@ class TestIoTEdgeHsmInstantiation(object):
         api_version = "my_api_version"
         workload_uri = "unix:///var/run/iotedge/workload.sock"
 
-        edge_hsm = IoTEdgeHsm(
+        edge_hsm = edge_hsm_module.IoTEdgeHsm(
             module_id=module_id,
             generation_id=generation_id,
             workload_uri=workload_uri,
@@ -110,7 +121,7 @@ class TestIoTEdgeHsmInstantiation(object):
         api_version = "my_api_version"
         workload_uri = "unix:///var/run/iotedge/workload.sock"
 
-        edge_hsm = IoTEdgeHsm(
+        edge_hsm = edge_hsm_module.IoTEdgeHsm(
             module_id=module_id,
             generation_id=generation_id,
             workload_uri=workload_uri,
@@ -156,7 +167,7 @@ class TestIoTEdgeHsmGetCertificate(object):
         error = requests.exceptions.HTTPError()
         mock_response.raise_for_status.side_effect = error
 
-        with pytest.raises(IoTEdgeError) as e_info:
+        with pytest.raises(edge_hsm_module.IoTEdgeError) as e_info:
             edge_hsm.get_certificate()
         assert e_info.value.__cause__ is error
 
@@ -167,7 +178,7 @@ class TestIoTEdgeHsmGetCertificate(object):
         error = ValueError()
         mock_response.json.side_effect = error
 
-        with pytest.raises(IoTEdgeError) as e_info:
+        with pytest.raises(edge_hsm_module.IoTEdgeError) as e_info:
             edge_hsm.get_certificate()
         assert e_info.value.__cause__ is error
 
@@ -178,7 +189,7 @@ class TestIoTEdgeHsmGetCertificate(object):
         # Return an empty json dict with no 'certificate' key
         mock_response.json.return_value = {}
 
-        with pytest.raises(IoTEdgeError):
+        with pytest.raises(edge_hsm_module.IoTEdgeError):
             edge_hsm.get_certificate()
 
 
@@ -243,7 +254,7 @@ class TestIoTEdgeHsmSign(object):
         error = requests.exceptions.HTTPError()
         mock_response.raise_for_status.side_effect = error
 
-        with pytest.raises(IoTEdgeError) as e_info:
+        with pytest.raises(edge_hsm_module.IoTEdgeError) as e_info:
             edge_hsm.sign("somedata")
         assert e_info.value.__cause__ is error
 
@@ -253,7 +264,7 @@ class TestIoTEdgeHsmSign(object):
         mock_response = mock_request_post.return_value
         error = ValueError()
         mock_response.json.side_effect = error
-        with pytest.raises(IoTEdgeError) as e_info:
+        with pytest.raises(edge_hsm_module.IoTEdgeError) as e_info:
             edge_hsm.sign("somedata")
         assert e_info.value.__cause__ is error
 
@@ -263,5 +274,16 @@ class TestIoTEdgeHsmSign(object):
         mock_response = mock_request_post.return_value
         mock_response.json.return_value = {}
 
-        with pytest.raises(IoTEdgeError):
+        with pytest.raises(edge_hsm_module.IoTEdgeError):
             edge_hsm.sign("somedata")
+
+
+@pytest.mark.describe("IoTEdgeHsm - .close()")
+class TestIoTEdgeHsmClose(object):
+    @pytest.mark.it("Closes the private Unix socket session")
+    def test_closes_session(self, mocker, edge_hsm):
+        mock_close = mocker.patch.object(edge_hsm._session, "close")
+
+        edge_hsm.close()
+
+        assert mock_close.call_args == mocker.call()

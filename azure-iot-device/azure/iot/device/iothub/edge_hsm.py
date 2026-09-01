@@ -48,6 +48,10 @@ class IoTEdgeHsm(SigningMechanism):
         self.workload_uri = _format_socket_uri(workload_uri)
         self._session = requests_unixsocket.Session()
 
+    def close(self):
+        """Release resources held by the Unix socket session."""
+        self._session.close()
+
     def get_certificate(self):
         """
         Return the server verification certificate from the trust bundle that can be used to

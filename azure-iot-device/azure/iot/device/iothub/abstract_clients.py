@@ -127,6 +127,12 @@ class AbstractIoTHubClient(abc.ABC):
         self._handler_manager = None  # this will be overridden in child class
         self._receive_type = RECEIVE_TYPE_NONE_SET
         self._client_lock = threading.Lock()
+        self._edge_hsm = None
+
+    def _close_edge_hsm(self) -> None:
+        if self._edge_hsm is not None:
+            self._edge_hsm.close()
+            self._edge_hsm = None
 
     def _on_connected(self) -> None:
         """Helper handler that is called upon an iothub pipeline connect"""
@@ -804,6 +810,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 key=connection_string[cs.SHARED_ACCESS_KEY]
             )
 
+            hsm = None
         else:
             # Use an HSM for authentication in the general case
             hsm = edge_hsm.IoTEdgeHsm(
@@ -812,46 +819,56 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 workload_uri=workload_uri,
                 api_version=api_version,
             )
-            try:
-                server_verification_cert = hsm.get_certificate()
-            except edge_hsm.IoTEdgeError as e:
-                new_err = OSError("Unexpected failure in IoTEdge")
-                new_err.__cause__ = e
-                raise new_err
+
             signing_mechanism = hsm
 
-        # Create SasToken
-        uri = _form_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
-        token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
-        except st.SasTokenError as e:
-            new_val_err = ValueError(
-                "Could not create a SasToken using the values provided, or in the Edge environment"
+            if hsm is not None:
+                try:
+                    server_verification_cert = hsm.get_certificate()
+                except edge_hsm.IoTEdgeError as e:
+                    new_err = OSError("Unexpected failure in IoTEdge")
+                    new_err.__cause__ = e
+                    raise new_err
+
+            # Create SasToken
+            uri = _form_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
+            token_ttl = kwargs.get("sastoken_ttl", 3600)
+            try:
+                sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
+            except st.SasTokenError as e:
+                new_val_err = ValueError(
+                    "Could not create a SasToken using the values provided, or in the Edge environment"
+                )
+                new_val_err.__cause__ = e
+                raise new_val_err
+
+            # Pipeline Config setup
+            config_kwargs = _get_config_kwargs(**kwargs)
+            pipeline_configuration = pipeline.IoTHubPipelineConfig(
+                device_id=device_id,
+                module_id=module_id,
+                hostname=hostname,
+                gateway_hostname=gateway_hostname,
+                sastoken=sastoken,
+                server_verification_cert=server_verification_cert,
+                **config_kwargs,
             )
-            new_val_err.__cause__ = e
-            raise new_val_err
+            pipeline_configuration.method_invoke = (
+                True  # Method Invoke is allowed on modules created from edge environment
+            )
 
-        # Pipeline Config setup
-        config_kwargs = _get_config_kwargs(**kwargs)
-        pipeline_configuration = pipeline.IoTHubPipelineConfig(
-            device_id=device_id,
-            module_id=module_id,
-            hostname=hostname,
-            gateway_hostname=gateway_hostname,
-            sastoken=sastoken,
-            server_verification_cert=server_verification_cert,
-            **config_kwargs,
-        )
-        pipeline_configuration.method_invoke = (
-            True  # Method Invoke is allowed on modules created from edge environment
-        )
+            # Pipeline setup
+            http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
+            mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
+            client = cls(mqtt_pipeline, http_pipeline)
+        except Exception:
+            if hsm is not None:
+                hsm.close()
+            raise
 
-        # Pipeline setup
-        http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
-        mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
-
-        return cls(mqtt_pipeline, http_pipeline)
+        client._edge_hsm = hsm
+        return client
 
     @classmethod
     def create_from_x509_certificate(

@@ -1754,6 +1754,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
         assert isinstance(client, client_class)
         assert client._mqtt_pipeline is mock_mqtt_pipeline_init.return_value
         assert client._http_pipeline is mock_http_pipeline_init.return_value
+        assert client._edge_hsm is mock_edge_hsm.return_value
 
     @pytest.mark.it("Raises OSError if the environment is missing required variables")
     @pytest.mark.parametrize(
@@ -1789,6 +1790,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
         with pytest.raises(OSError) as e_info:
             client_class.create_from_edge_environment()
         assert e_info.value.__cause__ is my_edge_error
+        assert mock_edge_hsm.return_value.close.call_count == 1
 
     @pytest.mark.it("Raises ValueError if a SasToken creation results in failure")
     def test_raises_value_error_on_sastoken_failure(
@@ -1802,6 +1804,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
         with pytest.raises(ValueError) as e_info:
             client_class.create_from_edge_environment()
         assert e_info.value.__cause__ is token_err
+        assert mock_edge_hsm.return_value.close.call_count == 1
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")

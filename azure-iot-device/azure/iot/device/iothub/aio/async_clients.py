@@ -197,6 +197,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # Stop the Client Event handlers now that everything else is completed
         self._handler_manager.stop(receiver_handlers_only=False)
 
+        self._close_edge_hsm()
+
         # Yes, that means the pipeline is disconnected twice (well, actually three times if you
         # consider that the client-level disconnect causes two pipeline-level disconnects for
         # reasons explained in comments in the client's .disconnect() method).
