@@ -27,6 +27,7 @@ from azure.iot.device.common.pipeline.pipeline_nucleus import ConnectionState
 from .helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
 from .fixtures import ArbitraryOperation
 from tests.unit.common.pipeline import pipeline_stage_test
+from tests.unit.helpers import PROMPT_TIMEOUT
 
 this_module = sys.modules[__name__]
 logging.basicConfig(level=logging.DEBUG)
@@ -188,7 +189,7 @@ class TestPipelineRootStageHandlePipelineEventWithConnectedEvent(
         stage.on_connected_handler = mock_handler
         stage.handle_pipeline_event(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=PROMPT_TIMEOUT)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -209,7 +210,7 @@ class TestPipelineRootStageHandlePipelineEventWithDisconnectedEvent(
         stage.on_disconnected_handler = mock_handler
         stage.handle_pipeline_event(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=PROMPT_TIMEOUT)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -230,7 +231,7 @@ class TestPipelineRootStageHandlePipelineEventWithNewSasTokenRequiredEvent(
         stage.on_new_sastoken_required_handler = mock_handler
         stage.handle_pipeline_event(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=PROMPT_TIMEOUT)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -253,7 +254,7 @@ class TestPipelineRootStageHandlePipelineEventWithBackgroundExceptionEvent(
         stage.on_background_exception_handler = mock_handler
         stage.handle_pipeline_event(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=PROMPT_TIMEOUT)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(event.e)
 
@@ -274,7 +275,7 @@ class TestPipelineRootStageHandlePipelineEventWithArbitraryEvent(
         stage.on_pipeline_event_handler = mock_handler
         stage.handle_pipeline_event(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=PROMPT_TIMEOUT)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(event)
 

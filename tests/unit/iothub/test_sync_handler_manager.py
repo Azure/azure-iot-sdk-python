@@ -17,6 +17,7 @@ from azure.iot.device.iothub.sync_handler_manager import (
 from azure.iot.device.iothub.sync_handler_manager import MESSAGE, METHOD, TWIN_DP_PATCH
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox
+from tests.unit.helpers import EVENTUAL_TIMEOUT
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -363,7 +364,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         mock_obj = mocker.MagicMock()
         inbox.put(mock_obj)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=EVENTUAL_TIMEOUT)
 
         # Handler has been called with the item from the inbox
         assert mock_handler.call_count == 1
@@ -385,7 +386,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         for _ in range(5):
             inbox.put(mocker.MagicMock())
         # Wait for all handler invocations to complete
-        poll_until(lambda: mock_handler.call_count >= 5, timeout=5)
+        poll_until(lambda: mock_handler.call_count >= 5, timeout=EVENTUAL_TIMEOUT)
 
         # Handler has been called 5 times
         assert mock_handler.call_count == 5
@@ -485,7 +486,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add an item to corresponding inbox, triggering the handler
         inbox.put(mocker.MagicMock())
         # Wait for the background exception handler to be called
-        poll_until(lambda: background_exc_spy.call_count >= 1, timeout=5)
+        poll_until(lambda: background_exc_spy.call_count >= 1, timeout=EVENTUAL_TIMEOUT)
         # Handler has now been called
         assert mock_handler.call_count == 1
         # Background exception handler was called
@@ -506,14 +507,20 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
 
         inbox.put(mocker.MagicMock())
         # Wait for the handler to replace itself with the mock
-        poll_until(lambda: getattr(handler_manager, handler_name) is not handler, timeout=5)
+        poll_until(
+            lambda: getattr(handler_manager, handler_name) is not handler,
+            timeout=EVENTUAL_TIMEOUT,
+        )
         # Handler has been replaced with a mock, but the mock has not been invoked
         assert getattr(handler_manager, handler_name) is not handler
         assert getattr(handler_manager, handler_name).call_count == 0
         # Add a new item to the inbox
         inbox.put(mocker.MagicMock())
         # Wait for the mock handler invocation to complete
-        poll_until(lambda: getattr(handler_manager, handler_name).call_count >= 1, timeout=5)
+        poll_until(
+            lambda: getattr(handler_manager, handler_name).call_count >= 1,
+            timeout=EVENTUAL_TIMEOUT,
+        )
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1
 
@@ -597,7 +604,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add the event to the client event inbox
         inbox.put(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=EVENTUAL_TIMEOUT)
 
         # Handler has been called with the arguments from the event
         assert mock_handler.call_count == 1
@@ -607,7 +614,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         non_matching_event = client_event.ClientEvent("NON_MATCHING_EVENT")
         inbox.put(non_matching_event)
         # Wait for the runner to consume the non-matching event
-        poll_until(inbox.empty, timeout=5)
+        poll_until(inbox.empty, timeout=EVENTUAL_TIMEOUT)
 
         # Handler has not been called again
         assert mock_handler.call_count == 1
@@ -628,7 +635,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         for _ in range(5):
             inbox.put(event)
         # Wait for all handler invocations to complete
-        poll_until(lambda: mock_handler.call_count >= 5, timeout=5)
+        poll_until(lambda: mock_handler.call_count >= 5, timeout=EVENTUAL_TIMEOUT)
 
         # Handler has been called 5 times
         assert mock_handler.call_count == 5
@@ -652,7 +659,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add the event to the client event inbox, triggering the handler
         inbox.put(event)
         # Wait for the background exception handler to be called
-        poll_until(lambda: background_exc_spy.call_count >= 1, timeout=5)
+        poll_until(lambda: background_exc_spy.call_count >= 1, timeout=EVENTUAL_TIMEOUT)
         # Handler has now been called
         assert mock_handler.call_count == 1
         # Background exception handler was called
@@ -673,14 +680,20 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
 
         inbox.put(event)
         # Wait for the handler to replace itself with the mock
-        poll_until(lambda: getattr(handler_manager, handler_name) is not handler, timeout=5)
+        poll_until(
+            lambda: getattr(handler_manager, handler_name) is not handler,
+            timeout=EVENTUAL_TIMEOUT,
+        )
         # Handler has been replaced with a mock, but the mock has not been invoked
         assert getattr(handler_manager, handler_name) is not handler
         assert getattr(handler_manager, handler_name).call_count == 0
         # Add a new event to the inbox
         inbox.put(event)
         # Wait for the mock handler invocation to complete
-        poll_until(lambda: getattr(handler_manager, handler_name).call_count >= 1, timeout=5)
+        poll_until(
+            lambda: getattr(handler_manager, handler_name).call_count >= 1,
+            timeout=EVENTUAL_TIMEOUT,
+        )
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1
 
