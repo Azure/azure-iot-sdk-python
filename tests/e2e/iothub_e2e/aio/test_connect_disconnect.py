@@ -5,6 +5,8 @@ import asyncio
 import pytest
 import logging
 import parametrize
+import const
+import wait_helpers
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -78,7 +80,7 @@ class TestConnectDisconnect(object):
         await client.disconnect()
 
         # wait for handle_on_connection_state_change to reconnect
-        await reconnected_event.wait()
+        await asyncio.wait_for(reconnected_event.wait(), timeout=const.E2E_TIMEOUT)
 
         logger.info(
             "reconnect_event.wait() returned.  client.connected={}".format(client.connected)
@@ -160,7 +162,7 @@ class TestConnectDisconnect(object):
         await client.connect()
 
         # and wait for us to disconnect
-        await disconnected_event.wait()
+        await asyncio.wait_for(disconnected_event.wait(), timeout=const.E2E_TIMEOUT)
         assert not client.connected
 
         # sleep a while and make sure that we're still disconnected.
@@ -198,14 +200,16 @@ class TestConnectDisconnectDroppedConnection(object):
         assert client.connected
         dropper.drop_outgoing()
 
-        while client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: not client.connected, timeout=const.E2E_TIMEOUT
+        )
 
         # we've passed the test. Now wait to reconnect before we check for leaks. Otherwise we
         # have a pending ConnectOperation floating around and this would get tagged as a leak.
         dropper.restore_all()
-        while not client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: client.connected, timeout=const.E2E_TIMEOUT
+        )
 
         leak_tracker.check_for_leaks()
 
@@ -221,13 +225,15 @@ class TestConnectDisconnectDroppedConnection(object):
         assert client.connected
         dropper.reject_outgoing()
 
-        while client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: not client.connected, timeout=const.E2E_TIMEOUT
+        )
 
         # we've passed the test. Now wait to reconnect before we check for leaks. Otherwise we
         # have a pending ConnectOperation floating around and this would get tagged as a leak.
         dropper.restore_all()
-        while not client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: client.connected, timeout=const.E2E_TIMEOUT
+        )
 
         leak_tracker.check_for_leaks()

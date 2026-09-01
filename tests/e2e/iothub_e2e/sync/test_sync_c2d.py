@@ -6,6 +6,7 @@ import logging
 import json
 import threading
 from dev_utils import get_random_dict
+import const
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -36,8 +37,7 @@ class TestReceiveC2d(object):
 
         service_helper.send_c2d(message, {})
 
-        received.wait(timeout=60)
-        assert received.is_set()
+        assert received.wait(timeout=const.E2E_TIMEOUT)
 
         assert received_message.data.decode("utf-8") == message
 

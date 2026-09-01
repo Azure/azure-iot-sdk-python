@@ -9,6 +9,9 @@ TEST_CONTENT = "testContent"
 REPORTED = "reported"
 DESIRED = "desired"
 
+# Maximum time allowed for an external service or network state transition.
+E2E_TIMEOUT = 60
+
 # properties of the eventhub message
 EVENTHUB_SYSPROP_CONTENT_TYPE = "content-type"
 EVENTHUB_SYSPROP_CONTENT_ENCODING = "content-encoding"

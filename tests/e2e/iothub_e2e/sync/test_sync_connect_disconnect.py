@@ -6,6 +6,8 @@ import logging
 import time
 import threading
 import parametrize
+import const
+import wait_helpers
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -79,7 +81,7 @@ class TestConnectDisconnect(object):
 
         # wait for handle_on_connection_state_change to reconnect
         logger.info("waiting for reconnect_event to be set.")
-        reconnected_event.wait()
+        assert reconnected_event.wait(timeout=const.E2E_TIMEOUT)
 
         logger.info(
             "reconnect_event.wait() returned.  client.connected={}".format(client.connected)
@@ -154,7 +156,7 @@ class TestConnectDisconnect(object):
         client.connect()
 
         # and wait for us to disconnect
-        disconnected_event.wait()
+        assert disconnected_event.wait(timeout=const.E2E_TIMEOUT)
         assert not client.connected
 
         # sleep a while and make sure that we're still disconnected.
@@ -189,14 +191,12 @@ class TestConnectDisconnectDroppedConnection(object):
         assert client.connected
         dropper.drop_outgoing()
 
-        while client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: not client.connected, timeout=const.E2E_TIMEOUT)
 
         # we've passed the test. Now wait to reconnect before we check for leaks. Otherwise we
         # have a pending ConnectOperation floating around and this would get tagged as a leak.
         dropper.restore_all()
-        while not client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: client.connected, timeout=const.E2E_TIMEOUT)
 
         leak_tracker.check_for_leaks()
 
@@ -212,13 +212,11 @@ class TestConnectDisconnectDroppedConnection(object):
         assert client.connected
         dropper.reject_outgoing()
 
-        while client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: not client.connected, timeout=const.E2E_TIMEOUT)
 
         # we've passed the test. Now wait to reconnect before we check for leaks. Otherwise we
         # have a pending ConnectOperation floating around and this would get tagged as a leak.
         dropper.restore_all()
-        while not client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: client.connected, timeout=const.E2E_TIMEOUT)
 
         leak_tracker.check_for_leaks()

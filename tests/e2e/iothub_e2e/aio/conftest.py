@@ -7,6 +7,7 @@ import logging
 import datetime
 import json
 import retry_async
+import const
 from utils import create_client_object
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
 
@@ -103,14 +104,16 @@ async def service_helper(executor):
         eventhub_consumer_group=test_env.EVENTHUB_CONSUMER_GROUP,
         executor=executor,
     )
-    yield service_helper
+    try:
+        await service_helper.wait_until_ready(timeout=const.E2E_TIMEOUT)
+        yield service_helper
+    finally:
+        logger.info("----------------------------")
+        logger.info("shutting down service_helper")
+        logger.info("----------------------------")
 
-    logger.info("----------------------------")
-    logger.info("shutting down service_helper")
-    logger.info("----------------------------")
+        await service_helper.shutdown()
 
-    await service_helper.shutdown()
-
-    logger.info("---------------------------------")
-    logger.info("service helper shut down complete")
-    logger.info("---------------------------------")
+        logger.info("---------------------------------")
+        logger.info("service helper shut down complete")
+        logger.info("---------------------------------")

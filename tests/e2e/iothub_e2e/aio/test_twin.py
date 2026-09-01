@@ -5,6 +5,7 @@ import asyncio
 import pytest
 import logging
 import const
+import wait_helpers
 from dev_utils import get_random_dict
 from azure.iot.device.exceptions import ClientError
 
@@ -131,16 +132,18 @@ class TestReportedPropertiesDroppedConnection(object):
         send_task = asyncio.ensure_future(
             client.patch_twin_reported_properties(random_reported_props)
         )
-        while client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: not client.connected, timeout=const.E2E_TIMEOUT
+        )
 
         assert not send_task.done()
 
         dropper.restore_all()
-        while not client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: client.connected, timeout=const.E2E_TIMEOUT
+        )
 
-        await send_task
+        await asyncio.wait_for(send_task, timeout=const.E2E_TIMEOUT)
 
         received_patch = await service_helper.get_next_reported_patch_arrival()
         assert (
@@ -163,16 +166,18 @@ class TestReportedPropertiesDroppedConnection(object):
         send_task = asyncio.ensure_future(
             client.patch_twin_reported_properties(random_reported_props)
         )
-        while client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: not client.connected, timeout=const.E2E_TIMEOUT
+        )
 
         assert not send_task.done()
 
         dropper.restore_all()
-        while not client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: client.connected, timeout=const.E2E_TIMEOUT
+        )
 
-        await send_task
+        await asyncio.wait_for(send_task, timeout=const.E2E_TIMEOUT)
 
         received_patch = await service_helper.get_next_reported_patch_arrival()
         assert (
@@ -208,7 +213,7 @@ class TestDesiredProperties(object):
             {const.TEST_CONTENT: random_dict},
         )
 
-        await asyncio.wait_for(received.wait(), 60)
+        await asyncio.wait_for(received.wait(), timeout=const.E2E_TIMEOUT)
         assert received.is_set()
 
         assert received_patch[const.TEST_CONTENT] == random_dict
