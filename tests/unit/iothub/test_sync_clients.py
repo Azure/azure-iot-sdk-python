@@ -822,25 +822,22 @@ class SharedClientReceiveMethodRequestTests(object):
         "method_name",
         [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
     )
-    def test_no_method_request_in_inbox_blocking_mode(self, client, method_name):
+    def test_no_method_request_in_inbox_blocking_mode(
+        self, client, method_name, assert_call_blocks
+    ):
         request = MethodRequest(request_id="1", name=method_name, payload={"key": "value"})
 
         inbox = client._inbox_manager.get_method_request_inbox(method_name)
         assert inbox.empty()
 
-        def insert_item_after_delay():
-            time.sleep(0.01)
-            inbox.put(request)
-
-        insertion_thread = threading.Thread(target=insert_item_after_delay)
-        insertion_thread.start()
-
-        received_request = client.receive_method_request(method_name, block=True)
+        # Receive blocks on the empty inbox until the request is added
+        received_request = assert_call_blocks(
+            client.receive_method_request,
+            blocked_on=inbox.get,
+            release=lambda: inbox.put(request),
+            kwargs={"method_name": method_name, "block": True},
+        )
         assert received_request is request
-        # This proves that the blocking happens because 'received_request' can't be
-        # 'request' until after a 10 millisecond delay on the insert. But because the
-        # 'received_request' IS 'request', it means that client.receive_method_request
-        # did not return until after the delay.
 
     @pytest.mark.it(
         "Returns None after a timeout while blocking, in blocking mode with a specified timeout"
@@ -1317,24 +1314,21 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert inbox_mock.get.call_args == mocker.call(block=True, timeout=None)
 
     @pytest.mark.it("Blocks until a patch is available, in blocking mode")
-    def test_no_message_in_inbox_blocking_mode(self, client, twin_patch_desired):
+    def test_no_message_in_inbox_blocking_mode(
+        self, client, twin_patch_desired, assert_call_blocks
+    ):
 
         twin_patch_inbox = client._inbox_manager.get_twin_patch_inbox()
         assert twin_patch_inbox.empty()
 
-        def insert_item_after_delay():
-            time.sleep(0.01)
-            twin_patch_inbox.put(twin_patch_desired)
-
-        insertion_thread = threading.Thread(target=insert_item_after_delay)
-        insertion_thread.start()
-
-        received_patch = client.receive_twin_desired_properties_patch(block=True)
+        # Receive blocks on the empty inbox until the patch is added
+        received_patch = assert_call_blocks(
+            client.receive_twin_desired_properties_patch,
+            blocked_on=twin_patch_inbox.get,
+            release=lambda: twin_patch_inbox.put(twin_patch_desired),
+            kwargs={"block": True},
+        )
         assert received_patch is twin_patch_desired
-        # This proves that the blocking happens because 'received_patch' can't be
-        # 'twin_patch_desired' until after a 10 millisecond delay on the insert. But because the
-        # 'received_patch' IS 'twin_patch_desired', it means that client.receive_twin_desired_properties_patch
-        # did not return until after the delay.
 
     @pytest.mark.it(
         "Returns None after a timeout while blocking, in blocking mode with a specified timeout"
@@ -1630,23 +1624,18 @@ class TestIoTHubDeviceClientReceiveC2DMessage(
         assert inbox_mock.get.call_args == mocker.call(block=True, timeout=None)
 
     @pytest.mark.it("Blocks until a message is available, in blocking mode")
-    def test_no_message_in_inbox_blocking_mode(self, client, message):
+    def test_no_message_in_inbox_blocking_mode(self, client, message, assert_call_blocks):
         c2d_inbox = client._inbox_manager.get_c2d_message_inbox()
         assert c2d_inbox.empty()
 
-        def insert_item_after_delay():
-            time.sleep(0.01)
-            c2d_inbox.put(message)
-
-        insertion_thread = threading.Thread(target=insert_item_after_delay)
-        insertion_thread.start()
-
-        received_message = client.receive_message(block=True)
+        # Receive blocks on the empty inbox until the message is added
+        received_message = assert_call_blocks(
+            client.receive_message,
+            blocked_on=c2d_inbox.get,
+            release=lambda: c2d_inbox.put(message),
+            kwargs={"block": True},
+        )
         assert received_message is message
-        # This proves that the blocking happens because 'received_message' can't be
-        # 'message' until after a 10 millisecond delay on the insert. But because the
-        # 'received_message' IS 'message', it means that client.receive_message
-        # did not return until after the delay.
 
     @pytest.mark.it(
         "Returns None after a timeout while blocking, in blocking mode with a specified timeout"
@@ -2438,25 +2427,21 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         assert inbox_mock.get.call_args == mocker.call(block=True, timeout=None)
 
     @pytest.mark.it("Blocks until a message is available, in blocking mode")
-    def test_no_message_in_inbox_blocking_mode(self, client, message):
+    def test_no_message_in_inbox_blocking_mode(self, client, message, assert_call_blocks):
         input_name = "some_input"
 
         input_inbox = client._inbox_manager.get_input_message_inbox(input_name)
         assert input_inbox.empty()
 
-        def insert_item_after_delay():
-            time.sleep(0.01)
-            input_inbox.put(message)
-
-        insertion_thread = threading.Thread(target=insert_item_after_delay)
-        insertion_thread.start()
-
-        received_message = client.receive_message_on_input(input_name, block=True)
+        # Receive blocks on the empty inbox until the message is added
+        received_message = assert_call_blocks(
+            client.receive_message_on_input,
+            blocked_on=input_inbox.get,
+            release=lambda: input_inbox.put(message),
+            args=(input_name,),
+            kwargs={"block": True},
+        )
         assert received_message is message
-        # This proves that the blocking happens because 'received_message' can't be
-        # 'message' until after a 10 millisecond delay on the insert. But because the
-        # 'received_message' IS 'message', it means that client.receive_message_on_input
-        # did not return until after the delay.
 
     @pytest.mark.it(
         "Returns None after a timeout while blocking, in blocking mode with a specified timeout"

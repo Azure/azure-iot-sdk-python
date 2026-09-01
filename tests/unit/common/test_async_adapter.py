@@ -9,6 +9,7 @@ import inspect
 import asyncio
 import logging
 import azure.iot.device.common.async_adapter as async_adapter
+from tests.unit.helpers import PROMPT_TIMEOUT
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -86,10 +87,7 @@ class TestAwaitableCallback(object):
         callback = async_adapter.AwaitableCallback()
         assert not callback.future.done()
         callback()
-        await asyncio.sleep(0.1)  # wait to give time to complete the callback
-        assert callback.future.done()
-        assert not callback.future.exception()
-        await callback.completion()
+        assert await asyncio.wait_for(callback.completion(), timeout=PROMPT_TIMEOUT) is None
 
     @pytest.mark.it(
         "Completes the instance Future when a call is invoked on the instance (with return_arg_name)"
@@ -100,10 +98,8 @@ class TestAwaitableCallback(object):
         callback = async_adapter.AwaitableCallback(return_arg_name="arg_name")
         assert not callback.future.done()
         callback(arg_name=fake_return_arg_value)
-        await asyncio.sleep(0.1)  # wait to give time to complete the callback
-        assert callback.future.done()
-        assert not callback.future.exception()
-        assert await callback.completion() == fake_return_arg_value
+        result = await asyncio.wait_for(callback.completion(), timeout=PROMPT_TIMEOUT)
+        assert result == fake_return_arg_value
 
     @pytest.mark.it(
         "Raises a TypeError when a call is invoked on the instance without the correct return argument (with return_arg_name)"
@@ -122,11 +118,9 @@ class TestAwaitableCallback(object):
         callback = async_adapter.AwaitableCallback()
         assert not callback.future.done()
         callback(error=arbitrary_exception)
-        await asyncio.sleep(0.1)  # wait to give time to complete the callback
-        assert callback.future.done()
-        assert callback.future.exception() == arbitrary_exception
         with pytest.raises(arbitrary_exception.__class__) as e_info:
-            await callback.completion()
+            await asyncio.wait_for(callback.completion(), timeout=PROMPT_TIMEOUT)
+        assert callback.future.exception() is arbitrary_exception
         assert e_info.value is arbitrary_exception
 
     @pytest.mark.it(
@@ -136,9 +130,7 @@ class TestAwaitableCallback(object):
         callback = async_adapter.AwaitableCallback(return_arg_name="arg_name")
         assert not callback.future.done()
         callback(error=arbitrary_exception)
-        await asyncio.sleep(0.1)  # wait to give time to complete the callback
-        assert callback.future.done()
-        assert callback.future.exception() == arbitrary_exception
         with pytest.raises(arbitrary_exception.__class__) as e_info:
-            await callback.completion()
+            await asyncio.wait_for(callback.completion(), timeout=PROMPT_TIMEOUT)
+        assert callback.future.exception() is arbitrary_exception
         assert e_info.value is arbitrary_exception
