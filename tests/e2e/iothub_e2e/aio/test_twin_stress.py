@@ -64,8 +64,14 @@ class TestTwinStress(object):
 
             # Wait for that reported property to arrive at the service.
             received = False
+            deadline = asyncio.get_running_loop().time() + const.E2E_TIMEOUT
             while not received:
-                received_patch = await service_helper.get_next_reported_patch_arrival()
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    pytest.fail("Timed out waiting for the reported property update")
+                received_patch = await service_helper.get_next_reported_patch_arrival(
+                    timeout=remaining
+                )
                 if (
                     const.REPORTED in received_patch
                     and received_patch[const.REPORTED][const.TEST_CONTENT]
