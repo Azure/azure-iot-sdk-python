@@ -7,5 +7,5 @@
 # Maximum time allowed for an operation expected to complete promptly.
 PROMPT_TIMEOUT = 0.1
 
-# Maximum time allowed for asynchronous work crossing threads or event loops.
-EVENTUAL_TIMEOUT = 1
+# Maximum time allowed for a prompt batch of asynchronous operations.
+BATCH_COMPLETION_TIMEOUT = 0.5
