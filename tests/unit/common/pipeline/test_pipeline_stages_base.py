@@ -28,7 +28,6 @@ from .helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
 from .fixtures import ArbitraryOperation
 from tests.unit.common.pipeline import pipeline_stage_test
 
-
 this_module = sys.modules[__name__]
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
@@ -184,11 +183,11 @@ class TestPipelineRootStageHandlePipelineEventWithConnectedEvent(
         return pipeline_events_base.ConnectedEvent()
 
     @pytest.mark.it("Invokes the 'on_connected_handler' handler function, if set")
-    def test_invoke_handler(self, mocker, stage, event):
+    def test_invoke_handler(self, mocker, stage, event, wait_for):
         mock_handler = mocker.MagicMock()
         stage.on_connected_handler = mock_handler
         stage.handle_pipeline_event(event)
-        time.sleep(0.1)  # Needs a brief sleep so thread can switch
+        wait_for(lambda: mock_handler.call_count >= 1)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -204,11 +203,11 @@ class TestPipelineRootStageHandlePipelineEventWithDisconnectedEvent(
         return pipeline_events_base.DisconnectedEvent()
 
     @pytest.mark.it("Invokes the 'on_disconnected_handler' handler function, if set")
-    def test_invoke_handler(self, mocker, stage, event):
+    def test_invoke_handler(self, mocker, stage, event, wait_for):
         mock_handler = mocker.MagicMock()
         stage.on_disconnected_handler = mock_handler
         stage.handle_pipeline_event(event)
-        time.sleep(0.1)  # Needs a brief sleep so thread can switch
+        wait_for(lambda: mock_handler.call_count >= 1)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -224,11 +223,11 @@ class TestPipelineRootStageHandlePipelineEventWithNewSasTokenRequiredEvent(
         return pipeline_events_base.NewSasTokenRequiredEvent()
 
     @pytest.mark.it("Invokes the 'on_new_sastoken_required_handler' handler function, if set")
-    def test_invoke_handler(self, mocker, stage, event):
+    def test_invoke_handler(self, mocker, stage, event, wait_for):
         mock_handler = mocker.MagicMock()
         stage.on_new_sastoken_required_handler = mock_handler
         stage.handle_pipeline_event(event)
-        time.sleep(0.1)  # Needs a brief sleep so thread can switch
+        wait_for(lambda: mock_handler.call_count >= 1)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -246,11 +245,11 @@ class TestPipelineRootStageHandlePipelineEventWithBackgroundExceptionEvent(
     @pytest.mark.it(
         "Invokes the 'on_background_exception_handler' handler function, passing the exception object, if set"
     )
-    def test_invoke_handler(self, mocker, stage, event):
+    def test_invoke_handler(self, mocker, stage, event, wait_for):
         mock_handler = mocker.MagicMock()
         stage.on_background_exception_handler = mock_handler
         stage.handle_pipeline_event(event)
-        time.sleep(0.1)  # Needs a brief sleep so thread can switch
+        wait_for(lambda: mock_handler.call_count >= 1)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(event.e)
 
@@ -266,11 +265,11 @@ class TestPipelineRootStageHandlePipelineEventWithArbitraryEvent(
         return arbitrary_event
 
     @pytest.mark.it("Invokes the 'on_pipeline_event_handler' handler function, if set")
-    def test_invoke_handler(self, mocker, stage, event):
+    def test_invoke_handler(self, mocker, stage, event, wait_for):
         mock_handler = mocker.MagicMock()
         stage.on_pipeline_event_handler = mock_handler
         stage.handle_pipeline_event(event)
-        time.sleep(0.1)  # Needs a brief sleep so thread can switch
+        wait_for(lambda: mock_handler.call_count >= 1)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(event)
 

@@ -4,10 +4,9 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import concurrent.futures
 import pytest
 import logging
-import threading
-import time
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox, InboxEmpty
 
 logging.basicConfig(level=logging.DEBUG)
@@ -82,19 +81,20 @@ class TestSyncClientInboxGet(object):
     @pytest.mark.it(
         "Blocks on an empty inbox until an item is available to remove and return, if using blocking mode"
     )
-    def test_waits_for_item_to_be_added_if_inbox_empty_in_blocking_mode(self, mocker):
+    def test_waits_for_item_to_be_added_if_inbox_empty_in_blocking_mode(
+        self, mocker, track_call_started
+    ):
         inbox = SyncClientInbox()
         assert inbox.empty()
         item = mocker.MagicMock()
+        get_started = track_call_started(inbox._queue, "get")
 
-        def insert_item():
-            time.sleep(0.01)  # wait before inserting
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            get_future = executor.submit(inbox.get, block=True)
+            assert get_started.wait(timeout=5)
+            assert not get_future.done()
             inbox.put(item)
-
-        insertion_thread = threading.Thread(target=insert_item)
-        insertion_thread.start()
-
-        retrieved_item = inbox.get(block=True)
+            retrieved_item = get_future.result(timeout=5)
         assert retrieved_item is item
         assert inbox.empty()
 

@@ -4,7 +4,54 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import asyncio
+import threading
+import time
+
 import pytest
+
+
+@pytest.fixture
+def wait_for():
+    def wait_for_condition(condition, timeout=5, interval=0.01):
+        deadline = time.monotonic() + timeout
+        while not condition():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                pytest.fail("Timed out waiting for condition")
+            time.sleep(min(interval, remaining))
+
+    return wait_for_condition
+
+
+@pytest.fixture
+def async_wait_for():
+    async def wait_for_condition(condition, timeout=5, interval=0.01):
+        deadline = time.monotonic() + timeout
+        while not condition():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                pytest.fail("Timed out waiting for condition")
+            await asyncio.sleep(min(interval, remaining))
+
+    return wait_for_condition
+
+
+@pytest.fixture
+def track_call_started(mocker):
+    def track_call(obj, method_name):
+        call_started = threading.Event()
+        original_method = getattr(obj, method_name)
+
+        def tracked_call(*args, **kwargs):
+            call_started.set()
+            return original_method(*args, **kwargs)
+
+        mocker.patch.object(obj, method_name, side_effect=tracked_call)
+        return call_started
+
+    return track_call
+
 
 """
 NOTE: ALL (yes, ALL) tests need some kind of non-specific, arbitrary exception should use

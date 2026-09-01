@@ -42,9 +42,8 @@ class TestAlarm(object):
         a.start()
 
         assert desired_function.call_count == 0
-        time.sleep(1)  # hasn't been 2 seconds yet
-        assert desired_function.call_count == 0
-        time.sleep(1.1)  # it has now been just over 2 seconds, so the call HAS been made
+        assert a.finished.wait(timeout=5)
+        assert time.time() >= alarm_time
         assert desired_function.call_count == 1
         assert desired_function.call_args == mocker.call(*args, **kwargs)
 
@@ -55,9 +54,10 @@ class TestAlarm(object):
         a.start()
 
         assert desired_function.call_count == 0
-        time.sleep(1.1)  # it has now been just over 1 second, so the call HAS been made
+        assert a.finished.wait(timeout=5)
+        assert time.time() >= alarm_time
         assert desired_function.call_count == 1
-        desired_function.call_args == mocker.call()
+        assert desired_function.call_args == mocker.call()
 
     @pytest.mark.it("Invokes the function immediately if the given alarm time is in the past")
     def test_alarm_already_expired(self, mocker, desired_function):
@@ -65,6 +65,7 @@ class TestAlarm(object):
         a = Alarm(alarm_time=alarm_time, function=desired_function)
         a.start()
 
+        assert a.finished.wait(timeout=5)
         assert desired_function.call_count == 1
 
     @pytest.mark.it(
@@ -76,8 +77,7 @@ class TestAlarm(object):
         a.start()
 
         assert desired_function.call_count == 0
-        time.sleep(1)  # hasn't been 2 seconds yet
-        assert desired_function.call_count == 0
         a.cancel()  # cancel the alarm
-        time.sleep(1.5)  # it has now been more than 2 seconds
-        assert desired_function.call_count == 0  # still not called
+        a.join(timeout=5)
+        assert not a.is_alive()
+        assert desired_function.call_count == 0

@@ -97,15 +97,11 @@ class TestAsyncClientInboxGet(object):
         assert inbox.empty()
         item = mocker.MagicMock()
 
-        async def wait_for_item():
-            retrieved_item = await inbox.get()
-            assert retrieved_item is item
-
-        async def insert_item():
-            await asyncio.sleep(1)  # wait before adding item to ensure the above coroutine is first
-            inbox.put(item)
-
-        await asyncio.gather(wait_for_item(), insert_item())
+        get_task = asyncio.create_task(inbox.get())
+        await asyncio.sleep(0)
+        assert not get_task.done()
+        inbox.put(item)
+        assert await asyncio.wait_for(get_task, timeout=5) is item
 
 
 @pytest.mark.describe("AsyncClientInbox - .clear()")
