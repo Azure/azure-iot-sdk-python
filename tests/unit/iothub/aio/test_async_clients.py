@@ -46,6 +46,8 @@ from ..shared_client_tests import (
 
 logging.basicConfig(level=logging.DEBUG)
 
+PROMPT_COMPLETION_TIMEOUT = 0.1
+
 
 async def create_completed_future(result=None):
     f = asyncio.Future()
@@ -732,7 +734,9 @@ class SharedClientReceiveMethodRequestTests(object):
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             False  # Method Requests will appear disabled
         )
-        await client.receive_method_request(method_name)
+        await asyncio.wait_for(
+            client.receive_method_request(method_name), timeout=PROMPT_COMPLETION_TIMEOUT
+        )
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.METHODS
 
@@ -742,7 +746,9 @@ class SharedClientReceiveMethodRequestTests(object):
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             True  # Input Messages will appear enabled
         )
-        await client.receive_method_request(method_name)
+        await asyncio.wait_for(
+            client.receive_method_request(method_name), timeout=PROMPT_COMPLETION_TIMEOUT
+        )
         assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it(
@@ -760,7 +766,9 @@ class SharedClientReceiveMethodRequestTests(object):
             return_value=inbox_mock,
         )
 
-        received_request = await client.receive_method_request()
+        received_request = await asyncio.wait_for(
+            client.receive_method_request(), timeout=PROMPT_COMPLETION_TIMEOUT
+        )
         assert manager_get_inbox_mock.call_count == 1
         assert manager_get_inbox_mock.call_args == mocker.call(None)
         assert inbox_mock.get.call_count == 1
@@ -782,7 +790,9 @@ class SharedClientReceiveMethodRequestTests(object):
             return_value=inbox_mock,
         )
 
-        received_request = await client.receive_method_request(method_name)
+        received_request = await asyncio.wait_for(
+            client.receive_method_request(method_name), timeout=PROMPT_COMPLETION_TIMEOUT
+        )
         assert manager_get_inbox_mock.call_count == 1
         assert manager_get_inbox_mock.call_args == mocker.call(method_name)
         assert inbox_mock.get.call_count == 1
@@ -800,7 +810,9 @@ class SharedClientReceiveMethodRequestTests(object):
         )
 
         assert client._receive_type is RECEIVE_TYPE_NONE_SET
-        await client.receive_method_request(method_name)
+        await asyncio.wait_for(
+            client.receive_method_request(method_name), timeout=PROMPT_COMPLETION_TIMEOUT
+        )
         assert client._receive_type is RECEIVE_TYPE_API
 
     @pytest.mark.it(
@@ -817,7 +829,9 @@ class SharedClientReceiveMethodRequestTests(object):
         )
 
         client._receive_type = RECEIVE_TYPE_API
-        await client.receive_method_request(method_name)
+        await asyncio.wait_for(
+            client.receive_method_request(method_name), timeout=PROMPT_COMPLETION_TIMEOUT
+        )
         assert client._receive_type is RECEIVE_TYPE_API
 
     @pytest.mark.it(
@@ -838,7 +852,10 @@ class SharedClientReceiveMethodRequestTests(object):
         client._receive_type = RECEIVE_TYPE_HANDLER
         # Error was raised
         with pytest.raises(client_exceptions.ClientError):
-            await client.receive_method_request(method_name)
+            await asyncio.wait_for(
+                client.receive_method_request(method_name),
+                timeout=PROMPT_COMPLETION_TIMEOUT,
+            )
         # Feature was not enabled
         assert mqtt_pipeline.enable_feature.call_count == 0
         # Inbox get was not called
@@ -1177,7 +1194,10 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             False  # twin patches will appear disabled
         )
-        await client.receive_twin_desired_properties_patch()
+        await asyncio.wait_for(
+            client.receive_twin_desired_properties_patch(),
+            timeout=PROMPT_COMPLETION_TIMEOUT,
+        )
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN_PATCHES
 
@@ -1187,7 +1207,10 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             True  # twin patches will appear enabled
         )
-        await client.receive_twin_desired_properties_patch()
+        await asyncio.wait_for(
+            client.receive_twin_desired_properties_patch(),
+            timeout=PROMPT_COMPLETION_TIMEOUT,
+        )
         assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a message from the twin patch inbox, if available")
@@ -1198,7 +1221,10 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
             client._inbox_manager, "get_twin_patch_inbox", return_value=inbox_mock
         )
 
-        received_patch = await client.receive_twin_desired_properties_patch()
+        received_patch = await asyncio.wait_for(
+            client.receive_twin_desired_properties_patch(),
+            timeout=PROMPT_COMPLETION_TIMEOUT,
+        )
         assert manager_get_inbox_mock.call_count == 1
         assert inbox_mock.get.call_count == 1
         assert received_patch is twin_patch_desired
@@ -1211,7 +1237,10 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         )
 
         assert client._receive_type is RECEIVE_TYPE_NONE_SET
-        await client.receive_twin_desired_properties_patch()
+        await asyncio.wait_for(
+            client.receive_twin_desired_properties_patch(),
+            timeout=PROMPT_COMPLETION_TIMEOUT,
+        )
         assert client._receive_type is RECEIVE_TYPE_API
 
     @pytest.mark.it(
@@ -1224,7 +1253,10 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         )
 
         client._receive_type = RECEIVE_TYPE_API
-        await client.receive_twin_desired_properties_patch()
+        await asyncio.wait_for(
+            client.receive_twin_desired_properties_patch(),
+            timeout=PROMPT_COMPLETION_TIMEOUT,
+        )
         assert client._receive_type is RECEIVE_TYPE_API
 
     @pytest.mark.it(
@@ -1241,7 +1273,10 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         client._receive_type = RECEIVE_TYPE_HANDLER
         # Error was raised
         with pytest.raises(client_exceptions.ClientError):
-            await client.receive_twin_desired_properties_patch()
+            await asyncio.wait_for(
+                client.receive_twin_desired_properties_patch(),
+                timeout=PROMPT_COMPLETION_TIMEOUT,
+            )
         # Feature was not enabled
         assert mqtt_pipeline.enable_feature.call_count == 0
         # Inbox get was not called
@@ -1413,7 +1448,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
 
         # Verify C2D Messaging enabled if not enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # C2D will appear disabled
-        await client.receive_message()
+        await asyncio.wait_for(client.receive_message(), timeout=PROMPT_COMPLETION_TIMEOUT)
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.C2D_MSG
 
@@ -1421,7 +1456,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
 
         # Verify C2D Messaging not enabled if already enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
-        await client.receive_message()
+        await asyncio.wait_for(client.receive_message(), timeout=PROMPT_COMPLETION_TIMEOUT)
         assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a message from the C2D inbox, if available")
@@ -1432,7 +1467,9 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
             client._inbox_manager, "get_c2d_message_inbox", return_value=inbox_mock
         )
 
-        received_message = await client.receive_message()
+        received_message = await asyncio.wait_for(
+            client.receive_message(), timeout=PROMPT_COMPLETION_TIMEOUT
+        )
         assert manager_get_inbox_mock.call_count == 1
         assert inbox_mock.get.call_count == 1
         assert received_message is message
@@ -1445,7 +1482,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
         )
 
         assert client._receive_type is RECEIVE_TYPE_NONE_SET
-        await client.receive_message()
+        await asyncio.wait_for(client.receive_message(), timeout=PROMPT_COMPLETION_TIMEOUT)
         assert client._receive_type is RECEIVE_TYPE_API
 
     @pytest.mark.it(
@@ -1458,7 +1495,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
         )
 
         client._receive_type = RECEIVE_TYPE_API
-        await client.receive_message()
+        await asyncio.wait_for(client.receive_message(), timeout=PROMPT_COMPLETION_TIMEOUT)
         assert client._receive_type is RECEIVE_TYPE_API
 
     @pytest.mark.it(
@@ -1475,7 +1512,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
         client._receive_type = RECEIVE_TYPE_HANDLER
         # Error was raised
         with pytest.raises(client_exceptions.ClientError):
-            await client.receive_message()
+            await asyncio.wait_for(client.receive_message(), timeout=PROMPT_COMPLETION_TIMEOUT)
         # Feature was not enabled
         assert mqtt_pipeline.enable_feature.call_count == 0
         # Inbox get was not called
@@ -2142,7 +2179,10 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             False  # Input Messages will appear disabled
         )
-        await client.receive_message_on_input(input_name)
+        await asyncio.wait_for(
+            client.receive_message_on_input(input_name),
+            timeout=PROMPT_COMPLETION_TIMEOUT,
+        )
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.INPUT_MSG
 
@@ -2152,7 +2192,10 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             True  # Input Messages will appear enabled
         )
-        await client.receive_message_on_input(input_name)
+        await asyncio.wait_for(
+            client.receive_message_on_input(input_name),
+            timeout=PROMPT_COMPLETION_TIMEOUT,
+        )
         assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a message from the input inbox, if available")
@@ -2164,7 +2207,10 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         )
 
         input_name = "some_input"
-        received_message = await client.receive_message_on_input(input_name)
+        received_message = await asyncio.wait_for(
+            client.receive_message_on_input(input_name),
+            timeout=PROMPT_COMPLETION_TIMEOUT,
+        )
         assert manager_get_inbox_mock.call_count == 1
         assert manager_get_inbox_mock.call_args == mocker.call(input_name)
         assert inbox_mock.get.call_count == 1
@@ -2178,7 +2224,10 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         )
 
         assert client._receive_type is RECEIVE_TYPE_NONE_SET
-        await client.receive_message_on_input("some_input")
+        await asyncio.wait_for(
+            client.receive_message_on_input("some_input"),
+            timeout=PROMPT_COMPLETION_TIMEOUT,
+        )
         assert client._receive_type is RECEIVE_TYPE_API
 
     @pytest.mark.it(
@@ -2191,7 +2240,10 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         )
 
         client._receive_type = RECEIVE_TYPE_API
-        await client.receive_message_on_input("some_input")
+        await asyncio.wait_for(
+            client.receive_message_on_input("some_input"),
+            timeout=PROMPT_COMPLETION_TIMEOUT,
+        )
         assert client._receive_type is RECEIVE_TYPE_API
 
     @pytest.mark.it(
@@ -2208,7 +2260,10 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         client._receive_type = RECEIVE_TYPE_HANDLER
         # Error was raised
         with pytest.raises(client_exceptions.ClientError):
-            await client.receive_message_on_input("some_input")
+            await asyncio.wait_for(
+                client.receive_message_on_input("some_input"),
+                timeout=PROMPT_COMPLETION_TIMEOUT,
+            )
         # Feature was not enabled
         assert mqtt_pipeline.enable_feature.call_count == 0
         # Inbox get was not called
