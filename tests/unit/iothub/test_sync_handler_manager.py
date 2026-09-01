@@ -352,7 +352,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
     @pytest.mark.it(
         "Is invoked by the runner when the Inbox corresponding to the handler receives an object, passing that object to the handler"
     )
-    def test_handler_invoked(self, mocker, handler_name, handler_manager, inbox, wait_for):
+    def test_handler_invoked(self, mocker, handler_name, handler_manager, inbox, poll_until):
         # Set the handler
         mock_handler = mocker.MagicMock()
         setattr(handler_manager, handler_name, mock_handler)
@@ -362,7 +362,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add an item to corresponding inbox, triggering the handler
         mock_obj = mocker.MagicMock()
         inbox.put(mock_obj)
-        wait_for(lambda: mock_handler.call_count >= 1)
+        poll_until(lambda: mock_handler.call_count >= 1)
 
         # Handler has been called with the item from the inbox
         assert mock_handler.call_count == 1
@@ -371,7 +371,9 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
     @pytest.mark.it(
         "Is invoked by the runner every time the Inbox corresponding to the handler receives an object"
     )
-    def test_handler_invoked_multiple(self, mocker, handler_name, handler_manager, inbox, wait_for):
+    def test_handler_invoked_multiple(
+        self, mocker, handler_name, handler_manager, inbox, poll_until
+    ):
         # Set the handler
         mock_handler = ThreadsafeMock()
         setattr(handler_manager, handler_name, mock_handler)
@@ -381,7 +383,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add 5 items to the corresponding inbox, triggering the handler
         for _ in range(5):
             inbox.put(mocker.MagicMock())
-        wait_for(lambda: mock_handler.call_count >= 5)
+        poll_until(lambda: mock_handler.call_count >= 5)
 
         # Handler has been called 5 times
         assert mock_handler.call_count == 5
@@ -461,7 +463,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         "Sends a HandlerManagerException to the background exception handler if any exception is raised during its invocation"
     )
     def test_exception_in_handler(
-        self, mocker, handler_name, handler_manager, inbox, arbitrary_exception, wait_for
+        self, mocker, handler_name, handler_manager, inbox, arbitrary_exception, poll_until
     ):
         background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
         # Handler will raise exception when called
@@ -475,7 +477,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox.put(mocker.MagicMock())
-        wait_for(lambda: background_exc_spy.call_count >= 1)
+        poll_until(lambda: background_exc_spy.call_count >= 1)
         # Handler has now been called
         assert mock_handler.call_count == 1
         # Background exception handler was called
@@ -487,7 +489,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
     @pytest.mark.it(
         "Can be updated with a new value that the corresponding handler runner will immediately begin using for handler invocations instead"
     )
-    def test_handler_update_handler(self, mocker, handler_name, handler_manager, inbox, wait_for):
+    def test_handler_update_handler(self, mocker, handler_name, handler_manager, inbox, poll_until):
         def handler(arg):
             # Invoking handler replaces the set handler with a mock
             setattr(handler_manager, handler_name, mocker.MagicMock())
@@ -495,13 +497,13 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         setattr(handler_manager, handler_name, handler)
 
         inbox.put(mocker.MagicMock())
-        wait_for(lambda: getattr(handler_manager, handler_name) is not handler)
+        poll_until(lambda: getattr(handler_manager, handler_name) is not handler)
         # Handler has been replaced with a mock, but the mock has not been invoked
         assert getattr(handler_manager, handler_name) is not handler
         assert getattr(handler_manager, handler_name).call_count == 0
         # Add a new item to the inbox
         inbox.put(mocker.MagicMock())
-        wait_for(lambda: getattr(handler_manager, handler_name).call_count >= 1)
+        poll_until(lambda: getattr(handler_manager, handler_name).call_count >= 1)
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1
 
@@ -575,7 +577,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
     @pytest.mark.it(
         "Is invoked by the runner only when the Client Event Inbox receives a matching Client Event, passing any arguments to the handler"
     )
-    def test_handler_invoked(self, mocker, handler_name, handler_manager, inbox, event, wait_for):
+    def test_handler_invoked(self, mocker, handler_name, handler_manager, inbox, event, poll_until):
         # Set the handler
         mock_handler = mocker.MagicMock()
         setattr(handler_manager, handler_name, mock_handler)
@@ -584,7 +586,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
 
         # Add the event to the client event inbox
         inbox.put(event)
-        wait_for(lambda: mock_handler.call_count >= 1)
+        poll_until(lambda: mock_handler.call_count >= 1)
 
         # Handler has been called with the arguments from the event
         assert mock_handler.call_count == 1
@@ -593,7 +595,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add non-matching event to the client event inbox
         non_matching_event = client_event.ClientEvent("NON_MATCHING_EVENT")
         inbox.put(non_matching_event)
-        wait_for(inbox.empty)
+        poll_until(inbox.empty)
 
         # Handler has not been called again
         assert mock_handler.call_count == 1
@@ -601,7 +603,9 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
     @pytest.mark.it(
         "Is invoked by the runner every time the Client Event Inbox receives a matching Client Event"
     )
-    def test_handler_invoked_multiple(self, handler_name, handler_manager, inbox, event, wait_for):
+    def test_handler_invoked_multiple(
+        self, handler_name, handler_manager, inbox, event, poll_until
+    ):
         # Set the handler
         mock_handler = ThreadsafeMock()
         setattr(handler_manager, handler_name, mock_handler)
@@ -611,7 +615,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add 5 matching events to the corresponding inbox, triggering the handler
         for _ in range(5):
             inbox.put(event)
-        wait_for(lambda: mock_handler.call_count >= 5)
+        poll_until(lambda: mock_handler.call_count >= 5)
 
         # Handler has been called 5 times
         assert mock_handler.call_count == 5
@@ -620,7 +624,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         "Sends a HandlerManagerException to the background exception handler if any exception is raised during its invocation"
     )
     def test_exception_in_handler(
-        self, mocker, handler_name, handler_manager, inbox, event, arbitrary_exception, wait_for
+        self, mocker, handler_name, handler_manager, inbox, event, arbitrary_exception, poll_until
     ):
         background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
         # Handler will raise exception when called
@@ -634,7 +638,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         assert background_exc_spy.call_count == 0
         # Add the event to the client event inbox, triggering the handler
         inbox.put(event)
-        wait_for(lambda: background_exc_spy.call_count >= 1)
+        poll_until(lambda: background_exc_spy.call_count >= 1)
         # Handler has now been called
         assert mock_handler.call_count == 1
         # Background exception handler was called
@@ -646,7 +650,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
     @pytest.mark.it(
         "Can be updated with a new value that the Client Event handler runner will immediately begin using for handler invocations instead"
     )
-    def test_updated_handler(self, mocker, handler_name, handler_manager, inbox, event, wait_for):
+    def test_updated_handler(self, mocker, handler_name, handler_manager, inbox, event, poll_until):
         def handler(*args):
             # Invoking handler replaces the set handler with a mock
             setattr(handler_manager, handler_name, mocker.MagicMock())
@@ -654,13 +658,13 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         setattr(handler_manager, handler_name, handler)
 
         inbox.put(event)
-        wait_for(lambda: getattr(handler_manager, handler_name) is not handler)
+        poll_until(lambda: getattr(handler_manager, handler_name) is not handler)
         # Handler has been replaced with a mock, but the mock has not been invoked
         assert getattr(handler_manager, handler_name) is not handler
         assert getattr(handler_manager, handler_name).call_count == 0
         # Add a new event to the inbox
         inbox.put(event)
-        wait_for(lambda: getattr(handler_manager, handler_name).call_count >= 1)
+        poll_until(lambda: getattr(handler_manager, handler_name).call_count >= 1)
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1
 
