@@ -86,9 +86,7 @@ class TestAwaitableCallback(object):
         callback = async_adapter.AwaitableCallback()
         assert not callback.future.done()
         callback()
-        await asyncio.wait_for(callback.completion(), timeout=0.1)
-        assert callback.future.done()
-        assert not callback.future.exception()
+        assert await asyncio.wait_for(callback.completion(), timeout=0.1) is None
 
     @pytest.mark.it(
         "Completes the instance Future when a call is invoked on the instance (with return_arg_name)"
@@ -100,8 +98,6 @@ class TestAwaitableCallback(object):
         assert not callback.future.done()
         callback(arg_name=fake_return_arg_value)
         result = await asyncio.wait_for(callback.completion(), timeout=0.1)
-        assert callback.future.done()
-        assert not callback.future.exception()
         assert result == fake_return_arg_value
 
     @pytest.mark.it(
@@ -123,8 +119,7 @@ class TestAwaitableCallback(object):
         callback(error=arbitrary_exception)
         with pytest.raises(arbitrary_exception.__class__) as e_info:
             await asyncio.wait_for(callback.completion(), timeout=0.1)
-        assert callback.future.done()
-        assert callback.future.exception() == arbitrary_exception
+        assert callback.future.exception() is arbitrary_exception
         assert e_info.value is arbitrary_exception
 
     @pytest.mark.it(
@@ -136,6 +131,5 @@ class TestAwaitableCallback(object):
         callback(error=arbitrary_exception)
         with pytest.raises(arbitrary_exception.__class__) as e_info:
             await asyncio.wait_for(callback.completion(), timeout=0.1)
-        assert callback.future.done()
-        assert callback.future.exception() == arbitrary_exception
+        assert callback.future.exception() is arbitrary_exception
         assert e_info.value is arbitrary_exception

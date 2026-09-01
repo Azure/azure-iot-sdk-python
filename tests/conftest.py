@@ -28,12 +28,14 @@ def wait_for():
 @pytest.fixture
 def async_wait_for():
     async def wait_for_condition(condition, timeout=5, interval=0.01):
-        deadline = time.monotonic() + timeout
-        while not condition():
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                pytest.fail("Timed out waiting for condition")
-            await asyncio.sleep(min(interval, remaining))
+        async def poll_condition():
+            while not condition():
+                await asyncio.sleep(interval)
+
+        try:
+            await asyncio.wait_for(poll_condition(), timeout=timeout)
+        except asyncio.TimeoutError:
+            pytest.fail("Timed out waiting for condition")
 
     return wait_for_condition
 
