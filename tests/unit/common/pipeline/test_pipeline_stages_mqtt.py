@@ -602,7 +602,7 @@ class TestMQTTTransportStageRunOpCalledWithMQTTPublishOperation(
         assert op.error is None
 
     @pytest.mark.it(
-        "Completes the operation with an OperationCancelled error upon cancellation of the MQTT unsubscribe by the MQTTTransport"
+        "Completes the operation with an OperationCancelled error upon cancellation of the MQTT publish by the MQTTTransport"
     )
     def test_complete_with_cancel(self, mocker, stage, op):
         # Begin publish
@@ -639,7 +639,7 @@ class TestMQTTTransportStageRunOpCalledWithMQTTSubscribeOperation(
         )
 
     @pytest.mark.it("Performs an MQTT subscribe via the MQTTTransport")
-    def test_mqtt_publish(self, mocker, stage, op):
+    def test_mqtt_subscribe(self, mocker, stage, op):
         stage.run_op(op)
         assert stage.transport.subscribe.call_count == 1
         assert stage.transport.subscribe.call_args == mocker.call(
@@ -662,10 +662,23 @@ class TestMQTTTransportStageRunOpCalledWithMQTTSubscribeOperation(
         assert op.error is None
 
     @pytest.mark.it(
-        "Completes the operation with an OperationCancelled error upon cancellation of the MQTT unsubscribe by the MQTTTransport"
+        "Completes the operation with an error received from the MQTT subscribe callback"
+    )
+    def test_complete_with_error(self, stage, op, arbitrary_exception):
+        stage.run_op(op)
+
+        assert not op.completed
+
+        stage.transport.subscribe.call_args[1]["callback"](error=arbitrary_exception)
+
+        assert op.completed
+        assert op.error is arbitrary_exception
+
+    @pytest.mark.it(
+        "Completes the operation with an OperationCancelled error upon cancellation of the MQTT subscribe by the MQTTTransport"
     )
     def test_complete_with_cancel(self, mocker, stage, op):
-        # Begin unsubscribe
+        # Begin subscribe
         stage.run_op(op)
 
         assert not op.completed
@@ -699,7 +712,7 @@ class TestMQTTTransportStageRunOpCalledWithMQTTUnsubscribeOperation(
         )
 
     @pytest.mark.it("Performs an MQTT unsubscribe via the MQTTTransport")
-    def test_mqtt_publish(self, mocker, stage, op):
+    def test_mqtt_unsubscribe(self, mocker, stage, op):
         stage.run_op(op)
         assert stage.transport.unsubscribe.call_count == 1
         assert stage.transport.unsubscribe.call_args == mocker.call(
@@ -739,7 +752,7 @@ class TestMQTTTransportStageRunOpCalledWithMQTTUnsubscribeOperation(
     @pytest.mark.it(
         "Completes the operation using the exception that was raised, if an exception was raised from the MQTTTransport"
     )
-    def test_publish_error(self, stage, op, arbitrary_exception):
+    def test_unsubscribe_error(self, stage, op, arbitrary_exception):
         stage.transport.unsubscribe.side_effect = arbitrary_exception
 
         stage.run_op(op)

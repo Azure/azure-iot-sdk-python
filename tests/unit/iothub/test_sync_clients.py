@@ -10,6 +10,7 @@ import threading
 import time
 import urllib
 import sys
+import warnings
 from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device import exceptions as client_exceptions
 from azure.iot.device.common.auth import sastoken as st
@@ -1453,6 +1454,16 @@ class TestIoTHubDeviceClientInstantiation(
         assert (
             client._mqtt_pipeline.on_c2d_message_received == client._inbox_manager.route_c2d_message
         )
+
+    @pytest.mark.it("Constructs a public client without Paho callback API deprecation warnings")
+    def test_no_paho_callback_api_deprecation_warning(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            client = IoTHubDeviceClient.create_from_connection_string(
+                "HostName=hostname.azure-devices.net;DeviceId=MyDevice;SharedAccessKey=Zm9vYmFy"
+            )
+
+        client.shutdown()
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .create_from_connection_string()")

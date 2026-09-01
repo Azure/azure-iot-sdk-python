@@ -283,13 +283,15 @@ class MQTTTransportStage(PipelineStage):
             logger.debug("{}({}): subscribing to {}".format(self.name, op.name, op.topic))
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_complete(cancelled=False):
+            def on_complete(cancelled=False, error=None):
                 if cancelled:
                     op.complete(
                         error=pipeline_exceptions.OperationCancelled(
                             "Operation cancelled before SUBACK received"
                         )
                     )
+                elif error is not None:
+                    op.complete(error=error)
                 else:
                     logger.debug(
                         "{}({}): SUBACK received. completing op.".format(self.name, op.name)
