@@ -7,7 +7,7 @@ pr:
   autoCancel: true
   branches:
     include:
-    - main
+    - '*'
 
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 

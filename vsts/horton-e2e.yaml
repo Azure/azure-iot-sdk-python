@@ -7,7 +7,7 @@ pr:
   autoCancel: true
   branches:
     include:
-    - main
+    - '*'
 
 variables:
   Horton.FrameworkRoot: $(Agent.BuildDirectory)/e2e-fx
