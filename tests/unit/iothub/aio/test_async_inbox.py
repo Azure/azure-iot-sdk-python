@@ -8,25 +8,31 @@ import pytest
 import asyncio
 import logging
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
+from azure.iot.device.iothub.aio import loop_management
 from tests.unit.helpers import PROMPT_TIMEOUT
 
 logging.basicConfig(level=logging.DEBUG)
 
-# Note that some small delays need to be added at the end of async tests due to
-# RuntimeWarnings being thrown by the test ending before janus can correctly
-# resolve its Futures. This may be a bug in janus.
+
+@pytest.fixture
+def inbox():
+    inbox = AsyncClientInbox()
+    yield inbox
+
+    # Close the Janus queue on the internal loop where its async API is bound
+    loop = loop_management.get_client_internal_loop()
+    close_future = asyncio.run_coroutine_threadsafe(inbox._queue.aclose(), loop)
+    close_future.result(timeout=PROMPT_TIMEOUT)
 
 
 @pytest.mark.describe("AsyncClientInbox")
 class TestAsyncClientInbox(object):
     @pytest.mark.it("Instantiates empty")
-    def test_instantiates_empty(self):
-        inbox = AsyncClientInbox()
+    def test_instantiates_empty(self, inbox):
         assert inbox.empty()
 
     @pytest.mark.it("Can be checked regarding whether or not it contains an item")
-    def test_check_item_is_in_inbox(self, mocker):
-        inbox = AsyncClientInbox()
+    def test_check_item_is_in_inbox(self, mocker, inbox):
         assert inbox.empty()
         item = mocker.MagicMock()
         assert item not in inbox
@@ -35,19 +41,16 @@ class TestAsyncClientInbox(object):
 
     @pytest.mark.it("Can be checked regarding whether or not it is empty")
     @pytest.mark.asyncio
-    async def test_can_check_if_empty(self, mocker):
-        inbox = AsyncClientInbox()
+    async def test_can_check_if_empty(self, mocker, inbox):
         assert inbox.empty()
         inbox.put(mocker.MagicMock())
         assert not inbox.empty()
         await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT)
         assert inbox.empty()
-        await asyncio.sleep(0.01)  # Do this to prevent RuntimeWarning from janus
 
     @pytest.mark.it("Operates according to FIFO")
     @pytest.mark.asyncio
-    async def test_operates_according_to_FIFO(self, mocker):
-        inbox = AsyncClientInbox()
+    async def test_operates_according_to_FIFO(self, mocker, inbox):
         item1 = mocker.MagicMock()
         item2 = mocker.MagicMock()
         item3 = mocker.MagicMock()
@@ -59,14 +62,11 @@ class TestAsyncClientInbox(object):
         assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT) is item2
         assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT) is item3
 
-        await asyncio.sleep(0.01)  # Do this to prevent RuntimeWarning from janus
-
 
 @pytest.mark.describe("AsyncClientInbox - .put()")
 class TestAsyncClientInboxPut(object):
     @pytest.mark.it("Adds the given item to the inbox")
-    def test_adds_item_to_inbox(self, mocker):
-        inbox = AsyncClientInbox()
+    def test_adds_item_to_inbox(self, mocker, inbox):
         assert inbox.empty()
         item = mocker.MagicMock()
         inbox.put(item)
@@ -78,8 +78,7 @@ class TestAsyncClientInboxPut(object):
 @pytest.mark.asyncio
 class TestAsyncClientInboxGet(object):
     @pytest.mark.it("Returns and removes the next item from the inbox, if there is one")
-    async def test_removes_item_from_inbox_if_already_there(self, mocker):
-        inbox = AsyncClientInbox()
+    async def test_removes_item_from_inbox_if_already_there(self, mocker, inbox):
         assert inbox.empty()
         item = mocker.MagicMock()
         inbox.put(item)
@@ -88,13 +87,10 @@ class TestAsyncClientInboxGet(object):
         assert retrieved_item is item
         assert inbox.empty()
 
-        await asyncio.sleep(0.01)  # Do this to prevent RuntimeWarning from janus
-
     @pytest.mark.it(
         "Blocks on an empty inbox until an item is available to remove and return, if using blocking mode"
     )
-    async def test_get_waits_for_item_to_be_added_if_inbox_empty(self, mocker):
-        inbox = AsyncClientInbox()
+    async def test_get_waits_for_item_to_be_added_if_inbox_empty(self, mocker, inbox):
         assert inbox.empty()
         item = mocker.MagicMock()
 
@@ -110,8 +106,7 @@ class TestAsyncClientInboxGet(object):
 @pytest.mark.describe("AsyncClientInbox - .clear()")
 class TestAsyncClientInboxClear(object):
     @pytest.mark.it("Clears all items from the inbox")
-    def test_can_clear_all_items(self, mocker):
-        inbox = AsyncClientInbox()
+    def test_can_clear_all_items(self, mocker, inbox):
         item1 = mocker.MagicMock()
         item2 = mocker.MagicMock()
         item3 = mocker.MagicMock()
