@@ -10,10 +10,6 @@ from datetime import date
 from azure.iot.device import constant
 
 
-def _is_message_data_supported(data):
-    return data is None or isinstance(data, (str, bytes, bytearray, int, float))
-
-
 def _encode_message_data(data):
     if isinstance(data, str):
         return data.encode("utf-8")
@@ -21,7 +17,7 @@ def _encode_message_data(data):
         return str(data).encode("ascii")
     if data is None:
         return b""
-    if not _is_message_data_supported(data):
+    if not isinstance(data, (bytes, bytearray)):
         raise TypeError("Message data must be a string, bytes, bytearray, int, float, or None.")
     return data
 
@@ -123,10 +119,6 @@ class Message(object):
 
     def __str__(self):
         return str(self.data)
-
-    def _is_size_exceeded(self, size_limit: int) -> bool:
-        # Unsupported payloads are deferred to the MQTT transport to preserve client error handling.
-        return _is_message_data_supported(self.data) and self.get_size() > size_limit
 
     def get_size(self) -> int:
         """Return the message size in bytes as measured by IoT Hub.

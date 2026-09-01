@@ -338,12 +338,13 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
+        :raises: TypeError if the message data type is not supported by the MQTT transport.
         :raises: ValueError if the message fails size validation.
         """
         if not isinstance(message, Message):
             message = Message(message)
 
-        if message._is_size_exceeded(device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT):
+        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
             raise ValueError("Size of telemetry message can not exceed 256 KB.")
 
         logger.info("Sending message to Hub...")
@@ -664,6 +665,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
             connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
+        :raises: TypeError if the message data type is not supported by the MQTT transport.
         :raises: ValueError if the message fails size validation.
         """
         if not isinstance(message, Message):
@@ -671,7 +673,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         message.output_name = output_name
 
-        if message._is_size_exceeded(device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT):
+        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
             raise ValueError("Size of message can not exceed 256 KB.")
 
         logger.info("Sending message to output:" + output_name + "...")

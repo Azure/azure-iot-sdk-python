@@ -661,10 +661,7 @@ class SharedClientSendD2CMessageTests(object):
             pytest.param(1.5, id="Float input"),
             pytest.param(b"message", id="Bytes input"),
             pytest.param(bytearray(b"message"), id="Bytearray input"),
-            pytest.param(object(), id="Object input"),
             pytest.param(None, id="None input"),
-            pytest.param([1, "str"], id="List input"),
-            pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
     async def test_wraps_data_in_message_and_calls_pipeline_send_message(
@@ -675,6 +672,23 @@ class SharedClientSendD2CMessageTests(object):
         sent_message = mqtt_pipeline.send_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
+
+    @pytest.mark.it("Raises TypeError when the message data type is unsupported")
+    @pytest.mark.parametrize(
+        "message_input",
+        [
+            pytest.param(object(), id="Object input"),
+            pytest.param([1, "str"], id="List input"),
+            pytest.param({"a": 2}, id="Dictionary input"),
+        ],
+    )
+    async def test_raises_type_error_for_unsupported_message_data(
+        self, client, mqtt_pipeline, message_input
+    ):
+        with pytest.raises(TypeError, match="Message data must be"):
+            await client.send_message(message_input)
+
+        assert mqtt_pipeline.send_message.call_count == 0
 
     @pytest.mark.it("Validates message size at the 256 KB boundary")
     @pytest.mark.parametrize(
@@ -2049,10 +2063,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
             pytest.param(1.5, id="Float input"),
             pytest.param(b"message", id="Bytes input"),
             pytest.param(bytearray(b"message"), id="Bytearray input"),
-            pytest.param(object(), id="Object input"),
             pytest.param(None, id="None input"),
-            pytest.param([1, "str"], id="List input"),
-            pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
     async def test_send_message_to_output_calls_pipeline_wraps_data_in_message(
@@ -2064,6 +2075,23 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         sent_message = mqtt_pipeline.send_output_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
+
+    @pytest.mark.it("Raises TypeError when the message data type is unsupported")
+    @pytest.mark.parametrize(
+        "message_input",
+        [
+            pytest.param(object(), id="Object input"),
+            pytest.param([1, "str"], id="List input"),
+            pytest.param({"a": 2}, id="Dictionary input"),
+        ],
+    )
+    async def test_raises_type_error_for_unsupported_message_data(
+        self, client, mqtt_pipeline, message_input
+    ):
+        with pytest.raises(TypeError, match="Message data must be"):
+            await client.send_message_to_output(message_input, "some_output")
+
+        assert mqtt_pipeline.send_output_message.call_count == 0
 
     @pytest.mark.it("Validates message size at the 256 KB boundary")
     @pytest.mark.parametrize(
