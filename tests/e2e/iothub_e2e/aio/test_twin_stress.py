@@ -100,9 +100,7 @@ class TestTwinStress(object):
         await call_with_retry(client, client.patch_twin_reported_properties, reset_reported_props)
 
         for _ in range(0, iteration_count, batch_size):
-            props = {
-                "key_{}".format(k): get_random_property_value() for k in range(0, iteration_count)
-            }
+            props = {"key_{}".format(k): get_random_property_value() for k in range(0, batch_size)}
 
             # Do overlapped calls to update `batch_size` properties.
             tasks = [
@@ -120,9 +118,13 @@ class TestTwinStress(object):
 
             # wait for these properties to arrive at the service
             count_received = 0
+            deadline = asyncio.get_running_loop().time() + const.E2E_TIMEOUT
             while count_received < batch_size:
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    pytest.fail("Timed out waiting for the reported property update batch")
                 received_patch = await service_helper.get_next_reported_patch_arrival(
-                    timeout=const.E2E_TIMEOUT
+                    timeout=remaining
                 )
                 received_test_content = received_patch[const.REPORTED][const.TEST_CONTENT] or {}
                 logger.info("received {}".format(received_test_content))
