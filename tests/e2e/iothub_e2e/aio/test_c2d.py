@@ -6,6 +6,7 @@ import pytest
 import logging
 import json
 from dev_utils import get_random_dict
+import const
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -38,7 +39,7 @@ class TestReceiveC2d(object):
 
         await service_helper.send_c2d(message, {})
 
-        await asyncio.wait_for(received.wait(), 60)
+        await asyncio.wait_for(received.wait(), timeout=const.E2E_TIMEOUT)
         assert received.is_set()
 
         assert received_message.data.decode("utf-8") == message

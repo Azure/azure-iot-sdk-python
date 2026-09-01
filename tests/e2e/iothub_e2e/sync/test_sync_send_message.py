@@ -4,8 +4,9 @@
 import pytest
 import logging
 import json
-import time
 import dev_utils
+import const
+import wait_helpers
 from azure.iot.device.exceptions import OperationCancelled, ClientError
 
 logger = logging.getLogger(__name__)
@@ -91,25 +92,29 @@ class TestSendMessageDroppedConnection(object):
     @pytest.mark.it("Sends if connection drops before sending")
     @pytest.mark.uses_iptables
     def test_sync_sends_if_drop_before_sending(
-        self, client, random_message, dropper, service_helper, executor, leak_tracker
+        self,
+        client,
+        random_message,
+        dropper,
+        service_helper,
+        run_in_daemon_thread,
+        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
 
         assert client.connected
 
         dropper.drop_outgoing()
-        send_task = executor.submit(client.send_message, random_message)
+        send_task = run_in_daemon_thread(client.send_message, random_message)
 
-        while client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: not client.connected, timeout=const.E2E_TIMEOUT)
 
         assert not send_task.done()
 
         dropper.restore_all()
-        while not client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: client.connected, timeout=const.E2E_TIMEOUT)
 
-        send_task.result()
+        send_task.result(timeout=const.E2E_TIMEOUT)
 
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
@@ -120,25 +125,29 @@ class TestSendMessageDroppedConnection(object):
     @pytest.mark.it("Sends if connection rejects send")
     @pytest.mark.uses_iptables
     def test_sync_sends_if_reject_before_sending(
-        self, client, random_message, dropper, service_helper, executor, leak_tracker
+        self,
+        client,
+        random_message,
+        dropper,
+        service_helper,
+        run_in_daemon_thread,
+        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
 
         assert client.connected
 
         dropper.reject_outgoing()
-        send_task = executor.submit(client.send_message, random_message)
+        send_task = run_in_daemon_thread(client.send_message, random_message)
 
-        while client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: not client.connected, timeout=const.E2E_TIMEOUT)
 
         assert not send_task.done()
 
         dropper.restore_all()
-        while not client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: client.connected, timeout=const.E2E_TIMEOUT)
 
-        send_task.result()
+        send_task.result(timeout=const.E2E_TIMEOUT)
 
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
@@ -198,8 +207,7 @@ class TestSendMessageRetryDisabled(object):
         assert client.connected
 
         dropper.drop_outgoing()
-        while client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: not client.connected, timeout=const.E2E_TIMEOUT)
 
         assert not client.connected
         dropper.restore_all()
@@ -214,20 +222,19 @@ class TestSendMessageRetryDisabled(object):
     @pytest.mark.it("Fails if connection disconnects before sending")
     @pytest.mark.uses_iptables
     def test_sync_fails_if_disconnect_before_sending_with_retry_disabled(
-        self, client, random_message, dropper, executor, leak_tracker
+        self, client, random_message, dropper, run_in_daemon_thread, leak_tracker
     ):
         leak_tracker.set_initial_object_list()
 
         assert client.connected
 
         dropper.drop_outgoing()
-        send_task = executor.submit(client.send_message, random_message)
+        send_task = run_in_daemon_thread(client.send_message, random_message)
 
-        while client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: not client.connected, timeout=const.E2E_TIMEOUT)
 
         with pytest.raises(OperationCancelled):
-            send_task.result()
+            send_task.result(timeout=const.E2E_TIMEOUT)
 
         random_message = None  # So this doesn't get tagged as a leak
         # TODO: investigate this leak

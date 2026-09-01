@@ -29,6 +29,9 @@ class ServiceHelper:
     def set_identity(self, device_id, module_id):
         return self._inner_object.set_identity(device_id, module_id)
 
+    async def wait_until_ready(self, timeout):
+        return await self._run_in_executor(self._inner_object.wait_until_ready, timeout)
+
     async def set_desired_properties(self, desired_props):
         return await self._run_in_executor(self._inner_object.set_desired_properties, desired_props)
 

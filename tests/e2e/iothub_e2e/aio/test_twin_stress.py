@@ -121,7 +121,9 @@ class TestTwinStress(object):
             # wait for these properties to arrive at the service
             count_received = 0
             while count_received < batch_size:
-                received_patch = await service_helper.get_next_reported_patch_arrival(timeout=60)
+                received_patch = await service_helper.get_next_reported_patch_arrival(
+                    timeout=const.E2E_TIMEOUT
+                )
                 received_test_content = received_patch[const.REPORTED][const.TEST_CONTENT] or {}
                 logger.info("received {}".format(received_test_content))
 
@@ -180,7 +182,7 @@ class TestTwinStress(object):
             )
 
             # wait for the property update to arrive at the client
-            received_patch = await asyncio.wait_for(patches.get(), 60)
+            received_patch = await asyncio.wait_for(patches.get(), timeout=const.E2E_TIMEOUT)
             assert received_patch[const.TEST_CONTENT] == property_value
 
         leak_tracker.check_for_leaks()
@@ -234,8 +236,12 @@ class TestTwinStress(object):
 
             # Wait for those properties to arrive at the client
             count_received = 0
+            deadline = event_loop.time() + const.E2E_TIMEOUT
             while count_received < batch_size:
-                received_patch = await asyncio.wait_for(patches.get(), 60)
+                remaining = deadline - event_loop.time()
+                if remaining <= 0:
+                    pytest.fail("Timed out waiting for the desired property update batch")
+                received_patch = await asyncio.wait_for(patches.get(), timeout=remaining)
                 received_test_content = received_patch[const.TEST_CONTENT] or {}
 
                 for key in received_test_content:
@@ -332,14 +338,23 @@ class TestTwinStress(object):
         )
         ready_to_test = False
 
+        deadline = asyncio.get_running_loop().time() + const.E2E_TIMEOUT
         while not ready_to_test:
-            twin = await call_with_retry(client, client.get_twin)
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                pytest.fail("Timed out waiting for the initial reported property value")
+            twin = await asyncio.wait_for(
+                call_with_retry(client, client.get_twin), timeout=remaining
+            )
             if twin[const.REPORTED].get(const.TEST_CONTENT, "") == current_property_value:
                 logger.info("Initial value set")
                 ready_to_test = True
             else:
                 logger.info("Waiting for initial value. Sleeping for 5")
-                await asyncio.sleep(5)
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    pytest.fail("Timed out waiting for the initial reported property value")
+                await asyncio.sleep(min(5, remaining))
 
         for i in range(0, iteration_count, batch_size):
             logger.info("Iteration {} of {}".format(i, iteration_count))

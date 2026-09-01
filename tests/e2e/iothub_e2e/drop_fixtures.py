@@ -7,12 +7,6 @@ from dev_utils import iptables, test_env
 
 logger = logging.getLogger(__name__)
 
-print("reconnecting mqtt")
-iptables.reconnect_all("mqtt", test_env.IOTHUB_HOSTNAME)
-print("reconnecting mqttws")
-iptables.reconnect_all("mqttws", test_env.IOTHUB_HOSTNAME)
-print("Done")
-
 
 class Dropper(object):
     def __init__(self, transport):

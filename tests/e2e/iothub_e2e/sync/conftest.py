@@ -2,10 +2,10 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 import pytest
-import time
 from dev_utils import test_env, ServiceHelperSync
 import logging
 import datetime
+import const
 from utils import create_client_object
 from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
 
@@ -60,15 +60,16 @@ def service_helper():
         eventhub_connection_string=test_env.EVENTHUB_CONNECTION_STRING,
         eventhub_consumer_group=test_env.EVENTHUB_CONSUMER_GROUP,
     )
-    time.sleep(3)
-    yield service_helper
+    try:
+        service_helper.wait_until_ready(timeout=const.E2E_TIMEOUT)
+        yield service_helper
+    finally:
+        logger.info("----------------------------")
+        logger.info("shutting down service_helper")
+        logger.info("----------------------------")
 
-    logger.info("----------------------------")
-    logger.info("shutting down service_helper")
-    logger.info("----------------------------")
+        service_helper.shutdown()
 
-    service_helper.shutdown()
-
-    logger.info("---------------------------------")
-    logger.info("service helper shut down complete")
-    logger.info("---------------------------------")
+        logger.info("---------------------------------")
+        logger.info("service helper shut down complete")
+        logger.info("---------------------------------")

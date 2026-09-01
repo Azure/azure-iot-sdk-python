@@ -7,6 +7,7 @@ import logging
 import threading
 import test_config
 import parametrize
+import const
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -47,7 +48,7 @@ class TestSasRenewal(object):
         # setting on_connection_state_change seems to have the side effect of
         # calling handle_on_connection_state_change once with the initial value.
         # Wait for one disconnect/reconnect cycle so we can get past it.
-        connected_event.wait()
+        assert connected_event.wait(timeout=const.E2E_TIMEOUT)
 
         # OK, we're ready to test.  wait for the renewal
         token_before_connect = str(token_object)
@@ -56,9 +57,9 @@ class TestSasRenewal(object):
         connected_event.clear()
 
         logger.info("Waiting for client to disconnect")
-        disconnected_event.wait()
+        assert disconnected_event.wait(timeout=const.E2E_TIMEOUT)
         logger.info("Waiting for client to reconnect")
-        connected_event.wait()
+        assert connected_event.wait(timeout=const.E2E_TIMEOUT)
         logger.info("Client reconnected")
 
         # Finally verify that our token changed.

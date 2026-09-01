@@ -7,7 +7,7 @@ import queue
 import copy
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.protocol.models import Twin, TwinProperties, CloudToDeviceMethod
 from azure.eventhub import EventHubConsumerClient
@@ -78,8 +78,6 @@ class ServiceHelperSync(object):
         eventhub_connection_string,
         eventhub_consumer_group,
     ):
-        self._executor = ThreadPoolExecutor()
-
         self._registry_manager = IoTHubRegistryManager(iothub_connection_string)
 
         logger.info(
@@ -91,13 +89,31 @@ class ServiceHelperSync(object):
         self._eventhub_consumer_client = EventHubConsumerClient.from_connection_string(
             eventhub_connection_string, consumer_group=eventhub_consumer_group
         )
-
-        self._eventhub_future = self._executor.submit(self._eventhub_thread)
         self.device_id = None
         self.module_id = None
         self.incoming_patch_queue = queue.Queue()
         self.cv = threading.Condition()
         self.incoming_eventhub_events = {}
+        self._eventhub_ready = threading.Event()
+        self._eventhub_future = self._start_eventhub_thread()
+        self._eventhub_future.add_done_callback(lambda _: self._eventhub_ready.set())
+
+    def _start_eventhub_thread(self):
+        future = concurrent.futures.Future()
+
+        def run():
+            if not future.set_running_or_notify_cancel():
+                return
+            try:
+                result = self._eventhub_thread()
+            except BaseException as e:
+                future.set_exception(e)
+            else:
+                future.set_result(result)
+
+        self._eventhub_worker = threading.Thread(target=run, daemon=True)
+        self._eventhub_worker.start()
+        return future
 
     def set_identity(self, device_id, module_id):
         if device_id != self.device_id or module_id != self.module_id:
@@ -112,6 +128,15 @@ class ServiceHelperSync(object):
                         )
                     )
                 self.incoming_eventhub_events = {}
+
+    def wait_until_ready(self, timeout):
+        if not self._eventhub_ready.wait(timeout=timeout):
+            raise TimeoutError(
+                "EventHub consumer did not initialize within {} seconds".format(timeout)
+            )
+        if self._eventhub_future.done():
+            self._eventhub_future.result()
+            raise RuntimeError("EventHub consumer exited before initializing")
 
     def set_desired_properties(self, desired_props):
         if self.module_id:
@@ -203,13 +228,12 @@ class ServiceHelperSync(object):
 
         if self._eventhub_future:
             try:
-                # Ensure the EventHub receive loop exits before tearing down the executor
+                # Ensure the EventHub receive loop exits after closing the consumer
                 self._eventhub_future.result(timeout=30)
+            except concurrent.futures.TimeoutError:
+                logger.warning("_eventhub_thread did not exit within 30 seconds")
             except Exception:
                 logger.warning("_eventhub_thread did not exit cleanly", exc_info=True)
-
-        if self._executor:
-            self._executor.shutdown(wait=True)
 
     def _convert_incoming_event(self, event):
         try:
@@ -255,6 +279,8 @@ class ServiceHelperSync(object):
 
         def on_event_batch(partition_context, events):
             try:
+                # A completed receive confirms that the Event Hub consumer is active
+                self._eventhub_ready.set()
                 for event in events:
                     device_id = get_device_id_from_event(event)
                     module_id = get_module_id_from_event(event)
@@ -294,6 +320,7 @@ class ServiceHelperSync(object):
                 logger.info("Starting EventHub receive")
                 self._eventhub_consumer_client.receive_batch(
                     max_wait_time=2,
+                    starting_position="-1",
                     on_event_batch=on_event_batch,
                     on_error=on_error,
                     on_partition_initialize=on_partition_initialize,

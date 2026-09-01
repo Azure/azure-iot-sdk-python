@@ -6,6 +6,7 @@ import logging
 import time
 import const
 import queue
+import wait_helpers
 from dev_utils import get_random_dict
 from azure.iot.device.exceptions import ClientError
 
@@ -112,24 +113,30 @@ class TestReportedPropertiesDroppedConnection(object):
 
     @pytest.mark.it("Updates reported properties if connection drops before sending")
     def test_sync_updates_reported_if_drop_before_sending(
-        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+        self,
+        client,
+        random_reported_props,
+        dropper,
+        service_helper,
+        run_in_daemon_thread,
+        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
 
         assert client.connected
         dropper.drop_outgoing()
 
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-        while client.connected:
-            time.sleep(1)
+        send_task = run_in_daemon_thread(
+            client.patch_twin_reported_properties, random_reported_props
+        )
+        wait_helpers.wait_for_condition(lambda: not client.connected, timeout=const.E2E_TIMEOUT)
 
         assert not send_task.done()
 
         dropper.restore_all()
-        while not client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: client.connected, timeout=const.E2E_TIMEOUT)
 
-        send_task.result()
+        send_task.result(timeout=const.E2E_TIMEOUT)
 
         received_patch = service_helper.get_next_reported_patch_arrival()
         assert (
@@ -142,24 +149,30 @@ class TestReportedPropertiesDroppedConnection(object):
 
     @pytest.mark.it("Updates reported properties if connection rejects send")
     def test_sync_updates_reported_if_reject_before_sending(
-        self, client, random_reported_props, dropper, service_helper, executor, leak_tracker
+        self,
+        client,
+        random_reported_props,
+        dropper,
+        service_helper,
+        run_in_daemon_thread,
+        leak_tracker,
     ):
         leak_tracker.set_initial_object_list()
 
         assert client.connected
         dropper.reject_outgoing()
 
-        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
-        while client.connected:
-            time.sleep(1)
+        send_task = run_in_daemon_thread(
+            client.patch_twin_reported_properties, random_reported_props
+        )
+        wait_helpers.wait_for_condition(lambda: not client.connected, timeout=const.E2E_TIMEOUT)
 
         assert not send_task.done()
 
         dropper.restore_all()
-        while not client.connected:
-            time.sleep(1)
+        wait_helpers.wait_for_condition(lambda: client.connected, timeout=const.E2E_TIMEOUT)
 
-        send_task.result()
+        send_task.result(timeout=const.E2E_TIMEOUT)
 
         received_patch = service_helper.get_next_reported_patch_arrival()
         assert (
@@ -198,9 +211,12 @@ class TestDesiredProperties(object):
             {const.TEST_CONTENT: random_dict},
         )
 
+        deadline = time.monotonic() + const.E2E_TIMEOUT
         while True:
-            received_patch = received_patches.get(timeout=60)
-
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                pytest.fail("Timed out waiting for the expected desired property patch")
+            received_patch = received_patches.get(timeout=remaining)
             if received_patch[const.TEST_CONTENT] == random_dict:
                 twin = client.get_twin()
                 assert twin[const.DESIRED][const.TEST_CONTENT] == random_dict

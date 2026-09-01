@@ -6,6 +6,8 @@ import pytest
 import logging
 import json
 import dev_utils
+import const
+import wait_helpers
 from azure.iot.device.exceptions import OperationCancelled, ClientError
 
 logger = logging.getLogger(__name__)
@@ -103,16 +105,18 @@ class TestSendMessageDroppedConnection(object):
         dropper.drop_outgoing()
         send_task = asyncio.ensure_future(client.send_message(random_message))
 
-        while client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: not client.connected, timeout=const.E2E_TIMEOUT
+        )
 
         assert not send_task.done()
 
         dropper.restore_all()
-        while not client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: client.connected, timeout=const.E2E_TIMEOUT
+        )
 
-        await send_task
+        await asyncio.wait_for(send_task, timeout=const.E2E_TIMEOUT)
 
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
 
@@ -137,16 +141,18 @@ class TestSendMessageDroppedConnection(object):
         dropper.reject_outgoing()
         send_task = asyncio.ensure_future(client.send_message(random_message))
 
-        while client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: not client.connected, timeout=const.E2E_TIMEOUT
+        )
 
         assert not send_task.done()
 
         dropper.restore_all()
-        while not client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: client.connected, timeout=const.E2E_TIMEOUT
+        )
 
-        await send_task
+        await asyncio.wait_for(send_task, timeout=const.E2E_TIMEOUT)
 
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
 
@@ -211,8 +217,9 @@ class TestSendMessageRetryDisabled(object):
         assert client.connected
 
         dropper.drop_outgoing()
-        while client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: not client.connected, timeout=const.E2E_TIMEOUT
+        )
 
         assert not client.connected
         dropper.restore_all()
@@ -236,11 +243,12 @@ class TestSendMessageRetryDisabled(object):
         dropper.drop_outgoing()
         send_task = asyncio.ensure_future(client.send_message(random_message))
 
-        while client.connected:
-            await asyncio.sleep(1)
+        await wait_helpers.async_wait_for_condition(
+            lambda: not client.connected, timeout=const.E2E_TIMEOUT
+        )
 
         with pytest.raises(OperationCancelled):
-            await send_task
+            await asyncio.wait_for(send_task, timeout=const.E2E_TIMEOUT)
 
         random_message = None  # so this doesn't get tagged as a leak
         # TODO: investigate leak
