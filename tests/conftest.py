@@ -45,24 +45,6 @@ def async_poll_until():
 
 
 @pytest.fixture
-def track_call_started(mocker):
-    """Return a helper that signals when a method invocation begins."""
-
-    def track_call(obj, method_name):
-        call_started = threading.Event()
-        original_method = getattr(obj, method_name)
-
-        def tracked_call(*args, **kwargs):
-            call_started.set()
-            return original_method(*args, **kwargs)
-
-        mocker.patch.object(obj, method_name, side_effect=tracked_call)
-        return call_started
-
-    return track_call
-
-
-@pytest.fixture
 def run_in_daemon_thread():
     """Return a helper that runs a function in a daemon thread and exposes its result."""
 
@@ -83,6 +65,29 @@ def run_in_daemon_thread():
         return future
 
     return run
+
+
+@pytest.fixture
+def assert_call_blocks(mocker, run_in_daemon_thread):
+    """Return a helper that verifies a call blocks until an action releases it."""
+
+    def assert_blocks(fn, *, blocked_on, release, args=(), kwargs=None, timeout=5):
+        call_started = threading.Event()
+
+        def tracked_call(*args, **kwargs):
+            call_started.set()
+            return blocked_on(*args, **kwargs)
+
+        mocker.patch.object(blocked_on.__self__, blocked_on.__name__, side_effect=tracked_call)
+        future = run_in_daemon_thread(fn, *args, **(kwargs or {}))
+        try:
+            assert call_started.wait(timeout=timeout)
+            assert not future.done()
+        finally:
+            release()
+        return future.result(timeout=timeout)
+
+    return assert_blocks
 
 
 """

@@ -81,25 +81,19 @@ class TestSyncClientInboxGet(object):
         "Blocks on an empty inbox until an item is available to remove and return, if using blocking mode"
     )
     def test_waits_for_item_to_be_added_if_inbox_empty_in_blocking_mode(
-        self, mocker, track_call_started, run_in_daemon_thread
+        self, mocker, assert_call_blocks
     ):
         inbox = SyncClientInbox()
         assert inbox.empty()
         item = mocker.MagicMock()
-        # Track when the background get reaches the blocking queue operation
-        get_started = track_call_started(inbox._queue, "get")
 
-        # Begin waiting for an item on a background thread
-        get_future = run_in_daemon_thread(inbox.get, block=True)
-        try:
-            # The get is blocked waiting for an item
-            assert get_started.wait(timeout=5)
-            assert not get_future.done()
-        finally:
-            # Always add the item so a failed assertion cannot strand the background thread
-            inbox.put(item)
-        # The get returns once the item is available
-        retrieved_item = get_future.result(timeout=5)
+        # Get blocks on the empty queue until the item is added
+        retrieved_item = assert_call_blocks(
+            inbox.get,
+            blocked_on=inbox._queue.get,
+            release=lambda: inbox.put(item),
+            kwargs={"block": True},
+        )
         assert retrieved_item is item
         assert inbox.empty()
 
