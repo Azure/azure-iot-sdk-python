@@ -8,7 +8,7 @@ import asyncio
 
 import pytest
 
-from tests.e2e.iothub_e2e import wait_helpers
+import wait_helpers
 
 
 @pytest.mark.describe("E2E wait helpers")
