@@ -4,9 +4,10 @@ trigger:
     - main
 
 pr:
+  autoCancel: true
   branches:
     include:
-    - main
+    - '*'
 
 name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
 
@@ -114,6 +115,13 @@ stages:
           versionSpec: $(pv)
           architecture: 'x64'
 
+      - script: 'python -m pip install uv'
+        displayName: 'Install uv'
+
+      # Resolve upgrades before Cache@2 hashes uv.lock so its save key stays stable.
+      - script: 'uv lock --upgrade --python "$(pv)" --no-cache'
+        displayName: 'Resolve latest dependencies'
+
       # Cache downloads without reusing the job environment.
       - task: Cache@2
         displayName: 'Cache uv'
@@ -124,10 +132,7 @@ stages:
             "uv" | "$(Agent.OS)"
           path: $(Pipeline.Workspace)/.uv-cache
 
-      - script: 'python -m pip install uv'
-        displayName: 'Install uv'
-
-      - script: 'uv sync --upgrade --python "$(pv)" --no-dev --group test --group e2e'
+      - script: 'uv sync --locked --python "$(pv)" --no-dev --group test --group e2e'
         displayName: 'Sync E2E environment'
         env:
           UV_CACHE_DIR: $(Pipeline.Workspace)/.uv-cache
@@ -165,6 +170,13 @@ stages:
           versionSpec: $(pv)
           architecture: 'x64'
 
+      - script: 'python -m pip install uv'
+        displayName: 'Install uv'
+
+      # Resolve upgrades before Cache@2 hashes uv.lock so its save key stays stable.
+      - script: 'uv lock --upgrade --python "$(pv)" --no-cache'
+        displayName: 'Resolve latest dependencies'
+
       # Cache downloads without reusing the job environment.
       - task: Cache@2
         displayName: 'Cache uv'
@@ -175,10 +187,7 @@ stages:
             "uv" | "$(Agent.OS)"
           path: $(Pipeline.Workspace)/.uv-cache
 
-      - script: 'python -m pip install uv'
-        displayName: 'Install uv'
-
-      - script: 'uv sync --upgrade --python "$(pv)" --no-dev --group test --group e2e'
+      - script: 'uv sync --locked --python "$(pv)" --no-dev --group test --group e2e'
         displayName: 'Sync E2E environment'
         env:
           UV_CACHE_DIR: $(Pipeline.Workspace)/.uv-cache

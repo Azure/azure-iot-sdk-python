@@ -21,7 +21,7 @@ uv run pre-commit install
 
 `uv sync` installs the SDK and all development dependency groups into `.venv`. Source changes are immediately reflected because the SDK and `dev_utils` are installed editably.
 
-The checked-in `uv.lock` provides a reproducible contributor environment. CI deliberately runs `uv sync --upgrade` so the library is also tested against the newest compatible dependencies.
+The checked-in `uv.lock` provides a reproducible contributor environment. Cached Azure Pipelines E2E jobs deliberately resolve an upgraded lockfile before caching, then run `uv sync --locked` so the library is tested against the newest compatible dependencies without changing the cache key during a job.
 
 Common commands:
 
