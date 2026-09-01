@@ -10,7 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: Naturalclar/issue-action@596dfb92b8ba81449d4b3a0f34e9d3d279fab330 # v1.0.0
+      - uses: Naturalclar/issue-action@dc881db370e1faa4bcc32ad5d3fadb6d905d8700 # v2.0.2
         with:
           keywords: '[""]'
           labels: '["IoTSDK"]'
