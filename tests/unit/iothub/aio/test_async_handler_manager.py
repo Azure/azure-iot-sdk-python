@@ -463,6 +463,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         handler,
         handler_checker,
         inbox,
+        async_poll_until,
     ):
         # Intercept inbox operations so the runner can be paused with work remaining
         original_get = inbox.get
@@ -518,6 +519,12 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
             resume_runner.set()
         # Handler removal completes after the runner processes all pending items
         await asyncio.wait_for(removal_future, timeout=5)
+
+        # Coroutine handlers may still be completing on the handler loop
+        await async_poll_until(
+            lambda: handler_checker.handler_call_count >= 100,
+            timeout=BATCH_COMPLETION_TIMEOUT,
+        )
 
         # Despite removal, handler has been called for everything that was in the inbox at the
         # time of the removal
