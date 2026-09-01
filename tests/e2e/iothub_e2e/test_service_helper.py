@@ -34,7 +34,8 @@ class TestWaitUntilReady(object):
             service_helper.wait_until_ready(timeout=0.01)
 
     @pytest.mark.it("Raises the Event Hub consumer error if it exits during initialization")
-    def test_raises_consumer_error(self, service_helper, arbitrary_exception):
+    def test_raises_consumer_error(self, service_helper):
+        arbitrary_exception = RuntimeError("arbitrary Event Hub failure")
         service_helper._eventhub_future.set_exception(arbitrary_exception)
         service_helper._eventhub_ready.set()
 
@@ -65,7 +66,8 @@ class TestEventHubConsumer(object):
         assert eventhub_thread.call_count == 1
 
     @pytest.mark.it("Exposes errors raised on the daemon thread")
-    def test_exposes_error(self, mocker, service_helper, arbitrary_exception):
+    def test_exposes_error(self, mocker, service_helper):
+        arbitrary_exception = RuntimeError("arbitrary Event Hub failure")
         mocker.patch.object(service_helper, "_eventhub_thread", side_effect=arbitrary_exception)
 
         future = service_helper._start_eventhub_thread()
