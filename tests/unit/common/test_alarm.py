@@ -42,6 +42,8 @@ class TestAlarm(object):
         a.start()
 
         assert desired_function.call_count == 0
+        assert not a.finished.wait(timeout=1)
+        assert desired_function.call_count == 0
         assert a.finished.wait(timeout=5)
         assert time.time() >= alarm_time
         assert desired_function.call_count == 1
@@ -76,6 +78,8 @@ class TestAlarm(object):
         a = Alarm(alarm_time=alarm_time, function=desired_function)
         a.start()
 
+        assert desired_function.call_count == 0
+        assert not a.finished.wait(timeout=1)
         assert desired_function.call_count == 0
         a.cancel()  # cancel the alarm
         a.join(timeout=5)

@@ -5,12 +5,16 @@
 # --------------------------------------------------------------------------
 import logging
 import pytest
+import asyncio
 import threading
 import concurrent.futures
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.iothub import client_event
 from azure.iot.device.iothub.aio.async_handler_manager import AsyncHandlerManager
-from azure.iot.device.iothub.sync_handler_manager import HandlerManagerException
+from azure.iot.device.iothub.sync_handler_manager import (
+    HandlerManagerException,
+    HandlerRunnerKillerSentinel,
+)
 from azure.iot.device.iothub.sync_handler_manager import MESSAGE, METHOD, TWIN_DP_PATCH
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
@@ -451,8 +455,31 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         handler,
         handler_checker,
         inbox,
-        async_wait_for,
     ):
+        original_get = inbox.get
+        original_put = inbox.put
+        runner_paused = threading.Event()
+        resume_runner = threading.Event()
+        sentinel_added = threading.Event()
+        get_count = 0
+
+        async def controlled_get():
+            nonlocal get_count
+            item = await original_get()
+            get_count += 1
+            if get_count == 2:
+                runner_paused.set()
+                assert await asyncio.to_thread(resume_runner.wait, 5)
+            return item
+
+        def tracked_put(item):
+            original_put(item)
+            if isinstance(item, HandlerRunnerKillerSentinel):
+                sentinel_added.set()
+
+        mocker.patch.object(inbox, "get", side_effect=controlled_get)
+        mocker.patch.object(inbox, "put", side_effect=tracked_put)
+
         assert inbox.empty()
         # Queue up a bunch of items in the inbox
         for _ in range(100):
@@ -463,9 +490,22 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         assert not inbox.empty()
         # Set the handler
         setattr(handler_manager, handler_name, handler)
-        # Immediately remove the handler
-        setattr(handler_manager, handler_name, None)
-        await async_wait_for(lambda: handler_checker.handler_call_count >= 100)
+        try:
+            assert runner_paused.wait(timeout=5)
+            assert handler_checker.handler_call_count < 100
+            assert not inbox.empty()
+
+            # Remove the handler while items are still pending
+            loop = asyncio.get_running_loop()
+            removal_future = loop.run_in_executor(
+                None, setattr, handler_manager, handler_name, None
+            )
+            assert sentinel_added.wait(timeout=5)
+            assert not removal_future.done()
+        finally:
+            resume_runner.set()
+        await asyncio.wait_for(removal_future, timeout=5)
+
         # Despite removal, handler has been called for everything that was in the inbox at the
         # time of the removal
         assert handler_checker.handler_call_count == 100
@@ -474,6 +514,8 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add some more items
         for _ in range(100):
             inbox.put(mocker.MagicMock())
+        # Give any incorrectly retained runner an opportunity to invoke the handler
+        await asyncio.sleep(0.1)
         # Despite more items added to inbox, no further handler calls have been made beyond the
         # initial calls that were made when the original items were added
         assert handler_checker.handler_call_count == 100

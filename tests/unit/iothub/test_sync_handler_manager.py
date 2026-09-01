@@ -6,9 +6,15 @@
 import logging
 import pytest
 import threading
+import time
+import concurrent.futures
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.iothub import client_event
-from azure.iot.device.iothub.sync_handler_manager import SyncHandlerManager, HandlerManagerException
+from azure.iot.device.iothub.sync_handler_manager import (
+    SyncHandlerManager,
+    HandlerManagerException,
+    HandlerRunnerKillerSentinel,
+)
 from azure.iot.device.iothub.sync_handler_manager import MESSAGE, METHOD, TWIN_DP_PATCH
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox
@@ -387,6 +393,30 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
     def test_handler_resolve_pending_items_before_handler_removal(
         self, mocker, handler_name, handler_manager, inbox
     ):
+        original_get = inbox.get
+        original_put = inbox.put
+        runner_paused = threading.Event()
+        resume_runner = threading.Event()
+        sentinel_added = threading.Event()
+        get_count = 0
+
+        def controlled_get(*args, **kwargs):
+            nonlocal get_count
+            item = original_get(*args, **kwargs)
+            get_count += 1
+            if get_count == 2:
+                runner_paused.set()
+                assert resume_runner.wait(timeout=5)
+            return item
+
+        def tracked_put(item):
+            original_put(item)
+            if isinstance(item, HandlerRunnerKillerSentinel):
+                sentinel_added.set()
+
+        mocker.patch.object(inbox, "get", side_effect=controlled_get)
+        mocker.patch.object(inbox, "put", side_effect=tracked_put)
+
         # Use a threadsafe mock to ensure accurate counts
         mock_handler = ThreadsafeMock()
         assert inbox.empty()
@@ -399,13 +429,23 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         assert not inbox.empty()
         # Set the handler
         setattr(handler_manager, handler_name, mock_handler)
-        # The handler has not yet been called for everything that was in the inbox
-        # NOTE: I'd really like to show that the handler call count is also > 0 here, but
-        # it's pretty difficult to make the timing work
-        assert mock_handler.call_count < 100
+        try:
+            assert runner_paused.wait(timeout=5)
+            assert mock_handler.call_count < 100
+            assert not inbox.empty()
 
-        # Immediately remove the handler
-        setattr(handler_manager, handler_name, None)
+            # Remove the handler while items are still pending
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                removal_future = executor.submit(setattr, handler_manager, handler_name, None)
+                try:
+                    assert sentinel_added.wait(timeout=5)
+                    assert not removal_future.done()
+                finally:
+                    resume_runner.set()
+                removal_future.result(timeout=5)
+        finally:
+            resume_runner.set()
+
         # Despite removal, handler has been called for everything that was in the inbox at the
         # time of the removal
         assert mock_handler.call_count == 100
@@ -414,6 +454,8 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add some more items
         for _ in range(100):
             inbox.put(mocker.MagicMock())
+        # Give any incorrectly retained runner an opportunity to invoke the handler
+        time.sleep(0.2)
         # Despite more items added to inbox, no further handler calls have been made beyond the
         # initial calls that were made when the original items were added
         assert mock_handler.call_count == 100
