@@ -7,12 +7,12 @@
 import pytest
 import logging
 import requests
+import requests_unixsocket
 import json
 import base64
 import urllib
 from azure.iot.device.iothub.edge_hsm import IoTEdgeHsm, IoTEdgeError
 from azure.iot.device import user_agent
-
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -29,6 +29,20 @@ def edge_hsm():
 
 @pytest.mark.describe("IoTEdgeHsm - Instantiation")
 class TestIoTEdgeHsmInstantiation(object):
+    @pytest.mark.it("Creates a private Unix socket requests session")
+    def test_creates_unix_socket_session(self, mocker):
+        mock_session_constructor = mocker.patch.object(requests_unixsocket, "Session")
+
+        edge_hsm = IoTEdgeHsm(
+            module_id="my_module_id",
+            generation_id="my_generation_id",
+            workload_uri="unix:///var/run/iotedge/workload.sock",
+            api_version="my_api_version",
+        )
+
+        assert edge_hsm._session is mock_session_constructor.return_value
+        assert mock_session_constructor.call_args == mocker.call()
+
     @pytest.mark.it("URL encodes the provided module_id parameter and sets it as an attribute")
     def test_encode_and_set_module_id(self):
         module_id = "my_module_id"
@@ -110,7 +124,7 @@ class TestIoTEdgeHsmInstantiation(object):
 class TestIoTEdgeHsmGetCertificate(object):
     @pytest.mark.it("Sends an HTTP GET request to retrieve the trust bundle from Edge")
     def test_requests_trust_bundle(self, mocker, edge_hsm):
-        mock_request_get = mocker.patch.object(requests, "get")
+        mock_request_get = mocker.patch.object(edge_hsm._session, "get")
         expected_url = edge_hsm.workload_uri + "trust-bundle"
         expected_params = {"api-version": edge_hsm.api_version}
         expected_headers = {
@@ -126,7 +140,7 @@ class TestIoTEdgeHsmGetCertificate(object):
 
     @pytest.mark.it("Returns the certificate from the trust bundle received from Edge")
     def test_returns_certificate(self, mocker, edge_hsm):
-        mock_request_get = mocker.patch.object(requests, "get")
+        mock_request_get = mocker.patch.object(edge_hsm._session, "get")
         mock_response = mock_request_get.return_value
         certificate = "my certificate"
         mock_response.json.return_value = {"certificate": certificate}
@@ -137,7 +151,7 @@ class TestIoTEdgeHsmGetCertificate(object):
 
     @pytest.mark.it("Raises IoTEdgeError if a bad request is made to Edge")
     def test_bad_request(self, mocker, edge_hsm):
-        mock_request_get = mocker.patch.object(requests, "get")
+        mock_request_get = mocker.patch.object(edge_hsm._session, "get")
         mock_response = mock_request_get.return_value
         error = requests.exceptions.HTTPError()
         mock_response.raise_for_status.side_effect = error
@@ -148,7 +162,7 @@ class TestIoTEdgeHsmGetCertificate(object):
 
     @pytest.mark.it("Raises IoTEdgeError if there is an error in json decoding the trust bundle")
     def test_bad_json(self, mocker, edge_hsm):
-        mock_request_get = mocker.patch.object(requests, "get")
+        mock_request_get = mocker.patch.object(edge_hsm._session, "get")
         mock_response = mock_request_get.return_value
         error = ValueError()
         mock_response.json.side_effect = error
@@ -159,7 +173,7 @@ class TestIoTEdgeHsmGetCertificate(object):
 
     @pytest.mark.it("Raises IoTEdgeError if the certificate is missing from the trust bundle")
     def test_bad_trust_bundle(self, mocker, edge_hsm):
-        mock_request_get = mocker.patch.object(requests, "get")
+        mock_request_get = mocker.patch.object(edge_hsm._session, "get")
         mock_response = mock_request_get.return_value
         # Return an empty json dict with no 'certificate' key
         mock_response.json.return_value = {}
@@ -176,7 +190,7 @@ class TestIoTEdgeHsmSign(object):
     def test_requests_data_signing(self, mocker, edge_hsm):
         data_str = "somedata"
         data_str_b64 = "c29tZWRhdGE="
-        mock_request_post = mocker.patch.object(requests, "post")
+        mock_request_post = mocker.patch.object(edge_hsm._session, "post")
         mock_request_post.return_value.json.return_value = {"digest": "somedigest"}
         expected_url = "{workload_uri}modules/{module_id}/genid/{generation_id}/sign".format(
             workload_uri=edge_hsm.workload_uri,
@@ -202,7 +216,7 @@ class TestIoTEdgeHsmSign(object):
         # important to have an explicit test for it since it's a requirement
         data_str = "somedata"
         data_str_b64 = base64.b64encode(data_str.encode("utf-8")).decode()
-        mock_request_post = mocker.patch.object(requests, "post")
+        mock_request_post = mocker.patch.object(edge_hsm._session, "post")
         mock_request_post.return_value.json.return_value = {"digest": "somedigest"}
 
         edge_hsm.sign(data_str)
@@ -215,7 +229,7 @@ class TestIoTEdgeHsmSign(object):
     @pytest.mark.it("Returns the signed data received from Edge")
     def test_returns_signed_data(self, mocker, edge_hsm):
         expected_digest = "somedigest"
-        mock_request_post = mocker.patch.object(requests, "post")
+        mock_request_post = mocker.patch.object(edge_hsm._session, "post")
         mock_request_post.return_value.json.return_value = {"digest": expected_digest}
 
         signed_data = edge_hsm.sign("somedata")
@@ -224,7 +238,7 @@ class TestIoTEdgeHsmSign(object):
 
     @pytest.mark.it("Raises IoTEdgeError if a bad request is made to EdgeHub")
     def test_bad_request(self, mocker, edge_hsm):
-        mock_request_post = mocker.patch.object(requests, "post")
+        mock_request_post = mocker.patch.object(edge_hsm._session, "post")
         mock_response = mock_request_post.return_value
         error = requests.exceptions.HTTPError()
         mock_response.raise_for_status.side_effect = error
@@ -235,7 +249,7 @@ class TestIoTEdgeHsmSign(object):
 
     @pytest.mark.it("Raises IoTEdgeError if there is an error in json decoding the signed response")
     def test_bad_json(self, mocker, edge_hsm):
-        mock_request_post = mocker.patch.object(requests, "post")
+        mock_request_post = mocker.patch.object(edge_hsm._session, "post")
         mock_response = mock_request_post.return_value
         error = ValueError()
         mock_response.json.side_effect = error
@@ -245,7 +259,7 @@ class TestIoTEdgeHsmSign(object):
 
     @pytest.mark.it("Raises IoTEdgeError if the signed data is missing from the response")
     def test_bad_response(self, mocker, edge_hsm):
-        mock_request_post = mocker.patch.object(requests, "post")
+        mock_request_post = mocker.patch.object(edge_hsm._session, "post")
         mock_response = mock_request_post.return_value
         mock_response.json.return_value = {}
 

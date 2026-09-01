@@ -13,7 +13,6 @@ import urllib
 from azure.iot.device.common.auth.signing_mechanism import SigningMechanism
 from azure.iot.device import user_agent
 
-requests_unixsocket.monkeypatch()
 logger = logging.getLogger(__name__)
 
 
@@ -47,6 +46,7 @@ class IoTEdgeHsm(SigningMechanism):
         self.api_version = api_version
         self.generation_id = generation_id
         self.workload_uri = _format_socket_uri(workload_uri)
+        self._session = requests_unixsocket.Session()
 
     def get_certificate(self):
         """
@@ -58,7 +58,7 @@ class IoTEdgeHsm(SigningMechanism):
 
         :raises: IoTEdgeError if unable to retrieve the certificate.
         """
-        r = requests.get(
+        r = self._session.get(
             self.workload_uri + "trust-bundle",
             params={"api-version": self.api_version},
             headers={"User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())},
@@ -99,7 +99,7 @@ class IoTEdgeHsm(SigningMechanism):
         )
         sign_request = {"keyId": "primary", "algo": "HMACSHA256", "data": encoded_data_str}
 
-        r = requests.post(  # can we use json field instead of data?
+        r = self._session.post(  # can we use json field instead of data?
             url=path,
             params={"api-version": self.api_version},
             headers={"User-Agent": urllib.parse.quote(user_agent.get_iothub_user_agent(), safe="")},
