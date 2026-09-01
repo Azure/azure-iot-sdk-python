@@ -9,7 +9,6 @@ import pytest
 import asyncio
 import time
 import urllib
-import sys
 from azure.iot.device import exceptions as client_exceptions
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
@@ -659,10 +658,10 @@ class SharedClientSendD2CMessageTests(object):
         [
             pytest.param("message", id="String input"),
             pytest.param(222, id="Integer input"),
-            pytest.param(object(), id="Object input"),
+            pytest.param(1.5, id="Float input"),
+            pytest.param(b"message", id="Bytes input"),
+            pytest.param(bytearray(b"message"), id="Bytearray input"),
             pytest.param(None, id="None input"),
-            pytest.param([1, "str"], id="List input"),
-            pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
     async def test_wraps_data_in_message_and_calls_pipeline_send_message(
@@ -674,44 +673,44 @@ class SharedClientSendD2CMessageTests(object):
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
 
-    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
-    async def test_raises_error_when_message_data_greater_than_256(self, client, mqtt_pipeline):
-        data_input = "serpensortia" * 256000
-        message = Message(data_input)
-        with pytest.raises(ValueError) as e_info:
-            await client.send_message(message)
-        assert "256 KB" in e_info.value.args[0]
-        assert mqtt_pipeline.send_message.call_count == 0
-
-    @pytest.mark.it("Raises error when message size is greater than 256 KB")
-    async def test_raises_error_when_message_size_greater_than_256(self, client, mqtt_pipeline):
-        data_input = "serpensortia"
-        message = Message(data_input)
-        message.custom_properties["spell"] = data_input * 256000
-        with pytest.raises(ValueError) as e_info:
-            await client.send_message(message)
-        assert "256 KB" in e_info.value.args[0]
-        assert mqtt_pipeline.send_message.call_count == 0
-
-    @pytest.mark.skipif(
-        sys.version_info >= (3, 12),
-        reason="Python 3.12 appears to have an issue. Investigate further.",
+    @pytest.mark.it("Raises TypeError when the message data type is unsupported")
+    @pytest.mark.parametrize(
+        "message_input",
+        [
+            pytest.param(object(), id="Object input"),
+            pytest.param([1, "str"], id="List input"),
+            pytest.param({"a": 2}, id="Dictionary input"),
+        ],
     )
-    @pytest.mark.it("Does not raises error when message data size is equal to 256 KB")
-    async def test_raises_error_when_message_data_equal_to_256(self, client, mqtt_pipeline):
-        data_input = "a" * 262095
-        message = Message(data_input)
-        # This check was put as message class may undergo the default content type encoding change
-        # and the above calculation will change.
-        if message.get_size() != device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
-            assert False
+    async def test_raises_type_error_for_unsupported_message_data(
+        self, client, mqtt_pipeline, message_input
+    ):
+        with pytest.raises(TypeError):
+            await client.send_message(message_input)
 
-        await client.send_message(message)
+        assert mqtt_pipeline.send_message.call_count == 0
 
-        assert mqtt_pipeline.send_message.call_count == 1
-        sent_message = mqtt_pipeline.send_message.call_args[0][0]
-        assert isinstance(sent_message, Message)
-        assert sent_message.data == data_input
+    @pytest.mark.it("Validates message size at the 256 KB boundary")
+    @pytest.mark.parametrize(
+        "size_delta, raises_error",
+        [
+            pytest.param(-1, False, id="Below limit"),
+            pytest.param(0, False, id="At limit"),
+            pytest.param(1, True, id="Above limit"),
+        ],
+    )
+    async def test_validates_message_size(self, client, mqtt_pipeline, size_delta, raises_error):
+        message_size = device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT + size_delta
+        message = Message(b"a" * message_size)
+
+        if raises_error:
+            with pytest.raises(ValueError):
+                await client.send_message(message)
+            assert mqtt_pipeline.send_message.call_count == 0
+        else:
+            await client.send_message(message)
+            assert mqtt_pipeline.send_message.call_count == 1
+            assert mqtt_pipeline.send_message.call_args[0][0] is message
 
 
 class SharedClientReceiveMethodRequestTests(object):
@@ -2061,10 +2060,10 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         [
             pytest.param("message", id="String input"),
             pytest.param(222, id="Integer input"),
-            pytest.param(object(), id="Object input"),
+            pytest.param(1.5, id="Float input"),
+            pytest.param(b"message", id="Bytes input"),
+            pytest.param(bytearray(b"message"), id="Bytearray input"),
             pytest.param(None, id="None input"),
-            pytest.param([1, "str"], id="List input"),
-            pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
     async def test_send_message_to_output_calls_pipeline_wraps_data_in_message(
@@ -2077,53 +2076,48 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
 
-    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
-    async def test_raises_error_when_message_to_output_data_greater_than_256(
-        self, client, mqtt_pipeline
-    ):
-        output_name = "some_output"
-        data_input = "serpensortia" * 256000
-        message = Message(data_input)
-        with pytest.raises(ValueError) as e_info:
-            await client.send_message_to_output(message, output_name)
-        assert "256 KB" in e_info.value.args[0]
-        assert mqtt_pipeline.send_output_message.call_count == 0
-
-    @pytest.mark.it("Raises error when message size is greater than 256 KB")
-    async def test_raises_error_when_message_to_output_size_greater_than_256(
-        self, client, mqtt_pipeline
-    ):
-        output_name = "some_output"
-        data_input = "serpensortia"
-        message = Message(data_input)
-        message.custom_properties["spell"] = data_input * 256000
-        with pytest.raises(ValueError) as e_info:
-            await client.send_message_to_output(message, output_name)
-        assert "256 KB" in e_info.value.args[0]
-        assert mqtt_pipeline.send_output_message.call_count == 0
-
-    @pytest.mark.skipif(
-        sys.version_info >= (3, 12),
-        reason="Python 3.12 appears to have an issue. Investigate further.",
+    @pytest.mark.it("Raises TypeError when the message data type is unsupported")
+    @pytest.mark.parametrize(
+        "message_input",
+        [
+            pytest.param(object(), id="Object input"),
+            pytest.param([1, "str"], id="List input"),
+            pytest.param({"a": 2}, id="Dictionary input"),
+        ],
     )
-    @pytest.mark.it("Does not raises error when message data size is equal to 256 KB")
-    async def test_raises_error_when_message_to_output_data_equal_to_256(
-        self, client, mqtt_pipeline
+    async def test_raises_type_error_for_unsupported_message_data(
+        self, client, mqtt_pipeline, message_input
     ):
+        with pytest.raises(TypeError):
+            await client.send_message_to_output(message_input, "some_output")
+
+        assert mqtt_pipeline.send_output_message.call_count == 0
+
+    @pytest.mark.it("Validates message size at the 256 KB boundary")
+    @pytest.mark.parametrize(
+        "size_delta, raises_error",
+        [
+            pytest.param(-1, False, id="Below limit"),
+            pytest.param(0, False, id="At limit"),
+            pytest.param(1, True, id="Above limit"),
+        ],
+    )
+    async def test_validates_message_size(self, client, mqtt_pipeline, size_delta, raises_error):
         output_name = "some_output"
-        data_input = "a" * 262095
-        message = Message(data_input)
-        # This check was put as message class may undergo the default content type encoding change
-        # and the above calculation will change.
-        if message.get_size() != device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
-            assert False
+        message_size = device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT + size_delta
+        output_name_size = len(output_name.encode("utf-8"))
+        message = Message(b"a" * (message_size - output_name_size))
 
-        await client.send_message_to_output(message, output_name)
+        if raises_error:
+            with pytest.raises(ValueError):
+                await client.send_message_to_output(message, output_name)
+            assert mqtt_pipeline.send_output_message.call_count == 0
+        else:
+            await client.send_message_to_output(message, output_name)
+            assert mqtt_pipeline.send_output_message.call_count == 1
+            assert mqtt_pipeline.send_output_message.call_args[0][0] is message
 
-        assert mqtt_pipeline.send_output_message.call_count == 1
-        sent_message = mqtt_pipeline.send_output_message.call_args[0][0]
-        assert isinstance(sent_message, Message)
-        assert sent_message.data == data_input
+        assert message.get_size() == message_size
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .receive_message_on_input()")

@@ -6,7 +6,7 @@ import pytest
 import logging
 import json
 import dev_utils
-from azure.iot.device.exceptions import OperationCancelled, ClientError
+from azure.iot.device.exceptions import OperationCancelled
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -53,9 +53,8 @@ class TestSendMessage(object):
         def thing_that_cant_serialize():
             pass
 
-        with pytest.raises(ClientError) as e_info:
+        with pytest.raises(TypeError):
             await client.send_message(thing_that_cant_serialize)
-        assert isinstance(e_info.value.__cause__, TypeError)
 
         # TODO: investigate leak
         # leak_tracker.check_for_leaks()
