@@ -348,7 +348,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not isinstance(message, Message):
             message = Message(message)
 
-        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
+        if message._is_size_exceeded(device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT):
             raise ValueError("Size of telemetry message can not exceed 256 KB.")
 
         logger.info("Sending message to Hub...")
@@ -650,7 +650,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         message.output_name = output_name
 
-        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
+        if message._is_size_exceeded(device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT):
             raise ValueError("Size of message can not exceed 256 KB.")
 
         logger.info("Sending message to output:" + output_name + "...")

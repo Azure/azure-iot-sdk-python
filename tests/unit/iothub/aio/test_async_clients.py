@@ -661,7 +661,10 @@ class SharedClientSendD2CMessageTests(object):
             pytest.param(1.5, id="Float input"),
             pytest.param(b"message", id="Bytes input"),
             pytest.param(bytearray(b"message"), id="Bytearray input"),
+            pytest.param(object(), id="Object input"),
             pytest.param(None, id="None input"),
+            pytest.param([1, "str"], id="List input"),
+            pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
     async def test_wraps_data_in_message_and_calls_pipeline_send_message(
@@ -2046,7 +2049,10 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
             pytest.param(1.5, id="Float input"),
             pytest.param(b"message", id="Bytes input"),
             pytest.param(bytearray(b"message"), id="Bytearray input"),
+            pytest.param(object(), id="Object input"),
             pytest.param(None, id="None input"),
+            pytest.param([1, "str"], id="List input"),
+            pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
     async def test_send_message_to_output_calls_pipeline_wraps_data_in_message(
