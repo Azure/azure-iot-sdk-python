@@ -188,7 +188,7 @@ class TestPipelineRootStageHandlePipelineEventWithConnectedEvent(
         stage.on_connected_handler = mock_handler
         stage.handle_pipeline_event(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -209,7 +209,7 @@ class TestPipelineRootStageHandlePipelineEventWithDisconnectedEvent(
         stage.on_disconnected_handler = mock_handler
         stage.handle_pipeline_event(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -230,7 +230,7 @@ class TestPipelineRootStageHandlePipelineEventWithNewSasTokenRequiredEvent(
         stage.on_new_sastoken_required_handler = mock_handler
         stage.handle_pipeline_event(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -253,7 +253,7 @@ class TestPipelineRootStageHandlePipelineEventWithBackgroundExceptionEvent(
         stage.on_background_exception_handler = mock_handler
         stage.handle_pipeline_event(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(event.e)
 
@@ -274,7 +274,7 @@ class TestPipelineRootStageHandlePipelineEventWithArbitraryEvent(
         stage.on_pipeline_event_handler = mock_handler
         stage.handle_pipeline_event(event)
         # Wait for the handler invocation to complete
-        poll_until(lambda: mock_handler.call_count >= 1)
+        poll_until(lambda: mock_handler.call_count >= 1, timeout=5)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(event)
 

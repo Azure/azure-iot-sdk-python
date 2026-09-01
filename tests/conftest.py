@@ -16,7 +16,7 @@ import pytest
 def poll_until():
     """Return a helper that polls a condition without exceeding a timeout."""
 
-    def poll_until_condition(condition, timeout=5, interval=0.01):
+    def poll_until_condition(condition, *, timeout, interval=0.01):
         deadline = time.monotonic() + timeout
         while not condition():
             remaining = deadline - time.monotonic()
@@ -31,7 +31,7 @@ def poll_until():
 def async_poll_until():
     """Return an async helper that polls a condition without blocking the event loop."""
 
-    async def poll_until_condition(condition, timeout=5, interval=0.01):
+    async def poll_until_condition(condition, *, timeout, interval=0.01):
         async def poll_condition():
             while not condition():
                 await asyncio.sleep(interval)
