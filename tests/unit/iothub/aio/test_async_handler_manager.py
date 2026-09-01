@@ -427,6 +427,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         self,
         mocker,
         handler_name,
+        handler_name_internal,
         handler_manager,
         handler,
         handler_checker,
@@ -457,6 +458,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         self,
         mocker,
         handler_name,
+        handler_name_internal,
         handler_manager,
         handler,
         handler_checker,
@@ -521,12 +523,12 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         # time of the removal
         assert handler_checker.handler_call_count == 100
         assert inbox.empty()
+        assert getattr(handler_manager, handler_name) is None
+        assert handler_manager._receiver_handler_runners[handler_name_internal] is None
 
         # Add some more items
         for _ in range(100):
             inbox.put(mocker.MagicMock())
-        # Give any incorrectly retained runner an opportunity to invoke the handler
-        await asyncio.sleep(0.1)
         # Despite more items added to inbox, no further handler calls have been made beyond the
         # initial calls that were made when the original items were added
         assert handler_checker.handler_call_count == 100

@@ -6,7 +6,6 @@
 import logging
 import pytest
 import threading
-import time
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.iothub import client_event
 from azure.iot.device.iothub.sync_handler_manager import (
@@ -395,7 +394,13 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         "Is invoked for every item already in the corresponding Inbox at the moment of handler removal"
     )
     def test_handler_resolve_pending_items_before_handler_removal(
-        self, mocker, handler_name, handler_manager, inbox, run_in_daemon_thread
+        self,
+        mocker,
+        handler_name,
+        handler_name_internal,
+        handler_manager,
+        inbox,
+        run_in_daemon_thread,
     ):
         # Intercept inbox operations so the runner can be paused with work remaining
         original_get = inbox.get
@@ -456,12 +461,12 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         # time of the removal
         assert mock_handler.call_count == 100
         assert inbox.empty()
+        assert getattr(handler_manager, handler_name) is None
+        assert handler_manager._receiver_handler_runners[handler_name_internal] is None
 
         # Add some more items
         for _ in range(100):
             inbox.put(mocker.MagicMock())
-        # Give any incorrectly retained runner an opportunity to invoke the handler
-        time.sleep(0.2)
         # Despite more items added to inbox, no further handler calls have been made beyond the
         # initial calls that were made when the original items were added
         assert mock_handler.call_count == 100
