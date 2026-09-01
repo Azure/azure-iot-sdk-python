@@ -187,6 +187,7 @@ class TestPipelineRootStageHandlePipelineEventWithConnectedEvent(
         mock_handler = mocker.MagicMock()
         stage.on_connected_handler = mock_handler
         stage.handle_pipeline_event(event)
+        # Wait for the handler invocation to complete
         poll_until(lambda: mock_handler.call_count >= 1)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
@@ -207,6 +208,7 @@ class TestPipelineRootStageHandlePipelineEventWithDisconnectedEvent(
         mock_handler = mocker.MagicMock()
         stage.on_disconnected_handler = mock_handler
         stage.handle_pipeline_event(event)
+        # Wait for the handler invocation to complete
         poll_until(lambda: mock_handler.call_count >= 1)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
@@ -227,6 +229,7 @@ class TestPipelineRootStageHandlePipelineEventWithNewSasTokenRequiredEvent(
         mock_handler = mocker.MagicMock()
         stage.on_new_sastoken_required_handler = mock_handler
         stage.handle_pipeline_event(event)
+        # Wait for the handler invocation to complete
         poll_until(lambda: mock_handler.call_count >= 1)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
@@ -249,6 +252,7 @@ class TestPipelineRootStageHandlePipelineEventWithBackgroundExceptionEvent(
         mock_handler = mocker.MagicMock()
         stage.on_background_exception_handler = mock_handler
         stage.handle_pipeline_event(event)
+        # Wait for the handler invocation to complete
         poll_until(lambda: mock_handler.call_count >= 1)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(event.e)
@@ -269,6 +273,7 @@ class TestPipelineRootStageHandlePipelineEventWithArbitraryEvent(
         mock_handler = mocker.MagicMock()
         stage.on_pipeline_event_handler = mock_handler
         stage.handle_pipeline_event(event)
+        # Wait for the handler invocation to complete
         poll_until(lambda: mock_handler.call_count >= 1)
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(event)

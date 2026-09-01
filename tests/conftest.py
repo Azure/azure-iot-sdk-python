@@ -14,6 +14,8 @@ import pytest
 
 @pytest.fixture
 def poll_until():
+    """Return a helper that polls a condition without exceeding a timeout."""
+
     def poll_until_condition(condition, timeout=5, interval=0.01):
         deadline = time.monotonic() + timeout
         while not condition():
@@ -27,6 +29,8 @@ def poll_until():
 
 @pytest.fixture
 def async_poll_until():
+    """Return an async helper that polls a condition without blocking the event loop."""
+
     async def poll_until_condition(condition, timeout=5, interval=0.01):
         async def poll_condition():
             while not condition():
@@ -42,6 +46,8 @@ def async_poll_until():
 
 @pytest.fixture
 def track_call_started(mocker):
+    """Return a helper that signals when a method invocation begins."""
+
     def track_call(obj, method_name):
         call_started = threading.Event()
         original_method = getattr(obj, method_name)
@@ -58,6 +64,8 @@ def track_call_started(mocker):
 
 @pytest.fixture
 def run_in_daemon_thread():
+    """Return a helper that runs a function in a daemon thread and exposes its result."""
+
     def run(fn, *args, **kwargs):
         future = concurrent.futures.Future()
 

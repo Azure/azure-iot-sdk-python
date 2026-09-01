@@ -412,6 +412,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add an item to the associated inbox, triggering the handler
         mock_obj = mocker.MagicMock()
         inbox.put(mock_obj)
+        # Wait for the handler invocation to complete
         await async_poll_until(lambda: handler_checker.handler_called)
 
         # Handler has been called with the item from the inbox
@@ -439,6 +440,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add 5 items to the associated inbox, triggering the handler
         for _ in range(5):
             inbox.put(mocker.MagicMock())
+        # Wait for all handler invocations to complete
         await async_poll_until(lambda: handler_checker.handler_call_count >= 5)
 
         # Handler has been called 5 times
@@ -456,6 +458,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         handler_checker,
         inbox,
     ):
+        # Intercept inbox operations so the runner can be paused with work remaining
         original_get = inbox.get
         original_put = inbox.put
         runner_paused = threading.Event()
@@ -491,19 +494,23 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         # Set the handler
         setattr(handler_manager, handler_name, handler)
         try:
+            # Runner is paused after retrieving one item, with more items still pending
             assert runner_paused.wait(timeout=5)
             assert handler_checker.handler_call_count < 100
             assert not inbox.empty()
 
-            # Remove the handler while items are still pending
+            # Begin handler removal, which blocks until the runner exits
             loop = asyncio.get_running_loop()
             removal_future = loop.run_in_executor(
                 None, setattr, handler_manager, handler_name, None
             )
+            # Removal has queued its sentinel but cannot complete while the runner is paused
             assert sentinel_added.wait(timeout=5)
             assert not removal_future.done()
         finally:
+            # Always release the runner so a failed assertion cannot strand it
             resume_runner.set()
+        # Handler removal completes after the runner processes all pending items
         await asyncio.wait_for(removal_future, timeout=5)
 
         # Despite removal, handler has been called for everything that was in the inbox at the
@@ -542,6 +549,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox.put(mocker.MagicMock())
+        # Wait for the background exception handler to be called
         await async_poll_until(lambda: background_exc_spy.call_count >= 1)
         # Background exception handler was called
         assert background_exc_spy.call_count == 1
@@ -558,6 +566,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox.put(mocker.MagicMock())
+        # Wait for the background exception handler to be called
         await async_poll_until(lambda: background_exc_spy.call_count >= 1)
         # Background exception handler was called
         assert background_exc_spy.call_count == 1
@@ -585,18 +594,21 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         setattr(handler_manager, handler_name, handler1)
 
         inbox.put(mocker.MagicMock())
+        # Wait for handler1 to replace itself with handler2
         await async_poll_until(lambda: getattr(handler_manager, handler_name) is handler2)
         # The set handler (handler1) has been replaced with a new handler (handler2)
         assert getattr(handler_manager, handler_name) is not handler1
         assert getattr(handler_manager, handler_name) is handler2
         # Add a new item to the inbox
         inbox.put(mocker.MagicMock())
+        # Wait for handler2 to replace itself with the mock
         await async_poll_until(lambda: getattr(handler_manager, handler_name) is mock_handler)
         # The set handler (handler2) has now been replaced by a mock handler
         assert getattr(handler_manager, handler_name) is not handler2
         assert getattr(handler_manager, handler_name) is mock_handler
         # Add a new item to the inbox
         inbox.put(mocker.MagicMock())
+        # Wait for the mock handler invocation to complete
         await async_poll_until(lambda: mock_handler.call_count >= 1)
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1
@@ -689,6 +701,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
 
         # Add the event to the client inbox
         inbox.put(event)
+        # Wait for the handler invocation to complete
         await async_poll_until(lambda: handler_checker.handler_call_count >= 1)
 
         # Handler has been called with the arguments from the event
@@ -698,6 +711,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add a non-matching event ot the client event inbox
         non_matching_event = client_event.ClientEvent("NON_MATCHING_EVENT")
         inbox.put(non_matching_event)
+        # Wait for the runner to consume the non-matching event
         await async_poll_until(inbox.empty)
 
         # Handler has not been called again
@@ -724,6 +738,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         # Add 5 items to the corresponding inbox, triggering the handler
         for _ in range(5):
             inbox.put(event)
+        # Wait for all handler invocations to complete
         await async_poll_until(lambda: handler_checker.handler_call_count >= 5)
 
         # Handler has been called 5 times
@@ -757,6 +772,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox.put(event)
+        # Wait for the background exception handler to be called
         await async_poll_until(lambda: background_exc_spy.call_count >= 1)
         # Background exception handler was called
         assert background_exc_spy.call_count == 1
@@ -773,6 +789,7 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox.put(event)
+        # Wait for the background exception handler to be called
         await async_poll_until(lambda: background_exc_spy.call_count >= 1)
         # Background exception handler was called
         assert background_exc_spy.call_count == 1
@@ -800,18 +817,21 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         setattr(handler_manager, handler_name, handler1)
 
         inbox.put(event)
+        # Wait for handler1 to replace itself with handler2
         await async_poll_until(lambda: getattr(handler_manager, handler_name) is handler2)
         # The set handler (handler1) has been replaced with a new handler (handler2)
         assert getattr(handler_manager, handler_name) is not handler1
         assert getattr(handler_manager, handler_name) is handler2
         # Add a new item to the inbox
         inbox.put(event)
+        # Wait for handler2 to replace itself with the mock
         await async_poll_until(lambda: getattr(handler_manager, handler_name) is mock_handler)
         # The set handler (handler2) has now been replaced by a mock handler
         assert getattr(handler_manager, handler_name) is not handler2
         assert getattr(handler_manager, handler_name) is mock_handler
         # Add a new item to the inbox
         inbox.put(event)
+        # Wait for the mock handler invocation to complete
         await async_poll_until(lambda: mock_handler.call_count >= 1)
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1

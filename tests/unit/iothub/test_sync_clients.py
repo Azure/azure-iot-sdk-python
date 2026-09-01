@@ -829,16 +829,21 @@ class SharedClientReceiveMethodRequestTests(object):
 
         inbox = client._inbox_manager.get_method_request_inbox(method_name)
         assert inbox.empty()
+        # Track when receive reaches the blocking inbox operation
         get_started = track_call_started(inbox, "get")
 
+        # Begin receiving on a background thread
         receive_future = run_in_daemon_thread(
             client.receive_method_request, method_name=method_name, block=True
         )
         try:
+            # Receive is blocked waiting for a request
             assert get_started.wait(timeout=5)
             assert not receive_future.done()
         finally:
+            # Always add the request so a failed assertion cannot strand the background thread
             inbox.put(request)
+        # Receive returns once the request is available
         received_request = receive_future.result(timeout=5)
         assert received_request is request
 
@@ -1323,16 +1328,21 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
 
         twin_patch_inbox = client._inbox_manager.get_twin_patch_inbox()
         assert twin_patch_inbox.empty()
+        # Track when receive reaches the blocking inbox operation
         get_started = track_call_started(twin_patch_inbox, "get")
 
+        # Begin receiving on a background thread
         receive_future = run_in_daemon_thread(
             client.receive_twin_desired_properties_patch, block=True
         )
         try:
+            # Receive is blocked waiting for a patch
             assert get_started.wait(timeout=5)
             assert not receive_future.done()
         finally:
+            # Always add the patch so a failed assertion cannot strand the background thread
             twin_patch_inbox.put(twin_patch_desired)
+        # Receive returns once the patch is available
         received_patch = receive_future.result(timeout=5)
         assert received_patch is twin_patch_desired
 
@@ -1635,14 +1645,19 @@ class TestIoTHubDeviceClientReceiveC2DMessage(
     ):
         c2d_inbox = client._inbox_manager.get_c2d_message_inbox()
         assert c2d_inbox.empty()
+        # Track when receive reaches the blocking inbox operation
         get_started = track_call_started(c2d_inbox, "get")
 
+        # Begin receiving on a background thread
         receive_future = run_in_daemon_thread(client.receive_message, block=True)
         try:
+            # Receive is blocked waiting for a message
             assert get_started.wait(timeout=5)
             assert not receive_future.done()
         finally:
+            # Always add the message so a failed assertion cannot strand the background thread
             c2d_inbox.put(message)
+        # Receive returns once the message is available
         received_message = receive_future.result(timeout=5)
         assert received_message is message
 
@@ -2443,16 +2458,21 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
 
         input_inbox = client._inbox_manager.get_input_message_inbox(input_name)
         assert input_inbox.empty()
+        # Track when receive reaches the blocking inbox operation
         get_started = track_call_started(input_inbox, "get")
 
+        # Begin receiving on a background thread
         receive_future = run_in_daemon_thread(
             client.receive_message_on_input, input_name, block=True
         )
         try:
+            # Receive is blocked waiting for a message
             assert get_started.wait(timeout=5)
             assert not receive_future.done()
         finally:
+            # Always add the message so a failed assertion cannot strand the background thread
             input_inbox.put(message)
+        # Receive returns once the message is available
         received_message = receive_future.result(timeout=5)
         assert received_message is message
 

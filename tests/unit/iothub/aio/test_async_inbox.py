@@ -97,9 +97,11 @@ class TestAsyncClientInboxGet(object):
         assert inbox.empty()
         item = mocker.MagicMock()
 
+        # Begin waiting for an item and give the get task a chance to block
         get_task = asyncio.create_task(inbox.get())
         await asyncio.sleep(0)
         assert not get_task.done()
+        # Add the item, allowing the get task to complete
         inbox.put(item)
         assert await asyncio.wait_for(get_task, timeout=5) is item
 
