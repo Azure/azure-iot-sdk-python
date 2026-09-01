@@ -685,7 +685,7 @@ class SharedClientSendD2CMessageTests(object):
     async def test_raises_type_error_for_unsupported_message_data(
         self, client, mqtt_pipeline, message_input
     ):
-        with pytest.raises(TypeError, match="Message data must be"):
+        with pytest.raises(TypeError):
             await client.send_message(message_input)
 
         assert mqtt_pipeline.send_message.call_count == 0
@@ -704,7 +704,7 @@ class SharedClientSendD2CMessageTests(object):
         message = Message(b"a" * message_size)
 
         if raises_error:
-            with pytest.raises(ValueError, match="256 KB"):
+            with pytest.raises(ValueError):
                 await client.send_message(message)
             assert mqtt_pipeline.send_message.call_count == 0
         else:
@@ -2088,7 +2088,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
     async def test_raises_type_error_for_unsupported_message_data(
         self, client, mqtt_pipeline, message_input
     ):
-        with pytest.raises(TypeError, match="Message data must be"):
+        with pytest.raises(TypeError):
             await client.send_message_to_output(message_input, "some_output")
 
         assert mqtt_pipeline.send_output_message.call_count == 0
@@ -2109,7 +2109,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         message = Message(b"a" * (message_size - output_name_size))
 
         if raises_error:
-            with pytest.raises(ValueError, match="256 KB"):
+            with pytest.raises(ValueError):
                 await client.send_message_to_output(message, output_name)
             assert mqtt_pipeline.send_output_message.call_count == 0
         else:

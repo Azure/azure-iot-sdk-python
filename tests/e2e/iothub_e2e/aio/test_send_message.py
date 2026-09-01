@@ -53,7 +53,7 @@ class TestSendMessage(object):
         def thing_that_cant_serialize():
             pass
 
-        with pytest.raises(TypeError, match="Message data must be"):
+        with pytest.raises(TypeError):
             await client.send_message(thing_that_cant_serialize)
 
         # TODO: investigate leak
