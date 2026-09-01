@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import asyncio
+import concurrent.futures
 import threading
 import time
 
@@ -51,6 +52,27 @@ def track_call_started(mocker):
         return call_started
 
     return track_call
+
+
+@pytest.fixture
+def run_in_daemon_thread():
+    def run(fn, *args, **kwargs):
+        future = concurrent.futures.Future()
+
+        def invoke():
+            if not future.set_running_or_notify_cancel():
+                return
+            try:
+                result = fn(*args, **kwargs)
+            except BaseException as e:
+                future.set_exception(e)
+            else:
+                future.set_result(result)
+
+        threading.Thread(target=invoke, daemon=True).start()
+        return future
+
+    return run
 
 
 """

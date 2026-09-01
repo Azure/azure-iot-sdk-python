@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import concurrent.futures
 import pytest
 import logging
 import threading
@@ -824,7 +823,7 @@ class SharedClientReceiveMethodRequestTests(object):
         [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
     )
     def test_no_method_request_in_inbox_blocking_mode(
-        self, client, method_name, track_call_started
+        self, client, method_name, track_call_started, run_in_daemon_thread
     ):
         request = MethodRequest(request_id="1", name=method_name, payload={"key": "value"})
 
@@ -832,14 +831,15 @@ class SharedClientReceiveMethodRequestTests(object):
         assert inbox.empty()
         get_started = track_call_started(inbox, "get")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            receive_future = executor.submit(
-                client.receive_method_request, method_name=method_name, block=True
-            )
+        receive_future = run_in_daemon_thread(
+            client.receive_method_request, method_name=method_name, block=True
+        )
+        try:
             assert get_started.wait(timeout=5)
             assert not receive_future.done()
+        finally:
             inbox.put(request)
-            received_request = receive_future.result(timeout=5)
+        received_request = receive_future.result(timeout=5)
         assert received_request is request
 
     @pytest.mark.it(
@@ -1318,21 +1318,22 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
 
     @pytest.mark.it("Blocks until a patch is available, in blocking mode")
     def test_no_message_in_inbox_blocking_mode(
-        self, client, twin_patch_desired, track_call_started
+        self, client, twin_patch_desired, track_call_started, run_in_daemon_thread
     ):
 
         twin_patch_inbox = client._inbox_manager.get_twin_patch_inbox()
         assert twin_patch_inbox.empty()
         get_started = track_call_started(twin_patch_inbox, "get")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            receive_future = executor.submit(
-                client.receive_twin_desired_properties_patch, block=True
-            )
+        receive_future = run_in_daemon_thread(
+            client.receive_twin_desired_properties_patch, block=True
+        )
+        try:
             assert get_started.wait(timeout=5)
             assert not receive_future.done()
+        finally:
             twin_patch_inbox.put(twin_patch_desired)
-            received_patch = receive_future.result(timeout=5)
+        received_patch = receive_future.result(timeout=5)
         assert received_patch is twin_patch_desired
 
     @pytest.mark.it(
@@ -1629,17 +1630,20 @@ class TestIoTHubDeviceClientReceiveC2DMessage(
         assert inbox_mock.get.call_args == mocker.call(block=True, timeout=None)
 
     @pytest.mark.it("Blocks until a message is available, in blocking mode")
-    def test_no_message_in_inbox_blocking_mode(self, client, message, track_call_started):
+    def test_no_message_in_inbox_blocking_mode(
+        self, client, message, track_call_started, run_in_daemon_thread
+    ):
         c2d_inbox = client._inbox_manager.get_c2d_message_inbox()
         assert c2d_inbox.empty()
         get_started = track_call_started(c2d_inbox, "get")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            receive_future = executor.submit(client.receive_message, block=True)
+        receive_future = run_in_daemon_thread(client.receive_message, block=True)
+        try:
             assert get_started.wait(timeout=5)
             assert not receive_future.done()
+        finally:
             c2d_inbox.put(message)
-            received_message = receive_future.result(timeout=5)
+        received_message = receive_future.result(timeout=5)
         assert received_message is message
 
     @pytest.mark.it(
@@ -2432,21 +2436,24 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         assert inbox_mock.get.call_args == mocker.call(block=True, timeout=None)
 
     @pytest.mark.it("Blocks until a message is available, in blocking mode")
-    def test_no_message_in_inbox_blocking_mode(self, client, message, track_call_started):
+    def test_no_message_in_inbox_blocking_mode(
+        self, client, message, track_call_started, run_in_daemon_thread
+    ):
         input_name = "some_input"
 
         input_inbox = client._inbox_manager.get_input_message_inbox(input_name)
         assert input_inbox.empty()
         get_started = track_call_started(input_inbox, "get")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            receive_future = executor.submit(
-                client.receive_message_on_input, input_name, block=True
-            )
+        receive_future = run_in_daemon_thread(
+            client.receive_message_on_input, input_name, block=True
+        )
+        try:
             assert get_started.wait(timeout=5)
             assert not receive_future.done()
+        finally:
             input_inbox.put(message)
-            received_message = receive_future.result(timeout=5)
+        received_message = receive_future.result(timeout=5)
         assert received_message is message
 
     @pytest.mark.it(

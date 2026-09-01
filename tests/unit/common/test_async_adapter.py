@@ -6,6 +6,7 @@
 
 import pytest
 import inspect
+import asyncio
 import logging
 import azure.iot.device.common.async_adapter as async_adapter
 
@@ -85,7 +86,7 @@ class TestAwaitableCallback(object):
         callback = async_adapter.AwaitableCallback()
         assert not callback.future.done()
         callback()
-        await callback.completion()
+        await asyncio.wait_for(callback.completion(), timeout=0.1)
         assert callback.future.done()
         assert not callback.future.exception()
 
@@ -98,7 +99,7 @@ class TestAwaitableCallback(object):
         callback = async_adapter.AwaitableCallback(return_arg_name="arg_name")
         assert not callback.future.done()
         callback(arg_name=fake_return_arg_value)
-        result = await callback.completion()
+        result = await asyncio.wait_for(callback.completion(), timeout=0.1)
         assert callback.future.done()
         assert not callback.future.exception()
         assert result == fake_return_arg_value
@@ -121,7 +122,7 @@ class TestAwaitableCallback(object):
         assert not callback.future.done()
         callback(error=arbitrary_exception)
         with pytest.raises(arbitrary_exception.__class__) as e_info:
-            await callback.completion()
+            await asyncio.wait_for(callback.completion(), timeout=0.1)
         assert callback.future.done()
         assert callback.future.exception() == arbitrary_exception
         assert e_info.value is arbitrary_exception
@@ -134,7 +135,7 @@ class TestAwaitableCallback(object):
         assert not callback.future.done()
         callback(error=arbitrary_exception)
         with pytest.raises(arbitrary_exception.__class__) as e_info:
-            await callback.completion()
+            await asyncio.wait_for(callback.completion(), timeout=0.1)
         assert callback.future.done()
         assert callback.future.exception() == arbitrary_exception
         assert e_info.value is arbitrary_exception

@@ -465,7 +465,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
 
         async def controlled_get():
             nonlocal get_count
-            item = await original_get()
+            item = await asyncio.wait_for(original_get(), timeout=5)
             get_count += 1
             if get_count == 2:
                 runner_paused.set()

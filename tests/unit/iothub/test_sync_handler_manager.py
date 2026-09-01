@@ -7,7 +7,6 @@ import logging
 import pytest
 import threading
 import time
-import concurrent.futures
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.iothub import client_event
 from azure.iot.device.iothub.sync_handler_manager import (
@@ -391,7 +390,7 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
         "Is invoked for every item already in the corresponding Inbox at the moment of handler removal"
     )
     def test_handler_resolve_pending_items_before_handler_removal(
-        self, mocker, handler_name, handler_manager, inbox
+        self, mocker, handler_name, handler_manager, inbox, run_in_daemon_thread
     ):
         original_get = inbox.get
         original_put = inbox.put
@@ -435,14 +434,11 @@ class SharedReceiverHandlerPropertyTests(SharedHandlerPropertyTests):
             assert not inbox.empty()
 
             # Remove the handler while items are still pending
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                removal_future = executor.submit(setattr, handler_manager, handler_name, None)
-                try:
-                    assert sentinel_added.wait(timeout=5)
-                    assert not removal_future.done()
-                finally:
-                    resume_runner.set()
-                removal_future.result(timeout=5)
+            removal_future = run_in_daemon_thread(setattr, handler_manager, handler_name, None)
+            assert sentinel_added.wait(timeout=5)
+            assert not removal_future.done()
+            resume_runner.set()
+            removal_future.result(timeout=5)
         finally:
             resume_runner.set()
 

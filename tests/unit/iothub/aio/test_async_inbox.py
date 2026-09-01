@@ -39,7 +39,7 @@ class TestAsyncClientInbox(object):
         assert inbox.empty()
         inbox.put(mocker.MagicMock())
         assert not inbox.empty()
-        await inbox.get()
+        await asyncio.wait_for(inbox.get(), timeout=5)
         assert inbox.empty()
         await asyncio.sleep(0.01)  # Do this to prevent RuntimeWarning from janus
 
@@ -54,9 +54,9 @@ class TestAsyncClientInbox(object):
         inbox.put(item2)
         inbox.put(item3)
 
-        assert await inbox.get() is item1
-        assert await inbox.get() is item2
-        assert await inbox.get() is item3
+        assert await asyncio.wait_for(inbox.get(), timeout=5) is item1
+        assert await asyncio.wait_for(inbox.get(), timeout=5) is item2
+        assert await asyncio.wait_for(inbox.get(), timeout=5) is item3
 
         await asyncio.sleep(0.01)  # Do this to prevent RuntimeWarning from janus
 
@@ -83,7 +83,7 @@ class TestAsyncClientInboxGet(object):
         item = mocker.MagicMock()
         inbox.put(item)
         assert not inbox.empty()
-        retrieved_item = await inbox.get()
+        retrieved_item = await asyncio.wait_for(inbox.get(), timeout=5)
         assert retrieved_item is item
         assert inbox.empty()
 
