@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 """This module contains an Inbox class for use with an asynchronous client"""
+
 import asyncio
 import janus
 from azure.iot.device.iothub.sync_inbox import AbstractInbox
@@ -24,18 +25,7 @@ class AsyncClientInbox(AbstractInbox):
 
     def __init__(self):
         """Initializer for AsyncClientInbox."""
-
-        # The queue must be instantiated on the client internal loop, but there's no way to do
-        # that at instantiation from a different loop, so instead we make coroutine to do the
-        # task and run it on the client internal loop.
-        # It's not pretty, but it works (newer versions of janus have a loop parameter, but
-        # not the version we are currently locked at)
-        async def make_queue():
-            return janus.Queue()
-
-        loop = loop_management.get_client_internal_loop()
-        fut = asyncio.run_coroutine_threadsafe(make_queue(), loop)
-        self._queue = fut.result()
+        self._queue = janus.Queue()
 
     def __contains__(self, item):
         """Return True if item is in Inbox, False otherwise"""
@@ -62,6 +52,12 @@ class AsyncClientInbox(AbstractInbox):
         loop = loop_management.get_client_internal_loop()
         fut = asyncio.run_coroutine_threadsafe(self._queue.async_q.get(), loop)
         return await asyncio.wrap_future(fut)
+
+    async def shutdown(self):
+        """Shut down the inbox and release its Janus queue resources."""
+        loop = loop_management.get_client_internal_loop()
+        fut = asyncio.run_coroutine_threadsafe(self._queue.aclose(), loop)
+        await asyncio.wrap_future(fut)
 
     def empty(self):
         """Returns True if the inbox is empty, False otherwise
