@@ -16,6 +16,7 @@ loops = {
     "CLIENT_INTERNAL_LOOP": None,
     "CLIENT_HANDLER_RUNNER_LOOP": None,
 }
+# Janus queues bind to the first loop they use, so concurrent callers must receive the same loop.
 _loop_creation_lock = threading.Lock()
 
 
@@ -52,6 +53,7 @@ def _get_or_create_loop(loop_name):
     loop = loops[loop_name]
     if loop is None:
         with _loop_creation_lock:
+            # Another caller may have created the loop while this caller waited for the lock.
             loop = loops[loop_name]
             if loop is None:
                 _make_new_loop(loop_name)
