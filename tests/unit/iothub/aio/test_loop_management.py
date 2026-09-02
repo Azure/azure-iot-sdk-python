@@ -6,8 +6,12 @@
 
 import pytest
 import asyncio
+import concurrent.futures
 import logging
+import threading
+import time
 from azure.iot.device.iothub.aio import loop_management
+from tests.unit.helpers import BATCH_COMPLETION_TIMEOUT
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -48,6 +52,30 @@ class SharedCustomLoopTests(object):
         loop1 = fn_under_test()
         loop2 = fn_under_test()
         assert loop1 is loop2
+
+    @pytest.mark.it("Creates only one event loop when first called concurrently")
+    def test_threadsafe_first_call(self, mocker, fn_under_test):
+        start_barrier = threading.Barrier(3)
+
+        def make_loop(loop_name):
+            time.sleep(0.05)
+            loop_management.loops[loop_name] = mocker.MagicMock()
+
+        make_loop_mock = mocker.patch.object(
+            loop_management, "_make_new_loop", side_effect=make_loop
+        )
+
+        def get_loop():
+            start_barrier.wait(timeout=BATCH_COMPLETION_TIMEOUT)
+            return fn_under_test()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(get_loop) for _ in range(2)]
+            start_barrier.wait(timeout=BATCH_COMPLETION_TIMEOUT)
+            returned_loops = [future.result(timeout=BATCH_COMPLETION_TIMEOUT) for future in futures]
+
+        assert make_loop_mock.call_count == 1
+        assert returned_loops[0] is returned_loops[1]
 
 
 @pytest.mark.describe(".get_client_internal_loop()")
