@@ -173,18 +173,6 @@ class SharedClientShutdownTests(object):
         assert hm_stop_spy.call_count == 1
         assert hm_stop_spy.call_args == mocker.call(receiver_handlers_only=False)
 
-    @pytest.mark.it("Closes the Edge HSM")
-    async def test_closes_edge_hsm(self, mocker, client):
-        client.disconnect = mocker.MagicMock()
-        client.disconnect.return_value = await create_completed_future(None)
-        mock_edge_hsm = mocker.MagicMock()
-        client._edge_hsm = mock_edge_hsm
-
-        await client.shutdown()
-
-        assert mock_edge_hsm.close.call_count == 1
-        assert client._edge_hsm is None
-
     @pytest.mark.it("Shuts down all fixed and dynamically created inboxes")
     async def test_shuts_down_all_inboxes(self, mocker, client):
         client.disconnect = mocker.MagicMock()

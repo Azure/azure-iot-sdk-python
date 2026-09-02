@@ -198,8 +198,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # Stop the Client Event handlers now that everything else is completed
         self._handler_manager.stop(receiver_handlers_only=False)
 
-        self._close_edge_hsm()
-
         # All inbox consumers have stopped, so their Janus queues can now be closed permanently.
         await asyncio.gather(*(inbox.shutdown() for inbox in self._inbox_manager.get_all_inboxes()))
 

@@ -188,8 +188,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if self._handler_manager is not None:
             self._handler_manager.stop(receiver_handlers_only=False)
 
-        self._close_edge_hsm()
-
         # Yes, that means the pipeline is disconnected twice (well, actually three times if you
         # consider that the client-level disconnect causes two pipeline-level disconnects for
         # reasons explained in comments in the client's .disconnect() method).

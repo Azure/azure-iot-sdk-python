@@ -175,17 +175,6 @@ class SharedClientShutdownTests(WaitsForEventCompletion):
         assert hm_stop_spy.call_count == 1
         assert hm_stop_spy.call_args == mocker.call(receiver_handlers_only=False)
 
-    @pytest.mark.it("Closes the Edge HSM")
-    def test_closes_edge_hsm(self, mocker, client):
-        client.disconnect = mocker.MagicMock()
-        mock_edge_hsm = mocker.MagicMock()
-        client._edge_hsm = mock_edge_hsm
-
-        client.shutdown()
-
-        assert mock_edge_hsm.close.call_count == 1
-        assert client._edge_hsm is None
-
 
 class SharedClientConnectTests(WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'connect' pipeline operation")
