@@ -10,8 +10,10 @@ import threading
 import concurrent.futures
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.iothub import client_event
+from azure.iot.device.iothub.aio import async_handler_manager as async_handler_manager_module
 from azure.iot.device.iothub.aio.async_handler_manager import AsyncHandlerManager
 from azure.iot.device.iothub.sync_handler_manager import (
+    CLIENT_EVENT,
     HandlerManagerException,
     HandlerRunnerKillerSentinel,
 )
@@ -865,6 +867,298 @@ class SharedClientEventHandlerPropertyTests(SharedHandlerPropertyTests):
         await async_poll_until(lambda: mock_handler.call_count >= 1, timeout=PROMPT_TIMEOUT)
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1
+
+
+@pytest.mark.describe("AsyncHandlerManager - handler runner recovery")
+class TestHandlerRunnerRecovery(object):
+    @pytest.fixture
+    def handler_manager(self, inbox_manager):
+        hm = AsyncHandlerManager(inbox_manager)
+        yield hm
+        hm.stop()
+
+    @pytest.mark.parametrize(
+        "attempt, expected_delay",
+        [
+            (1, 0.1),
+            (2, 0.2),
+            (3, 0.4),
+            (10, 30.0),
+            (1000, 30.0),
+        ],
+    )
+    def test_restart_delay_grows_exponentially_and_is_capped(self, attempt, expected_delay):
+        assert (
+            async_handler_manager_module._get_handler_runner_restart_delay(attempt)
+            == expected_delay
+        )
+
+    def test_restart_delay_rejects_invalid_attempt(self):
+        with pytest.raises(ValueError):
+            async_handler_manager_module._get_handler_runner_restart_delay(0)
+
+    def test_failure_schedules_restart_instead_of_restarting_inline(
+        self, mocker, handler_manager, arbitrary_exception
+    ):
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_BASE_DELAY", 10)
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_MAX_DELAY", 10)
+        handler_manager._on_message_received = mocker.MagicMock()
+        failed_runner = concurrent.futures.Future()
+        failed_runner.set_exception(arbitrary_exception)
+        handler_manager._receiver_handler_runners[MESSAGE] = failed_runner
+        start_spy = mocker.spy(handler_manager, "_start_handler_runner")
+        background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
+
+        handler_manager._generate_callback_for_handler_runner(MESSAGE)(failed_runner)
+
+        assert start_spy.call_count == 0
+        assert handler_manager._receiver_handler_runners[MESSAGE] is None
+        assert handler_manager._handler_runner_restart_attempts[MESSAGE] == 1
+        assert handler_manager._handler_runner_restart_tasks[MESSAGE] is not None
+        assert background_exc_spy.call_count == 1
+        reported_error = background_exc_spy.call_args.args[0]
+        assert reported_error.__cause__ is arbitrary_exception
+        assert "Restarting in 10 seconds (attempt 1)" in str(reported_error)
+
+    async def test_transient_failure_recovers_and_resets_backoff(
+        self, mocker, handler_manager, inbox_manager, arbitrary_exception, async_poll_until
+    ):
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_BASE_DELAY", 0.01)
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_MAX_DELAY", 0.01)
+        inbox = inbox_manager.get_unified_message_inbox()
+        original_get = inbox.get
+        get_count = 0
+
+        async def fail_once():
+            nonlocal get_count
+            get_count += 1
+            if get_count == 1:
+                raise arbitrary_exception
+            return await original_get()
+
+        mocker.patch.object(inbox, "get", side_effect=fail_once)
+        handler = ThreadsafeMock()
+
+        handler_manager.on_message_received = handler
+        await async_poll_until(
+            lambda: handler_manager._handler_runner_restart_attempts[MESSAGE] == 1,
+            timeout=PROMPT_TIMEOUT,
+        )
+        inbox.put(mocker.MagicMock())
+        await async_poll_until(lambda: handler.call_count == 1, timeout=PROMPT_TIMEOUT)
+
+        assert handler_manager._handler_runner_restart_attempts[MESSAGE] == 0
+
+    def test_client_event_failure_uses_client_event_state(
+        self, mocker, handler_manager, arbitrary_exception
+    ):
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_BASE_DELAY", 10)
+        handler_manager._on_connection_state_change = mocker.MagicMock()
+        failed_runner = concurrent.futures.Future()
+        failed_runner.set_exception(arbitrary_exception)
+        handler_manager._client_event_runner = failed_runner
+        original_receiver_keys = set(handler_manager._receiver_handler_runners)
+
+        handler_manager._generate_callback_for_handler_runner(CLIENT_EVENT)(failed_runner)
+
+        assert set(handler_manager._receiver_handler_runners) == original_receiver_keys
+        assert handler_manager._client_event_runner is None
+        assert handler_manager._handler_runner_restart_tasks[CLIENT_EVENT] is not None
+        assert handler_manager.handling_client_events
+
+    def test_clearing_only_client_event_handler_cancels_backoff(
+        self, mocker, handler_manager, arbitrary_exception
+    ):
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_BASE_DELAY", 10)
+        handler_manager._on_connection_state_change = mocker.MagicMock()
+        failed_runner = concurrent.futures.Future()
+        failed_runner.set_exception(arbitrary_exception)
+        handler_manager._client_event_runner = failed_runner
+        handler_manager._generate_callback_for_handler_runner(CLIENT_EVENT)(failed_runner)
+        pending_restart = handler_manager._handler_runner_restart_tasks[CLIENT_EVENT]
+
+        handler_manager.on_connection_state_change = None
+
+        assert pending_restart.cancelled()
+        assert handler_manager._client_event_runner is None
+        assert not handler_manager.handling_client_events
+
+    async def test_client_events_are_buffered_during_backoff(
+        self, mocker, handler_manager, inbox_manager, arbitrary_exception, async_poll_until
+    ):
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_BASE_DELAY", 0.01)
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_MAX_DELAY", 0.01)
+        event_inbox = inbox_manager.get_client_event_inbox()
+        original_get = event_inbox.get
+        get_count = 0
+
+        async def fail_once():
+            nonlocal get_count
+            get_count += 1
+            if get_count == 1:
+                raise arbitrary_exception
+            return await original_get()
+
+        mocker.patch.object(event_inbox, "get", side_effect=fail_once)
+        handler = ThreadsafeMock()
+        handler_manager.on_connection_state_change = handler
+        await async_poll_until(
+            lambda: handler_manager._handler_runner_restart_tasks[CLIENT_EVENT] is not None,
+            timeout=PROMPT_TIMEOUT,
+        )
+
+        assert handler_manager.handling_client_events
+        event_inbox.put(client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE))
+        await async_poll_until(lambda: handler.call_count == 1, timeout=PROMPT_TIMEOUT)
+
+    def test_stop_cancels_pending_restart_without_adding_sentinel(
+        self, mocker, handler_manager, inbox_manager, arbitrary_exception
+    ):
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_BASE_DELAY", 10)
+        handler_manager._on_message_received = mocker.MagicMock()
+        failed_runner = concurrent.futures.Future()
+        failed_runner.set_exception(arbitrary_exception)
+        handler_manager._receiver_handler_runners[MESSAGE] = failed_runner
+        handler_manager._generate_callback_for_handler_runner(MESSAGE)(failed_runner)
+        restart_task = handler_manager._handler_runner_restart_tasks[MESSAGE]
+        inbox = inbox_manager.get_unified_message_inbox()
+
+        handler_manager.stop(receiver_handlers_only=True)
+
+        assert restart_task.cancelled()
+        assert handler_manager._handler_runner_restart_tasks[MESSAGE] is None
+        assert handler_manager._handler_runner_restart_attempts[MESSAGE] == 0
+        assert inbox.empty()
+
+    async def test_handler_can_be_removed_and_readded_during_backoff(
+        self, mocker, handler_manager, inbox_manager, arbitrary_exception, async_poll_until
+    ):
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_BASE_DELAY", 10)
+        inbox = inbox_manager.get_unified_message_inbox()
+        original_get = inbox.get
+        get_count = 0
+
+        async def fail_once():
+            nonlocal get_count
+            get_count += 1
+            if get_count == 1:
+                raise arbitrary_exception
+            return await original_get()
+
+        mocker.patch.object(inbox, "get", side_effect=fail_once)
+        handler_manager.on_message_received = mocker.MagicMock()
+        await async_poll_until(
+            lambda: handler_manager._handler_runner_restart_tasks[MESSAGE] is not None,
+            timeout=PROMPT_TIMEOUT,
+        )
+        pending_restart = handler_manager._handler_runner_restart_tasks[MESSAGE]
+
+        handler_manager.on_message_received = None
+
+        assert pending_restart.cancelled()
+        assert handler_manager.on_message_received is None
+        assert inbox.empty()
+
+        replacement_handler = ThreadsafeMock()
+        handler_manager.on_message_received = replacement_handler
+        inbox.put(mocker.MagicMock())
+        await async_poll_until(lambda: replacement_handler.call_count == 1, timeout=PROMPT_TIMEOUT)
+
+    def test_ensure_running_replaces_pending_restart(
+        self, mocker, handler_manager, arbitrary_exception
+    ):
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_BASE_DELAY", 10)
+        handler_manager._on_message_received = mocker.MagicMock()
+        failed_runner = concurrent.futures.Future()
+        failed_runner.set_exception(arbitrary_exception)
+        handler_manager._receiver_handler_runners[MESSAGE] = failed_runner
+        handler_manager._generate_callback_for_handler_runner(MESSAGE)(failed_runner)
+        pending_restart = handler_manager._handler_runner_restart_tasks[MESSAGE]
+
+        handler_manager.ensure_running()
+
+        assert pending_restart.cancelled()
+        assert handler_manager._handler_runner_restart_tasks[MESSAGE] is None
+        assert handler_manager._handler_runner_restart_attempts[MESSAGE] == 0
+        assert handler_manager._receiver_handler_runners[MESSAGE] is not None
+
+    def test_stale_failure_callback_does_not_restart_after_stop(
+        self, mocker, handler_manager, arbitrary_exception
+    ):
+        handler_manager._on_message_received = mocker.MagicMock()
+        failed_runner = concurrent.futures.Future()
+        failed_runner.set_exception(arbitrary_exception)
+        background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
+
+        handler_manager._generate_callback_for_handler_runner(MESSAGE)(failed_runner)
+
+        assert handler_manager._receiver_handler_runners[MESSAGE] is None
+        assert handler_manager._handler_runner_restart_tasks[MESSAGE] is None
+        assert background_exc_spy.call_count == 0
+
+    def test_stop_does_not_raise_from_failed_runner(
+        self, mocker, handler_manager, inbox_manager, arbitrary_exception
+    ):
+        handler_manager._on_message_received = mocker.MagicMock()
+        failed_runner = concurrent.futures.Future()
+        failed_runner.set_exception(arbitrary_exception)
+        handler_manager._receiver_handler_runners[MESSAGE] = failed_runner
+
+        handler_manager.stop(receiver_handlers_only=True)
+
+        assert handler_manager._receiver_handler_runners[MESSAGE] is None
+        assert inbox_manager.get_unified_message_inbox().empty()
+
+    async def test_backoff_does_not_block_other_handler_runners(
+        self, mocker, handler_manager, inbox_manager, arbitrary_exception, async_poll_until
+    ):
+        mocker.patch.object(async_handler_manager_module, "HANDLER_RUNNER_RESTART_BASE_DELAY", 10)
+        message_inbox = inbox_manager.get_unified_message_inbox()
+        mocker.patch.object(message_inbox, "get", side_effect=arbitrary_exception)
+        handler_manager.on_message_received = mocker.MagicMock()
+        await async_poll_until(
+            lambda: handler_manager._handler_runner_restart_tasks[MESSAGE] is not None,
+            timeout=PROMPT_TIMEOUT,
+        )
+
+        method_handler = ThreadsafeMock()
+        handler_manager.on_method_request_received = method_handler
+        inbox_manager.get_method_request_inbox().put(mocker.MagicMock())
+        await async_poll_until(lambda: method_handler.call_count == 1, timeout=PROMPT_TIMEOUT)
+
+    async def test_receiver_executor_is_shutdown_after_runner_failure(
+        self, mocker, handler_manager, arbitrary_exception
+    ):
+        executor = mocker.MagicMock()
+        mocker.patch.object(
+            async_handler_manager_module.concurrent.futures,
+            "ThreadPoolExecutor",
+            return_value=executor,
+        )
+        inbox = mocker.MagicMock()
+        inbox.get = mocker.AsyncMock(side_effect=arbitrary_exception)
+
+        with pytest.raises(type(arbitrary_exception)):
+            await handler_manager._receiver_handler_runner(inbox, MESSAGE)
+
+        assert executor.shutdown.call_args == mocker.call(wait=False)
+
+    async def test_client_event_executor_is_shutdown_after_runner_failure(
+        self, mocker, handler_manager, inbox_manager, arbitrary_exception
+    ):
+        executor = mocker.MagicMock()
+        mocker.patch.object(
+            async_handler_manager_module.concurrent.futures,
+            "ThreadPoolExecutor",
+            return_value=executor,
+        )
+        event_inbox = inbox_manager.get_client_event_inbox()
+        mocker.patch.object(event_inbox, "get", side_effect=arbitrary_exception)
+
+        with pytest.raises(type(arbitrary_exception)):
+            await handler_manager._client_event_handler_runner()
+
+        assert executor.shutdown.call_args == mocker.call(wait=False)
 
 
 @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_message_received")
