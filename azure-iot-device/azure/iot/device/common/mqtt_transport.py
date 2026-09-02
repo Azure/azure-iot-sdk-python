@@ -376,7 +376,7 @@ class MQTTTransport(object):
         self._mqtt_client.on_disconnect = None
         # Now disconnect and do some additional cleanup.
         self._force_transport_disconnect_and_cleanup()
-        self._op_manager.cancel_all_operations()
+        self.cancel_all_operations()
 
     def connect(self, password=None):
         """
@@ -480,7 +480,7 @@ class MQTTTransport(object):
                 )
                 # Still clear inflight operations since we're effectively disconnected
                 if clear_inflight:
-                    self._op_manager.cancel_all_operations()
+                    self.cancel_all_operations()
             else:
                 # This could result in ConnectionDroppedError or ProtocolClientError
                 err = _create_error_from_rc_code(rc)
@@ -491,7 +491,21 @@ class MQTTTransport(object):
             # cause a force disconnect via the on_disconnect handler, thus it is safe to clear
             # ops here and now.
             if clear_inflight:
-                self._op_manager.cancel_all_operations()
+                self.cancel_all_operations()
+
+    def cancel_operation(self, callback):
+        """Stop tracking the operation associated with a transport callback."""
+        self._op_manager.cancel_operation(callback)
+
+    def cancel_all_operations(self):
+        """Cancel SDK operations and discard corresponding Paho QoS state."""
+        self._op_manager.cancel_all_operations()
+
+        # Paho retains QoS 1/2 messages for a future reconnect. Once the SDK has cancelled the
+        # corresponding operations, those messages must not be retried or kept alive.
+        with self._mqtt_client._out_message_mutex:
+            self._mqtt_client._out_messages.clear()
+            self._mqtt_client._inflight_messages = 0
 
     def subscribe(self, topic, qos=1, callback=None):
         """
@@ -509,7 +523,7 @@ class MQTTTransport(object):
         """
         logger.info("subscribing to {} with qos {}".format(topic, qos))
         try:
-            (rc, mid) = self._mqtt_client.subscribe(topic, qos=qos)
+            rc, mid = self._mqtt_client.subscribe(topic, qos=qos)
         except ValueError:
             raise
         except Exception as e:
@@ -534,7 +548,7 @@ class MQTTTransport(object):
         """
         logger.info("unsubscribing from {}".format(topic))
         try:
-            (rc, mid) = self._mqtt_client.unsubscribe(topic)
+            rc, mid = self._mqtt_client.unsubscribe(topic)
         except ValueError:
             raise
         except Exception as e:
@@ -568,7 +582,7 @@ class MQTTTransport(object):
         """
         logger.info("publishing on {}".format(topic))
         try:
-            (rc, mid) = self._mqtt_client.publish(topic=topic, payload=payload, qos=qos)
+            rc, mid = self._mqtt_client.publish(topic=topic, payload=payload, qos=qos)
         except ValueError:
             raise
         except TypeError:
@@ -660,9 +674,9 @@ class OperationManager(object):
             else:
                 # Otherwise, store the mid as an unknown response
                 logger.debug("Response received for unknown MID: {}".format(mid))
-                self._unknown_operation_completions[
-                    mid
-                ] = mid  # TODO: set something more useful here
+                self._unknown_operation_completions[mid] = (
+                    mid  # TODO: set something more useful here
+                )
 
         # Now that the lock has been released, if the callback should be triggered,
         # go ahead and trigger it now.
@@ -679,6 +693,17 @@ class OperationManager(object):
             else:
                 # fully expected.  QOS=1 means we might get 2 PUBACKs
                 logger.debug("No callback set for MID: {}".format(mid))
+
+    def cancel_operation(self, callback):
+        """Remove pending operations associated with a callback without invoking it."""
+        with self._lock:
+            matching_mids = [
+                mid
+                for mid, pending_callback in self._pending_operation_callbacks.items()
+                if pending_callback is callback
+            ]
+            for mid in matching_mids:
+                del self._pending_operation_callbacks[mid]
 
     def cancel_all_operations(self):
         """Complete all pending operations with cancellation, removing MID tracking"""
