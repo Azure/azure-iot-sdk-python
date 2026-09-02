@@ -105,6 +105,14 @@ class TestAsyncClientInboxGet(object):
         assert retrieved_item is item
         assert inbox.empty()
 
+    @pytest.mark.it("Runs Janus async operations on the shared internal loop")
+    async def test_uses_shared_internal_loop(self, mocker, inbox):
+        inbox.put(mocker.MagicMock())
+
+        await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT)
+
+        assert inbox._queue._loop is loop_management.get_client_internal_loop()
+
     @pytest.mark.it(
         "Blocks on an empty inbox until an item is available to remove and return, if using blocking mode"
     )
