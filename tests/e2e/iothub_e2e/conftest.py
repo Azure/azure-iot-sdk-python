@@ -121,6 +121,7 @@ def leak_tracker_filter(leaks):
 
 @pytest.fixture(scope="function")
 def leak_tracker():
+    """Opt the requesting test into a leak check before fixture teardown."""
     tracker = leak_tracker_module.LeakTracker()
     tracker.track_module("azure.iot.device")
     tracker.track_module("paho")
@@ -225,17 +226,37 @@ def pytest_runtest_setup(item):
     # 1. The `outer_leak_tracker` object attached to tests is called after `disconnect` or
     #    `shutdown` is called. This means it can only detect objects that survive `shutdown`.
     #
-    # 2. The `leak_tracker` fixture is used within tests and needs to be manually invoked.
-    #    This means it gets called before `shutdown`, so it can detect leaks that might otherwise
-    #    get cleaned up.
+    # 2. The `leak_tracker` fixture opts tests into a check immediately after the test body.
+    #    This means it runs before `shutdown`, so it can detect leaks that might otherwise get
+    #    cleaned up.
     #
-    # Of these 2, the `leak_tracker` fixture is more useful, but it does require manual steps.
+    # Of these 2, the `leak_tracker` fixture is more useful.
     #
     item.outer_leak_tracker = leak_tracker_module.LeakTracker()
     item.outer_leak_tracker.track_module("azure.iot.device")
     item.outer_leak_tracker.track_module("paho")
     item.outer_leak_tracker.filter_callback = leak_tracker_filter
     item.outer_leak_tracker.set_initial_object_list()
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item):
+    """
+    Run the inner leak check around tests that request the `leak_tracker` fixture.
+
+    The baseline is captured after fixture setup. The check runs after the test frame has been
+    released, but before fixture teardown shuts down the client.
+    """
+    tracker = item.funcargs.get("leak_tracker")
+    if tracker is not None:
+        tracker.set_initial_object_list()
+
+    result = yield
+
+    if tracker is not None:
+        tracker.check_for_leaks()
+
+    return result
 
 
 @pytest.hookimpl(hookwrapper=True)
