@@ -27,6 +27,17 @@ def inbox():
 
 @pytest.mark.describe("AsyncClientInbox")
 class TestAsyncClientInbox(object):
+    @pytest.mark.it("Instantiates a Janus queue without accessing the internal event loop")
+    def test_instantiates_queue_without_internal_loop(self, mocker):
+        mock_queue_constructor = mocker.patch("azure.iot.device.iothub.aio.async_inbox.janus.Queue")
+        mock_get_internal_loop = mocker.patch.object(loop_management, "get_client_internal_loop")
+
+        inbox = AsyncClientInbox()
+
+        assert inbox._queue is mock_queue_constructor.return_value
+        assert mock_queue_constructor.call_args == mocker.call()
+        assert mock_get_internal_loop.call_count == 0
+
     @pytest.mark.it("Instantiates empty")
     def test_instantiates_empty(self, inbox):
         assert inbox.empty()
@@ -61,6 +72,13 @@ class TestAsyncClientInbox(object):
         assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT) is item1
         assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT) is item2
         assert await asyncio.wait_for(inbox.get(), timeout=PROMPT_TIMEOUT) is item3
+
+    @pytest.mark.it("Closes the Janus queue on shutdown")
+    @pytest.mark.asyncio
+    async def test_shutdown_closes_queue(self, inbox):
+        await inbox.shutdown()
+
+        assert inbox._queue.closed
 
 
 @pytest.mark.describe("AsyncClientInbox - .put()")
