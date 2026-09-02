@@ -9,7 +9,6 @@ import asyncio
 import concurrent.futures
 import logging
 import threading
-import time
 from azure.iot.device.iothub.aio import loop_management
 from tests.unit.helpers import BATCH_COMPLETION_TIMEOUT
 
@@ -55,23 +54,33 @@ class SharedCustomLoopTests(object):
 
     @pytest.mark.it("Creates only one event loop when first called concurrently")
     def test_threadsafe_first_call(self, mocker, fn_under_test):
-        start_barrier = threading.Barrier(3)
+        class CoordinatedLoopMap(dict):
+            def __init__(self, loops):
+                super().__init__(loops)
+                self._read_barrier = threading.Barrier(2)
+                self._read_lock = threading.Lock()
+                self._reads_to_coordinate = 2
+
+            def __getitem__(self, loop_name):
+                loop = super().__getitem__(loop_name)
+                with self._read_lock:
+                    coordinate_read = self._reads_to_coordinate > 0
+                    if coordinate_read:
+                        self._reads_to_coordinate -= 1
+                if coordinate_read:
+                    self._read_barrier.wait(timeout=BATCH_COMPLETION_TIMEOUT)
+                return loop
 
         def make_loop(loop_name):
-            time.sleep(0.05)
             loop_management.loops[loop_name] = mocker.MagicMock()
 
+        mocker.patch.object(loop_management, "loops", CoordinatedLoopMap(loop_management.loops))
         make_loop_mock = mocker.patch.object(
             loop_management, "_make_new_loop", side_effect=make_loop
         )
 
-        def get_loop():
-            start_barrier.wait(timeout=BATCH_COMPLETION_TIMEOUT)
-            return fn_under_test()
-
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            futures = [executor.submit(get_loop) for _ in range(2)]
-            start_barrier.wait(timeout=BATCH_COMPLETION_TIMEOUT)
+            futures = [executor.submit(fn_under_test) for _ in range(2)]
             returned_loops = [future.result(timeout=BATCH_COMPLETION_TIMEOUT) for future in futures]
 
         assert make_loop_mock.call_count == 1
