@@ -51,8 +51,12 @@ type_to_device_indices = {
     "group_intermediate": [3, 4, 5],
     "group_ca": [6, 7, 8],
 }
-# Group tests perform three serial network registrations, so use a larger hang backstop.
-GROUP_REGISTRATION_TIMEOUT = 120
+# Allow 40 seconds per serial registration and derive each group limit from its device list.
+REGISTRATION_TIMEOUT_PER_DEVICE = 40
+
+
+def group_registration_timeout(group_type):
+    return REGISTRATION_TIMEOUT_PER_DEVICE * len(type_to_device_indices[group_type])
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -133,7 +137,7 @@ def test_device_register_with_no_device_id_for_a_x509_individual_enrollment(prot
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
-@pytest.mark.timeout(GROUP_REGISTRATION_TIMEOUT)
+@pytest.mark.timeout(group_registration_timeout("group_intermediate"))
 def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment(
     protocol,
 ):
@@ -198,7 +202,7 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with an already uploaded ca cert X509 authentication"
 )
 @pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
-@pytest.mark.timeout(GROUP_REGISTRATION_TIMEOUT)
+@pytest.mark.timeout(group_registration_timeout("group_ca"))
 def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment(
     protocol,
 ):
