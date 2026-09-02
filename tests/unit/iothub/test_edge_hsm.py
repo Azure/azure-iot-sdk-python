@@ -12,6 +12,9 @@ import requests_unixsocket
 import json
 import base64
 import urllib
+
+# Keep module-qualified references because the import regression test reloads this module.
+# Directly imported classes would retain their pre-reload identities.
 from azure.iot.device.iothub import edge_hsm as edge_hsm_module
 from azure.iot.device import user_agent
 
