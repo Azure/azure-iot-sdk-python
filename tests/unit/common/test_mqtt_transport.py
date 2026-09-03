@@ -2419,6 +2419,7 @@ class TestOperationManager(object):
         manager = OperationManager()
         assert len(manager._pending_operation_callbacks) == 0
         assert len(manager._unknown_operation_completions) == 0
+        assert len(manager._cancelled_operation_mids) == 0
 
 
 @pytest.mark.describe("OperationManager - .register_operation()")
@@ -2443,6 +2444,21 @@ class TestOperationManagerRegisterOperation(object):
 
         assert len(manager._pending_operation_callbacks) == 1
         assert manager._pending_operation_callbacks[mid] is optional_callback
+
+    @pytest.mark.it("Allows a cancelled MID without a late completion to be reused")
+    def test_cancelled_mid_reused_without_late_completion(self, mocker):
+        manager = OperationManager()
+        mid = 1
+        reused_mid_callback = mocker.MagicMock()
+
+        manager.register_operation(mid)
+        manager.complete_all_tracked_operations_as_cancelled()
+        manager.register_operation(mid, callback=reused_mid_callback)
+
+        assert reused_mid_callback.call_count == 0
+
+        manager.complete_operation(mid)
+        assert reused_mid_callback.call_args == mocker.call()
 
     @pytest.mark.it("Resolves operation tracking when the response arrived before registration")
     def test_early_completion(self):
@@ -2632,6 +2648,24 @@ class TestOperationManagerCompleteOperation(object):
         assert len(manager._unknown_operation_completions) == 1
         assert manager._unknown_operation_completions[mid] is None
 
+    @pytest.mark.it("Discards a late completion for a cancelled MID")
+    def test_late_completion_for_cancelled_mid(self, mocker):
+        manager = OperationManager()
+        mid = 1
+        cancelled_callback = mocker.MagicMock()
+        reused_mid_callback = mocker.MagicMock()
+
+        manager.register_operation(mid, callback=cancelled_callback)
+        manager.complete_all_tracked_operations_as_cancelled()
+        manager.complete_operation(mid)
+        manager.register_operation(mid, callback=reused_mid_callback)
+
+        assert cancelled_callback.call_args == mocker.call(cancelled=True)
+        assert reused_mid_callback.call_count == 0
+
+        manager.complete_operation(mid)
+        assert reused_mid_callback.call_args == mocker.call()
+
     @pytest.mark.it("Does not invoke the callback until after thread lock has been released")
     def test_callback_called_after_lock_release(self, mocker):
         manager = OperationManager()
@@ -2673,8 +2707,8 @@ class TestOperationManagerCompleteOperation(object):
 
 @pytest.mark.describe("OperationManager - .complete_all_tracked_operations_as_cancelled()")
 class TestOperationManagerCompleteAllTrackedOperationsAsCancelled(object):
-    @pytest.mark.it("Removes all MID tracking for all pending operations")
-    def test_remove_pending_ops(self):
+    @pytest.mark.it("Removes pending callbacks and retains their MIDs as cancelled")
+    def test_cancel_pending_ops(self):
         manager = OperationManager()
 
         # Register pending operations
@@ -2686,6 +2720,7 @@ class TestOperationManagerCompleteAllTrackedOperationsAsCancelled(object):
         # Complete tracked operations as cancelled
         manager.complete_all_tracked_operations_as_cancelled()
         assert len(manager._pending_operation_callbacks) == 0
+        assert manager._cancelled_operation_mids == {1, 2, 3}
 
     @pytest.mark.it("Removes all MID tracking for unknown operation completions")
     def test_remove_unknown_completions(self):

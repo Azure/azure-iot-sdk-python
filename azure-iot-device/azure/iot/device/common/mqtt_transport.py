@@ -736,9 +736,7 @@ class MQTTTransport(object):
 
 
 class OperationManager(object):
-    """Tracks callbacks by Paho MID, including completions received for unknown MIDs
-    (For instance, responses received before a registration).
-    """
+    """Tracks operation callbacks, unmatched completions, and cancellations by Paho MID."""
 
     def __init__(self):
         # Maps Paho MID to callback for operations awaiting a response.
@@ -748,6 +746,9 @@ class OperationManager(object):
         # Necessary because sometimes an operation will complete with a response before the
         # Paho call returns.
         self._unknown_operation_completions = {}
+
+        # Tracks cancelled MIDs whose Paho operations may still complete.
+        self._cancelled_operation_mids = set()
 
         self._lock = threading.Lock()
 
@@ -762,6 +763,10 @@ class OperationManager(object):
         completion_error = None
 
         with self._lock:
+            # If Paho reuses a cancelled MID without completing its previous operation, its next
+            # completion belongs to the newly registered operation.
+            self._cancelled_operation_mids.discard(mid)
+
             # Paho can invoke the response callback before its API call returns the MID,
             # thus, the operation might have already completed.
             if mid in self._unknown_operation_completions:
@@ -807,8 +812,12 @@ class OperationManager(object):
         invoke_callback = False
 
         with self._lock:
+            if mid in self._cancelled_operation_mids:
+                logger.debug("Discarding completion for cancelled Paho MID {}".format(mid))
+                self._cancelled_operation_mids.remove(mid)
+
             # If the Paho MID has a pending operation, invoke its callback.
-            if mid in self._pending_operation_callbacks:
+            elif mid in self._pending_operation_callbacks:
 
                 # Retrieve the callback, and clear the pending operation now that it has been completed
                 callback = self._pending_operation_callbacks[mid]
@@ -844,13 +853,14 @@ class OperationManager(object):
         """Complete all tracked SDK operations as cancelled and clear unknown completions.
 
         This manager owns only local completion tracking: pending callbacks are invoked with
-        ``cancelled=True`` and their MIDs are forgotten. Operations already accepted by Paho are
-        unaffected and may still complete or take effect.
+        ``cancelled=True``. Their MIDs remain as tombstones so later Paho completions can be
+        discarded. Operations already accepted by Paho are unaffected and may still take effect.
         """
         logger.debug("Completing all tracked operations as cancelled")
         with self._lock:
             # Preserve callbacks for invocation after releasing the lock.
             pending_ops = list(self._pending_operation_callbacks.items())
+            self._cancelled_operation_mids.update(self._pending_operation_callbacks)
             self._pending_operation_callbacks.clear()
             self._unknown_operation_completions.clear()
 
