@@ -13,7 +13,6 @@ import urllib
 from azure.iot.device.common.auth.signing_mechanism import SigningMechanism
 from azure.iot.device import user_agent
 
-requests_unixsocket.monkeypatch()
 logger = logging.getLogger(__name__)
 
 
@@ -58,27 +57,27 @@ class IoTEdgeHsm(SigningMechanism):
 
         :raises: IoTEdgeError if unable to retrieve the certificate.
         """
-        r = requests.get(
-            self.workload_uri + "trust-bundle",
-            params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())},
-        )
-        # Validate that the request was successful
-        try:
-            r.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            raise IoTEdgeError("Unable to get trust bundle from Edge") from e
-        # Decode the trust bundle
-        try:
-            bundle = r.json()
-        except ValueError as e:
-            raise IoTEdgeError("Unable to decode trust bundle") from e
-        # Retrieve the certificate
-        try:
-            cert = bundle["certificate"]
-        except KeyError as e:
-            raise IoTEdgeError("No certificate in trust bundle") from e
-        return cert
+        with requests_unixsocket.Session() as session:
+            r = session.get(
+                self.workload_uri + "trust-bundle",
+                params={"api-version": self.api_version},
+                headers={"User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())},
+            )
+            # Validate that the request was successful
+            try:
+                r.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                raise IoTEdgeError("Unable to get trust bundle from Edge") from e
+            # Decode the trust bundle
+            try:
+                bundle = r.json()
+            except ValueError as e:
+                raise IoTEdgeError("Unable to decode trust bundle") from e
+            # Retrieve the certificate
+            try:
+                return bundle["certificate"]
+            except KeyError as e:
+                raise IoTEdgeError("No certificate in trust bundle") from e
 
     def sign(self, data_str):
         """
@@ -99,26 +98,27 @@ class IoTEdgeHsm(SigningMechanism):
         )
         sign_request = {"keyId": "primary", "algo": "HMACSHA256", "data": encoded_data_str}
 
-        r = requests.post(  # can we use json field instead of data?
-            url=path,
-            params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote(user_agent.get_iothub_user_agent(), safe="")},
-            data=json.dumps(sign_request),
-        )
-        try:
-            r.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            raise IoTEdgeError("Unable to sign data") from e
-        try:
-            sign_response = r.json()
-        except ValueError as e:
-            raise IoTEdgeError("Unable to decode signed data") from e
-        try:
-            signed_data_str = sign_response["digest"]
-        except KeyError as e:
-            raise IoTEdgeError("No signed data received") from e
-
-        return signed_data_str  # what format is this? string? bytes?
+        with requests_unixsocket.Session() as session:
+            r = session.post(  # can we use json field instead of data?
+                url=path,
+                params={"api-version": self.api_version},
+                headers={
+                    "User-Agent": urllib.parse.quote(user_agent.get_iothub_user_agent(), safe="")
+                },
+                data=json.dumps(sign_request),
+            )
+            try:
+                r.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                raise IoTEdgeError("Unable to sign data") from e
+            try:
+                sign_response = r.json()
+            except ValueError as e:
+                raise IoTEdgeError("Unable to decode signed data") from e
+            try:
+                return sign_response["digest"]
+            except KeyError as e:
+                raise IoTEdgeError("No signed data received") from e
 
 
 def _format_socket_uri(old_uri):

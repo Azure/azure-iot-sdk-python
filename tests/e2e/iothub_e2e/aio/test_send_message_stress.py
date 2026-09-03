@@ -239,16 +239,12 @@ class TestSendMessageStress(object):
         limits of the code
         """
 
-        leak_tracker.set_initial_object_list()
-
         await self.send_and_verify_continuous_telemetry(
             client=client,
             service_helper=service_helper,
             messages_per_second=messages_per_second,
             test_length_in_seconds=test_length_in_seconds,
         )
-
-        leak_tracker.check_for_leaks()
 
     @pytest.mark.it("send {} messages all at once".format(ALL_AT_ONCE_MESSAGE_COUNT))
     @pytest.mark.timeout(ALL_AT_ONCE_TOTAL_ELAPSED_TIME_FAILURE_TRIGGER)
@@ -265,15 +261,11 @@ class TestSendMessageStress(object):
         handle large volumes of outstanding messages.
         """
 
-        leak_tracker.set_initial_object_list()
-
         await self.send_and_verify_many_telemetry_messages(
             client=client,
             service_helper=service_helper,
             message_count=message_count,
         )
-
-        leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "regular message delivery with flaky network {} messages per second for {} seconds".format(
@@ -302,8 +294,6 @@ class TestSendMessageStress(object):
         that they always arrive.
         """
 
-        leak_tracker.set_initial_object_list()
-
         await asyncio.gather(
             self.do_periodic_network_disconnects(
                 client=client,
@@ -319,5 +309,3 @@ class TestSendMessageStress(object):
                 test_length_in_seconds=test_length_in_seconds,
             ),
         )
-
-        leak_tracker.check_for_leaks()

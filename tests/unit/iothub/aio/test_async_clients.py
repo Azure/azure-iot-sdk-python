@@ -173,6 +173,18 @@ class SharedClientShutdownTests(object):
         assert hm_stop_spy.call_count == 1
         assert hm_stop_spy.call_args == mocker.call(receiver_handlers_only=False)
 
+    @pytest.mark.it("Shuts down all fixed and dynamically created inboxes")
+    async def test_shuts_down_all_inboxes(self, mocker, client):
+        client.disconnect = mocker.MagicMock()
+        client.disconnect.return_value = await create_completed_future(None)
+        client._inbox_manager.get_input_message_inbox("input")
+        client._inbox_manager.get_method_request_inbox("method")
+        inboxes = client._inbox_manager.get_all_inboxes()
+
+        await client.shutdown()
+
+        assert all(inbox._queue.closed for inbox in inboxes)
+
 
 class SharedClientConnectTests(object):
     @pytest.mark.it("Begins a 'connect' pipeline operation")

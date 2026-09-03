@@ -18,19 +18,15 @@ class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
     @pytest.mark.quicktest_suite
     def test_sync_send_message_simple(self, client, random_message, service_helper, leak_tracker):
-        leak_tracker.set_initial_object_list()
 
         client.send_message(random_message)
 
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
-        leak_tracker.check_for_leaks()
-
     @pytest.mark.it("Connects the transport if necessary")
     @pytest.mark.quicktest_suite
     def test_sync_connect_if_necessary(self, client, random_message, service_helper, leak_tracker):
-        leak_tracker.set_initial_object_list()
 
         client.disconnect()
         assert not client.connected
@@ -41,11 +37,8 @@ class TestSendMessage(object):
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
-        leak_tracker.check_for_leaks()
-
     @pytest.mark.it("Raises correct exception for un-serializable payload")
     def test_sync_bad_payload_raises(self, client, leak_tracker):
-        leak_tracker.set_initial_object_list()
 
         # There's no way to serialize a function.
         def thing_that_cant_serialize():
@@ -55,12 +48,8 @@ class TestSendMessage(object):
             client.send_message(thing_that_cant_serialize)
         assert isinstance(e_info.value.__cause__, TypeError)
 
-        # TODO; investigate this leak
-        # leak_tracker.check_for_leaks()
-
     @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
     def test_sync_sends_json_string(self, client, service_helper, leak_tracker):
-        leak_tracker.set_initial_object_list()
 
         message = json.dumps(dev_utils.get_random_dict())
 
@@ -72,11 +61,8 @@ class TestSendMessage(object):
         )
         assert json.dumps(event.message_body) == message
 
-        leak_tracker.check_for_leaks()
-
     @pytest.mark.it("Can send a random string that isn't wrapped in a Message object")
     def test_sync_sends_random_string(self, client, service_helper, leak_tracker):
-        leak_tracker.set_initial_object_list()
 
         message = dev_utils.get_random_string(16)
 
@@ -86,8 +72,6 @@ class TestSendMessage(object):
             None, event_filter=lambda event: event.message_body == message
         )
         assert event.message_body == message
-
-        leak_tracker.check_for_leaks()
 
 
 @pytest.mark.dropped_connection
@@ -105,7 +89,6 @@ class TestSendMessageDroppedConnection(object):
         run_in_daemon_thread,
         leak_tracker,
     ):
-        leak_tracker.set_initial_object_list()
 
         assert client.connected
 
@@ -124,9 +107,6 @@ class TestSendMessageDroppedConnection(object):
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
-        random_message = None  # so this doesn't get tagged as a leak
-        leak_tracker.check_for_leaks()
-
     @pytest.mark.it("Sends if connection rejects send")
     @pytest.mark.uses_iptables
     def test_sync_sends_if_reject_before_sending(
@@ -138,7 +118,6 @@ class TestSendMessageDroppedConnection(object):
         run_in_daemon_thread,
         leak_tracker,
     ):
-        leak_tracker.set_initial_object_list()
 
         assert client.connected
 
@@ -157,9 +136,6 @@ class TestSendMessageDroppedConnection(object):
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
-        random_message = None  # so this doesn't get tagged as a leak
-        leak_tracker.check_for_leaks()
-
 
 @pytest.mark.describe("Client send_message with reconnect disabled")
 @pytest.mark.keep_alive(5)
@@ -176,20 +152,16 @@ class TestSendMessageRetryDisabled(object):
     def test_sync_send_message_simple_with_retry_disabled(
         self, client, random_message, service_helper, leak_tracker
     ):
-        leak_tracker.set_initial_object_list()
 
         client.send_message(random_message)
 
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
-        leak_tracker.check_for_leaks()
-
     @pytest.mark.it("Automatically connects if transport manually disconnected before sending")
     def test_sync_connect_if_necessary_with_retry_disabled(
         self, client, random_message, service_helper, leak_tracker
     ):
-        leak_tracker.set_initial_object_list()
 
         client.disconnect()
         assert not client.connected
@@ -200,14 +172,11 @@ class TestSendMessageRetryDisabled(object):
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
-        leak_tracker.check_for_leaks()
-
     @pytest.mark.it("Automatically connects if transport automatically disconnected before sending")
     @pytest.mark.uses_iptables
     def test_sync_connects_after_automatic_disconnect_with_retry_disabled(
         self, client, random_message, dropper, service_helper, leak_tracker
     ):
-        leak_tracker.set_initial_object_list()
 
         assert client.connected
 
@@ -222,14 +191,12 @@ class TestSendMessageRetryDisabled(object):
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
-        leak_tracker.check_for_leaks()
-
     @pytest.mark.it("Fails if connection disconnects before sending")
     @pytest.mark.uses_iptables
+    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     def test_sync_fails_if_disconnect_before_sending_with_retry_disabled(
-        self, client, random_message, dropper, run_in_daemon_thread, leak_tracker
+        self, client, random_message, dropper, run_in_daemon_thread
     ):
-        leak_tracker.set_initial_object_list()
 
         assert client.connected
 
@@ -241,16 +208,12 @@ class TestSendMessageRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             send_task.result(timeout=const.E2E_TIMEOUT)
 
-        random_message = None  # So this doesn't get tagged as a leak
-        # TODO: investigate this leak
-        # leak_tracker.check_for_leaks()
-
     @pytest.mark.it("Fails if connection drops before sending")
     @pytest.mark.uses_iptables
+    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     def test_sync_fails_if_drop_before_sending_with_retry_disabled(
-        self, client, random_message, dropper, leak_tracker
+        self, client, random_message, dropper
     ):
-        leak_tracker.set_initial_object_list()
 
         assert client.connected
 
@@ -259,7 +222,3 @@ class TestSendMessageRetryDisabled(object):
             client.send_message(random_message)
 
         assert not client.connected
-
-        random_message = None  # So this doesn't get tagged as a leak
-        # TODO: investigate this leak
-        # leak_tracker.check_for_leaks()

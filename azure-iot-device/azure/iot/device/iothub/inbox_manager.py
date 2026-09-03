@@ -104,6 +104,18 @@ class InboxManager(object):
         """
         return self.client_event_inbox
 
+    def get_all_inboxes(self):
+        """Retrieve every inbox managed by this instance."""
+        return (
+            self.unified_message_inbox,
+            self.generic_method_request_inbox,
+            self.twin_patch_inbox,
+            self.client_event_inbox,
+            self.c2d_message_inbox,
+            *self.input_message_inboxes.values(),
+            *self.named_method_request_inboxes.values(),
+        )
+
     def clear_all_method_requests(self):
         """Delete all method requests currently in inboxes."""
         self.generic_method_request_inbox.clear()

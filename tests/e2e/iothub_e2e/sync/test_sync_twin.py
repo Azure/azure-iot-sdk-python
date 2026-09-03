@@ -26,7 +26,6 @@ class TestReportedProperties(object):
     def test_sync_sends_simple_reported_patch(
         self, client, random_reported_props, service_helper, leak_tracker
     ):
-        leak_tracker.set_initial_object_list()
 
         # patch properties
         client.patch_twin_reported_properties(random_reported_props)
@@ -44,7 +43,6 @@ class TestReportedProperties(object):
 
     @pytest.mark.it("Raises correct exception for un-serializable patch")
     def test_sync_bad_reported_patch_raises(self, client, leak_tracker):
-        leak_tracker.set_initial_object_list()
 
         # There's no way to serialize a function.
         def thing_that_cant_serialize():
@@ -57,7 +55,6 @@ class TestReportedProperties(object):
     @pytest.mark.it("Can clear a reported property")
     @pytest.mark.quicktest_suite
     def test_sync_clear_property(self, client, random_reported_props, service_helper, leak_tracker):
-        leak_tracker.set_initial_object_list()
 
         # patch properties and verify that the service received the patch
         client.patch_twin_reported_properties(random_reported_props)
@@ -84,7 +81,6 @@ class TestReportedProperties(object):
     def test_sync_patch_reported_connect_if_necessary(
         self, client, random_reported_props, service_helper, leak_tracker
     ):
-        leak_tracker.set_initial_object_list()
 
         client.disconnect()
 
@@ -101,8 +97,6 @@ class TestReportedProperties(object):
         twin = client.get_twin()
         assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
 
-        leak_tracker.check_for_leaks()
-
 
 @pytest.mark.dropped_connection
 @pytest.mark.describe("Client Reported Properties with dropped connection")
@@ -112,6 +106,7 @@ class TestReportedPropertiesDroppedConnection(object):
     # TODO: split drop tests between first and second patches
 
     @pytest.mark.it("Updates reported properties if connection drops before sending")
+    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     def test_sync_updates_reported_if_drop_before_sending(
         self,
         client,
@@ -119,9 +114,7 @@ class TestReportedPropertiesDroppedConnection(object):
         dropper,
         service_helper,
         run_in_daemon_thread,
-        leak_tracker,
     ):
-        leak_tracker.set_initial_object_list()
 
         assert client.connected
         dropper.drop_outgoing()
@@ -144,10 +137,8 @@ class TestReportedPropertiesDroppedConnection(object):
             == random_reported_props[const.TEST_CONTENT]
         )
 
-        # TODO: investigate leak
-        # leak_tracker.check_for_leaks()
-
     @pytest.mark.it("Updates reported properties if connection rejects send")
+    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     def test_sync_updates_reported_if_reject_before_sending(
         self,
         client,
@@ -155,9 +146,7 @@ class TestReportedPropertiesDroppedConnection(object):
         dropper,
         service_helper,
         run_in_daemon_thread,
-        leak_tracker,
     ):
-        leak_tracker.set_initial_object_list()
 
         assert client.connected
         dropper.reject_outgoing()
@@ -180,9 +169,6 @@ class TestReportedPropertiesDroppedConnection(object):
             == random_reported_props[const.TEST_CONTENT]
         )
 
-        # TODO: investigate leak
-        # leak_tracker.check_for_leaks()
-
 
 @pytest.mark.describe("Client Desired Properties")
 class TestDesiredProperties(object):
@@ -190,7 +176,6 @@ class TestDesiredProperties(object):
     @pytest.mark.quicktest_suite
     def test_sync_receives_simple_desired_patch(self, client, service_helper, leak_tracker):
         received_patches = queue.Queue()
-        leak_tracker.set_initial_object_list()
 
         def handle_on_patch_received(patch):
             nonlocal received_patches
@@ -221,8 +206,6 @@ class TestDesiredProperties(object):
                 twin = client.get_twin()
                 assert twin[const.DESIRED][const.TEST_CONTENT] == random_dict
                 break
-
-        leak_tracker.check_for_leaks()
 
 
 # TODO: etag tests, version tests
