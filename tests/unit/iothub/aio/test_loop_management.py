@@ -10,7 +10,7 @@ import concurrent.futures
 import logging
 import threading
 from azure.iot.device.iothub.aio import loop_management
-from tests.unit.helpers import BATCH_COMPLETION_TIMEOUT
+from tests.unit.helpers import EVENTUAL_TIMEOUT
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -68,7 +68,7 @@ class SharedCustomLoopTests(object):
                     if coordinate_read:
                         self._reads_to_coordinate -= 1
                 if coordinate_read:
-                    self._read_barrier.wait(timeout=BATCH_COMPLETION_TIMEOUT)
+                    self._read_barrier.wait(timeout=EVENTUAL_TIMEOUT)
                 return loop
 
         def make_loop(loop_name):
@@ -81,7 +81,7 @@ class SharedCustomLoopTests(object):
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             futures = [executor.submit(fn_under_test) for _ in range(2)]
-            returned_loops = [future.result(timeout=BATCH_COMPLETION_TIMEOUT) for future in futures]
+            returned_loops = [future.result(timeout=EVENTUAL_TIMEOUT) for future in futures]
 
         assert make_loop_mock.call_count == 1
         assert returned_loops[0] is returned_loops[1]
