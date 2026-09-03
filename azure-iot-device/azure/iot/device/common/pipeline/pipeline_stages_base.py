@@ -780,7 +780,7 @@ class OpTimeoutStage(PipelineStage):
         self.timeout_intervals = {
             pipeline_ops_mqtt.MQTTSubscribeOperation: 10,
             pipeline_ops_mqtt.MQTTUnsubscribeOperation: 10,
-            # Only Sub and Unsub are here because MQTT auto retries pub
+            # Only Sub and Unsub are here because MQTT client will resend QoS 1 publishes after reconnect automatically
         }
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -838,7 +838,7 @@ class RetryStage(PipelineStage):
         self.retry_intervals = {
             pipeline_ops_mqtt.MQTTSubscribeOperation: 20,
             pipeline_ops_mqtt.MQTTUnsubscribeOperation: 20,
-            # Only Sub and Unsub are here because MQTT auto retries pub
+            # Only Sub and Unsub are here because MQTT client will resend QoS 1 publishes after reconnect automatically
         }
         self.ops_waiting_to_retry = []
 

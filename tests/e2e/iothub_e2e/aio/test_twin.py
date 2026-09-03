@@ -107,9 +107,8 @@ class TestReportedPropertiesDroppedConnection(object):
     # TODO: split drop tests between first and second patches
 
     @pytest.mark.it("Updates reported properties if connection drops before sending")
-    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     async def test_updates_reported_if_drop_before_sending(
-        self, client, random_reported_props, dropper, service_helper
+        self, client, random_reported_props, dropper, service_helper, leak_tracker
     ):
 
         assert client.connected
@@ -138,9 +137,8 @@ class TestReportedPropertiesDroppedConnection(object):
         )
 
     @pytest.mark.it("Updates reported properties if connection rejects send")
-    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     async def test_updates_reported_if_reject_before_sending(
-        self, client, random_reported_props, dropper, service_helper
+        self, client, random_reported_props, dropper, service_helper, leak_tracker
     ):
 
         assert client.connected
