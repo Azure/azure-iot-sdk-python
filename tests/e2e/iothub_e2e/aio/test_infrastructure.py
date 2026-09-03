@@ -9,7 +9,7 @@ import uuid
 class TestServiceHelper(object):
     @pytest.mark.it("returns None when wait_for_event_arrival times out")
     async def test_validate_wait_for_eventhub_arrival_timeout(
-        self, client, random_message, service_helper
+        self, client, random_message, service_helper, leak_tracker
     ):
         # Because we have to support py27, we can't use `threading.Condition.wait_for`.
         # make sure our stand-in functionality behaves the same way when dealing with
