@@ -35,9 +35,9 @@ class TestMethods(object):
         service_helper,
         leak_tracker,
     ):
-        leak_tracker.set_initial_object_list()
 
-        actual_request = None
+        actual_request_name = None
+        actual_request_payload = None
 
         if include_request_payload:
             request_payload = get_random_dict()
@@ -50,9 +50,10 @@ class TestMethods(object):
             response_payload = None
 
         def handle_on_method_request_received(request):
-            nonlocal actual_request
+            nonlocal actual_request_name, actual_request_payload
             logger.info("Method request for {} received".format(request.name))
-            actual_request = request
+            actual_request_name = request.name
+            actual_request_payload = request.payload
             logger.info("Sending response")
             client.send_method_response(
                 MethodResponse.create_from_method_request(
@@ -66,15 +67,12 @@ class TestMethods(object):
         method_response = service_helper.invoke_method(method_name, request_payload)
 
         # verify that the method request arrived correctly
-        assert actual_request.name == method_name
+        assert actual_request_name == method_name
         if request_payload:
-            assert actual_request.payload == request_payload
+            assert actual_request_payload == request_payload
         else:
-            assert not actual_request.payload
+            assert not actual_request_payload
 
         # and make sure the response came back successfully
         assert method_response.status == method_response_status
         assert method_response.payload == response_payload
-
-        actual_request = None  # so this isn't tagged as a leak
-        leak_tracker.check_for_leaks()

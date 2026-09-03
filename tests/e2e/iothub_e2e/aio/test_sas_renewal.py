@@ -24,7 +24,6 @@ class TestSasRenewal(object):
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     async def test_sas_renews(self, client, service_helper, random_message, leak_tracker):
-        leak_tracker.set_initial_object_list()
         event_loop = asyncio.get_running_loop()
 
         connected_event = asyncio.Event()
@@ -80,6 +79,3 @@ class TestSasRenewal(object):
         # TODO incoming_event_queue.get should check thread future
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
-
-        random_message = None  # so this isn't flagged as a leak
-        leak_tracker.check_for_leaks()

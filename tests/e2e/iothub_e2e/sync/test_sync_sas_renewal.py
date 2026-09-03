@@ -24,7 +24,6 @@ class TestSasRenewal(object):
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     def test_sync_sas_renews(self, client, service_helper, random_message, leak_tracker):
-        leak_tracker.set_initial_object_list()
 
         connected_event = threading.Event()
         disconnected_event = threading.Event()
@@ -75,5 +74,3 @@ class TestSasRenewal(object):
         # and verify that the message arrived at the service
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
-
-        leak_tracker.check_for_leaks()

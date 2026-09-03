@@ -21,8 +21,6 @@ class TestConnectDisconnect(object):
     async def test_connect_disconnect(self, brand_new_client, leak_tracker):
         client = brand_new_client
 
-        leak_tracker.set_initial_object_list()
-
         assert client
         logger.info("connecting")
         await client.connect()
@@ -33,8 +31,6 @@ class TestConnectDisconnect(object):
 
         await client.connect()
         assert client.connected
-
-        leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "Can do a manual connect in the `on_connection_state_change` call that is notifying the user about a disconnect."
@@ -53,7 +49,6 @@ class TestConnectDisconnect(object):
         client = brand_new_client
         assert client
 
-        leak_tracker.set_initial_object_list()
         event_loop = asyncio.get_running_loop()
 
         reconnected_event = asyncio.Event()
@@ -98,9 +93,6 @@ class TestConnectDisconnect(object):
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert event
 
-        random_message = None  # so this isn't flagged as a leak
-        leak_tracker.check_for_leaks()
-
     @pytest.mark.it(
         "Can do a manual disconnect in the `on_connection_state_change` call that is notifying the user about a connect."
     )
@@ -127,7 +119,6 @@ class TestConnectDisconnect(object):
         assert client
         disconnect_on_next_connect_event = False
 
-        leak_tracker.set_initial_object_list()
         event_loop = asyncio.get_running_loop()
 
         disconnected_event = asyncio.Event()
@@ -178,9 +169,6 @@ class TestConnectDisconnect(object):
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert event
 
-        random_message = None  # So this doesn't get flagged as a leak.
-        leak_tracker.check_for_leaks()
-
     # TODO: Add connect/disconnect stress, multiple times with connect inside disconnect and disconnect inside connect.
 
 
@@ -194,7 +182,6 @@ class TestConnectDisconnectDroppedConnection(object):
         This test verifies that the client will disconnect (eventually) if the network starts
         dropping packets
         """
-        leak_tracker.set_initial_object_list()
 
         await client.connect()
         assert client.connected
@@ -211,15 +198,12 @@ class TestConnectDisconnectDroppedConnection(object):
             lambda: client.connected, timeout=const.E2E_TIMEOUT
         )
 
-        leak_tracker.check_for_leaks()
-
     @pytest.mark.it("disconnects when network rejects all outgoing packets")
     async def test_disconnect_on_reject_outgoing(self, client, dropper, leak_tracker):
         """
         This test verifies that the client will disconnect (eventually) if the network starts
         rejecting packets
         """
-        leak_tracker.set_initial_object_list()
 
         await client.connect()
         assert client.connected
@@ -235,5 +219,3 @@ class TestConnectDisconnectDroppedConnection(object):
         await wait_helpers.async_wait_for_condition(
             lambda: client.connected, timeout=const.E2E_TIMEOUT
         )
-
-        leak_tracker.check_for_leaks()
