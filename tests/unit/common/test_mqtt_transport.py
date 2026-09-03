@@ -1008,6 +1008,22 @@ class TestDisconnect(object):
         assert mock_mqtt_client._thread is not None
 
 
+@pytest.mark.describe("MQTTTransport - .cancel_all_operations()")
+class TestCancelAllOperations(object):
+    @pytest.mark.it("Cancels SDK operations and clears Paho outgoing message state")
+    def test_clears_sdk_and_paho_operations(self, mocker, mock_mqtt_client, transport):
+        cancel_sdk_operations = mocker.patch.object(transport._op_manager, "cancel_all_operations")
+        mock_mqtt_client._out_message_mutex = threading.Lock()
+        mock_mqtt_client._out_messages = {1: mqtt.MQTTMessage(mid=1)}
+        mock_mqtt_client._inflight_messages = 1
+
+        transport.cancel_all_operations()
+
+        cancel_sdk_operations.assert_called_once_with()
+        assert mock_mqtt_client._out_messages == {}
+        assert mock_mqtt_client._inflight_messages == 0
+
+
 @pytest.mark.describe("MQTTTransport - OCCURRENCE: Disconnect Completed")
 class TestEventDisconnectCompleted(object):
     @pytest.fixture(
@@ -2484,6 +2500,24 @@ class TestOperationManagerCompleteOperation(object):
 
         # Callback WAS NOT called while the lock was held
         assert mocker.call.cb() not in calls_during_lock
+
+
+@pytest.mark.describe("OperationManager - .cancel_operation()")
+class TestOperationManagerCancelOperation(object):
+    @pytest.mark.it("Removes only operations associated with the provided callback")
+    def test_remove_matching_pending_operations(self, mocker):
+        manager = OperationManager()
+        callback_to_cancel = mocker.MagicMock()
+        callback_to_keep = mocker.MagicMock()
+        manager.establish_operation(mid=1, callback=callback_to_cancel)
+        manager.establish_operation(mid=2, callback=callback_to_keep)
+        manager.establish_operation(mid=3, callback=callback_to_cancel)
+
+        manager.cancel_operation(callback_to_cancel)
+
+        assert manager._pending_operation_callbacks == {2: callback_to_keep}
+        callback_to_cancel.assert_not_called()
+        callback_to_keep.assert_not_called()
 
 
 @pytest.mark.describe("OperationManager - .cancel_all_operations()")

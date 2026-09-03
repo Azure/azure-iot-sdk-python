@@ -8,6 +8,7 @@ import pytest
 import sys
 import threading
 from azure.iot.device.common import transport_exceptions, handle_exceptions
+from azure.iot.device.common.mqtt_transport import OperationManager
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_ops_mqtt,
@@ -616,6 +617,16 @@ class TestMQTTTransportStageRunOpCalledWithMQTTPublishOperation(
         assert op.completed
         assert isinstance(op.error, pipeline_exceptions.OperationCancelled)
 
+    @pytest.mark.it("Removes its transport callback when completed by another stage")
+    def test_removes_transport_callback_on_external_completion(self, stage, op):
+        stage.run_op(op)
+        transport_callback = stage.transport.publish.call_args[1]["callback"]
+
+        op.complete()
+        transport_callback()
+
+        stage.transport.cancel_operation.assert_called_once_with(transport_callback)
+
     @pytest.mark.it(
         "Completes the operation using the exception that was raised, if an exception was raised from the MQTTTransport"
     )
@@ -676,6 +687,23 @@ class TestMQTTTransportStageRunOpCalledWithMQTTSubscribeOperation(
         assert op.completed
         assert isinstance(op.error, pipeline_exceptions.OperationCancelled)
 
+    @pytest.mark.it("Removes its transport callback when completed by another stage")
+    def test_removes_transport_callback_on_external_completion(self, stage, op):
+        manager = OperationManager()
+        stage.transport.subscribe.side_effect = lambda topic, callback: manager.establish_operation(
+            mid=1, callback=callback
+        )
+        stage.transport.cancel_operation.side_effect = manager.cancel_operation
+        stage.run_op(op)
+        transport_callback = stage.transport.subscribe.call_args[1]["callback"]
+        assert manager._pending_operation_callbacks == {1: transport_callback}
+
+        op.complete()
+        transport_callback()
+
+        stage.transport.cancel_operation.assert_called_once_with(transport_callback)
+        assert manager._pending_operation_callbacks == {}
+
     @pytest.mark.it(
         "Completes the operation using the exception that was raised, if an exception was raised from the MQTTTransport"
     )
@@ -735,6 +763,16 @@ class TestMQTTTransportStageRunOpCalledWithMQTTUnsubscribeOperation(
 
         assert op.completed
         assert isinstance(op.error, pipeline_exceptions.OperationCancelled)
+
+    @pytest.mark.it("Removes its transport callback when completed by another stage")
+    def test_removes_transport_callback_on_external_completion(self, stage, op):
+        stage.run_op(op)
+        transport_callback = stage.transport.unsubscribe.call_args[1]["callback"]
+
+        op.complete()
+        transport_callback()
+
+        stage.transport.cancel_operation.assert_called_once_with(transport_callback)
 
     @pytest.mark.it(
         "Completes the operation using the exception that was raised, if an exception was raised from the MQTTTransport"
@@ -1168,9 +1206,8 @@ class TestMQTTTransportStageOnDisconnectedUnexpectedNoPendingConnectionOp(
     @pytest.mark.it(
         "Cancels all in-flight operations in the transport, if connection retry has been disabled"
     )
-    def test_inflight_no_retry(self, mocker, stage, cause):
-        stage.transport._op_manager = mocker.MagicMock()
-        mock_cancel = stage.transport._op_manager.cancel_all_operations
+    def test_inflight_no_retry(self, stage, cause):
+        mock_cancel = stage.transport.cancel_all_operations
         stage.nucleus.pipeline_configuration.connection_retry = False
         assert stage._pending_connection_op is None
         assert mock_cancel.call_count == 0
@@ -1178,15 +1215,13 @@ class TestMQTTTransportStageOnDisconnectedUnexpectedNoPendingConnectionOp(
         # Trigger disconnect
         stage.transport.on_mqtt_disconnected_handler(cause)
 
-        assert mock_cancel.call_count == 1
-        assert mock_cancel.call_args == mocker.call()
+        mock_cancel.assert_called_once_with()
 
     @pytest.mark.it(
         "Does not cancel any in-flight operations in the transport if connection retry has been enabled"
     )
-    def test_inflight_unexpected_with_retry(self, mocker, stage, cause):
-        stage.transport._op_manager = mocker.MagicMock()
-        mock_cancel = stage.transport._op_manager.cancel_all_operations
+    def test_inflight_unexpected_with_retry(self, stage, cause):
+        mock_cancel = stage.transport.cancel_all_operations
         stage.nucleus.pipeline_configuration.connection_retry = True
         assert stage._pending_connection_op is None
         assert mock_cancel.call_count == 0

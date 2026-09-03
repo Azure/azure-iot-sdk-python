@@ -124,6 +124,35 @@ class MQTTTransportStage(PipelineStage):
         except AttributeError:
             pass
 
+    def _create_transport_operation_callback(self, op, acknowledgement_name):
+        @pipeline_thread.invoke_on_pipeline_thread_nowait
+        def on_complete(cancelled=False):
+            if op.completed or op.completing:
+                logger.debug(
+                    "{}({}): Ignoring {} for an already-completed operation".format(
+                        self.name, op.name, acknowledgement_name
+                    )
+                )
+            elif cancelled:
+                op.complete(
+                    error=pipeline_exceptions.OperationCancelled(
+                        "Operation cancelled before {} received".format(acknowledgement_name)
+                    )
+                )
+            else:
+                logger.debug(
+                    "{}({}): {} received. completing op.".format(
+                        self.name, op.name, acknowledgement_name
+                    )
+                )
+                op.complete()
+
+        def remove_transport_callback(op, error):
+            self.transport.cancel_operation(on_complete)
+
+        op.add_callback(remove_transport_callback)
+        return on_complete
+
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
@@ -259,20 +288,7 @@ class MQTTTransportStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTPublishOperation):
             logger.debug("{}({}): publishing on {}".format(self.name, op.name, op.topic))
-
-            @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_complete(cancelled=False):
-                if cancelled:
-                    op.complete(
-                        error=pipeline_exceptions.OperationCancelled(
-                            "Operation cancelled before PUBACK received"
-                        )
-                    )
-                else:
-                    logger.debug(
-                        "{}({}): PUBACK received. completing op.".format(self.name, op.name)
-                    )
-                    op.complete()
+            on_complete = self._create_transport_operation_callback(op, "PUBACK")
 
             try:
                 self.transport.publish(topic=op.topic, payload=op.payload, callback=on_complete)
@@ -281,20 +297,7 @@ class MQTTTransportStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTSubscribeOperation):
             logger.debug("{}({}): subscribing to {}".format(self.name, op.name, op.topic))
-
-            @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_complete(cancelled=False):
-                if cancelled:
-                    op.complete(
-                        error=pipeline_exceptions.OperationCancelled(
-                            "Operation cancelled before SUBACK received"
-                        )
-                    )
-                else:
-                    logger.debug(
-                        "{}({}): SUBACK received. completing op.".format(self.name, op.name)
-                    )
-                    op.complete()
+            on_complete = self._create_transport_operation_callback(op, "SUBACK")
 
             try:
                 self.transport.subscribe(topic=op.topic, callback=on_complete)
@@ -303,20 +306,7 @@ class MQTTTransportStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTUnsubscribeOperation):
             logger.debug("{}({}): unsubscribing from {}".format(self.name, op.name, op.topic))
-
-            @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_complete(cancelled=False):
-                if cancelled:
-                    op.complete(
-                        error=pipeline_exceptions.OperationCancelled(
-                            "Operation cancelled before UNSUBACK received"
-                        )
-                    )
-                else:
-                    logger.debug(
-                        "{}({}): UNSUBACK received.  completing op.".format(self.name, op.name)
-                    )
-                    op.complete()
+            on_complete = self._create_transport_operation_callback(op, "UNSUBACK")
 
             try:
                 self.transport.unsubscribe(topic=op.topic, callback=on_complete)
@@ -451,11 +441,7 @@ class MQTTTransportStage(PipelineStage):
                         self.name
                     )
                 )
-                # TODO: Remove private access to the op manager (this layer shouldn't know about it)
-                # This is a stopgap. I didn't want to invest too much infrastructure into a cancel flow
-                # given that future development of individual operation cancels might affect the
-                # approach to cancelling inflight ops waiting in the transport.
-                self.transport._op_manager.cancel_all_operations()
+                self.transport.cancel_all_operations()
 
             # Regardless of cause, it is now a ConnectionDroppedError. Log it and swallow it.
             # Higher layers will see that we're disconnected and may reconnect as necessary.

@@ -193,9 +193,8 @@ class TestSendMessageRetryDisabled(object):
 
     @pytest.mark.it("Fails if connection disconnects before sending")
     @pytest.mark.uses_iptables
-    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     def test_sync_fails_if_disconnect_before_sending_with_retry_disabled(
-        self, client, random_message, dropper, run_in_daemon_thread
+        self, client, random_message, dropper, run_in_daemon_thread, leak_tracker
     ):
 
         assert client.connected
@@ -210,9 +209,8 @@ class TestSendMessageRetryDisabled(object):
 
     @pytest.mark.it("Fails if connection drops before sending")
     @pytest.mark.uses_iptables
-    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     def test_sync_fails_if_drop_before_sending_with_retry_disabled(
-        self, client, random_message, dropper
+        self, client, random_message, dropper, leak_tracker
     ):
 
         assert client.connected
