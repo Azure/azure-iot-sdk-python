@@ -8,8 +8,7 @@ import threading
 import test_config
 import device_identity_helper
 import const
-import dev_utils.leak_tracker as leak_tracker_module
-from dev_utils import test_env, get_random_message, get_random_dict, iptables
+from dev_utils import test_env, get_random_message, get_random_dict, iptables, sdk_leak_tracker
 from utils import is_windows
 
 from drop_fixtures import dropper  # noqa: F401
@@ -122,11 +121,7 @@ def leak_tracker_filter(leaks):
 @pytest.fixture(scope="function")
 def leak_tracker():
     """Opt the requesting test into a leak check before fixture teardown."""
-    tracker = leak_tracker_module.LeakTracker()
-    tracker.track_module("azure.iot.device")
-    tracker.track_module("paho")
-    tracker.filter_callback = leak_tracker_filter
-    return tracker
+    return sdk_leak_tracker.create_tracker(filter_callback=leak_tracker_filter)
 
 
 @pytest.fixture(scope="session")
@@ -232,10 +227,7 @@ def pytest_runtest_setup(item):
     #
     # Of these 2, the `leak_tracker` fixture is more useful.
     #
-    item.outer_leak_tracker = leak_tracker_module.LeakTracker()
-    item.outer_leak_tracker.track_module("azure.iot.device")
-    item.outer_leak_tracker.track_module("paho")
-    item.outer_leak_tracker.filter_callback = leak_tracker_filter
+    item.outer_leak_tracker = sdk_leak_tracker.create_tracker(filter_callback=leak_tracker_filter)
     item.outer_leak_tracker.set_initial_object_list()
 
 
