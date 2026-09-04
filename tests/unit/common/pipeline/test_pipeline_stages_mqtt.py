@@ -32,9 +32,12 @@ logging.getLogger("azure.iot.device.common").setLevel(level=logging.DEBUG)
 
 @pytest.fixture
 def mock_transport(mocker):
-    return mocker.patch(
+    transport_class = mocker.patch(
         "azure.iot.device.common.pipeline.pipeline_stages_mqtt.MQTTTransport", autospec=True
     )
+    transport = transport_class.return_value
+    transport.disconnect.side_effect = lambda **kwargs: transport.on_mqtt_disconnected_handler()
+    return transport_class
 
 
 @pytest.fixture
@@ -497,12 +500,29 @@ class TestMQTTTransportStageRunOpCalledWithDisconnectOperation(
     def op(self, mocker):
         return pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
 
-    @pytest.mark.it("Completes the operation after the transport disconnect returns")
+    @pytest.mark.it("Completes the operation when the MQTTTransport reports disconnection")
     def test_completes_operation(self, stage, op):
         stage.run_op(op)
         assert op.completed
         assert op.error is None
         assert stage._pending_connection_op is None
+
+    @pytest.mark.it("Waits for the MQTTTransport to report disconnection")
+    def test_waits_for_disconnection(self, stage, op):
+        stage.transport.disconnect.side_effect = None
+
+        stage.run_op(op)
+
+        assert not op.completed
+        assert stage._pending_connection_op is op
+        assert stage.send_event_up.call_count == 0
+
+        stage.transport.on_mqtt_disconnected_handler()
+
+        assert op.completed
+        assert op.error is None
+        assert stage._pending_connection_op is None
+        assert stage.send_event_up.call_count == 1
 
     @pytest.mark.it("Cancels any already pending connection operation")
     @pytest.mark.parametrize(
@@ -554,7 +574,7 @@ class TestMQTTTransportStageRunOpCalledWithDisconnectOperation(
         assert stage.transport.disconnect.call_count == 1
         assert stage.transport.disconnect.call_args == mocker.call(clear_inflight=False)
 
-    @pytest.mark.it("Sends a DisconnectedEvent after the transport disconnect returns")
+    @pytest.mark.it("Sends a DisconnectedEvent when the MQTTTransport reports disconnection")
     def test_sends_disconnected_event(self, stage, op):
         stage.run_op(op)
 

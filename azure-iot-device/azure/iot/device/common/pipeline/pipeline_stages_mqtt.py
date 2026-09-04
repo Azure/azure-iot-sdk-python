@@ -153,8 +153,6 @@ class MQTTTransportStage(PipelineStage):
 
             self._fail_pending_connection_op()
             self._pending_connection_op = op
-            # No watchdog is needed because MQTTTransport.disconnect() blocks until its network
-            # loop stops; this stage does not wait for the queued disconnected callback.
 
             try:
                 # MQTTTransport.disconnect() blocks until the network loop has stopped.
@@ -164,8 +162,6 @@ class MQTTTransportStage(PipelineStage):
                 logger.info(traceback.format_exc())
                 self._pending_connection_op = None
                 op.complete(error=e)
-            else:
-                self._on_mqtt_disconnected()
 
         elif isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation):
             logger.debug(

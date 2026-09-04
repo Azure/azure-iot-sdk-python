@@ -1097,7 +1097,7 @@ class TestConnect(object):
 
         trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
 
-        assert transport._connection_attempt._error is e_info.value
+        assert transport._connection_lifecycle._error is e_info.value
         assert disconnected_handler.call_count == 0
 
     @pytest.mark.it(
@@ -1182,14 +1182,14 @@ class TestConnect(object):
         with pytest.raises(errors.ConnectionTimeoutError):
             transport.connect(fake_password, timeout=0.01)
 
-        prior_attempt = transport._connection_attempt
+        prior_lifecycle = transport._connection_lifecycle
         mock_mqtt_client.loop_stop.side_effect = lambda: trigger_on_connect(
             mock_mqtt_client, reason_code=reason_code
         )
         retry_future = run_in_daemon_thread(transport.connect, fake_password, timeout=1)
         poll_until(lambda: mock_mqtt_client.loop_start.call_count == 2, timeout=1)
 
-        assert transport._connection_attempt is not prior_attempt
+        assert transport._connection_lifecycle is not prior_lifecycle
         assert not retry_future.done()
 
         trigger_on_connect(mock_mqtt_client)
@@ -1444,6 +1444,35 @@ class TestEventDisconnectCompleted(object):
         assert callback.call_count == 1
         assert isinstance(callback.call_args[0][0], error_case["error"])
         assert str(callback.call_args[0][0]) == str(error_case["reason_code"])
+
+    @pytest.mark.it("Reports disconnection once if callback occurs during explicit disconnect")
+    def test_callback_during_explicit_disconnect(self, mocker, mock_mqtt_client, transport):
+        callback = mocker.MagicMock()
+        transport.on_mqtt_disconnected_handler = callback
+        transport.connect(fake_password)
+
+        def disconnect_and_report_closure():
+            trigger_on_disconnect(mock_mqtt_client)
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_mqtt_client.disconnect.side_effect = disconnect_and_report_closure
+
+        transport.disconnect()
+
+        assert callback.call_count == 1
+        assert callback.call_args == mocker.call(None)
+
+    @pytest.mark.it("Does not report disconnection twice if callback occurs before disconnect")
+    def test_callback_before_explicit_disconnect(self, mocker, mock_mqtt_client, transport):
+        callback = mocker.MagicMock()
+        transport.on_mqtt_disconnected_handler = callback
+        transport.connect(fake_password)
+        trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
+        mock_mqtt_client.disconnect.return_value = mqtt.MQTT_ERR_NO_CONN
+
+        transport.disconnect()
+
+        assert callback.call_count == 1
 
     @pytest.mark.it("Reports one disconnection when Paho invokes on_disconnect more than once")
     def test_reports_one_disconnection_for_duplicate_paho_callbacks(

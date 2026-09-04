@@ -102,23 +102,27 @@ class ConnectionState(Enum):
     DISCONNECTING = "DISCONNECTING"
     # Network connection closure has been processed.
     DISCONNECTED = "DISCONNECTED"
-    # The connection attempt ended unsuccessfully; its stored error is authoritative.
+    # Connection establishment ended unsuccessfully; its stored error is authoritative.
     FAILED = "FAILED"
 
 
-class ConnectionAttempt(object):
+class ConnectionLifecycle(object):
+    """Synchronize Paho lifecycle callbacks with blocking transport operations."""
+
     def __init__(self):
         self._condition = threading.Condition()
         self._state = ConnectionState.WAITING_FOR_CONNACK
         self._error = None
 
-    def accept_connack(self):
+    def record_connack_accepted(self):
+        """Record an accepted CONNACK received by Paho."""
         with self._condition:
             if self._state is ConnectionState.WAITING_FOR_CONNACK:
                 self._state = ConnectionState.CONNACK_ACCEPTED
                 self._condition.notify_all()
 
-    def fail(self, error):
+    def record_connack_rejected(self, error):
+        """Record a rejected CONNACK received by Paho."""
         with self._condition:
             if self._state in (
                 ConnectionState.WAITING_FOR_CONNACK,
@@ -128,7 +132,8 @@ class ConnectionAttempt(object):
                 self._error = error
                 self._condition.notify_all()
 
-    def wait_for_connack(self, timeout):
+    def wait_for_connection(self, timeout):
+        """Wait for connection establishment to succeed, fail, or time out."""
         with self._condition:
             if not self._condition.wait_for(
                 lambda: self._state is not ConnectionState.WAITING_FOR_CONNACK,
@@ -145,7 +150,12 @@ class ConnectionAttempt(object):
 
             raise self._error
 
-    def on_disconnect(self, cause):
+    def record_disconnection(self, cause):
+        """Record connection closure and indicate whether to emit a disconnect event.
+
+        A closure during connection establishment completes connect() with an error. A closure
+        after establishment is a disconnect event. Duplicate closures are ignored.
+        """
         with self._condition:
             if self._state is ConnectionState.WAITING_FOR_CONNACK:
                 # Paho 2.1 skips on_connect for an MQTT 3.1.1 protocol-version refusal
@@ -170,11 +180,12 @@ class ConnectionAttempt(object):
                 return True
             elif self._state is ConnectionState.DISCONNECTING:
                 self._state = ConnectionState.DISCONNECTED
-                return False
+                return True
             else:
                 return False
 
     def begin_disconnect(self):
+        """Record that an intentional disconnect has begun."""
         with self._condition:
             if self._state is ConnectionState.CONNECTED:
                 self._state = ConnectionState.DISCONNECTING
@@ -229,7 +240,7 @@ class MQTTTransport(object):
         self._cipher = cipher
         self._proxy_options = proxy_options
         self._keep_alive = keep_alive
-        self._connection_attempt = None
+        self._connection_lifecycle = None
 
         self.on_mqtt_disconnected_handler = None
         self.on_mqtt_message_received_handler = None
@@ -315,15 +326,17 @@ class MQTTTransport(object):
             if this is None:
                 return
 
-            connection_attempt = this._connection_attempt
-            if connection_attempt is None:
+            connection_lifecycle = this._connection_lifecycle
+            if connection_lifecycle is None:
                 logger.warning("MQTT CONNACK received without an active connection attempt")
                 return
 
             if reason_code.is_failure:
-                connection_attempt.fail(_create_error_from_paho_connack_reason(reason_code))
+                connection_lifecycle.record_connack_rejected(
+                    _create_error_from_paho_connack_reason(reason_code)
+                )
             else:
-                connection_attempt.accept_connack()
+                connection_lifecycle.record_connack_accepted()
 
         def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
             # Paho synthesizes this ReasonCode from its own disconnection error code.
@@ -341,8 +354,8 @@ class MQTTTransport(object):
                 logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_paho_disconnect_reason(reason_code)
 
-            connection_attempt = this._connection_attempt
-            if connection_attempt is None or not connection_attempt.on_disconnect(cause):
+            connection_lifecycle = this._connection_lifecycle
+            if connection_lifecycle is None or not connection_lifecycle.record_disconnection(cause):
                 return
 
             try:
@@ -582,8 +595,8 @@ class MQTTTransport(object):
         # no-thread result is harmless.
         self._mqtt_client.loop_stop()
 
-        connection_attempt = ConnectionAttempt()
-        self._connection_attempt = connection_attempt
+        connection_lifecycle = ConnectionLifecycle()
+        self._connection_lifecycle = connection_lifecycle
 
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
@@ -644,7 +657,7 @@ class MQTTTransport(object):
 
         logger.debug("Waiting for MQTT CONNACK")
         try:
-            connection_attempt.wait_for_connack(timeout=timeout)
+            connection_lifecycle.wait_for_connection(timeout=timeout)
         except Exception:
             self._cleanup_failed_connect_best_effort()
             raise
@@ -661,8 +674,8 @@ class MQTTTransport(object):
         :raises: ConnectionFailedError in unexpected cases.
         """
         logger.info("disconnecting from MQTT Server")
-        if self._connection_attempt:
-            self._connection_attempt.begin_disconnect()
+        if self._connection_lifecycle:
+            self._connection_lifecycle.begin_disconnect()
         try:
             paho_error_code = self._mqtt_client.disconnect()
         except Exception as e:
