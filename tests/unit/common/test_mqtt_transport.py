@@ -746,6 +746,52 @@ class TestConnect(object):
         assert mock_mqtt_client.disconnect.call_count == 1
         assert mock_mqtt_client.loop_stop.call_count == 2
 
+    @pytest.mark.parametrize(
+        "connect_failure, expected_error",
+        [
+            pytest.param("socket error", errors.ConnectionFailedError),
+            pytest.param("proxy auth error", errors.UnauthorizedError),
+            pytest.param("connect error code", errors.ProtocolClientError),
+            pytest.param("loop start error code", errors.ProtocolClientError),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "cleanup_failure",
+        [pytest.param("disconnect"), pytest.param("loop_stop")],
+    )
+    @pytest.mark.it("Preserves a connect error if cleanup raises an Exception")
+    def test_connect_error_preserved_if_cleanup_raises(
+        self,
+        mock_mqtt_client,
+        transport,
+        arbitrary_exception,
+        connect_failure,
+        expected_error,
+        cleanup_failure,
+    ):
+        if connect_failure == "socket error":
+            mock_mqtt_client.connect.side_effect = socket.error()
+        elif connect_failure == "proxy auth error":
+            mock_mqtt_client.connect.side_effect = socks.SOCKS5AuthError(
+                "authentication failed", socket_err="authentication failed"
+            )
+        elif connect_failure == "connect error code":
+            mock_mqtt_client.connect.return_value = mqtt.MQTT_ERR_INVAL
+        else:
+            mock_mqtt_client.loop_start.side_effect = None
+            mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_INVAL
+
+        if cleanup_failure == "disconnect":
+            mock_mqtt_client.disconnect.side_effect = arbitrary_exception
+        else:
+            mock_mqtt_client.loop_stop.side_effect = [None, arbitrary_exception]
+
+        with pytest.raises(expected_error) as e_info:
+            transport.connect(fake_password)
+
+        assert type(e_info.value) is expected_error
+        assert mock_mqtt_client.on_disconnect is not None
+
     @pytest.mark.it(
         "Raises a ProtocolClientError and cleans up if Paho loop_start() returns an error code"
     )

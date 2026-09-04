@@ -454,6 +454,14 @@ class MQTTTransport(object):
         finally:
             self._mqtt_client.on_disconnect = on_disconnect
 
+    def _cleanup_failed_connect_best_effort(self):
+        """Clean up a failed connection without replacing its original error."""
+        try:
+            self._cleanup_failed_connect()
+        except Exception:
+            logger.warning("Unexpected error cleaning up failed MQTT connection")
+            logger.warning(traceback.format_exc())
+
     def _cleanup_after_network_loop_start_failure(self):
         """Clean up after Paho raises while starting its network thread.
 
@@ -579,7 +587,7 @@ class MQTTTransport(object):
                     host=self._hostname, port=8883, keepalive=self._keep_alive
                 )
         except socket.error as e:
-            self._cleanup_failed_connect()
+            self._cleanup_failed_connect_best_effort()
 
             # Only this type will raise a special error
             # To stop it from retrying.
@@ -601,12 +609,12 @@ class MQTTTransport(object):
                 raise exceptions.ConnectionFailedError() from e
 
         except Exception as e:
-            self._cleanup_failed_connect()
+            self._cleanup_failed_connect_best_effort()
             raise exceptions.ProtocolClientError("Unexpected Paho failure during connect") from e
 
         logger.debug("Paho client.connect() returned MQTTErrorCode={}".format(paho_error_code))
         if paho_error_code:
-            self._cleanup_failed_connect()
+            self._cleanup_failed_connect_best_effort()
             raise _create_error_from_paho_error_code(paho_error_code)
 
         # Start the network loop to process incoming and outgoing MQTT messages
@@ -619,18 +627,14 @@ class MQTTTransport(object):
             ) from e
         logger.debug("Paho client.loop_start() returned MQTTErrorCode={}".format(paho_error_code))
         if paho_error_code:
-            self._cleanup_failed_connect()
+            self._cleanup_failed_connect_best_effort()
             raise _create_error_from_paho_error_code(paho_error_code)
 
         logger.debug("Waiting for MQTT CONNACK")
         try:
             connection_attempt.wait_for_connack(timeout=timeout)
         except Exception:
-            try:
-                self._cleanup_failed_connect()
-            except Exception:
-                logger.warning("Unexpected error cleaning up failed MQTT connection")
-                logger.warning(traceback.format_exc())
+            self._cleanup_failed_connect_best_effort()
             raise
 
     def disconnect(self, clear_inflight=False):
