@@ -163,7 +163,8 @@ class MQTTTransportStage(PipelineStage):
                 # an unexpected-drop callback, it was queued first and consumed this
                 # operation. Otherwise, complete the explicit disconnection path now.
                 logger.info("{}: MQTT disconnected".format(self.name))
-                self._handle_mqtt_disconnected()
+                self.send_event_up(pipeline_events_base.DisconnectedEvent())
+                self._complete_pending_connection_op_after_disconnect()
 
             try:
                 self.transport.disconnect(clear_inflight=op.hard)
@@ -294,7 +295,25 @@ class MQTTTransportStage(PipelineStage):
     def _on_mqtt_connection_dropped(self, cause):
         """Handle a transport-reported unexpected connection loss."""
         logger.info("{}: MQTT connection dropped unexpectedly: {}".format(self.name, cause))
-        self._handle_mqtt_disconnected(cause)
+        self.send_event_up(pipeline_events_base.DisconnectedEvent())
+        try:
+            self._reconcile_mqtt_operation_tracking_after_connection_drop()
+
+            # Higher layers will see that we're disconnected and may reconnect as necessary.
+            error = transport_exceptions.ConnectionDroppedError("Unexpected disconnection")
+            error.__cause__ = cause
+            self.report_background_exception(error)
+        finally:
+            # Completion callbacks can synchronously start work on a replacement connection.
+            self._complete_pending_connection_op_after_disconnect(cause)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _reconcile_mqtt_operation_tracking_after_connection_drop(self):
+        """Reconcile MQTT operation tracking with the connection recovery policy.
+
+        This cannot be encapsulated inside the MQTTTransport because it has to do with
+        connection_retry policy.
+        """
 
         # If there is no connection retry, complete tracked MQTT operations as cancelled so
         # they do not remain pending indefinitely.
@@ -317,25 +336,9 @@ class MQTTTransportStage(PipelineStage):
             )
             self.transport._op_manager.stop_tracking_non_publish_operations()
 
-        # Higher layers will see that we're disconnected and may reconnect as necessary.
-        error = transport_exceptions.ConnectionDroppedError("Unexpected disconnection")
-        error.__cause__ = cause
-        self.report_background_exception(error)
-
     @pipeline_thread.runs_on_pipeline_thread
-    def _handle_mqtt_disconnected(self, cause=None):
-        """Apply disconnected-state effects on the pipeline thread.
-
-        Called after either an unexpected transport callback or a successful explicit disconnect.
-
-        :param Exception cause: The Exception that caused the disconnection, if any (optional)
-        """
-        # Send an event to tell other pipeline stages that we're disconnected. Do this before
-        # we do anything else (in case upper stages have any "are we connected" logic.)
-        # NOTE: Other stages rely on the fact that this occurs before any op that may be in
-        # progress is completed. Be careful with changing the order things occur here.
-        self.send_event_up(pipeline_events_base.DisconnectedEvent())
-
+    def _complete_pending_connection_op_after_disconnect(self, cause=None):
+        """Complete a pending connection operation after disconnection effects are applied."""
         if self._pending_connection_op:
 
             connection_op = self._pending_connection_op

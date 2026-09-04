@@ -945,9 +945,7 @@ class TestMQTTTransportStageOnConnectionDroppedWithPendingDisconnectOperation(
         assert pending_connection_op.completed
         assert pending_connection_op.error is None
 
-    @pytest.mark.it(
-        "Applies connection-drop handling after completing the pending DisconnectOperation"
-    )
+    @pytest.mark.it("Applies connection-drop handling with a pending DisconnectOperation")
     @pytest.mark.parametrize(
         "connection_retry",
         [
@@ -980,6 +978,50 @@ class TestMQTTTransportStageOnConnectionDroppedWithPendingDisconnectOperation(
         background_exception = stage.report_background_exception.call_args.args[0]
         assert isinstance(background_exception, transport_exceptions.ConnectionDroppedError)
         assert background_exception.__cause__ is arbitrary_exception
+
+    @pytest.mark.it(
+        "Applies connection-drop handling before completing the pending DisconnectOperation"
+    )
+    @pytest.mark.parametrize(
+        "connection_retry, cleanup_method_name",
+        [
+            pytest.param(
+                False,
+                "complete_all_tracked_operations_as_cancelled",
+                id="Connection retry disabled",
+            ),
+            pytest.param(
+                True,
+                "stop_tracking_non_publish_operations",
+                id="Connection retry enabled",
+            ),
+        ],
+    )
+    def test_connection_drop_handling_order(
+        self,
+        stage,
+        arbitrary_exception,
+        connection_retry,
+        cleanup_method_name,
+    ):
+        call_order = []
+        stage.nucleus.pipeline_configuration.connection_retry = connection_retry
+        stage.send_event_up.side_effect = lambda event: call_order.append(type(event))
+        cleanup_method = getattr(stage.transport._op_manager, cleanup_method_name)
+        cleanup_method.side_effect = lambda: call_order.append(cleanup_method_name)
+        pending_connection_op = pipeline_ops_base.DisconnectOperation(
+            callback=lambda op, error: call_order.append(type(op))
+        )
+        stage._pending_connection_op = pending_connection_op
+
+        stage.transport.on_mqtt_connection_dropped_handler(arbitrary_exception)
+
+        assert call_order == [
+            pipeline_events_base.DisconnectedEvent,
+            cleanup_method_name,
+            pipeline_events_base.BackgroundExceptionEvent,
+            pipeline_ops_base.DisconnectOperation,
+        ]
 
 
 @pytest.mark.describe(
