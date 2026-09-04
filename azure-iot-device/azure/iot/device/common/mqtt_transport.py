@@ -697,7 +697,7 @@ class MQTTTransport(object):
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
-        :raises: NoConnectionError if a QoS 0 message is published while the client is not connected.
+        :raises: NoConnectionError if the client is not connected.
         """
         logger.info(
             "sending MQTT SUBSCRIBE for Topic Filter {} with requested maximum QoS {}".format(
