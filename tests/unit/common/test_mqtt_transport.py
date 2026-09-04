@@ -243,7 +243,9 @@ def mock_mqtt_client(mocker):
     mock_mqtt_client.connect.return_value = 0
     mock_mqtt_client.reconnect.return_value = 0
     mock_mqtt_client.disconnect.return_value = 0
-    mock_mqtt_client.loop_start.return_value = 0
+    mock_mqtt_client.loop_start.side_effect = lambda: (
+        trigger_on_connect(mock_mqtt_client) or mqtt.MQTT_ERR_SUCCESS
+    )
     mock_mqtt_client.loop_stop.return_value = 0
     return mock_mqtt_client
 
@@ -473,7 +475,6 @@ class TestInstantiation(object):
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
 
-        assert transport.on_mqtt_connected_handler is None
         assert transport.on_mqtt_disconnected_handler is None
         assert transport.on_mqtt_message_received_handler is None
 
@@ -545,6 +546,19 @@ class ArbitraryConnectException(Exception):
 
 @pytest.mark.describe("MQTTTransport - .connect()")
 class TestConnect(object):
+    @pytest.mark.it("Joins a previously started network loop before connecting")
+    def test_joins_prior_network_loop_before_connect(self, mocker, mock_mqtt_client, transport):
+        call_order = mocker.MagicMock()
+        call_order.attach_mock(mock_mqtt_client.loop_stop, "loop_stop")
+        call_order.attach_mock(mock_mqtt_client.connect, "connect")
+
+        transport.connect(fake_password)
+
+        assert call_order.mock_calls[:2] == [
+            mocker.call.loop_stop(),
+            mocker.call.connect(host=fake_hostname, port=8883, keepalive=None),
+        ]
+
     @pytest.mark.it("Uses the stored username and provided password for Paho credentials")
     def test_use_provided_password(self, mocker, mock_mqtt_client, transport):
         transport.connect(fake_password)
@@ -613,80 +627,6 @@ class TestConnect(object):
 
         assert mock_mqtt_client.loop_start.call_count == 1
         assert mock_mqtt_client.loop_start.call_args == mocker.call()
-
-    @pytest.mark.it("Joins a previously started network loop before connecting")
-    def test_joins_prior_network_loop_before_connect(self, mocker, mock_mqtt_client, transport):
-        call_order = mocker.MagicMock()
-        call_order.attach_mock(mock_mqtt_client.loop_stop, "loop_stop")
-        call_order.attach_mock(mock_mqtt_client.connect, "connect")
-
-        transport.connect(fake_password)
-
-        assert call_order.mock_calls[:2] == [
-            mocker.call.loop_stop(),
-            mocker.call.connect(host=fake_hostname, port=8883, keepalive=None),
-        ]
-
-    @pytest.mark.it(
-        "Raises a ProtocolClientError and cleans up if Paho loop_start() returns an error code"
-    )
-    def test_loop_start_returns_error(self, mock_mqtt_client, transport):
-        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_INVAL
-
-        with pytest.raises(errors.ProtocolClientError):
-            transport.connect(fake_password)
-
-        assert mock_mqtt_client.disconnect.call_count == 1
-        assert mock_mqtt_client.loop_stop.call_count == 2
-
-    @pytest.mark.it(
-        "Raises a ProtocolClientError and cleans up if Paho loop_start() raises an Exception"
-    )
-    def test_loop_start_raises(self, mock_mqtt_client, transport, arbitrary_exception):
-        mock_mqtt_client.loop_start.side_effect = arbitrary_exception
-
-        with pytest.raises(errors.ProtocolClientError) as e_info:
-            transport.connect(fake_password)
-
-        assert e_info.value.__cause__ is arbitrary_exception
-        assert mock_mqtt_client.disconnect.call_count == 1
-        assert mock_mqtt_client.loop_stop.call_count == 2
-        assert mock_mqtt_client.on_disconnect is not None
-
-    @pytest.mark.it(
-        "Raises a ProtocolClientError and replaces a Paho client left unusable by a network-thread start failure"
-    )
-    def test_loop_start_thread_failure_replaces_client(self, mocker):
-        transport = MQTTTransport(
-            client_id=fake_device_id,
-            hostname=fake_hostname,
-            username=fake_username,
-            keep_alive=fake_keepalive,
-        )
-        failed_client = transport._mqtt_client
-        publish_callback = mocker.MagicMock()
-        transport.publish(fake_topic, fake_payload, qos=1, callback=publish_callback)
-        failed_client_socket, failed_server_socket = socket.socketpair()
-        mocker.patch.object(failed_client, "_create_socket", return_value=failed_client_socket)
-        start_error = RuntimeError("cannot start network thread")
-        mocker.patch.object(threading.Thread, "start", side_effect=start_error)
-
-        try:
-            with pytest.raises(errors.ProtocolClientError) as e_info:
-                transport.connect(fake_password)
-        finally:
-            failed_server_socket.close()
-
-        assert e_info.value.__cause__ is start_error
-        assert failed_client_socket.fileno() == -1
-        assert transport._mqtt_client is not failed_client
-        assert transport._mqtt_client.on_connect is not None
-        assert transport._mqtt_client.on_disconnect is not None
-        assert publish_callback.call_count == 1
-        assert publish_callback.call_args == mocker.call(cancelled=True)
-        assert transport._op_manager._pending_operations == {}
-        assert transport._awaiting_connack is False
-        assert transport._connection_termination_reported is False
 
     @pytest.mark.it("Raises a ProtocolClientError if Paho connect raises an unexpected Exception")
     def test_client_raises_unexpected_error(
@@ -806,188 +746,396 @@ class TestConnect(object):
         assert mock_mqtt_client.disconnect.call_count == 1
         assert mock_mqtt_client.loop_stop.call_count == 2
 
-
-@pytest.mark.describe("MQTTTransport - OCCURRENCE: Connect Completed")
-class TestEventConnectComplete(object):
     @pytest.mark.it(
-        "Triggers on_mqtt_connected_handler event handler upon successful connect completion"
+        "Raises a ProtocolClientError and cleans up if Paho loop_start() returns an error code"
     )
-    def test_calls_event_handler_callback(self, mocker, mock_mqtt_client, transport):
-        callback = mocker.MagicMock()
-        transport.on_mqtt_connected_handler = callback
+    def test_loop_start_returns_error(self, mock_mqtt_client, transport):
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_INVAL
 
-        # Manually trigger Paho on_connect event_handler
-        trigger_on_connect(mock_mqtt_client)
+        with pytest.raises(errors.ProtocolClientError):
+            transport.connect(fake_password)
 
-        # Verify transport.on_mqtt_connected_handler was called
-        assert callback.call_count == 1
-        assert callback.call_args == mocker.call()
+        assert mock_mqtt_client.disconnect.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_count == 2
 
     @pytest.mark.it(
-        "Stops Paho's network loop if the MQTTTransport was garbage collected before a successful connect completed"
+        "Raises a ProtocolClientError and cleans up if Paho loop_start() raises an Exception"
     )
-    def test_stops_loop_after_gc(self, mocker, mock_mqtt_client, collected_transport_weakref):
-        trigger_on_connect(mock_mqtt_client)
+    def test_loop_start_raises(self, mock_mqtt_client, transport, arbitrary_exception):
+        mock_mqtt_client.loop_start.side_effect = arbitrary_exception
 
-        assert mock_mqtt_client.loop_stop.call_count == 1
-        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
+        with pytest.raises(errors.ProtocolClientError) as e_info:
+            transport.connect(fake_password)
+
+        assert e_info.value.__cause__ is arbitrary_exception
+        assert mock_mqtt_client.disconnect.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_count == 2
+        assert mock_mqtt_client.on_disconnect is not None
 
     @pytest.mark.it(
-        "Skips on_mqtt_connected_handler event handler if set to 'None' upon successful connect completion"
+        "Raises a ProtocolClientError and replaces a Paho client left unusable by a network-thread start failure"
     )
-    def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, transport):
-        assert transport.on_mqtt_connected_handler is None
+    def test_loop_start_thread_failure_replaces_client(self, mocker):
+        transport = MQTTTransport(
+            client_id=fake_device_id,
+            hostname=fake_hostname,
+            username=fake_username,
+            keep_alive=fake_keepalive,
+        )
+        failed_client = transport._mqtt_client
+        publish_callback = mocker.MagicMock()
+        transport.publish(fake_topic, fake_payload, qos=1, callback=publish_callback)
+        failed_client_socket, failed_server_socket = socket.socketpair()
+        mocker.patch.object(failed_client, "_create_socket", return_value=failed_client_socket)
+        start_error = RuntimeError("cannot start network thread")
+        mocker.patch.object(threading.Thread, "start", side_effect=start_error)
 
-        transport.connect(fake_password)
+        try:
+            with pytest.raises(errors.ProtocolClientError) as e_info:
+                transport.connect(fake_password)
+        finally:
+            failed_server_socket.close()
+
+        assert e_info.value.__cause__ is start_error
+        assert failed_client_socket.fileno() == -1
+        assert transport._mqtt_client is not failed_client
+        assert transport._mqtt_client.on_connect is not None
+        assert transport._mqtt_client.on_disconnect is not None
+        assert publish_callback.call_count == 1
+        assert publish_callback.call_args == mocker.call(cancelled=True)
+        assert transport._op_manager._pending_operations == {}
+
+    @pytest.mark.it("Waits for CONNACK before returning")
+    def test_waits_for_connack(self, mock_mqtt_client, transport, run_in_daemon_thread, poll_until):
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+
+        connect_future = run_in_daemon_thread(transport.connect, fake_password)
+        poll_until(lambda: mock_mqtt_client.loop_start.call_count == 1, timeout=1)
+
+        assert not connect_future.done()
 
         trigger_on_connect(mock_mqtt_client)
+        connect_future.result(timeout=1)
 
-        # No further asserts required - this is a test to show that it skips a callback.
-        # Not raising an exception == test passed
-
-    @pytest.mark.it("Recovers from Exception in on_mqtt_connected_handler event handler")
-    def test_event_handler_callback_raises_exception(
-        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    @pytest.mark.it("Raises the mapped error from a failed CONNACK")
+    def test_failed_connack_raises(
+        self, mock_mqtt_client, transport, run_in_daemon_thread, poll_until
     ):
-        event_cb = mocker.MagicMock(side_effect=arbitrary_exception)
-        transport.on_mqtt_connected_handler = event_cb
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+        connect_future = run_in_daemon_thread(transport.connect, fake_password)
+        poll_until(lambda: mock_mqtt_client.loop_start.call_count == 1, timeout=1)
 
-        transport.connect(fake_password)
-        trigger_on_connect(mock_mqtt_client)
+        trigger_on_connect(mock_mqtt_client, reason_code=failed_connack_reason_code)
 
-        # Callback was called, but exception did not propagate
-        assert event_cb.call_count == 1
+        with pytest.raises(errors.ProtocolClientError):
+            connect_future.result(timeout=1)
 
-    @pytest.mark.it(
-        "Allows any BaseExceptions raised in on_mqtt_connected_handler event handler to propagate"
-    )
-    def test_event_handler_callback_raises_base_exception(
-        self, mocker, mock_mqtt_client, transport, arbitrary_base_exception
+        assert mock_mqtt_client.disconnect.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_count == 2
+
+    @pytest.mark.it("Raises ConnectionFailedError if the connection closes before CONNACK")
+    def test_disconnect_before_connack_raises(
+        self, mocker, mock_mqtt_client, transport, run_in_daemon_thread, poll_until
     ):
-        event_cb = mocker.MagicMock(side_effect=arbitrary_base_exception)
-        transport.on_mqtt_connected_handler = event_cb
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+        disconnected_handler = mocker.MagicMock()
+        transport.on_mqtt_disconnected_handler = disconnected_handler
+        connect_future = run_in_daemon_thread(transport.connect, fake_password)
+        poll_until(lambda: mock_mqtt_client.loop_start.call_count == 1, timeout=1)
 
-        transport.connect(fake_password)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
+        trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
+
+        with pytest.raises(errors.ConnectionFailedError):
+            connect_future.result(timeout=1)
+
+        assert disconnected_handler.call_count == 0
+        assert mock_mqtt_client.disconnect.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_count == 2
+
+    @pytest.mark.it("Raises ConnectionDroppedError if the connection drops before connect returns")
+    def test_disconnect_after_connack_before_return_raises(
+        self, mocker, mock_mqtt_client, transport
+    ):
+        disconnected_handler = mocker.MagicMock()
+        transport.on_mqtt_disconnected_handler = disconnected_handler
+
+        def connect_then_disconnect():
             trigger_on_connect(mock_mqtt_client)
-        assert e_info.value is arbitrary_base_exception
+            trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
+            return mqtt.MQTT_ERR_SUCCESS
 
+        mock_mqtt_client.loop_start.side_effect = connect_then_disconnect
 
-@pytest.mark.describe("MQTTTransport - OCCURRENCE: Connection Failure")
-class TestEventConnectionFailure(object):
+        with pytest.raises(errors.ConnectionDroppedError):
+            transport.connect(fake_password)
+
+        assert disconnected_handler.call_count == 0
+        assert mock_mqtt_client.disconnect.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_count == 2
+
+    @pytest.mark.it("Preserves a rejected CONNACK if disconnection follows before connect returns")
+    def test_failed_connack_then_disconnect_preserves_connack_error(
+        self, mock_mqtt_client, transport
+    ):
+        def reject_then_disconnect():
+            trigger_on_connect(mock_mqtt_client, reason_code=failed_connack_reason_code)
+            trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_mqtt_client.loop_start.side_effect = reject_then_disconnect
+
+        with pytest.raises(errors.ProtocolClientError):
+            transport.connect(fake_password)
+
     @pytest.mark.parametrize(
-        "error_case",
-        paho_connack_reason_error_cases,
-        ids=[
-            "{}->{}".format(case["reason_code"], case["error"].__name__)
-            for case in paho_connack_reason_error_cases
+        "reason_code",
+        [successful_connack_reason_code, failed_connack_reason_code],
+        ids=["Accepted CONNACK", "Rejected CONNACK"],
+    )
+    @pytest.mark.it("Preserves a pre-CONNACK disconnection if CONNACK follows")
+    def test_disconnect_then_connack_preserves_connection_failure(
+        self, mock_mqtt_client, transport, reason_code
+    ):
+        def disconnect_then_connack():
+            trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
+            trigger_on_connect(mock_mqtt_client, reason_code=reason_code)
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_mqtt_client.loop_start.side_effect = disconnect_then_connack
+
+        with pytest.raises(errors.ConnectionFailedError) as e_info:
+            transport.connect(fake_password)
+
+        assert type(e_info.value) is errors.ConnectionFailedError
+
+    @pytest.mark.parametrize(
+        "terminal_outcome, expected_error",
+        [
+            pytest.param("rejected_connack", errors.ProtocolClientError, id="Rejected CONNACK"),
+            pytest.param(
+                "disconnect_before_connack",
+                errors.ConnectionFailedError,
+                id="Disconnect before CONNACK",
+            ),
+            pytest.param(
+                "disconnect_after_connack",
+                errors.ConnectionDroppedError,
+                id="Disconnect after accepted CONNACK",
+            ),
         ],
     )
-    @pytest.mark.it(
-        "Triggers on_mqtt_connection_failure_handler event handler with custom Exception upon failed connect completion"
+    @pytest.mark.it("Preserves a terminal connection error if cleanup raises an Exception")
+    def test_terminal_error_preserved_if_cleanup_raises(
+        self,
+        mock_mqtt_client,
+        transport,
+        arbitrary_exception,
+        terminal_outcome,
+        expected_error,
+    ):
+        def fail_during_loop_start():
+            if terminal_outcome == "rejected_connack":
+                trigger_on_connect(mock_mqtt_client, reason_code=failed_connack_reason_code)
+            elif terminal_outcome == "disconnect_before_connack":
+                trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
+            else:
+                trigger_on_connect(mock_mqtt_client)
+                trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
+            return mqtt.MQTT_ERR_SUCCESS
+
+        mock_mqtt_client.loop_start.side_effect = fail_during_loop_start
+        mock_mqtt_client.disconnect.side_effect = arbitrary_exception
+
+        with pytest.raises(expected_error) as e_info:
+            transport.connect(fake_password)
+
+        assert type(e_info.value) is expected_error
+
+    @pytest.mark.it("Raises ConnectionTimeoutError and cleans up if CONNACK times out")
+    def test_connack_timeout(self, mock_mqtt_client, transport):
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+
+        with pytest.raises(errors.ConnectionTimeoutError):
+            transport.connect(fake_password, timeout=0.01)
+
+        assert mock_mqtt_client.disconnect.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_count == 2
+
+    @pytest.mark.it("Preserves pending publish tracking when a connection attempt times out")
+    def test_connack_timeout_preserves_publish_tracking(self, mocker, mock_mqtt_client, transport):
+        publish_callback = mocker.MagicMock()
+        transport.publish(fake_topic, fake_payload, callback=publish_callback)
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+
+        with pytest.raises(errors.ConnectionTimeoutError):
+            transport.connect(fake_password, timeout=0.01)
+
+        assert publish_callback.call_count == 0
+
+        trigger_on_publish(mock_mqtt_client, fake_mid)
+
+        assert publish_callback.call_count == 1
+        assert publish_callback.call_args == mocker.call()
+
+    @pytest.mark.it("Times out immediately with a zero timeout if no CONNACK was received")
+    def test_zero_timeout_without_connack(self, mock_mqtt_client, transport):
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+
+        with pytest.raises(errors.ConnectionTimeoutError):
+            transport.connect(fake_password, timeout=0)
+
+    @pytest.mark.it("Accepts a CONNACK received before a zero timeout is evaluated")
+    def test_zero_timeout_with_connack(self, mock_mqtt_client, transport):
+        transport.connect(fake_password, timeout=0)
+
+    @pytest.mark.parametrize(
+        "reason_code",
+        [successful_connack_reason_code, failed_connack_reason_code],
+        ids=["Accepted CONNACK", "Rejected CONNACK"],
     )
-    def test_calls_event_handler_callback_with_failed_reason_code(
-        self, mocker, mock_mqtt_client, transport, error_case
+    @pytest.mark.it("Ignores a CONNACK received after the connection attempt times out")
+    def test_connack_after_timeout_is_ignored(
+        self, mocker, mock_mqtt_client, transport, reason_code
     ):
-        callback = mocker.MagicMock()
-        transport.on_mqtt_connection_failure_handler = callback
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+        disconnected_handler = mocker.MagicMock()
+        transport.on_mqtt_disconnected_handler = disconnected_handler
 
-        # Initiate connect
-        transport.connect(fake_password)
+        def disconnect_after_timeout():
+            trigger_on_connect(mock_mqtt_client, reason_code=reason_code)
+            return mqtt.MQTT_ERR_SUCCESS
 
-        # Manually trigger Paho on_connect event_handler
-        trigger_on_connect(mock_mqtt_client, reason_code=error_case["reason_code"])
+        mock_mqtt_client.disconnect.side_effect = disconnect_after_timeout
 
-        # Verify transport.on_mqtt_connection_failure_handler was called
-        assert callback.call_count == 1
-        assert isinstance(callback.call_args[0][0], error_case["error"])
-        assert str(callback.call_args[0][0]) == str(error_case["reason_code"])
+        with pytest.raises(errors.ConnectionTimeoutError) as e_info:
+            transport.connect(fake_password, timeout=0.01)
 
-    @pytest.mark.it("Does not report a second disconnect after a failed CONNACK")
-    def test_suppresses_disconnect_after_connection_failure(
-        self, mocker, mock_mqtt_client, transport
-    ):
-        connection_failure_callback = mocker.MagicMock()
-        disconnected_callback = mocker.MagicMock()
-        transport.on_mqtt_connection_failure_handler = connection_failure_callback
-        transport.on_mqtt_disconnected_handler = disconnected_callback
-        transport.connect(fake_password)
-
-        trigger_on_connect(mock_mqtt_client, reason_code=failed_connack_reason_code)
         trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
 
-        assert connection_failure_callback.call_count == 1
-        assert disconnected_callback.call_count == 0
+        assert transport._connection_attempt._error is e_info.value
+        assert disconnected_handler.call_count == 0
 
     @pytest.mark.it(
-        "Reports a failing disconnect before CONNACK acceptance as a ConnectionFailedError"
+        "Suppresses the Paho disconnect callback during timeout cleanup and restores it afterward"
     )
-    def test_disconnect_before_connack_is_connection_failure(
-        self, mocker, mock_mqtt_client, transport
+    def test_connack_timeout_suppresses_cleanup_disconnect_callback(
+        self, mock_mqtt_client, transport
     ):
-        connection_failure_callback = mocker.MagicMock()
-        disconnected_callback = mocker.MagicMock()
-        transport.on_mqtt_connection_failure_handler = connection_failure_callback
-        transport.on_mqtt_disconnected_handler = disconnected_callback
-        transport.connect(fake_password)
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+        paho_disconnect_handler = mock_mqtt_client.on_disconnect
 
-        trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
+        def disconnect_while_checking_handler():
+            assert mock_mqtt_client.on_disconnect is None
+            return mqtt.MQTT_ERR_SUCCESS
 
-        assert connection_failure_callback.call_count == 1
-        assert isinstance(
-            connection_failure_callback.call_args.args[0], errors.ConnectionFailedError
+        mock_mqtt_client.disconnect.side_effect = disconnect_while_checking_handler
+
+        with pytest.raises(errors.ConnectionTimeoutError):
+            transport.connect(fake_password, timeout=0.01)
+
+        assert mock_mqtt_client.on_disconnect is paho_disconnect_handler
+
+    @pytest.mark.parametrize(
+        "cleanup_failure",
+        ["disconnect", "loop_stop"],
+        ids=["Paho disconnect raises", "Paho loop_stop raises"],
+    )
+    @pytest.mark.it("Preserves the timeout if timeout cleanup raises an Exception")
+    def test_connack_timeout_preserves_error_if_cleanup_raises(
+        self,
+        mock_mqtt_client,
+        transport,
+        arbitrary_exception,
+        cleanup_failure,
+    ):
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+        if cleanup_failure == "disconnect":
+            mock_mqtt_client.disconnect.side_effect = arbitrary_exception
+        else:
+            mock_mqtt_client.loop_stop.side_effect = [None, arbitrary_exception]
+
+        with pytest.raises(errors.ConnectionTimeoutError):
+            transport.connect(fake_password, timeout=0.01)
+
+        assert mock_mqtt_client.on_disconnect is not None
+
+    @pytest.mark.it("Can connect successfully after a connection attempt times out")
+    def test_connect_after_timeout(self, mock_mqtt_client, transport):
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+
+        with pytest.raises(errors.ConnectionTimeoutError):
+            transport.connect(fake_password, timeout=0.01)
+
+        mock_mqtt_client.loop_start.side_effect = lambda: (
+            trigger_on_connect(mock_mqtt_client) or mqtt.MQTT_ERR_SUCCESS
         )
-        assert disconnected_callback.call_count == 0
-        assert transport._awaiting_connack is False
 
-    @pytest.mark.it(
-        "Stops Paho's network loop if the MQTTTransport was garbage collected before a failed connect completed"
+        transport.connect(fake_password)
+
+        assert mock_mqtt_client.connect.call_count == 2
+
+    @pytest.mark.parametrize(
+        "reason_code",
+        [successful_connack_reason_code, failed_connack_reason_code],
+        ids=["Accepted CONNACK", "Rejected CONNACK"],
     )
-    def test_stops_loop_after_gc(self, mocker, mock_mqtt_client, collected_transport_weakref):
-        trigger_on_connect(mock_mqtt_client, reason_code=failed_connack_reason_code)
+    @pytest.mark.it("Does not apply a prior attempt's late CONNACK to a retry")
+    def test_prior_connack_during_loop_join_does_not_complete_retry(
+        self,
+        mock_mqtt_client,
+        transport,
+        run_in_daemon_thread,
+        poll_until,
+        reason_code,
+    ):
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+
+        with pytest.raises(errors.ConnectionTimeoutError):
+            transport.connect(fake_password, timeout=0.01)
+
+        prior_attempt = transport._connection_attempt
+        mock_mqtt_client.loop_stop.side_effect = lambda: trigger_on_connect(
+            mock_mqtt_client, reason_code=reason_code
+        )
+        retry_future = run_in_daemon_thread(transport.connect, fake_password, timeout=1)
+        poll_until(lambda: mock_mqtt_client.loop_start.call_count == 2, timeout=1)
+
+        assert transport._connection_attempt is not prior_attempt
+        assert not retry_future.done()
+
+        trigger_on_connect(mock_mqtt_client)
+        retry_future.result(timeout=1)
+
+
+@pytest.mark.describe("MQTTTransport - OCCURRENCE: CONNACK after transport collection")
+class TestConnackAfterTransportCollection(object):
+    @pytest.mark.it(
+        "Stops Paho's network loop if the MQTTTransport was garbage collected before CONNACK"
+    )
+    @pytest.mark.parametrize(
+        "reason_code",
+        [successful_connack_reason_code, failed_connack_reason_code],
+        ids=["Successful CONNACK", "Failed CONNACK"],
+    )
+    def test_stops_loop_after_gc(
+        self, mocker, mock_mqtt_client, collected_transport_weakref, reason_code
+    ):
+        trigger_on_connect(mock_mqtt_client, reason_code=reason_code)
 
         assert mock_mqtt_client.loop_stop.call_count == 1
         assert mock_mqtt_client.loop_stop.call_args == mocker.call()
-
-    @pytest.mark.it(
-        "Skips on_mqtt_connection_failure_handler event handler if set to 'None' upon failed connect completion"
-    )
-    def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, transport):
-        assert transport.on_mqtt_connection_failure_handler is None
-
-        transport.connect(fake_password)
-
-        trigger_on_connect(mock_mqtt_client, reason_code=failed_connack_reason_code)
-
-        # No further asserts required - this is a test to show that it skips a callback.
-        # Not raising an exception == test passed
-
-    @pytest.mark.it("Recovers from Exception in on_mqtt_connection_failure_handler event handler")
-    def test_event_handler_callback_raises_exception(
-        self, mocker, mock_mqtt_client, transport, arbitrary_exception
-    ):
-        event_cb = mocker.MagicMock(side_effect=arbitrary_exception)
-        transport.on_mqtt_connection_failure_handler = event_cb
-
-        transport.connect(fake_password)
-        trigger_on_connect(mock_mqtt_client, reason_code=failed_connack_reason_code)
-
-        # Callback was called, but exception did not propagate
-        assert event_cb.call_count == 1
-
-    @pytest.mark.it(
-        "Allows any BaseExceptions raised in on_mqtt_connection_failure_handler event handler to propagate"
-    )
-    def test_event_handler_callback_raises_base_exception(
-        self, mocker, mock_mqtt_client, transport, arbitrary_base_exception
-    ):
-        event_cb = mocker.MagicMock(side_effect=arbitrary_base_exception)
-        transport.on_mqtt_connection_failure_handler = event_cb
-
-        transport.connect(fake_password)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            trigger_on_connect(mock_mqtt_client, reason_code=failed_connack_reason_code)
-        assert e_info.value is arbitrary_base_exception
 
 
 @pytest.mark.describe("MQTTTransport - .disconnect()")
@@ -1166,20 +1314,6 @@ class TestDisconnect(object):
         assert mock_mqtt_client.loop_stop.call_count == 1
         assert mock_mqtt_client.loop_stop.call_args == mocker.call()
 
-    @pytest.mark.it("Clears CONNACK wait state if Paho loop_stop() raises an Exception")
-    def test_loop_stop_error_clears_connack_wait(
-        self, mock_mqtt_client, transport, arbitrary_exception
-    ):
-        transport._awaiting_connack = True
-        transport._connection_termination_reported = False
-        mock_mqtt_client.loop_stop.side_effect = arbitrary_exception
-
-        with pytest.raises(type(arbitrary_exception)):
-            transport.disconnect()
-
-        assert transport._awaiting_connack is False
-        assert transport._connection_termination_reported is False
-
 
 @pytest.mark.describe("MQTTTransport - OCCURRENCE: Disconnect Completed")
 class TestEventDisconnectCompleted(object):
@@ -1199,13 +1333,12 @@ class TestEventDisconnectCompleted(object):
         callback = mocker.MagicMock()
         transport.on_mqtt_disconnected_handler = callback
 
-        # Initiate disconnect
-        transport.disconnect()
+        transport.connect(fake_password)
 
         # Manually trigger Paho on_disconnect event_handler
         trigger_on_disconnect(mock_mqtt_client)
 
-        # Verify transport.on_mqtt_connected_handler was called
+        # Verify transport.on_mqtt_disconnected_handler was called
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(None)
 
@@ -1226,8 +1359,7 @@ class TestEventDisconnectCompleted(object):
         callback = mocker.MagicMock()
         transport.on_mqtt_disconnected_handler = callback
 
-        # Initiate disconnect
-        transport.disconnect()
+        transport.connect(fake_password)
 
         trigger_on_disconnect(mock_mqtt_client, reason_code=error_case["reason_code"])
 
@@ -1243,17 +1375,16 @@ class TestEventDisconnectCompleted(object):
         callback = mocker.MagicMock()
         transport.on_mqtt_disconnected_handler = callback
 
+        transport.connect(fake_password)
         trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
         trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
 
         assert callback.call_count == 1
-        assert transport._connection_termination_reported is True
 
-        trigger_on_connect(mock_mqtt_client)
+        transport.connect(fake_password)
         trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
 
         assert callback.call_count == 2
-        assert transport._connection_termination_reported is True
 
     @pytest.mark.it(
         "Skips on_mqtt_disconnected_handler event handler if set to 'None' upon disconnect completion"
@@ -1261,7 +1392,7 @@ class TestEventDisconnectCompleted(object):
     def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, transport):
         assert transport.on_mqtt_disconnected_handler is None
 
-        transport.disconnect()
+        transport.connect(fake_password)
 
         trigger_on_disconnect(mock_mqtt_client)
 
@@ -1275,7 +1406,7 @@ class TestEventDisconnectCompleted(object):
         event_cb = mocker.MagicMock(side_effect=arbitrary_exception)
         transport.on_mqtt_disconnected_handler = event_cb
 
-        transport.disconnect()
+        transport.connect(fake_password)
         trigger_on_disconnect(mock_mqtt_client)
 
         # Callback was called, but exception did not propagate
@@ -1290,23 +1421,28 @@ class TestEventDisconnectCompleted(object):
         event_cb = mocker.MagicMock(side_effect=arbitrary_base_exception)
         transport.on_mqtt_disconnected_handler = event_cb
 
-        transport.disconnect()
+        transport.connect(fake_password)
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             trigger_on_disconnect(mock_mqtt_client)
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Does not call Paho's disconnect() method if cause is None")
     def test_doesnt_call_disconnect_without_cause(self, mock_mqtt_client, transport):
+        transport.connect(fake_password)
         trigger_on_disconnect(mock_mqtt_client)
         assert mock_mqtt_client.disconnect.call_count == 0
 
     @pytest.mark.it("Does not call Paho's loop_stop() if cause is None")
     def test_does_not_call_loop_stop(self, mock_mqtt_client, transport):
+        transport.connect(fake_password)
+        mock_mqtt_client.loop_stop.reset_mock()
         trigger_on_disconnect(mock_mqtt_client)
         assert mock_mqtt_client.loop_stop.call_count == 0
 
     @pytest.mark.it("Does not stop or reconnect Paho after an unexpected disconnection")
     def test_does_not_stop_or_reconnect_paho_after_failure(self, mock_mqtt_client, transport):
+        transport.connect(fake_password)
+        mock_mqtt_client.loop_stop.reset_mock()
         trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
 
         assert mock_mqtt_client.disconnect.call_count == 0

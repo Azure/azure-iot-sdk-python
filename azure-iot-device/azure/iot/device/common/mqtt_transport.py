@@ -17,6 +17,8 @@ import socks
 
 logger = logging.getLogger(__name__)
 
+CONNECTION_TIMEOUT = 60
+
 # This transport speaks MQTT 3.1.1, but Paho callback API v2 represents callback results
 # with MQTT 5 ReasonCode and Properties types. For MQTT 3.1.1, Paho synthesizes these values:
 # - CONNACK and SUBACK ReasonCode objects from their MQTT 3.1.1 Return Codes
@@ -89,6 +91,91 @@ def _create_error_from_paho_error_code(error_code):
         return exceptions.ProtocolClientError("Unknown Paho error code={}".format(error_code))
 
 
+class ConnectionState(Enum):
+    # No CONNACK or pre-completion disconnection has been processed.
+    WAITING_FOR_CONNACK = "WAITING_FOR_CONNACK"
+    # A successful CONNACK arrived, but connect() has not yet committed success.
+    CONNACK_ACCEPTED = "CONNACK_ACCEPTED"
+    # connect() consumed the successful CONNACK and may return to its caller.
+    CONNECTED = "CONNECTED"
+    # An explicit disconnect began after connect() completed successfully.
+    DISCONNECTING = "DISCONNECTING"
+    # Network connection closure has been processed.
+    DISCONNECTED = "DISCONNECTED"
+    # The connection attempt ended unsuccessfully; its stored error is authoritative.
+    FAILED = "FAILED"
+
+
+class ConnectionAttempt(object):
+    def __init__(self):
+        self._condition = threading.Condition()
+        self._state = ConnectionState.WAITING_FOR_CONNACK
+        self._error = None
+
+    def accept_connack(self):
+        with self._condition:
+            if self._state is ConnectionState.WAITING_FOR_CONNACK:
+                self._state = ConnectionState.CONNACK_ACCEPTED
+                self._condition.notify_all()
+
+    def fail(self, error):
+        with self._condition:
+            if self._state in (
+                ConnectionState.WAITING_FOR_CONNACK,
+                ConnectionState.CONNACK_ACCEPTED,
+            ):
+                self._state = ConnectionState.FAILED
+                self._error = error
+                self._condition.notify_all()
+
+    def wait_for_connack(self, timeout):
+        with self._condition:
+            if not self._condition.wait_for(
+                lambda: self._state is not ConnectionState.WAITING_FOR_CONNACK,
+                timeout=timeout,
+            ):
+                self._state = ConnectionState.FAILED
+                self._error = exceptions.ConnectionTimeoutError(
+                    "Timed out waiting for MQTT CONNACK"
+                )
+
+            if self._state is ConnectionState.CONNACK_ACCEPTED:
+                self._state = ConnectionState.CONNECTED
+                return
+
+            raise self._error
+
+    def on_disconnect(self, cause):
+        with self._condition:
+            if self._state is ConnectionState.WAITING_FOR_CONNACK:
+                self._state = ConnectionState.FAILED
+                self._error = exceptions.ConnectionFailedError(
+                    "Network connection closed before MQTT CONNACK"
+                )
+                self._condition.notify_all()
+                return False
+            elif self._state is ConnectionState.CONNACK_ACCEPTED:
+                self._state = ConnectionState.FAILED
+                self._error = cause or exceptions.ConnectionDroppedError(
+                    "Network connection closed during connect"
+                )
+                self._condition.notify_all()
+                return False
+            elif self._state is ConnectionState.CONNECTED:
+                self._state = ConnectionState.DISCONNECTED
+                return True
+            elif self._state is ConnectionState.DISCONNECTING:
+                self._state = ConnectionState.DISCONNECTED
+                return False
+            else:
+                return False
+
+    def begin_disconnect(self):
+        with self._condition:
+            if self._state is ConnectionState.CONNECTED:
+                self._state = ConnectionState.DISCONNECTING
+
+
 class MQTTTransport(object):
     """
     A wrapper class that provides an implementation-agnostic MQTT Server interface.
@@ -99,14 +186,10 @@ class MQTTTransport(object):
     with the calling thread. Multiple publish, subscribe, and unsubscribe operations can remain
     outstanding and complete out of order; their callback tracking is synchronized internally.
 
-    :ivar on_mqtt_connected_handler: Event handler callback, called upon establishing a connection.
-    :type on_mqtt_connected_handler: Function
     :ivar on_mqtt_disconnected_handler: Event handler callback, called upon a disconnection.
     :type on_mqtt_disconnected_handler: Function
     :ivar on_mqtt_message_received_handler: Event handler callback, called upon receiving a message.
     :type on_mqtt_message_received_handler: Function
-    :ivar on_mqtt_connection_failure_handler: Event handler callback, called upon a connection failure.
-    :type on_mqtt_connection_failure_handler: Function
     """
 
     def __init__(
@@ -142,18 +225,10 @@ class MQTTTransport(object):
         self._cipher = cipher
         self._proxy_options = proxy_options
         self._keep_alive = keep_alive
-        # Paho reports rejected CONNACK codes 0x02-0x05 through on_connect, then calls
-        # on_disconnect while closing the refused Network Connection. For code 0x01 it only calls
-        # on_disconnect, and it can also call on_disconnect more than once for one connection loss.
-        # Callback API v2 does not preserve this context in on_disconnect, so track the MQTT
-        # handshake and report one correctly classified connection termination.
-        self._awaiting_connack = False
-        self._connection_termination_reported = False
+        self._connection_attempt = None
 
-        self.on_mqtt_connected_handler = None
         self.on_mqtt_disconnected_handler = None
         self.on_mqtt_message_received_handler = None
-        self.on_mqtt_connection_failure_handler = None
 
         self._op_manager = OperationManager()
 
@@ -229,18 +304,6 @@ class MQTTTransport(object):
                     client.loop_stop()
             return this
 
-        def report_connection_failure(this, cause):
-            if this.on_mqtt_connection_failure_handler:
-                try:
-                    this.on_mqtt_connection_failure_handler(cause)
-                except Exception:
-                    logger.warning("Unexpected error calling on_mqtt_connection_failure_handler")
-                    logger.warning(traceback.format_exc())
-            else:
-                logger.warning(
-                    "MQTT connection failed, but no on_mqtt_connection_failure_handler is configured"
-                )
-
         def on_connect(client, userdata, flags, reason_code, properties):
             # Paho synthesizes this ReasonCode from the MQTT 3.1.1 Connect Return Code.
             logger.info("MQTT CONNACK received; Paho synthesized ReasonCode={}".format(reason_code))
@@ -248,21 +311,15 @@ class MQTTTransport(object):
             if this is None:
                 return
 
+            connection_attempt = this._connection_attempt
+            if connection_attempt is None:
+                logger.warning("MQTT CONNACK received without an active connection attempt")
+                return
+
             if reason_code.is_failure:
-                this._awaiting_connack = False
-                this._connection_termination_reported = True
-                report_connection_failure(this, _create_error_from_paho_connack_reason(reason_code))
+                connection_attempt.fail(_create_error_from_paho_connack_reason(reason_code))
             else:
-                this._awaiting_connack = False
-                this._connection_termination_reported = False
-                if this.on_mqtt_connected_handler:
-                    try:
-                        this.on_mqtt_connected_handler()
-                    except Exception:
-                        logger.warning("Unexpected error calling on_mqtt_connected_handler")
-                        logger.warning(traceback.format_exc())
-                else:
-                    logger.debug("No on_mqtt_connected_handler is configured")
+                connection_attempt.accept_connack()
 
         def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
             # Paho synthesizes this ReasonCode from its own disconnection error code.
@@ -275,21 +332,14 @@ class MQTTTransport(object):
             if this is None:
                 return
 
-            if this._connection_termination_reported:
-                logger.debug("Suppressing duplicate network connection termination report")
-                return
-
-            was_awaiting_connack = this._awaiting_connack
-            this._awaiting_connack = False
-            this._connection_termination_reported = True
-            if was_awaiting_connack and reason_code.is_failure:
-                report_connection_failure(this, exceptions.ConnectionFailedError(str(reason_code)))
-                return
-
             cause = None
             if reason_code.is_failure:
                 logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_paho_disconnect_reason(reason_code)
+
+            connection_attempt = this._connection_attempt
+            if connection_attempt is None or not connection_attempt.on_disconnect(cause):
+                return
 
             try:
                 if this.on_mqtt_disconnected_handler:
@@ -403,8 +453,6 @@ class MQTTTransport(object):
             self._disconnect_and_stop_network_loop()
         finally:
             self._mqtt_client.on_disconnect = on_disconnect
-            self._awaiting_connack = False
-            self._connection_termination_reported = False
 
     def _cleanup_after_network_loop_start_failure(self):
         """Clean up after Paho raises while starting its network thread.
@@ -437,8 +485,6 @@ class MQTTTransport(object):
                 logger.warning("Unexpected error replacing failed Paho client")
                 logger.warning(traceback.format_exc())
 
-            self._awaiting_connack = False
-            self._connection_termination_reported = False
             self._op_manager.complete_all_tracked_operations_as_cancelled()
 
     def _create_ssl_context(self):
@@ -484,11 +530,9 @@ class MQTTTransport(object):
         try:
             self._disconnect_and_stop_network_loop()
         finally:
-            self._awaiting_connack = False
-            self._connection_termination_reported = False
             self._op_manager.complete_all_tracked_operations_as_cancelled()
 
-    def connect(self, password=None):
+    def connect(self, password=None, timeout=CONNECTION_TIMEOUT):
         """
         Connect to the MQTT Server, using hostname and username set at instantiation.
 
@@ -500,8 +544,10 @@ class MQTTTransport(object):
         with the proxy server. Any errors in the proxy connection process will trigger exceptions
 
         :param str password: The password for connecting with the MQTT Server (Optional).
+        :param float timeout: Maximum time to wait for MQTT CONNACK, in seconds.
 
         :raises: ConnectionFailedError if connection could not be established.
+        :raises: ConnectionTimeoutError if MQTT CONNACK was not received before timeout.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: UnauthorizedError if there is an error authenticating.
         :raises: NoConnectionError in certain failure scenarios where a connection could not be established
@@ -515,6 +561,9 @@ class MQTTTransport(object):
         # loop_stop() blocks until that prior thread exits; before the first connect, its
         # no-thread result is harmless.
         self._mqtt_client.loop_stop()
+
+        connection_attempt = ConnectionAttempt()
+        self._connection_attempt = connection_attempt
 
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
@@ -560,10 +609,6 @@ class MQTTTransport(object):
             self._cleanup_failed_connect()
             raise _create_error_from_paho_error_code(paho_error_code)
 
-        # Change state as the CONNECT was sent successfully
-        self._awaiting_connack = True
-        self._connection_termination_reported = False
-
         # Start the network loop to process incoming and outgoing MQTT messages
         try:
             paho_error_code = self._mqtt_client.loop_start()
@@ -577,6 +622,17 @@ class MQTTTransport(object):
             self._cleanup_failed_connect()
             raise _create_error_from_paho_error_code(paho_error_code)
 
+        logger.debug("Waiting for MQTT CONNACK")
+        try:
+            connection_attempt.wait_for_connack(timeout=timeout)
+        except Exception:
+            try:
+                self._cleanup_failed_connect()
+            except Exception:
+                logger.warning("Unexpected error cleaning up failed MQTT connection")
+                logger.warning(traceback.format_exc())
+            raise
+
     def disconnect(self, clear_inflight=False):
         """
         Disconnect from the MQTT Server and wait for the network loop to stop.
@@ -589,16 +645,15 @@ class MQTTTransport(object):
         :raises: ConnectionFailedError in unexpected cases.
         """
         logger.info("disconnecting from MQTT Server")
+        if self._connection_attempt:
+            self._connection_attempt.begin_disconnect()
         try:
             paho_error_code = self._mqtt_client.disconnect()
         except Exception as e:
             raise exceptions.ProtocolClientError("Unexpected Paho failure during disconnect") from e
         finally:
-            try:
-                # Always stop and join the network thread, even if disconnect() fails.
-                self._mqtt_client.loop_stop()
-            finally:
-                self._awaiting_connack = False
+            # Always stop and join the network thread, even if disconnect() fails.
+            self._mqtt_client.loop_stop()
 
         logger.debug("Paho client.disconnect() returned MQTTErrorCode={}".format(paho_error_code))
         if paho_error_code:

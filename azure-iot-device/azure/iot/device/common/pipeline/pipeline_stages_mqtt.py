@@ -6,7 +6,6 @@
 
 import logging
 import traceback
-import threading
 import weakref
 from . import (
     pipeline_ops_base,
@@ -21,10 +20,6 @@ from azure.iot.device.common.mqtt_transport import MQTTTransport
 from azure.iot.device.common import handle_exceptions, transport_exceptions
 
 logger = logging.getLogger(__name__)
-
-# Maximum time to wait for a ConnectOperation to complete.
-# TODO: This whole logic of timeout should probably be handled in the TimeoutStage
-CONNECTION_WATCHDOG_TIMEOUT = 60
 
 
 class MQTTTransportStage(PipelineStage):
@@ -60,75 +55,8 @@ class MQTTTransportStage(PipelineStage):
                 error = pipeline_exceptions.OperationCancelled(
                     "Cancelling because new ConnectOperation or DisconnectOperation was issued"
                 )
-            self._cancel_connection_watchdog(pending_op)
             self._pending_connection_op = None
             pending_op.complete(error=error)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _start_connection_watchdog(self, connection_op):
-        """
-        Start a watchdog on the connection operation. This protects against cases where transport.connect()
-        succeeds but the CONNACK never arrives. This is like a timeout, but it is handled at this level
-        because specific cleanup needs to take place on timeout (see below), and this cleanup doesn't
-        belong anywhere else since it is very specific to this stage.
-        """
-        logger.debug("{}({}): Starting watchdog".format(self.name, connection_op.name))
-
-        stage_weakref = weakref.ref(self)
-        connection_op_weakref = weakref.ref(connection_op)
-
-        @pipeline_thread.invoke_on_pipeline_thread
-        def on_connection_watchdog_expired():
-            stage = stage_weakref()
-            connection_op = connection_op_weakref()
-            if stage and connection_op and stage._pending_connection_op is connection_op:
-                logger.info(
-                    "{}({}): Connection watchdog expired. Failing operation".format(
-                        stage.name, connection_op.name
-                    )
-                )
-                try:
-                    stage.transport.disconnect()
-                except Exception:
-                    # If we don't catch this, the pending connection op might not be completed.
-                    # Most likely, the transport isn't actually connected, but other failures are theoretically
-                    # possible. Either way, if disconnect fails, we should assume that we're disconnected.
-                    logger.info(
-                        "transport.disconnect raised error while disconnecting in watchdog.  Safe to ignore."
-                    )
-                    logger.info(traceback.format_exc())
-
-                if stage.nucleus.connected:
-
-                    logger.info(
-                        "{}({}): Pipeline is still connected on watchdog expiration.  Sending DisconnectedEvent".format(
-                            stage.name, connection_op.name
-                        )
-                    )
-                    stage.send_event_up(pipeline_events_base.DisconnectedEvent())
-                stage._fail_pending_connection_op(
-                    error=pipeline_exceptions.OperationTimeout(
-                        "Transport timeout on connection operation"
-                    )
-                )
-            else:
-                logger.debug("Connection watchdog expired, but pending op is not the same op")
-
-        connection_op.watchdog_timer = threading.Timer(
-            CONNECTION_WATCHDOG_TIMEOUT, on_connection_watchdog_expired
-        )
-        connection_op.watchdog_timer.daemon = True
-        connection_op.watchdog_timer.start()
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _cancel_connection_watchdog(self, connection_op):
-        try:
-            if connection_op.watchdog_timer:
-                logger.debug("{}({}): cancelling watchdog".format(self.name, connection_op.name))
-                connection_op.watchdog_timer.cancel()
-                connection_op.watchdog_timer = None
-        except AttributeError:
-            pass
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
@@ -164,15 +92,11 @@ class MQTTTransportStage(PipelineStage):
                 proxy_options=self.nucleus.pipeline_configuration.proxy_options,
                 keep_alive=self.nucleus.pipeline_configuration.keep_alive,
             )
-            self.transport.on_mqtt_connected_handler = self._on_mqtt_connected
-            self.transport.on_mqtt_connection_failure_handler = self._on_mqtt_connection_failure
             self.transport.on_mqtt_disconnected_handler = self._on_mqtt_disconnected
             self.transport.on_mqtt_message_received_handler = self._on_mqtt_message_received
 
-            # Only one ConnectOperation or DisconnectOperation can be pending. Lifecycle callbacks
-            # snapshot its identity before entering the pipeline thread, so stale queued callbacks
-            # cannot affect a later operation. Reauthorization sequences worker operations and is
-            # never stored here directly.
+            # Only one ConnectOperation or DisconnectOperation can be pending. Reauthorization
+            # sequences worker operations and is never stored here directly.
             self._pending_connection_op = None
 
             op.complete()
@@ -192,7 +116,6 @@ class MQTTTransportStage(PipelineStage):
 
             self._fail_pending_connection_op()
             self._pending_connection_op = op
-            self._start_connection_watchdog(op)
             # Use SasToken as password if present. If not present (e.g. using X509),
             # then no password is required because auth is handled via other means.
             if self.nucleus.pipeline_configuration.sastoken:
@@ -201,12 +124,29 @@ class MQTTTransportStage(PipelineStage):
                 password = None
             try:
                 self.transport.connect(password=password)
+            except transport_exceptions.ConnectionTimeoutError as e:
+                logger.info("transport.connect timed out")
+                logger.info("{}: MQTT connection failed: {}".format(self.name, e))
+                logger.debug("{}: failing connect op".format(self.name))
+                self._pending_connection_op = None
+                timeout_error = pipeline_exceptions.OperationTimeout(
+                    "Transport timeout on connection operation"
+                )
+                timeout_error.__cause__ = e
+                op.complete(error=timeout_error)
             except Exception as e:
                 logger.info("transport.connect raised error")
                 logger.info(traceback.format_exc())
-                self._cancel_connection_watchdog(op)
+                logger.info("{}: MQTT connection failed: {}".format(self.name, e))
+                logger.debug("{}: failing connect op".format(self.name))
                 self._pending_connection_op = None
                 op.complete(error=e)
+            else:
+                logger.info("{}: MQTT connected".format(self.name))
+                self.send_event_up(pipeline_events_base.ConnectedEvent())
+                logger.debug("{}: completing connect op".format(self.name))
+                self._pending_connection_op = None
+                op.complete()
 
         elif isinstance(op, pipeline_ops_base.DisconnectOperation):
             logger.debug("{}({}): disconnecting".format(self.name, op.name))
@@ -225,7 +165,7 @@ class MQTTTransportStage(PipelineStage):
                 self._pending_connection_op = None
                 op.complete(error=e)
             else:
-                self._handle_disconnected_state()
+                self._on_mqtt_disconnected()
 
         elif isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation):
             logger.debug(
@@ -342,106 +282,8 @@ class MQTTTransportStage(PipelineStage):
             pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=payload)
         )
 
-    # Lifecycle callbacks must snapshot the pending operation before queueing work on the pipeline
-    # thread; otherwise, a delayed callback could act on a newer operation. Message callbacks can
-    # be queued directly because their topic and payload are already captured in the callback args.
-    def _on_mqtt_connected(self):
-        """Snapshot the pending operation and queue connected-callback processing."""
-        connection_op_snapshot = self._pending_connection_op
-        self._process_mqtt_connected_callback(connection_op_snapshot)
-
     @pipeline_thread.invoke_on_pipeline_thread_nowait
-    def _process_mqtt_connected_callback(self, connection_op_snapshot):
-        """Process a connected callback on the pipeline thread."""
-        if connection_op_snapshot is not self._pending_connection_op:
-            logger.info(
-                "{}: Ignoring connected callback for a connection operation that is no longer pending".format(
-                    self.name
-                )
-            )
-            return
-
-        logger.info("{}: MQTT connected".format(self.name))
-        # Send an event to tell other pipeline stages that we're connected. Do this before
-        # we do anything else (in case upper stages have any "are we connected" logic.
-        self.send_event_up(pipeline_events_base.ConnectedEvent())
-
-        if isinstance(self._pending_connection_op, pipeline_ops_base.ConnectOperation):
-            logger.debug("{}: completing connect op".format(self.name))
-            op = self._pending_connection_op
-            self._cancel_connection_watchdog(op)
-            self._pending_connection_op = None
-            op.complete()
-        else:
-            # This should indicate something odd is going on.
-            # If this occurs, either a connect was completed while there was no pending op,
-            # OR that a connect was completed while a disconnect op was pending
-            logger.info(
-                "{}: Connection was unexpected (no connection op pending)".format(self.name)
-            )
-
-    # Lifecycle callbacks must snapshot the pending operation before queueing work on the pipeline
-    # thread; otherwise, a delayed callback could act on a newer operation. Message callbacks can
-    # be queued directly because their topic and payload are already captured in the callback args.
-    def _on_mqtt_connection_failure(self, cause):
-        """Snapshot the pending operation and queue failure-callback processing."""
-        connection_op_snapshot = self._pending_connection_op
-        self._process_mqtt_connection_failure_callback(connection_op_snapshot, cause)
-
-    @pipeline_thread.invoke_on_pipeline_thread_nowait
-    def _process_mqtt_connection_failure_callback(self, connection_op_snapshot, cause):
-        """Process a connection-failure callback on the pipeline thread.
-
-        :param Exception cause: The Exception that caused the connection failure.
-        """
-
-        if connection_op_snapshot is not self._pending_connection_op:
-            logger.info(
-                "{}: Ignoring connection failure callback for a connection operation that is no longer pending".format(
-                    self.name
-                )
-            )
-            return
-
-        logger.info("{}: MQTT connection failed: {}".format(self.name, cause))
-
-        if isinstance(self._pending_connection_op, pipeline_ops_base.ConnectOperation):
-            logger.debug("{}: failing connect op".format(self.name))
-            op = self._pending_connection_op
-            self._cancel_connection_watchdog(op)
-            self._pending_connection_op = None
-            op.complete(error=cause)
-        else:
-            logger.debug("{}: Connection failure was unexpected".format(self.name))
-            handle_exceptions.swallow_unraised_exception(
-                cause,
-                log_msg="Unexpected connection failure (no pending operation). Safe to ignore.",
-                log_lvl="info",
-            )
-
-    # Lifecycle callbacks must snapshot the pending operation before queueing work on the pipeline
-    # thread; otherwise, a delayed callback could act on a newer operation. Message callbacks can
-    # be queued directly because their topic and payload are already captured in the callback args.
     def _on_mqtt_disconnected(self, cause=None):
-        """Snapshot the pending operation and queue disconnected-callback processing."""
-        connection_op_snapshot = self._pending_connection_op
-        self._process_mqtt_disconnected_callback(connection_op_snapshot, cause)
-
-    @pipeline_thread.invoke_on_pipeline_thread_nowait
-    def _process_mqtt_disconnected_callback(self, connection_op_snapshot, cause=None):
-        """Process a disconnected callback on the pipeline thread."""
-        if connection_op_snapshot is not self._pending_connection_op:
-            logger.info(
-                "{}: Ignoring disconnected callback for a connection operation that is no longer pending".format(
-                    self.name
-                )
-            )
-            return
-
-        self._handle_disconnected_state(cause)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _handle_disconnected_state(self, cause=None):
         """Handle disconnected-state effects on the pipeline thread.
 
         Called after either a transport callback or a successful blocking disconnect.
@@ -484,8 +326,7 @@ class MQTTTransportStage(PipelineStage):
                         self.name, connection_op.name
                     )
                 )
-                # Cancel any potential connection watchdog, and clear the pending op
-                self._cancel_connection_watchdog(connection_op)
+                # Clear and complete the pending operation.
                 self._pending_connection_op = None
                 # Complete
                 if cause:
