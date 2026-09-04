@@ -160,6 +160,11 @@ def trigger_on_publish(mqtt_client, mid):
 # Paho library error codes and their corresponding SDK exception types
 paho_error_code_cases = [
     {
+        "name": "MQTT_ERR_NOMEM",
+        "error_code": mqtt.MQTT_ERR_NOMEM,
+        "error": errors.ProtocolClientError,
+    },
+    {
         "name": "MQTT_ERR_PROTOCOL",
         "error_code": mqtt.MQTT_ERR_PROTOCOL,
         "error": errors.ProtocolClientError,
@@ -770,8 +775,9 @@ class TestConnect(object):
     )
     def test_client_returns_error_code(self, mocker, mock_mqtt_client, transport, error_case):
         mock_mqtt_client.connect.return_value = error_case["error_code"]
-        with pytest.raises(error_case["error"]):
+        with pytest.raises(error_case["error"]) as e_info:
             transport.connect(fake_password)
+        assert str(e_info.value) == mqtt.error_string(error_case["error_code"])
         assert mock_mqtt_client.disconnect.call_count == 1
 
     @pytest.fixture(
@@ -1394,8 +1400,9 @@ class TestDisconnect(object):
     )
     def test_client_returns_error_code(self, mocker, mock_mqtt_client, transport, error_case):
         mock_mqtt_client.disconnect.return_value = error_case["error_code"]
-        with pytest.raises(error_case["error"]):
+        with pytest.raises(error_case["error"]) as e_info:
             transport.disconnect()
+        assert str(e_info.value) == mqtt.error_string(error_case["error_code"])
 
     @pytest.mark.it("Treats MQTT_ERR_NO_CONN as a successful disconnect")
     def test_no_connection_error_code(self, mock_mqtt_client, transport):
@@ -2071,8 +2078,9 @@ class TestSubscribe(object):
     )
     def test_client_returns_error_code(self, mocker, mock_mqtt_client, transport, error_case):
         mock_mqtt_client.subscribe.return_value = (error_case["error_code"], 0)
-        with pytest.raises(error_case["error"]):
+        with pytest.raises(error_case["error"]) as e_info:
             transport.subscribe(topic=fake_topic, qos=fake_qos, callback=None)
+        assert str(e_info.value) == mqtt.error_string(error_case["error_code"])
 
 
 @pytest.mark.describe("MQTTTransport - .unsubscribe()")
@@ -2341,8 +2349,9 @@ class TestUnsubscribe(object):
     )
     def test_client_returns_error_code(self, mocker, mock_mqtt_client, transport, error_case):
         mock_mqtt_client.unsubscribe.return_value = (error_case["error_code"], 0)
-        with pytest.raises(error_case["error"]):
+        with pytest.raises(error_case["error"]) as e_info:
             transport.unsubscribe(topic=fake_topic, callback=None)
+        assert str(e_info.value) == mqtt.error_string(error_case["error_code"])
 
 
 @pytest.mark.describe("MQTTTransport - .publish()")
@@ -2696,8 +2705,9 @@ class TestPublish(object):
         message_info = mqtt.MQTTMessageInfo(0)
         message_info.rc = error_case["error_code"]
         mock_mqtt_client.publish.return_value = message_info
-        with pytest.raises(error_case["error"]):
+        with pytest.raises(error_case["error"]) as e_info:
             transport.publish(topic=fake_topic, payload=fake_payload, callback=None)
+        assert str(e_info.value) == mqtt.error_string(error_case["error_code"])
 
 
 @pytest.mark.describe("MQTTTransport - OCCURRENCE: Message Received")

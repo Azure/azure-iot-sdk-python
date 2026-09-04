@@ -57,6 +57,7 @@ paho_disconnect_reason_name_to_error_type = {
 
 # Maps Paho library error codes to SDK exception types.
 paho_error_code_to_error_type = {
+    mqtt.MQTT_ERR_NOMEM: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_PROTOCOL: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_INVAL: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_NO_CONN: exceptions.NoConnectionError,
@@ -848,7 +849,7 @@ class MQTTTransport(object):
         logger.info("sending MQTT PUBLISH on Topic Name {} with QoS {}".format(topic, qos))
         try:
             # NOTE: Paho MQTTMessageInfo allows you to wait upon the completion with
-            # `wait_for_publish()`,but that is only supported for PUBLISH.
+            # `wait_for_publish()`, but that is only supported for PUBLISH.
             # We don't take advantage of it in favor of a general solution (i.e. OperationManager)
             # which can track SUBSCRIBE and UNSUBSCRIBE operations as well.
             # Furthermore, `wait_for_publish()` is buggy when sending a message while disconnected,
