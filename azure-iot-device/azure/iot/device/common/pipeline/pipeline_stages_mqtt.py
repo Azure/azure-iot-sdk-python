@@ -510,6 +510,13 @@ class MQTTTransportStage(PipelineStage):
                 # given that future development of individual operation cancels might affect the
                 # approach to completing tracked transport operations as cancelled.
                 self.transport._op_manager.complete_all_tracked_operations_as_cancelled()
+            else:
+                logger.debug(
+                    "{}: Connection Retry enabled - preserving PUBLISH tracking and stopping SUBSCRIBE and UNSUBSCRIBE tracking".format(
+                        self.name
+                    )
+                )
+                self.transport._op_manager.stop_tracking_non_publish_operations()
 
             # Regardless of cause, it is now a ConnectionDroppedError. Log it and swallow it.
             # Higher layers will see that we're disconnected and may reconnect as necessary.

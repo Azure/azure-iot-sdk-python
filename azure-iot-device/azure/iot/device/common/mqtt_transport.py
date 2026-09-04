@@ -11,6 +11,7 @@ import threading
 import traceback
 import weakref
 import socket
+from enum import Enum
 from . import transport_exceptions as exceptions
 import socks
 
@@ -613,6 +614,8 @@ class MQTTTransport(object):
                 # Still clear inflight operations since we're effectively disconnected
                 if clear_inflight:
                     self._op_manager.complete_all_tracked_operations_as_cancelled()
+                else:
+                    self._op_manager.stop_tracking_non_publish_operations()
             else:
                 # This could result in ConnectionDroppedError or ProtocolClientError
                 err = _create_error_from_paho_error_code(paho_error_code)
@@ -624,6 +627,8 @@ class MQTTTransport(object):
             # ops here and now.
             if clear_inflight:
                 self._op_manager.complete_all_tracked_operations_as_cancelled()
+            else:
+                self._op_manager.stop_tracking_non_publish_operations()
 
     def subscribe(self, topic, qos=1, callback=None):
         """
@@ -654,7 +659,9 @@ class MQTTTransport(object):
         if paho_error_code:
             # This could result in ConnectionDroppedError or ProtocolClientError
             raise _create_error_from_paho_error_code(paho_error_code)
-        self._op_manager.register_operation(mid, callback)
+        self._op_manager.register_operation(
+            mid=mid, callback=callback, operation_type=OperationType.SUBSCRIBE
+        )
 
     def unsubscribe(self, topic, callback=None):
         """
@@ -681,7 +688,9 @@ class MQTTTransport(object):
         if paho_error_code:
             # This could result in ConnectionDroppedError or ProtocolClientError
             raise _create_error_from_paho_error_code(paho_error_code)
-        self._op_manager.register_operation(mid, callback)
+        self._op_manager.register_operation(
+            mid=mid, callback=callback, operation_type=OperationType.UNSUBSCRIBE
+        )
 
     def publish(self, topic, payload, qos=1, callback=None):
         """
@@ -732,15 +741,29 @@ class MQTTTransport(object):
             logger.debug(
                 "Paho retained QoS {} PUBLISH with MID {} for the next connection".format(qos, mid)
             )
-        self._op_manager.register_operation(mid, callback)
+        self._op_manager.register_operation(
+            mid=mid, callback=callback, operation_type=OperationType.PUBLISH
+        )
+
+
+class OperationType(Enum):
+    PUBLISH = "PUBLISH"
+    SUBSCRIBE = "SUBSCRIBE"
+    UNSUBSCRIBE = "UNSUBSCRIBE"
+
+
+class PendingOperation(object):
+    def __init__(self, operation_type, callback):
+        self.operation_type = operation_type
+        self.callback = callback
 
 
 class OperationManager(object):
     """Tracks operation callbacks, unmatched completions, and cancellations by Paho MID."""
 
     def __init__(self):
-        # Maps Paho MID to callback for operations awaiting a response.
-        self._pending_operation_callbacks = {}
+        # Maps Paho MID to operations awaiting a response.
+        self._pending_operations = {}
 
         # Maps Paho MIDs with no currently registered operation to optional completion errors.
         # Necessary because sometimes an operation will complete with a response before the
@@ -752,9 +775,8 @@ class OperationManager(object):
 
         self._lock = threading.Lock()
 
-    def register_operation(self, mid, callback=None):
-        """Register a pending operation and callback under its Paho MID, and store its completion
-        callback.
+    def register_operation(self, mid, callback, operation_type):
+        """Register a pending operation under its Paho MID.
 
         If a completion has already been recorded for the MID, the callback will be invoked.
         Otherwise, the callback will be invoked when the completion is received.
@@ -778,8 +800,9 @@ class OperationManager(object):
                 invoke_callback = True
 
             else:
-                # Store the operation as pending, along with callback
-                self._pending_operation_callbacks[mid] = callback
+                self._pending_operations[mid] = PendingOperation(
+                    operation_type=operation_type, callback=callback
+                )
                 logger.debug("Waiting for response on Paho MID {}".format(mid))
 
         # Invoke the callback only after releasing the lock.
@@ -817,11 +840,10 @@ class OperationManager(object):
                 self._cancelled_operation_mids.remove(mid)
 
             # If the Paho MID has a pending operation, invoke its callback.
-            elif mid in self._pending_operation_callbacks:
+            elif mid in self._pending_operations:
 
-                # Retrieve the callback, and clear the pending operation now that it has been completed
-                callback = self._pending_operation_callbacks[mid]
-                del self._pending_operation_callbacks[mid]
+                # Retrieve the callback, and clear the pending operation now that it has completed.
+                callback = self._pending_operations.pop(mid).callback
 
                 # Since the operation is complete, indicate the callback should be invoked.
                 invoke_callback = True
@@ -849,25 +871,43 @@ class OperationManager(object):
                 # Completion callbacks are optional.
                 logger.debug("No callback set for Paho MID {}".format(mid))
 
+    def stop_tracking_non_publish_operations(self):
+        """Stop tracking SUBSCRIBE and UNSUBSCRIBE operations without invoking callbacks.
+
+        Paho does not retain these operations for a later connection. PUBLISH operations remain
+        tracked because Paho owns their MQTT 3.1.1 QoS retransmission state.
+        """
+        with self._lock:
+            matching_mids = [
+                mid
+                for mid, pending_operation in self._pending_operations.items()
+                if pending_operation.operation_type
+                in (OperationType.SUBSCRIBE, OperationType.UNSUBSCRIBE)
+            ]
+            for mid in matching_mids:
+                del self._pending_operations[mid]
+            self._cancelled_operation_mids.update(matching_mids)
+
     def complete_all_tracked_operations_as_cancelled(self):
         """Complete all tracked SDK operations as cancelled and clear unknown completions.
 
         This manager owns only local completion tracking: pending callbacks are invoked with
         ``cancelled=True``. Their MIDs remain as tombstones so later Paho completions can be
-        discarded. Operations already accepted by Paho are unaffected and may still take effect.
+        discarded. Paho owns MQTT protocol state for accepted operations, including QoS 1 and
+        QoS 2 packets retained for redelivery, so those operations may still complete or take
+        effect.
         """
         logger.debug("Completing all tracked operations as cancelled")
         with self._lock:
             # Preserve callbacks for invocation after releasing the lock.
-            pending_ops = list(self._pending_operation_callbacks.items())
-            self._cancelled_operation_mids.update(self._pending_operation_callbacks)
-            self._pending_operation_callbacks.clear()
+            pending_ops = list(self._pending_operations.items())
+            self._cancelled_operation_mids.update(self._pending_operations)
+            self._pending_operations.clear()
             self._unknown_operation_completions.clear()
 
         # Invoke pending operation callbacks with cancellation.
-        for pending_op in pending_ops:
-            mid = pending_op[0]
-            callback = pending_op[1]
+        for mid, pending_operation in pending_ops:
+            callback = pending_operation.callback
             if callback:
                 logger.debug(
                     "Completing tracked operation for Paho MID {} as cancelled; invoking callback".format(
@@ -887,7 +927,5 @@ class OperationManager(object):
                 )
 
 
-# TODO: Track operation types so disconnects can cancel pending SUBSCRIBE and UNSUBSCRIBE
-# operations while preserving PUBLISH operations that Paho can complete after the next connection.
 # TODO: Clarify hard-disconnect semantics because cancelling an SDK publish operation does not
 # prevent Paho from delivering a retained QoS 1 or QoS 2 message after a later connection.
