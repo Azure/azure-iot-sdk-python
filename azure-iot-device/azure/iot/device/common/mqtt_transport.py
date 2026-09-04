@@ -111,8 +111,14 @@ class ConnectionLifecycle(object):
 
     def __init__(self):
         self._condition = threading.Condition()
-        self._state = ConnectionState.WAITING_FOR_CONNACK
+        self._state = ConnectionState.DISCONNECTED
         self._error = None
+
+    def begin_connect(self):
+        """Reset state for a new connection after the previous network loop exits."""
+        with self._condition:
+            self._state = ConnectionState.WAITING_FOR_CONNACK
+            self._error = None
 
     def record_connack_accepted(self):
         """Record an accepted CONNACK received by Paho."""
@@ -148,7 +154,9 @@ class ConnectionLifecycle(object):
                 self._state = ConnectionState.CONNECTED
                 return
 
-            raise self._error
+            error = self._error
+            self._error = None
+            raise error
 
     def record_disconnection(self, cause):
         """Record connection closure and indicate whether to emit a disconnect event.
@@ -183,6 +191,12 @@ class ConnectionLifecycle(object):
                 return True
             else:
                 return False
+
+    def finish_failed_connect(self):
+        """Reset terminal state after a failed connection has been cleaned up."""
+        with self._condition:
+            self._state = ConnectionState.DISCONNECTED
+            self._error = None
 
     def begin_disconnect(self):
         """Record that an intentional disconnect has begun."""
@@ -240,7 +254,7 @@ class MQTTTransport(object):
         self._cipher = cipher
         self._proxy_options = proxy_options
         self._keep_alive = keep_alive
-        self._connection_lifecycle = None
+        self._connection_lifecycle = ConnectionLifecycle()
 
         self.on_mqtt_disconnected_handler = None
         self.on_mqtt_message_received_handler = None
@@ -355,7 +369,10 @@ class MQTTTransport(object):
                 cause = _create_error_from_paho_disconnect_reason(reason_code)
 
             connection_lifecycle = this._connection_lifecycle
-            if connection_lifecycle is None or not connection_lifecycle.record_disconnection(cause):
+            if connection_lifecycle is None:
+                return
+            report_disconnection = connection_lifecycle.record_disconnection(cause)
+            if not report_disconnection:
                 return
 
             try:
@@ -470,6 +487,7 @@ class MQTTTransport(object):
             self._disconnect_and_stop_network_loop()
         finally:
             self._mqtt_client.on_disconnect = on_disconnect
+            self._connection_lifecycle.finish_failed_connect()
 
     def _cleanup_failed_connect_best_effort(self):
         """Try to clean up after connect() fails, but do not raise cleanup errors.
@@ -563,6 +581,7 @@ class MQTTTransport(object):
         try:
             self._disconnect_and_stop_network_loop()
         finally:
+            self._connection_lifecycle = None
             self._op_manager.complete_all_tracked_operations_as_cancelled()
 
     def connect(self, password=None, timeout=CONNECTION_TIMEOUT):
@@ -595,8 +614,8 @@ class MQTTTransport(object):
         # no-thread result is harmless.
         self._mqtt_client.loop_stop()
 
-        connection_lifecycle = ConnectionLifecycle()
-        self._connection_lifecycle = connection_lifecycle
+        connection_lifecycle = self._connection_lifecycle
+        connection_lifecycle.begin_connect()
 
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 

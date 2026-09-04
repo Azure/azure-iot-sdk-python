@@ -4,7 +4,12 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.common.mqtt_transport import MQTTTransport, OperationManager, OperationType
+from azure.iot.device.common.mqtt_transport import (
+    ConnectionState,
+    MQTTTransport,
+    OperationManager,
+    OperationType,
+)
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.common import transport_exceptions as errors
 from azure.iot.device.common import ProxyOptions
@@ -748,6 +753,8 @@ class TestConnect(object):
             transport.connect(fake_password)
         assert mock_mqtt_client.disconnect.call_count == 1
         assert mock_mqtt_client.loop_stop.call_count == 2
+        assert transport._connection_lifecycle._state is ConnectionState.DISCONNECTED
+        assert transport._connection_lifecycle._error is None
 
     @pytest.mark.parametrize(
         "connect_failure, expected_error",
@@ -1092,12 +1099,13 @@ class TestConnect(object):
 
         mock_mqtt_client.disconnect.side_effect = disconnect_after_timeout
 
-        with pytest.raises(errors.ConnectionTimeoutError) as e_info:
+        with pytest.raises(errors.ConnectionTimeoutError):
             transport.connect(fake_password, timeout=0.01)
 
         trigger_on_disconnect(mock_mqtt_client, reason_code=failed_disconnect_reason_code)
 
-        assert transport._connection_lifecycle._error is e_info.value
+        assert transport._connection_lifecycle._state is ConnectionState.DISCONNECTED
+        assert transport._connection_lifecycle._error is None
         assert disconnected_handler.call_count == 0
 
     @pytest.mark.it(
@@ -1145,6 +1153,8 @@ class TestConnect(object):
             transport.connect(fake_password, timeout=0.01)
 
         assert mock_mqtt_client.on_disconnect is not None
+        assert transport._connection_lifecycle._state is ConnectionState.DISCONNECTED
+        assert transport._connection_lifecycle._error is None
 
     @pytest.mark.it("Can connect successfully after a connection attempt times out")
     def test_connect_after_timeout(self, mock_mqtt_client, transport):
@@ -1161,6 +1171,16 @@ class TestConnect(object):
         transport.connect(fake_password)
 
         assert mock_mqtt_client.connect.call_count == 2
+
+    @pytest.mark.it("Reuses connection lifecycle state across connections")
+    def test_reuses_connection_lifecycle(self, mock_mqtt_client, transport):
+        lifecycle = transport._connection_lifecycle
+
+        transport.connect(fake_password)
+        trigger_on_disconnect(mock_mqtt_client)
+        transport.connect(fake_password)
+
+        assert transport._connection_lifecycle is lifecycle
 
     @pytest.mark.parametrize(
         "reason_code",
@@ -1189,7 +1209,7 @@ class TestConnect(object):
         retry_future = run_in_daemon_thread(transport.connect, fake_password, timeout=1)
         poll_until(lambda: mock_mqtt_client.loop_start.call_count == 2, timeout=1)
 
-        assert transport._connection_lifecycle is not prior_lifecycle
+        assert transport._connection_lifecycle is prior_lifecycle
         assert not retry_future.done()
 
         trigger_on_connect(mock_mqtt_client)
@@ -1409,6 +1429,7 @@ class TestEventDisconnectCompleted(object):
     ):
         callback = mocker.MagicMock()
         transport.on_mqtt_disconnected_handler = callback
+        lifecycle = transport._connection_lifecycle
 
         transport.connect(fake_password)
 
@@ -1418,6 +1439,8 @@ class TestEventDisconnectCompleted(object):
         # Verify transport.on_mqtt_disconnected_handler was called
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(None)
+        assert transport._connection_lifecycle is lifecycle
+        assert transport._connection_lifecycle._state is ConnectionState.DISCONNECTED
 
     @pytest.mark.parametrize(
         "error_case",
@@ -1449,6 +1472,7 @@ class TestEventDisconnectCompleted(object):
     def test_callback_during_explicit_disconnect(self, mocker, mock_mqtt_client, transport):
         callback = mocker.MagicMock()
         transport.on_mqtt_disconnected_handler = callback
+        lifecycle = transport._connection_lifecycle
         transport.connect(fake_password)
 
         def disconnect_and_report_closure():
@@ -1461,6 +1485,8 @@ class TestEventDisconnectCompleted(object):
 
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(None)
+        assert transport._connection_lifecycle is lifecycle
+        assert transport._connection_lifecycle._state is ConnectionState.DISCONNECTED
 
     @pytest.mark.it("Does not report disconnection twice if callback occurs before disconnect")
     def test_callback_before_explicit_disconnect(self, mocker, mock_mqtt_client, transport):
