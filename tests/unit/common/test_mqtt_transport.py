@@ -43,6 +43,9 @@ successful_disconnect_reason_code = mqtt.convert_disconnect_error_code_to_reason
 failed_disconnect_reason_code = mqtt.convert_disconnect_error_code_to_reason_code(
     mqtt.MQTT_ERR_CONN_LOST
 )
+protocol_error_disconnect_reason_code = mqtt.convert_disconnect_error_code_to_reason_code(
+    mqtt.MQTT_ERR_PROTOCOL
+)
 keep_alive_disconnect_reason_code = mqtt.convert_disconnect_error_code_to_reason_code(
     mqtt.MQTT_ERR_KEEPALIVE
 )
@@ -866,19 +869,28 @@ class TestConnect(object):
         connect_future.result(timeout=1)
 
     @pytest.mark.it("Raises the mapped error from a failed CONNACK")
+    @pytest.mark.parametrize(
+        "error_case",
+        paho_connack_reason_error_cases,
+        ids=[
+            "{}->{}".format(case["reason_code"], case["error"].__name__)
+            for case in paho_connack_reason_error_cases
+        ],
+    )
     def test_failed_connack_raises(
-        self, mock_mqtt_client, transport, run_in_daemon_thread, poll_until
+        self, mock_mqtt_client, transport, run_in_daemon_thread, poll_until, error_case
     ):
         mock_mqtt_client.loop_start.side_effect = None
         mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
         connect_future = run_in_daemon_thread(transport.connect, fake_password)
         poll_until(lambda: mock_mqtt_client.loop_start.call_count == 1, timeout=1)
 
-        trigger_on_connect(mock_mqtt_client, reason_code=failed_connack_reason_code)
+        trigger_on_connect(mock_mqtt_client, reason_code=error_case["reason_code"])
 
-        with pytest.raises(errors.ProtocolClientError):
+        with pytest.raises(error_case["error"]) as e_info:
             connect_future.result(timeout=1)
 
+        assert type(e_info.value) is error_case["error"]
         assert mock_mqtt_client.disconnect.call_count == 1
         assert mock_mqtt_client.loop_stop.call_count == 2
 
@@ -901,6 +913,25 @@ class TestConnect(object):
         assert disconnected_handler.call_count == 0
         assert mock_mqtt_client.disconnect.call_count == 1
         assert mock_mqtt_client.loop_stop.call_count == 2
+
+    @pytest.mark.it("Reports ConnectionFailedError when Paho hides a protocol-version refusal")
+    def test_protocol_version_refusal_without_connack_callback(
+        self, mock_mqtt_client, transport, run_in_daemon_thread, poll_until
+    ):
+        mock_mqtt_client.loop_start.side_effect = None
+        mock_mqtt_client.loop_start.return_value = mqtt.MQTT_ERR_SUCCESS
+        connect_future = run_in_daemon_thread(transport.connect, fake_password)
+        poll_until(lambda: mock_mqtt_client.loop_start.call_count == 1, timeout=1)
+
+        # Paho 2.1 skips on_connect for this refusal and collapses MQTT_ERR_PROTOCOL and
+        # MQTT_ERR_CONN_LOST to the same callback API v2 disconnect reason.
+        assert protocol_error_disconnect_reason_code == failed_disconnect_reason_code
+        trigger_on_disconnect(mock_mqtt_client, reason_code=protocol_error_disconnect_reason_code)
+
+        with pytest.raises(errors.ConnectionFailedError) as e_info:
+            connect_future.result(timeout=1)
+
+        assert type(e_info.value) is errors.ConnectionFailedError
 
     @pytest.mark.it("Raises ConnectionDroppedError if the connection drops before connect returns")
     def test_disconnect_after_connack_before_return_raises(

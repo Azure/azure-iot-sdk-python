@@ -148,9 +148,13 @@ class ConnectionAttempt(object):
     def on_disconnect(self, cause):
         with self._condition:
             if self._state is ConnectionState.WAITING_FOR_CONNACK:
+                # Paho 2.1 skips on_connect for an MQTT 3.1.1 protocol-version refusal
+                # when automatic reconnect is disabled. Its callback API v2 reports that
+                # case and an ordinary pre-CONNACK network loss identically, so this
+                # transport cannot preserve the protocol-specific classification here.
                 self._state = ConnectionState.FAILED
                 self._error = exceptions.ConnectionFailedError(
-                    "Network connection closed before MQTT CONNACK"
+                    "Connection closed before MQTT CONNACK outcome"
                 )
                 self._condition.notify_all()
                 return False
@@ -455,11 +459,19 @@ class MQTTTransport(object):
             self._mqtt_client.on_disconnect = on_disconnect
 
     def _cleanup_failed_connect_best_effort(self):
-        """Clean up a failed connection without replacing its original error."""
+        """Try to clean up after connect() fails, but do not raise cleanup errors.
+
+        The caller is already handling the error that caused connect() to fail. Preserve that
+        error by logging any later cleanup failure instead of raising it. The partial thread-start
+        recovery calls _cleanup_failed_connect() directly because it needs to detect cleanup
+        failure and replace the unusable Paho client.
+        """
         try:
             self._cleanup_failed_connect()
         except Exception:
-            logger.warning("Unexpected error cleaning up failed MQTT connection")
+            logger.warning(
+                "Paho cleanup failed after connection failure; preserving original connection error"
+            )
             logger.warning(traceback.format_exc())
 
     def _cleanup_after_network_loop_start_failure(self):
