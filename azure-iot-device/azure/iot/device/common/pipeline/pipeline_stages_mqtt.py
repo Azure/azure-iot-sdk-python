@@ -17,7 +17,7 @@ from . import (
     pipeline_events_base,
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
-from azure.iot.device.common import handle_exceptions, transport_exceptions
+from azure.iot.device.common import transport_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +162,7 @@ class MQTTTransportStage(PipelineStage):
                 # disconnect() blocks until Paho's network thread exits. If Paho emitted
                 # an unexpected-drop callback, it was queued first and consumed this
                 # operation. Otherwise, complete the explicit disconnection path now.
+                logger.info("{}: MQTT disconnected".format(self.name))
                 self._handle_mqtt_disconnected()
 
             try:
@@ -292,11 +293,8 @@ class MQTTTransportStage(PipelineStage):
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def _on_mqtt_connection_dropped(self, cause):
         """Handle a transport-reported unexpected connection loss."""
-        pending_connection_op_handled = self._handle_mqtt_disconnected(cause)
-        if pending_connection_op_handled:
-            return
-
-        logger.info("{}: Unexpected connection drop (no pending connection op)".format(self.name))
+        logger.info("{}: MQTT connection dropped unexpectedly: {}".format(self.name, cause))
+        self._handle_mqtt_disconnected(cause)
 
         # If there is no connection retry, complete tracked MQTT operations as cancelled so
         # they do not remain pending indefinitely.
@@ -332,11 +330,6 @@ class MQTTTransportStage(PipelineStage):
 
         :param Exception cause: The Exception that caused the disconnection, if any (optional)
         """
-        if cause:
-            logger.info("{}: MQTT disconnected: {}".format(self.name, cause))
-        else:
-            logger.info("{}: MQTT disconnected".format(self.name))
-
         # Send an event to tell other pipeline stages that we're disconnected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.)
         # NOTE: Other stages rely on the fact that this occurs before any op that may be in
@@ -348,23 +341,14 @@ class MQTTTransportStage(PipelineStage):
             connection_op = self._pending_connection_op
 
             if isinstance(connection_op, pipeline_ops_base.DisconnectOperation):
-                logger.debug(
-                    "{}: Expected disconnect - completing pending disconnect op".format(self.name)
-                )
-                # Swallow any errors if we intended to disconnect - even if something went wrong, we
-                # got to the state we wanted to be in!
-                if cause:
-                    handle_exceptions.swallow_unraised_exception(
-                        cause,
-                        log_msg="Unexpected error while disconnecting - swallowing error",
-                    )
+                logger.debug("{}: Completing pending disconnect op".format(self.name))
                 # Disconnect complete, no longer pending
                 self._pending_connection_op = None
                 connection_op.complete()
 
             else:
                 logger.debug(
-                    "{}: Unexpected disconnect - completing pending {} operation".format(
+                    "{}: Completing pending {} after disconnection".format(
                         self.name, connection_op.name
                     )
                 )
@@ -377,5 +361,3 @@ class MQTTTransportStage(PipelineStage):
                     connection_op.complete(
                         error=transport_exceptions.ConnectionDroppedError("transport disconnected")
                     )
-            return True
-        return False
