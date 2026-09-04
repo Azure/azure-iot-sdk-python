@@ -3,12 +3,14 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+import concurrent.futures
 import pytest
 import threading
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
     pipeline_nucleus,
+    pipeline_thread,
 )
 
 
@@ -32,6 +34,34 @@ def arbitrary_op(mocker):
     op = ArbitraryOperation(callback=mocker.MagicMock())
     mocker.spy(op, "complete")
     return op
+
+
+class FakePipelineThreadQueue(object):
+    def __init__(self):
+        self._queued_calls = []
+
+    def submit(self, call):
+        future = concurrent.futures.Future()
+        self._queued_calls.append((call, future))
+        return future
+
+    def run_next(self):
+        call, future = self._queued_calls.pop(0)
+        if future.set_running_or_notify_cancel():
+            try:
+                result = call()
+            except BaseException as e:
+                future.set_exception(e)
+            else:
+                future.set_result(result)
+        return future
+
+    def run_all(self):
+        while self._queued_calls:
+            self.run_next()
+
+    def __len__(self):
+        return len(self._queued_calls)
 
 
 @pytest.fixture
@@ -86,6 +116,15 @@ def fake_pipeline_thread():
     this_thread.name = "pipeline"
     yield
     this_thread.name = old_name
+
+
+@pytest.fixture
+def fake_pipeline_thread_queue(mocker, fake_pipeline_thread):
+    """Capture work queued for deferred execution on the pipeline thread."""
+    thread_queue = FakePipelineThreadQueue()
+    executor = mocker.patch.object(pipeline_thread, "_get_named_executor").return_value
+    executor.submit.side_effect = thread_queue.submit
+    return thread_queue
 
 
 @pytest.fixture

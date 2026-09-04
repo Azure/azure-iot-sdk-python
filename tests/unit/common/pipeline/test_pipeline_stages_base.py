@@ -2539,6 +2539,10 @@ class TestConnectionStateStageRunOpWithConnectOperation(
                 [pipeline_ops_base.DisconnectOperation(callback=None)], id="Single op waiting"
             ),
             pytest.param(
+                [pipeline_ops_base.ShutdownPipelineOperation(callback=None)],
+                id="Shutdown waiting",
+            ),
+            pytest.param(
                 [
                     pipeline_ops_base.ReauthorizeConnectionOperation(callback=None),
                     pipeline_ops_base.ConnectOperation(callback=None),

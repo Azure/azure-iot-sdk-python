@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import paho.mqtt.client as mqtt
+import functools
 import logging
 import ssl
 import threading
@@ -18,6 +19,18 @@ import socks
 logger = logging.getLogger(__name__)
 
 CONNECTION_TIMEOUT = 60
+
+
+def serialize_connection_lifecycle(fn):
+    """Serialize public MQTT connection lifecycle operations."""
+
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        with self._connection_lock:
+            return fn(self, *args, **kwargs)
+
+    return wrapper
+
 
 # This transport speaks MQTT 3.1.1, but Paho callback API v2 represents callback results
 # with MQTT 5 ReasonCode and Properties types. For MQTT 3.1.1, Paho synthesizes these values:
@@ -159,10 +172,11 @@ class ConnectionLifecycle(object):
             raise error
 
     def record_disconnection(self, cause):
-        """Record connection closure and indicate whether to emit a disconnect event.
+        """Record connection closure and indicate whether the connection dropped unexpectedly.
 
         A closure during connection establishment completes connect() with an error. A closure
-        after establishment is a disconnect event. Duplicate closures are ignored.
+        after establishment is reported only if explicit disconnect has not begun. Duplicate
+        closures are ignored.
         """
         with self._condition:
             if self._state is ConnectionState.WAITING_FOR_CONNACK:
@@ -188,7 +202,7 @@ class ConnectionLifecycle(object):
                 return True
             elif self._state is ConnectionState.DISCONNECTING:
                 self._state = ConnectionState.DISCONNECTED
-                return True
+                return False
             else:
                 return False
 
@@ -204,19 +218,26 @@ class ConnectionLifecycle(object):
             if self._state is ConnectionState.CONNECTED:
                 self._state = ConnectionState.DISCONNECTING
 
+    def finish_disconnect(self):
+        """Record completion when explicit disconnect returns without a Paho callback."""
+        with self._condition:
+            if self._state is ConnectionState.DISCONNECTING:
+                self._state = ConnectionState.DISCONNECTED
+
 
 class MQTTTransport(object):
     """
     A wrapper class that provides an implementation-agnostic MQTT Server interface.
     This transport uses MQTT 3.1.1.
 
-    Calls to connect(), disconnect(), and shutdown() must be serialized by the caller;
-    overlapping connection lifecycle calls are not supported. Event handlers can run concurrently
-    with the calling thread. Multiple publish, subscribe, and unsubscribe operations can remain
-    outstanding and complete out of order; their callback tracking is synchronized internally.
+    Calls to connect(), disconnect(), and shutdown() are serialized internally. Event handlers can
+    run concurrently with the calling thread and must not invoke connection lifecycle methods
+    synchronously. Multiple publish, subscribe, and unsubscribe operations can remain outstanding
+    and complete out of order; their callback tracking is synchronized internally.
 
-    :ivar on_mqtt_disconnected_handler: Event handler callback, called upon a disconnection.
-    :type on_mqtt_disconnected_handler: Function
+    :ivar on_mqtt_connection_dropped_handler: Event handler callback, called when an established
+        connection closes unexpectedly.
+    :type on_mqtt_connection_dropped_handler: Function
     :ivar on_mqtt_message_received_handler: Event handler callback, called upon receiving a message.
     :type on_mqtt_message_received_handler: Function
     """
@@ -254,9 +275,10 @@ class MQTTTransport(object):
         self._cipher = cipher
         self._proxy_options = proxy_options
         self._keep_alive = keep_alive
+        self._connection_lock = threading.Lock()
         self._connection_lifecycle = ConnectionLifecycle()
 
-        self.on_mqtt_disconnected_handler = None
+        self.on_mqtt_connection_dropped_handler = None
         self.on_mqtt_message_received_handler = None
 
         self._op_manager = OperationManager()
@@ -371,17 +393,19 @@ class MQTTTransport(object):
             connection_lifecycle = this._connection_lifecycle
             if connection_lifecycle is None:
                 return
-            report_disconnection = connection_lifecycle.record_disconnection(cause)
-            if not report_disconnection:
+            connection_dropped = connection_lifecycle.record_disconnection(cause)
+            if not connection_dropped:
                 return
+            if cause is None:
+                cause = exceptions.ConnectionDroppedError("Network connection closed unexpectedly")
 
             try:
-                if this.on_mqtt_disconnected_handler:
-                    this.on_mqtt_disconnected_handler(cause)
+                if this.on_mqtt_connection_dropped_handler:
+                    this.on_mqtt_connection_dropped_handler(cause)
                 else:
-                    logger.warning("No on_mqtt_disconnected_handler is configured")
+                    logger.warning("No on_mqtt_connection_dropped_handler is configured")
             except Exception:
-                logger.warning("Unexpected error calling on_mqtt_disconnected_handler")
+                logger.warning("Unexpected error calling on_mqtt_connection_dropped_handler")
                 logger.warning(traceback.format_exc())
 
         def on_subscribe(client, userdata, mid, reason_codes, properties):
@@ -573,6 +597,7 @@ class MQTTTransport(object):
 
         return ssl_context
 
+    @serialize_connection_lifecycle
     def shutdown(self):
         """Shut down the transport. This is (currently) irreversible."""
         # Remove the disconnect handler from Paho. We don't want to trigger any events in response
@@ -584,6 +609,7 @@ class MQTTTransport(object):
             self._connection_lifecycle = None
             self._op_manager.complete_all_tracked_operations_as_cancelled()
 
+    @serialize_connection_lifecycle
     def connect(self, password=None, timeout=CONNECTION_TIMEOUT):
         """
         Connect to the MQTT Server, using hostname and username set at instantiation.
@@ -681,6 +707,7 @@ class MQTTTransport(object):
             self._cleanup_failed_connect_best_effort()
             raise
 
+    @serialize_connection_lifecycle
     def disconnect(self, clear_inflight=False):
         """
         Disconnect from the MQTT Server and wait for the network loop to stop.
@@ -719,6 +746,8 @@ class MQTTTransport(object):
                     self._op_manager.complete_all_tracked_operations_as_cancelled()
                 else:
                     self._op_manager.stop_tracking_non_publish_operations()
+                if self._connection_lifecycle:
+                    self._connection_lifecycle.finish_disconnect()
             else:
                 # This could result in ConnectionDroppedError or ProtocolClientError
                 err = _create_error_from_paho_error_code(paho_error_code)
@@ -732,6 +761,8 @@ class MQTTTransport(object):
                 self._op_manager.complete_all_tracked_operations_as_cancelled()
             else:
                 self._op_manager.stop_tracking_non_publish_operations()
+            if self._connection_lifecycle:
+                self._connection_lifecycle.finish_disconnect()
 
     def subscribe(self, topic, qos=1, callback=None):
         """
@@ -1032,3 +1063,9 @@ class OperationManager(object):
 
 # TODO: Clarify hard-disconnect semantics because cancelling an SDK publish operation does not
 # prevent Paho from delivering a retained QoS 1 or QoS 2 message after a later connection.
+
+# NOTE: Connection lifecycle calls are deliberately serialized here and by ConnectionStateStage.
+# CONNECTION_TIMEOUT bounds the wait for CONNACK, allowing queued lifecycle operations such as
+# shutdown to proceed after a failed connection attempt. It does not impose an absolute shutdown
+# deadline: Paho socket setup and loop_stop() are blocking and have no safe cancellation API.
+# Running shutdown concurrently with another lifecycle call would race Paho's lifecycle state.

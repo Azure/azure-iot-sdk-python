@@ -92,7 +92,7 @@ class MQTTTransportStage(PipelineStage):
                 proxy_options=self.nucleus.pipeline_configuration.proxy_options,
                 keep_alive=self.nucleus.pipeline_configuration.keep_alive,
             )
-            self.transport.on_mqtt_disconnected_handler = self._on_mqtt_disconnected
+            self.transport.on_mqtt_connection_dropped_handler = self._on_mqtt_connection_dropped
             self.transport.on_mqtt_message_received_handler = self._on_mqtt_message_received
 
             # Only one ConnectOperation or DisconnectOperation can be pending. Reauthorization
@@ -154,14 +154,25 @@ class MQTTTransportStage(PipelineStage):
             self._fail_pending_connection_op()
             self._pending_connection_op = op
 
+            @pipeline_thread.invoke_on_pipeline_thread_deferred
+            def on_disconnect_returned():
+                if self._pending_connection_op is not op:
+                    return
+
+                # disconnect() blocks until Paho's network thread exits. If Paho emitted
+                # an unexpected-drop callback, it was queued first and consumed this
+                # operation. Otherwise, complete the explicit disconnection path now.
+                self._handle_mqtt_disconnected()
+
             try:
-                # MQTTTransport.disconnect() blocks until the network loop has stopped.
                 self.transport.disconnect(clear_inflight=op.hard)
             except Exception as e:
                 logger.info("transport.disconnect raised error while disconnecting")
                 logger.info(traceback.format_exc())
                 self._pending_connection_op = None
                 op.complete(error=e)
+            else:
+                on_disconnect_returned()
 
         elif isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation):
             logger.debug(
@@ -279,10 +290,45 @@ class MQTTTransportStage(PipelineStage):
         )
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
-    def _on_mqtt_disconnected(self, cause=None):
-        """Handle disconnected-state effects on the pipeline thread.
+    def _on_mqtt_connection_dropped(self, cause):
+        """Handle a transport-reported unexpected connection loss."""
+        pending_connection_op_handled = self._handle_mqtt_disconnected(cause)
+        if pending_connection_op_handled:
+            return
 
-        Called after either a transport callback or a successful blocking disconnect.
+        logger.info("{}: Unexpected connection drop (no pending connection op)".format(self.name))
+
+        # If there is no connection retry, complete tracked MQTT operations as cancelled so
+        # they do not remain pending indefinitely.
+        if not self.nucleus.pipeline_configuration.connection_retry:
+            logger.debug(
+                "{}: Connection Retry disabled - completing tracked MQTT operations as cancelled".format(
+                    self.name
+                )
+            )
+            # TODO: Remove private access to the op manager (this layer shouldn't know about it)
+            # This is a stopgap. I didn't want to invest too much infrastructure into a cancel flow
+            # given that future development of individual operation cancels might affect the
+            # approach to completing tracked transport operations as cancelled.
+            self.transport._op_manager.complete_all_tracked_operations_as_cancelled()
+        else:
+            logger.debug(
+                "{}: Connection Retry enabled - preserving PUBLISH tracking and stopping SUBSCRIBE and UNSUBSCRIBE tracking".format(
+                    self.name
+                )
+            )
+            self.transport._op_manager.stop_tracking_non_publish_operations()
+
+        # Higher layers will see that we're disconnected and may reconnect as necessary.
+        error = transport_exceptions.ConnectionDroppedError("Unexpected disconnection")
+        error.__cause__ = cause
+        self.report_background_exception(error)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _handle_mqtt_disconnected(self, cause=None):
+        """Apply disconnected-state effects on the pipeline thread.
+
+        Called after either an unexpected transport callback or a successful explicit disconnect.
 
         :param Exception cause: The Exception that caused the disconnection, if any (optional)
         """
@@ -331,32 +377,5 @@ class MQTTTransportStage(PipelineStage):
                     connection_op.complete(
                         error=transport_exceptions.ConnectionDroppedError("transport disconnected")
                     )
-        else:
-            logger.info("{}: Unexpected disconnect (no pending connection op)".format(self.name))
-
-            # If there is no connection retry, complete tracked MQTT operations as cancelled so
-            # they do not remain pending indefinitely.
-            if not self.nucleus.pipeline_configuration.connection_retry:
-                logger.debug(
-                    "{}: Connection Retry disabled - completing tracked MQTT operations as cancelled".format(
-                        self.name
-                    )
-                )
-                # TODO: Remove private access to the op manager (this layer shouldn't know about it)
-                # This is a stopgap. I didn't want to invest too much infrastructure into a cancel flow
-                # given that future development of individual operation cancels might affect the
-                # approach to completing tracked transport operations as cancelled.
-                self.transport._op_manager.complete_all_tracked_operations_as_cancelled()
-            else:
-                logger.debug(
-                    "{}: Connection Retry enabled - preserving PUBLISH tracking and stopping SUBSCRIBE and UNSUBSCRIBE tracking".format(
-                        self.name
-                    )
-                )
-                self.transport._op_manager.stop_tracking_non_publish_operations()
-
-            # Regardless of cause, it is now a ConnectionDroppedError. Log it and swallow it.
-            # Higher layers will see that we're disconnected and may reconnect as necessary.
-            e = transport_exceptions.ConnectionDroppedError("Unexpected disconnection")
-            e.__cause__ = cause
-            self.report_background_exception(e)
+            return True
+        return False
