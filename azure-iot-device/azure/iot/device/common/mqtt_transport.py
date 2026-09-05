@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import paho.mqtt.client as mqtt
+import contextlib
 import functools
 import logging
 import ssl
@@ -26,7 +27,19 @@ def serialize_connection_lifecycle(fn):
 
     @functools.wraps(fn)
     def wrapper(self, *args, **kwargs):
-        with self._connection_lock:
+        with self._op_manager.connection_context():
+            with self._connection_lock:
+                return fn(self, *args, **kwargs)
+
+    return wrapper
+
+
+def coordinate_operation(fn):
+    """Coordinate a Paho operation call with its completion tracking."""
+
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        with self._op_manager.operation_context():
             return fn(self, *args, **kwargs)
 
     return wrapper
@@ -765,6 +778,7 @@ class MQTTTransport(object):
             if self._connection_lifecycle:
                 self._connection_lifecycle.finish_disconnect()
 
+    @coordinate_operation
     def subscribe(self, topic, qos=1, callback=None):
         """
         Subscribe the Client to one Topic Filter on the MQTT Server.
@@ -798,6 +812,7 @@ class MQTTTransport(object):
             mid=mid, callback=callback, operation_type=OperationType.SUBSCRIBE
         )
 
+    @coordinate_operation
     def unsubscribe(self, topic, callback=None):
         """
         Unsubscribe the Client from one Topic Filter on the MQTT Server.
@@ -827,6 +842,7 @@ class MQTTTransport(object):
             mid=mid, callback=callback, operation_type=OperationType.UNSUBSCRIBE
         )
 
+    @coordinate_operation
     def publish(self, topic, payload, qos=1, callback=None):
         """
         Publish an Application Message to the MQTT Server.
@@ -909,6 +925,49 @@ class OperationManager(object):
         self._cancelled_operation_mids = set()
 
         self._lock = threading.Lock()
+        self._cancelled_mid_completion_deferral_count = 0
+        self._deferred_cancellation_callbacks = threading.local()
+
+    @contextlib.contextmanager
+    def operation_context(self):
+        """Provide a safe context for initiating and tracking one Paho operation.
+
+        Use around a transport method that makes one Paho PUBLISH, SUBSCRIBE, or UNSUBSCRIBE call
+        and registers its completion tracking before returning. This context handles callbacks
+        that arrive before Paho returns the operation's MID, including ambiguity caused by reuse
+        of a cancelled MID. Callers do not need to coordinate those timing details themselves.
+        """
+        with self._lock:
+            self._cancelled_mid_completion_deferral_count += 1
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._cancelled_mid_completion_deferral_count -= 1
+                if self._cancelled_mid_completion_deferral_count == 0:
+                    unclaimed_cancelled_mids = (
+                        self._cancelled_operation_mids & self._unknown_operation_completions.keys()
+                    )
+                    for mid in unclaimed_cancelled_mids:
+                        logger.debug("Discarding completion for cancelled Paho MID {}".format(mid))
+                        self._cancelled_operation_mids.remove(mid)
+                        del self._unknown_operation_completions[mid]
+
+    @contextlib.contextmanager
+    def connection_context(self):
+        """Provide a safe context for changing the MQTT connection lifecycle.
+
+        Use around a serialized connect, disconnect, or shutdown call. Operation tracking changes
+        take effect immediately, but callbacks caused by cancellation are held until context exit
+        so they cannot re-enter a partially completed connection lifecycle transition.
+        """
+        pending_operations = []
+        self._deferred_cancellation_callbacks.pending_operations = pending_operations
+        try:
+            yield
+        finally:
+            del self._deferred_cancellation_callbacks.pending_operations
+            self._invoke_cancellation_callbacks(pending_operations)
 
     def register_operation(self, mid, callback, operation_type):
         """Register a pending operation under its Paho MID.
@@ -971,8 +1030,16 @@ class OperationManager(object):
 
         with self._lock:
             if mid in self._cancelled_operation_mids:
-                logger.debug("Discarding completion for cancelled Paho MID {}".format(mid))
-                self._cancelled_operation_mids.remove(mid)
+                if self._cancelled_mid_completion_deferral_count:
+                    logger.debug(
+                        "Completion for cancelled Paho MID {} arrived during operation registration; retaining".format(
+                            mid
+                        )
+                    )
+                    self._unknown_operation_completions[mid] = error
+                else:
+                    logger.debug("Discarding completion for cancelled Paho MID {}".format(mid))
+                    self._cancelled_operation_mids.remove(mid)
 
             # If the Paho MID has a pending operation, invoke its callback.
             elif mid in self._pending_operations:
@@ -1040,8 +1107,17 @@ class OperationManager(object):
             self._pending_operations.clear()
             self._unknown_operation_completions.clear()
 
-        # Invoke pending operation callbacks with cancellation.
-        for mid, pending_operation in pending_ops:
+        deferred_operations = getattr(
+            self._deferred_cancellation_callbacks, "pending_operations", None
+        )
+        if deferred_operations is not None:
+            deferred_operations.extend(pending_ops)
+        else:
+            self._invoke_cancellation_callbacks(pending_ops)
+
+    def _invoke_cancellation_callbacks(self, pending_operations):
+        """Invoke callbacks for operations whose tracking was cancelled."""
+        for mid, pending_operation in pending_operations:
             callback = pending_operation.callback
             if callback:
                 logger.debug(

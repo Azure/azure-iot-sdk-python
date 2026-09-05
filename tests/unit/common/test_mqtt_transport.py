@@ -147,6 +147,26 @@ def register_publish(manager, mid, callback=None):
     manager.register_operation(mid=mid, callback=callback, operation_type=OperationType.PUBLISH)
 
 
+class CancellationCallbackLockProbe(object):
+    """Observe lifecycle lock state without risking a deadlocked test.
+
+    Re-entering a lifecycle method could deadlock when the implementation is broken. Callback
+    assertions would also be swallowed by OperationManager, so this probe records observations
+    for assertions after the lifecycle method returns.
+    """
+
+    def __init__(self, lock):
+        self._lock = lock
+        self.call_count = 0
+        self.cancelled = None
+        self.lock_was_held = None
+
+    def __call__(self, cancelled=False):
+        self.call_count += 1
+        self.cancelled = cancelled
+        self.lock_was_held = self._lock.locked()
+
+
 def trigger_on_publish(mqtt_client, mid):
     mqtt_client.on_publish(
         client=mqtt_client,
@@ -601,6 +621,17 @@ class TestShutdown(object):
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(cancelled=True)
 
+    @pytest.mark.it("Invokes cancellation callbacks after releasing the lifecycle lock")
+    def test_cancellation_callback_after_lifecycle_lock_release(self, mock_mqtt_client, transport):
+        callback_probe = CancellationCallbackLockProbe(transport._connection_lock)
+        transport.subscribe(fake_topic, callback=callback_probe)
+
+        transport.shutdown()
+
+        assert callback_probe.call_count == 1
+        assert callback_probe.cancelled is True
+        assert callback_probe.lock_was_held is False
+
 
 class ArbitraryConnectException(Exception):
     pass
@@ -916,6 +947,29 @@ class TestConnect(object):
         assert publish_callback.call_count == 1
         assert publish_callback.call_args == mocker.call(cancelled=True)
         assert transport._op_manager._pending_operations == {}
+
+    @pytest.mark.it(
+        "Invokes cancellation callbacks after releasing the lifecycle lock when replacing a client"
+    )
+    def test_loop_start_thread_failure_callback_after_lifecycle_lock_release(
+        self, mocker, mock_mqtt_client, transport
+    ):
+        callback_probe = CancellationCallbackLockProbe(transport._connection_lock)
+        transport.publish(fake_topic, fake_payload, qos=1, callback=callback_probe)
+        mock_mqtt_client.loop_start.side_effect = RuntimeError("cannot start network thread")
+        mocker.patch.object(
+            transport,
+            "_cleanup_failed_connect",
+            side_effect=RuntimeError("cannot clean up network thread"),
+        )
+        mocker.patch.object(transport, "_create_mqtt_client", return_value=mocker.MagicMock())
+
+        with pytest.raises(errors.ProtocolClientError):
+            transport.connect(fake_password)
+
+        assert callback_probe.call_count == 1
+        assert callback_probe.cancelled is True
+        assert callback_probe.lock_was_held is False
 
     @pytest.mark.it("Waits for CONNACK before returning")
     def test_waits_for_connack(self, mock_mqtt_client, transport, run_in_daemon_thread, poll_until):
@@ -1458,6 +1512,21 @@ class TestDisconnect(object):
         assert sub_callback.call_args == mocker.call(cancelled=True)
 
     @pytest.mark.it(
+        "Invokes cancellation callbacks after releasing the lifecycle lock on hard disconnect"
+    )
+    def test_clear_inflight_callback_after_lifecycle_lock_release(
+        self, mock_mqtt_client, transport
+    ):
+        callback_probe = CancellationCallbackLockProbe(transport._connection_lock)
+        transport.subscribe(fake_topic, callback=callback_probe)
+
+        transport.disconnect(clear_inflight=True)
+
+        assert callback_probe.call_count == 1
+        assert callback_probe.cancelled is True
+        assert callback_probe.lock_was_held is False
+
+    @pytest.mark.it(
         "Preserves publish tracking and stops non-publish tracking if clear_inflight is False"
     )
     def test_clear_inflight_false_preserves_publish_tracking(
@@ -1885,6 +1954,27 @@ class TestSubscribe(object):
         assert callback.call_count == 1
 
     @pytest.mark.it(
+        "Triggers callback when a cancelled MID is reused and Paho completes before subscribe returns"
+    )
+    def test_triggers_callback_when_cancelled_mid_reused_and_completed_early(
+        self, mocker, mock_mqtt_client, transport
+    ):
+        transport.subscribe(topic=fake_topic, qos=fake_qos)
+        transport._op_manager.complete_all_tracked_operations_as_cancelled()
+        callback = mocker.MagicMock()
+
+        def trigger_early_on_subscribe(topic, qos):
+            trigger_on_subscribe(mock_mqtt_client, mid=fake_mid)
+            assert callback.call_count == 0
+            return (fake_rc, fake_mid)
+
+        mock_mqtt_client.subscribe.side_effect = trigger_early_on_subscribe
+
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
+
+        assert callback.call_args == mocker.call()
+
+    @pytest.mark.it(
         "Completes a rejected subscription when the SUBACK arrives before subscribe returns"
     )
     def test_failed_suback_received_early(self, mocker, mock_mqtt_client, transport):
@@ -2165,6 +2255,27 @@ class TestUnsubscribe(object):
 
         # Check callback has now been called
         assert callback.call_count == 1
+
+    @pytest.mark.it(
+        "Triggers callback when a cancelled MID is reused and Paho completes before unsubscribe returns"
+    )
+    def test_triggers_callback_when_cancelled_mid_reused_and_completed_early(
+        self, mocker, mock_mqtt_client, transport
+    ):
+        transport.unsubscribe(topic=fake_topic)
+        transport._op_manager.complete_all_tracked_operations_as_cancelled()
+        callback = mocker.MagicMock()
+
+        def trigger_early_on_unsubscribe(topic):
+            trigger_on_unsubscribe(mock_mqtt_client, mid=fake_mid)
+            assert callback.call_count == 0
+            return (fake_rc, fake_mid)
+
+        mock_mqtt_client.unsubscribe.side_effect = trigger_early_on_unsubscribe
+
+        transport.unsubscribe(topic=fake_topic, callback=callback)
+
+        assert callback.call_args == mocker.call()
 
     @pytest.mark.it("Skips callback that is set to 'None' upon unsubscribe completion")
     def test_none_callback_upon_paho_on_unsubscribe_event(
@@ -2492,6 +2603,27 @@ class TestPublish(object):
 
         # Check callback has now been called
         assert callback.call_count == 1
+
+    @pytest.mark.it(
+        "Triggers callback when a cancelled MID is reused and Paho completes before publish returns"
+    )
+    def test_triggers_callback_when_cancelled_mid_reused_and_completed_early(
+        self, mocker, mock_mqtt_client, transport, message_info
+    ):
+        transport.publish(topic=fake_topic, payload=fake_payload)
+        transport._op_manager.complete_all_tracked_operations_as_cancelled()
+        callback = mocker.MagicMock()
+
+        def trigger_early_on_publish(topic, payload, qos):
+            trigger_on_publish(mock_mqtt_client, mid=message_info.mid)
+            assert callback.call_count == 0
+            return message_info
+
+        mock_mqtt_client.publish.side_effect = trigger_early_on_publish
+
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback)
+
+        assert callback.call_args == mocker.call()
 
     @pytest.mark.it("Skips callback that is set to 'None' upon publish completion")
     def test_none_callback_upon_paho_on_publish_event(
@@ -2863,6 +2995,44 @@ class TestOperationManager(object):
         assert len(manager._cancelled_operation_mids) == 0
 
 
+@pytest.mark.describe("OperationManager - .operation_context()")
+class TestOperationManagerOperationContext(object):
+    @pytest.mark.it("Claims an early completion when a cancelled MID is reused")
+    def test_claims_early_completion_for_reused_mid(self, mocker):
+        manager = OperationManager()
+        mid = 1
+        callback = mocker.MagicMock()
+        register_publish(manager, mid)
+        manager.complete_all_tracked_operations_as_cancelled()
+
+        with manager.operation_context():
+            manager.complete_operation(mid)
+            assert manager._cancelled_operation_mids == {mid}
+            assert manager._unknown_operation_completions == {mid: None}
+
+            register_publish(manager, mid, callback=callback)
+
+        assert callback.call_args == mocker.call()
+        assert manager._cancelled_operation_mids == set()
+        assert manager._unknown_operation_completions == {}
+        assert manager._pending_operations == {}
+
+    @pytest.mark.it("Discards an unclaimed late completion for a cancelled MID")
+    def test_discards_unclaimed_cancelled_completion(self):
+        manager = OperationManager()
+        mid = 1
+        register_publish(manager, mid)
+        manager.complete_all_tracked_operations_as_cancelled()
+
+        with manager.operation_context():
+            manager.complete_operation(mid)
+            assert manager._cancelled_operation_mids == {mid}
+            assert manager._unknown_operation_completions == {mid: None}
+
+        assert manager._cancelled_operation_mids == set()
+        assert manager._unknown_operation_completions == {}
+
+
 @pytest.mark.describe("OperationManager - .register_operation()")
 class TestOperationManagerRegisterOperation(object):
     @pytest.fixture(params=[True, False])
@@ -3191,6 +3361,24 @@ class TestOperationManagerStopTrackingNonPublishOperations(object):
         assert callback.call_count == 0
         assert manager._cancelled_operation_mids == set()
         assert manager._unknown_operation_completions == {}
+
+
+@pytest.mark.describe("OperationManager - .connection_context()")
+class TestOperationManagerConnectionContext(object):
+    @pytest.mark.it("Defers cancellation callbacks without deferring tracking cleanup")
+    def test_defers_callbacks_only(self, mocker):
+        manager = OperationManager()
+        callback = mocker.MagicMock()
+        register_publish(manager, mid=1, callback=callback)
+
+        with manager.connection_context():
+            manager.complete_all_tracked_operations_as_cancelled()
+
+            assert manager._pending_operations == {}
+            assert manager._cancelled_operation_mids == {1}
+            assert callback.call_count == 0
+
+        assert callback.call_args == mocker.call(cancelled=True)
 
 
 @pytest.mark.describe("OperationManager - .complete_all_tracked_operations_as_cancelled()")
