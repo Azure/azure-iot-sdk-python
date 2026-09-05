@@ -205,8 +205,9 @@ class TestSendMessageRetryDisabled(object):
 
     @pytest.mark.it("Fails if connection disconnects before sending")
     @pytest.mark.uses_iptables
-    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
-    async def test_fails_if_disconnect_before_sending(self, client, random_message, dropper):
+    async def test_fails_if_disconnect_before_sending(
+        self, client, random_message, dropper, service_helper, leak_tracker
+    ):
 
         assert client.connected
 
@@ -220,11 +221,18 @@ class TestSendMessageRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             await asyncio.wait_for(send_task, timeout=const.E2E_TIMEOUT)
 
+        # -----------------------------------------------------------------------------------------
+        # The SDK operation is cancelled, but Paho still owns the accepted QoS publish. Reconnect
+        # and let the MQTT exchange finish so the normal leak check sees no active session state.
+        dropper.restore_all()
+        await client.connect()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert json.dumps(event.message_body) == random_message.data
+
     @pytest.mark.it("Fails if connection drops before sending")
     @pytest.mark.uses_iptables
-    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     async def test_fails_if_drop_before_sending_retry_disabled(
-        self, client, random_message, dropper
+        self, client, random_message, dropper, service_helper, leak_tracker
     ):
 
         assert client.connected
@@ -234,3 +242,11 @@ class TestSendMessageRetryDisabled(object):
             await client.send_message(random_message)
 
         assert not client.connected
+
+        # -----------------------------------------------------------------------------------------
+        # The SDK operation is cancelled, but Paho still owns the accepted QoS publish. Reconnect
+        # and let the MQTT exchange finish so the normal leak check sees no active session state.
+        dropper.restore_all()
+        await client.connect()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert json.dumps(event.message_body) == random_message.data

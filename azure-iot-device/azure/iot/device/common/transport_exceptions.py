@@ -14,6 +14,12 @@ class ConnectionFailedError(Exception):
     pass
 
 
+class ConnectionTimeoutError(ConnectionFailedError):
+    """Connection was not established before the timeout expired."""
+
+    pass
+
+
 class ConnectionDroppedError(Exception):
     """
     Previously established connection was dropped

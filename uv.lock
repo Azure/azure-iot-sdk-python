@@ -91,7 +91,7 @@ test = [
 requires-dist = [
     { name = "deprecation", specifier = ">=2.1.0,<3.0.0" },
     { name = "janus", specifier = ">=2.0.0,<3.0.0" },
-    { name = "paho-mqtt", specifier = ">=2.0.0,<3.0.0" },
+    { name = "paho-mqtt", specifier = ">=2.1.0,<3.0.0" },
     { name = "pysocks" },
     { name = "requests", specifier = ">=2.32.3,<3.0.0" },
     { name = "requests-unixsocket", specifier = ">=0.4.1" },
