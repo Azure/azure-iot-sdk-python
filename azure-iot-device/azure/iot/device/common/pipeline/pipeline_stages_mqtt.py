@@ -330,11 +330,11 @@ class MQTTTransportStage(PipelineStage):
             self.transport._op_manager.complete_all_tracked_operations_as_cancelled()
         else:
             logger.debug(
-                "{}: Connection Retry enabled - preserving PUBLISH tracking and stopping SUBSCRIBE and UNSUBSCRIBE tracking".format(
+                "{}: Connection Retry enabled - preserving resumable PUBLISH tracking and completing non-resumable MQTT operations as cancelled".format(
                     self.name
                 )
             )
-            self.transport._op_manager.stop_tracking_non_publish_operations()
+            self.transport._op_manager.complete_non_resumable_operations_as_cancelled()
 
     @pipeline_thread.runs_on_pipeline_thread
     def _complete_pending_connection_op_after_disconnect(self, cause=None):

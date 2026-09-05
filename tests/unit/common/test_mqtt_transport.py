@@ -143,8 +143,16 @@ def trigger_on_unsubscribe(mqtt_client, mid):
     )
 
 
-def register_publish(manager, mid, callback=None):
-    manager.register_operation(mid=mid, callback=callback, operation_type=OperationType.PUBLISH)
+def register_publish(manager, mid, callback=None, qos=1):
+    manager.register_operation(
+        mid=mid,
+        callback=callback,
+        operation_type={
+            0: OperationType.PUBLISH_QOS_0,
+            1: OperationType.PUBLISH_QOS_1,
+            2: OperationType.PUBLISH_QOS_2,
+        }[qos],
+    )
 
 
 class CancellationCallbackLockProbe(object):
@@ -1527,9 +1535,9 @@ class TestDisconnect(object):
         assert callback_probe.lock_was_held is False
 
     @pytest.mark.it(
-        "Preserves publish tracking and stops non-publish tracking if clear_inflight is False"
+        "Preserves resumable publish tracking and cancels non-resumable operations if clear_inflight is False"
     )
-    def test_clear_inflight_false_preserves_publish_tracking(
+    def test_clear_inflight_false_preserves_resumable_publish_tracking(
         self, mocker, mock_mqtt_client, transport
     ):
         # Set up a pending publish
@@ -1553,15 +1561,42 @@ class TestDisconnect(object):
         # Disconnect
         transport.disconnect(clear_inflight=False)
 
-        # Tracked operations remain pending
+        # Only resumable publish tracking remains pending
         assert pub_callback.call_count == 0
-        assert sub_callback.call_count == 0
+        assert sub_callback.call_args == mocker.call(cancelled=True)
         assert list(transport._op_manager._pending_operations) == [pub_mid]
         assert transport._op_manager._pending_operations[pub_mid].callback is pub_callback
+        assert (
+            transport._op_manager._pending_operations[pub_mid].operation_type
+            is OperationType.PUBLISH_QOS_1
+        )
         assert transport._op_manager._cancelled_operation_mids == {sub_mid}
 
-    @pytest.mark.it("Preserves publish tracking and stops non-publish tracking by default")
-    def test_default_preserves_publish_tracking(self, mocker, mock_mqtt_client, transport):
+    @pytest.mark.it(
+        "Completes QoS 0 publish as cancelled after releasing the lifecycle lock if clear_inflight is False"
+    )
+    def test_clear_inflight_false_cancels_qos_zero_publish(self, mock_mqtt_client, transport):
+        callback_probe = CancellationCallbackLockProbe(transport._connection_lock)
+        mid = "1"
+        message_info = mqtt.MQTTMessageInfo(mid)
+        message_info.rc = fake_rc
+        mock_mqtt_client.publish.return_value = message_info
+        transport.publish(topic=fake_topic, payload=fake_payload, qos=0, callback=callback_probe)
+
+        transport.disconnect(clear_inflight=False)
+
+        assert callback_probe.call_count == 1
+        assert callback_probe.cancelled is True
+        assert callback_probe.lock_was_held is False
+        assert transport._op_manager._pending_operations == {}
+        assert transport._op_manager._cancelled_operation_mids == {mid}
+
+    @pytest.mark.it(
+        "Preserves resumable publish tracking and cancels non-resumable operations by default"
+    )
+    def test_default_preserves_resumable_publish_tracking(
+        self, mocker, mock_mqtt_client, transport
+    ):
         # Set up a pending publish
         pub_callback = mocker.MagicMock(name="pub cb")
         pub_mid = "1"
@@ -1583,11 +1618,15 @@ class TestDisconnect(object):
         # Disconnect
         transport.disconnect()
 
-        # Tracked operations remain pending
+        # Only resumable publish tracking remains pending
         assert pub_callback.call_count == 0
-        assert sub_callback.call_count == 0
+        assert sub_callback.call_args == mocker.call(cancelled=True)
         assert list(transport._op_manager._pending_operations) == [pub_mid]
         assert transport._op_manager._pending_operations[pub_mid].callback is pub_callback
+        assert (
+            transport._op_manager._pending_operations[pub_mid].operation_type
+            is OperationType.PUBLISH_QOS_1
+        )
         assert transport._op_manager._cancelled_operation_mids == {sub_mid}
 
     @pytest.mark.it("Stops MQTT Network Loop when disconnect does not raise an exception")
@@ -2548,14 +2587,22 @@ class TestPublish(object):
             topic=fake_topic, payload=fake_payload, qos=qos
         )
 
-    @pytest.mark.it("Tracks the operation as a PUBLISH")
-    def test_tracks_publish_operation_type(self, mocker, transport):
+    @pytest.mark.it("Tracks the operation with its QoS-specific PUBLISH type")
+    @pytest.mark.parametrize(
+        "qos, expected_operation_type",
+        [
+            pytest.param(0, OperationType.PUBLISH_QOS_0, id="QoS 0"),
+            pytest.param(1, OperationType.PUBLISH_QOS_1, id="QoS 1"),
+            pytest.param(2, OperationType.PUBLISH_QOS_2, id="QoS 2"),
+        ],
+    )
+    def test_tracks_publish_operation_type(self, mocker, transport, qos, expected_operation_type):
         callback = mocker.MagicMock()
 
-        transport.publish(fake_topic, fake_payload, callback=callback)
+        transport.publish(fake_topic, fake_payload, qos=qos, callback=callback)
 
         pending_operation = transport._op_manager._pending_operations[fake_mid]
-        assert pending_operation.operation_type is OperationType.PUBLISH
+        assert pending_operation.operation_type is expected_operation_type
         assert pending_operation.callback is callback
 
     @pytest.mark.it("Raises ValueError on invalid QoS")
@@ -3116,7 +3163,7 @@ class TestOperationManagerRegisterOperation(object):
         register_publish(manager, mid, optional_callback)
 
         assert len(manager._pending_operations) == 1
-        assert manager._pending_operations[mid].operation_type is OperationType.PUBLISH
+        assert manager._pending_operations[mid].operation_type is OperationType.PUBLISH_QOS_1
         assert manager._pending_operations[mid].callback is optional_callback
 
     @pytest.mark.it("Allows a cancelled MID without a late completion to be reused")
@@ -3383,44 +3430,67 @@ class TestOperationManagerCompleteOperation(object):
         assert mocker.call.cb() not in calls_during_lock
 
 
-@pytest.mark.describe("OperationManager - .stop_tracking_non_publish_operations()")
-class TestOperationManagerStopTrackingNonPublishOperations(object):
-    @pytest.mark.it("Preserves publishes and tombstones subscribe and unsubscribe MIDs")
-    def test_stops_non_publish_tracking(self, mocker):
+@pytest.mark.describe("OperationManager - .complete_non_resumable_operations_as_cancelled()")
+class TestOperationManagerCompleteNonResumableOperationsAsCancelled(object):
+    @pytest.mark.it("Preserves resumable publishes and cancels non-resumable operations")
+    def test_completes_non_resumable_operations(self, mocker):
         manager = OperationManager()
-        publish_callback = mocker.MagicMock()
+        qos_one_publish_callback = mocker.MagicMock()
+        qos_two_publish_callback = mocker.MagicMock()
+        qos_zero_publish_callback = mocker.MagicMock()
         subscribe_callback = mocker.MagicMock()
         unsubscribe_callback = mocker.MagicMock()
+        register_publish(manager, mid=1, callback=qos_one_publish_callback, qos=1)
+        register_publish(manager, mid=2, callback=qos_two_publish_callback, qos=2)
+        register_publish(manager, mid=3, callback=qos_zero_publish_callback, qos=0)
         manager.register_operation(
-            mid=1, callback=publish_callback, operation_type=OperationType.PUBLISH
+            mid=4, callback=subscribe_callback, operation_type=OperationType.SUBSCRIBE
         )
         manager.register_operation(
-            mid=2, callback=subscribe_callback, operation_type=OperationType.SUBSCRIBE
-        )
-        manager.register_operation(
-            mid=3, callback=unsubscribe_callback, operation_type=OperationType.UNSUBSCRIBE
+            mid=5, callback=unsubscribe_callback, operation_type=OperationType.UNSUBSCRIBE
         )
 
-        manager.stop_tracking_non_publish_operations()
+        manager.complete_non_resumable_operations_as_cancelled()
 
-        assert list(manager._pending_operations) == [1]
-        assert manager._pending_operations[1].operation_type is OperationType.PUBLISH
-        assert manager._pending_operations[1].callback is publish_callback
-        assert manager._cancelled_operation_mids == {2, 3}
-        assert publish_callback.call_count == 0
-        assert subscribe_callback.call_count == 0
-        assert unsubscribe_callback.call_count == 0
+        assert list(manager._pending_operations) == [1, 2]
+        assert manager._pending_operations[1].operation_type is OperationType.PUBLISH_QOS_1
+        assert manager._pending_operations[1].callback is qos_one_publish_callback
+        assert manager._pending_operations[2].operation_type is OperationType.PUBLISH_QOS_2
+        assert manager._pending_operations[2].callback is qos_two_publish_callback
+        assert manager._cancelled_operation_mids == {3, 4, 5}
+        assert qos_one_publish_callback.call_count == 0
+        assert qos_two_publish_callback.call_count == 0
+        assert qos_zero_publish_callback.call_args == mocker.call(cancelled=True)
+        assert subscribe_callback.call_args == mocker.call(cancelled=True)
+        assert unsubscribe_callback.call_args == mocker.call(cancelled=True)
 
-    @pytest.mark.it("Discards a late completion for a non-publish operation no longer tracked")
+    @pytest.mark.it("Discards a late completion for a cancelled non-resumable operation")
     def test_discards_late_completion(self, mocker):
         manager = OperationManager()
         callback = mocker.MagicMock()
         manager.register_operation(mid=1, callback=callback, operation_type=OperationType.SUBSCRIBE)
-        manager.stop_tracking_non_publish_operations()
+        manager.complete_non_resumable_operations_as_cancelled()
+
+        assert callback.call_args == mocker.call(cancelled=True)
 
         manager.complete_operation(mid=1)
 
-        assert callback.call_count == 0
+        assert callback.call_count == 1
+        assert manager._cancelled_operation_mids == set()
+        assert manager._unknown_operation_completions == {}
+
+    @pytest.mark.it("Discards a late completion for a cancelled QoS 0 publish")
+    def test_discards_late_qos_zero_completion(self, mocker):
+        manager = OperationManager()
+        callback = mocker.MagicMock()
+        register_publish(manager, mid=1, callback=callback, qos=0)
+        manager.complete_non_resumable_operations_as_cancelled()
+
+        assert callback.call_args == mocker.call(cancelled=True)
+
+        manager.complete_operation(mid=1)
+
+        assert callback.call_count == 1
         assert manager._cancelled_operation_mids == set()
         assert manager._unknown_operation_completions == {}
 

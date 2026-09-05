@@ -645,7 +645,10 @@ class TestMQTTTransportStageRunOpCalledWithDisconnectOperation(
         assert (
             stage.transport._op_manager.complete_all_tracked_operations_as_cancelled.call_count == 0
         )
-        assert stage.transport._op_manager.stop_tracking_non_publish_operations.call_count == 0
+        assert (
+            stage.transport._op_manager.complete_non_resumable_operations_as_cancelled.call_count
+            == 0
+        )
         assert stage.report_background_exception.call_count == 0
 
     @pytest.mark.it(
@@ -966,13 +969,19 @@ class TestMQTTTransportStageOnConnectionDroppedWithPendingDisconnectOperation(
                 stage.transport._op_manager.complete_all_tracked_operations_as_cancelled.call_count
                 == 0
             )
-            assert stage.transport._op_manager.stop_tracking_non_publish_operations.call_count == 1
+            assert (
+                stage.transport._op_manager.complete_non_resumable_operations_as_cancelled.call_count
+                == 1
+            )
         else:
             assert (
                 stage.transport._op_manager.complete_all_tracked_operations_as_cancelled.call_count
                 == 1
             )
-            assert stage.transport._op_manager.stop_tracking_non_publish_operations.call_count == 0
+            assert (
+                stage.transport._op_manager.complete_non_resumable_operations_as_cancelled.call_count
+                == 0
+            )
 
         assert stage.report_background_exception.call_count == 1
         background_exception = stage.report_background_exception.call_args.args[0]
@@ -992,7 +1001,7 @@ class TestMQTTTransportStageOnConnectionDroppedWithPendingDisconnectOperation(
             ),
             pytest.param(
                 True,
-                "stop_tracking_non_publish_operations",
+                "complete_non_resumable_operations_as_cancelled",
                 id="Connection retry enabled",
             ),
         ],
@@ -1084,22 +1093,24 @@ class TestMQTTTransportStageOnConnectionDroppedWithNoPendingConnectionOperation(
         assert mock_cancel.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Preserves publishes and stops tracking other MQTT operations if connection retry is enabled"
+        "Preserves resumable publishes and cancels other MQTT operations if connection retry is enabled"
     )
-    def test_preserves_publish_tracking_with_retry(self, mocker, stage, arbitrary_exception):
+    def test_cancels_non_resumable_operations_with_retry(self, mocker, stage, arbitrary_exception):
         stage.transport._op_manager = mocker.MagicMock()
         mock_cancel = stage.transport._op_manager.complete_all_tracked_operations_as_cancelled
-        mock_stop_non_publish = stage.transport._op_manager.stop_tracking_non_publish_operations
+        mock_cancel_non_resumable = (
+            stage.transport._op_manager.complete_non_resumable_operations_as_cancelled
+        )
         stage.nucleus.pipeline_configuration.connection_retry = True
         assert stage._pending_connection_op is None
         assert mock_cancel.call_count == 0
-        assert mock_stop_non_publish.call_count == 0
+        assert mock_cancel_non_resumable.call_count == 0
 
         # Trigger disconnect
         stage.transport.on_mqtt_connection_dropped_handler(arbitrary_exception)
 
         assert mock_cancel.call_count == 0
-        assert mock_stop_non_publish.call_args == mocker.call()
+        assert mock_cancel_non_resumable.call_args == mocker.call()
 
     @pytest.mark.it("Raises a ConnectionDroppedError as a background exception")
     def test_background_exception_raised(self, stage, arbitrary_exception):
