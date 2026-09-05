@@ -1699,6 +1699,68 @@ class TestConnectionDropped(object):
 
         assert connection_dropped_handler.call_count == 1
 
+    @pytest.mark.it("Reports an already-classified drop before explicit disconnect returns")
+    def test_classified_drop_precedes_explicit_disconnect_return(
+        self, mocker, mock_mqtt_client, transport, run_in_daemon_thread
+    ):
+        call_order = []
+        drop_classified = threading.Event()
+        release_drop_callback = threading.Event()
+        loop_stop_entered = threading.Event()
+        lifecycle = transport._connection_lifecycle
+        original_record_disconnection = lifecycle.record_disconnection
+
+        def record_disconnection_then_pause(cause):
+            connection_dropped = original_record_disconnection(cause)
+            drop_classified.set()
+            assert release_drop_callback.wait(timeout=1)
+            return connection_dropped
+
+        mocker.patch.object(
+            lifecycle,
+            "record_disconnection",
+            side_effect=record_disconnection_then_pause,
+        )
+        transport.on_mqtt_connection_dropped_handler = lambda cause: call_order.append(
+            "drop reported"
+        )
+        transport.connect(fake_password)
+
+        drop_future = run_in_daemon_thread(
+            trigger_on_disconnect,
+            mock_mqtt_client,
+            failed_disconnect_reason_code,
+        )
+        assert drop_classified.wait(timeout=1)
+
+        # Paho loop_stop() joins its network thread. Model that blocking contract so an
+        # explicit disconnect cannot return while the Paho callback is paused after
+        # classification but before reporting the drop.
+        mock_mqtt_client.disconnect.return_value = mqtt.MQTT_ERR_NO_CONN
+
+        def join_drop_callback():
+            loop_stop_entered.set()
+            return drop_future.result(timeout=1)
+
+        mock_mqtt_client.loop_stop.side_effect = join_drop_callback
+
+        def disconnect_and_record_return():
+            transport.disconnect()
+            call_order.append("explicit disconnect returned")
+
+        disconnect_future = run_in_daemon_thread(disconnect_and_record_return)
+        try:
+            assert loop_stop_entered.wait(timeout=1)
+            assert not disconnect_future.done()
+            assert call_order == []
+        finally:
+            release_drop_callback.set()
+
+        drop_future.result(timeout=1)
+        disconnect_future.result(timeout=1)
+
+        assert call_order == ["drop reported", "explicit disconnect returned"]
+
     @pytest.mark.it("Reports one connection drop when Paho invokes on_disconnect more than once")
     def test_reports_one_drop_for_duplicate_paho_callbacks(
         self, mocker, mock_mqtt_client, transport
