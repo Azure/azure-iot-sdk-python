@@ -39,7 +39,6 @@ call_with_retry = retry_exponential_backoff_with_jitter
 
 @pytest.mark.stress
 @pytest.mark.describe("Client Stress")
-@pytest.mark.skip(reason="Disabling as tests are failing. Needs investigation.")
 class TestSendMessageStress(object):
     async def send_and_verify_single_telemetry_message(self, client, service_helper):
         """
