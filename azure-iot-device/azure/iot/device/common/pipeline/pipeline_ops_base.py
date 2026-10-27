@@ -235,9 +235,7 @@ class ConnectOperation(PipelineOperation):
     Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
-    def __init__(self, callback):
-        self.watchdog_timer = None
-        super().__init__(callback)
+    pass
 
 
 class ReauthorizeConnectionOperation(PipelineOperation):

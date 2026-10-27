@@ -5,30 +5,71 @@
 # --------------------------------------------------------------------------
 
 import paho.mqtt.client as mqtt
+import contextlib
+import functools
 import logging
 import ssl
 import threading
 import traceback
 import weakref
 import socket
+from enum import Enum
 from . import transport_exceptions as exceptions
 import socks
 
 logger = logging.getLogger(__name__)
 
-# Mapping of Paho CONNACK rc codes to Error object classes
-# Used for connection callbacks
-paho_connack_rc_to_error = {
-    mqtt.CONNACK_REFUSED_PROTOCOL_VERSION: exceptions.ProtocolClientError,
-    mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED: exceptions.ProtocolClientError,
-    mqtt.CONNACK_REFUSED_SERVER_UNAVAILABLE: exceptions.ConnectionFailedError,
-    mqtt.CONNACK_REFUSED_BAD_USERNAME_PASSWORD: exceptions.UnauthorizedError,
-    mqtt.CONNACK_REFUSED_NOT_AUTHORIZED: exceptions.UnauthorizedError,
+CONNECTION_TIMEOUT = 60
+
+
+def serialize_connection_lifecycle(fn):
+    """Serialize public MQTT connection lifecycle operations."""
+
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        with self._op_manager.connection_context():
+            with self._connection_lock:
+                return fn(self, *args, **kwargs)
+
+    return wrapper
+
+
+def coordinate_operation(fn):
+    """Coordinate a Paho operation call with its completion tracking."""
+
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        with self._op_manager.operation_context():
+            return fn(self, *args, **kwargs)
+
+    return wrapper
+
+
+# This transport speaks MQTT 3.1.1, but Paho callback API v2 represents callback results
+# with MQTT 5 ReasonCode and Properties types. For MQTT 3.1.1, Paho synthesizes these values:
+# - CONNACK and SUBACK ReasonCode objects from their MQTT 3.1.1 Return Codes
+# - a disconnect ReasonCode from Paho's own MQTTErrorCode
+# - a successful ReasonCode for publish completion
+# - empty Properties objects, and an empty reason_codes list for UNSUBACK
+# These are Paho API values, not fields received in MQTT 3.1.1 Control Packets.
+# Maps Paho's synthesized CONNACK reason names to SDK exception types.
+paho_connack_reason_name_to_error_type = {
+    "Unsupported protocol version": exceptions.ProtocolClientError,
+    "Client identifier not valid": exceptions.ProtocolClientError,
+    "Server unavailable": exceptions.ConnectionFailedError,
+    "Bad user name or password": exceptions.UnauthorizedError,
+    "Not authorized": exceptions.UnauthorizedError,
 }
 
-# Mapping of Paho rc codes to Error object classes
-# Used for responses to Paho APIs and non-connection callbacks
-paho_rc_to_error = {
+# Maps Paho's synthesized disconnect reason names to SDK exception types. MQTT 3.1.1 has no
+# server-to-client DISCONNECT packet or disconnect reason field.
+paho_disconnect_reason_name_to_error_type = {
+    "Unspecified error": exceptions.ConnectionDroppedError,
+    "Keep alive timeout": exceptions.ConnectionDroppedError,
+}
+
+# Maps Paho library error codes to SDK exception types.
+paho_error_code_to_error_type = {
     mqtt.MQTT_ERR_NOMEM: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_PROTOCOL: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_INVAL: exceptions.ProtocolClientError,
@@ -48,43 +89,171 @@ paho_rc_to_error = {
 }
 
 
-def _create_error_from_connack_rc_code(rc):
-    """
-    Given a paho CONNACK rc code, return an Exception that can be raised
-    """
-    message = mqtt.connack_string(rc)
-    if rc in paho_connack_rc_to_error:
-        return paho_connack_rc_to_error[rc](message)
+def _create_error_from_paho_connack_reason(reason_code):
+    """Translate Paho's synthesized CONNACK ReasonCode into an SDK transport exception."""
+    paho_reason_name = str(reason_code)
+    if paho_reason_name in paho_connack_reason_name_to_error_type:
+        return paho_connack_reason_name_to_error_type[paho_reason_name](paho_reason_name)
     else:
-        return exceptions.ProtocolClientError("Unknown CONNACK rc={}".format(rc))
+        return exceptions.ProtocolClientError("Unknown Paho CONNACK reason={}".format(reason_code))
 
 
-def _create_error_from_rc_code(rc):
-    """
-    Given a paho rc code, return an Exception that can be raised
-    """
-    if rc == 1:
-        # Paho returns rc=1 to mean "something went wrong.  stop".  We manually translate this to a ConnectionDroppedError.
-        return exceptions.ConnectionDroppedError("Paho returned rc==1")
-    elif rc in paho_rc_to_error:
-        message = mqtt.error_string(rc)
-        return paho_rc_to_error[rc](message)
+def _create_error_from_paho_disconnect_reason(reason_code):
+    """Translate Paho's synthesized disconnect ReasonCode into an SDK transport exception."""
+    paho_reason_name = str(reason_code)
+    if paho_reason_name in paho_disconnect_reason_name_to_error_type:
+        return paho_disconnect_reason_name_to_error_type[paho_reason_name](paho_reason_name)
     else:
-        return exceptions.ProtocolClientError("Unknown rc=={}".format(rc))
+        return exceptions.ProtocolClientError(
+            "Unknown Paho disconnect reason={}".format(reason_code)
+        )
+
+
+def _create_error_from_paho_error_code(error_code):
+    """Translate a Paho library error code into an SDK transport exception."""
+    if error_code in paho_error_code_to_error_type:
+        message = mqtt.error_string(error_code)
+        return paho_error_code_to_error_type[error_code](message)
+    else:
+        return exceptions.ProtocolClientError("Unknown Paho error code={}".format(error_code))
+
+
+class ConnectionState(Enum):
+    # No CONNACK or pre-completion disconnection has been processed.
+    WAITING_FOR_CONNACK = "WAITING_FOR_CONNACK"
+    # A successful CONNACK arrived, but connect() has not yet committed success.
+    CONNACK_ACCEPTED = "CONNACK_ACCEPTED"
+    # connect() consumed the successful CONNACK and may return to its caller.
+    CONNECTED = "CONNECTED"
+    # An explicit disconnect began after connect() completed successfully.
+    DISCONNECTING = "DISCONNECTING"
+    # Network connection closure has been processed.
+    DISCONNECTED = "DISCONNECTED"
+    # Connection establishment ended unsuccessfully; its stored error is authoritative.
+    FAILED = "FAILED"
+
+
+class ConnectionLifecycle(object):
+    """Synchronize Paho lifecycle callbacks with blocking transport operations."""
+
+    def __init__(self):
+        self._condition = threading.Condition()
+        self._state = ConnectionState.DISCONNECTED
+        self._error = None
+
+    def begin_connect(self):
+        """Reset state for a new connection after the previous network loop exits."""
+        with self._condition:
+            self._state = ConnectionState.WAITING_FOR_CONNACK
+            self._error = None
+
+    def record_connack_accepted(self):
+        """Record an accepted CONNACK received by Paho."""
+        with self._condition:
+            if self._state is ConnectionState.WAITING_FOR_CONNACK:
+                self._state = ConnectionState.CONNACK_ACCEPTED
+                self._condition.notify_all()
+
+    def record_connack_rejected(self, error):
+        """Record a rejected CONNACK received by Paho."""
+        with self._condition:
+            if self._state in (
+                ConnectionState.WAITING_FOR_CONNACK,
+                ConnectionState.CONNACK_ACCEPTED,
+            ):
+                self._state = ConnectionState.FAILED
+                self._error = error
+                self._condition.notify_all()
+
+    def wait_for_connection(self, timeout):
+        """Wait for connection establishment to succeed, fail, or time out."""
+        with self._condition:
+            if not self._condition.wait_for(
+                lambda: self._state is not ConnectionState.WAITING_FOR_CONNACK,
+                timeout=timeout,
+            ):
+                self._state = ConnectionState.FAILED
+                self._error = exceptions.ConnectionTimeoutError(
+                    "Timed out waiting for MQTT CONNACK"
+                )
+
+            if self._state is ConnectionState.CONNACK_ACCEPTED:
+                self._state = ConnectionState.CONNECTED
+                return
+
+            error = self._error
+            self._error = None
+            raise error
+
+    def record_disconnection(self, cause):
+        """Record connection closure and indicate whether the connection dropped unexpectedly.
+
+        A closure during connection establishment completes connect() with an error. A closure
+        after establishment is reported only if explicit disconnect has not begun. Duplicate
+        closures are ignored.
+        """
+        with self._condition:
+            if self._state is ConnectionState.WAITING_FOR_CONNACK:
+                # Paho 2.1 skips on_connect for an MQTT 3.1.1 protocol-version refusal
+                # when automatic reconnect is disabled. Its callback API v2 reports that
+                # case and an ordinary pre-CONNACK network loss identically, so this
+                # transport cannot preserve the protocol-specific classification here.
+                self._state = ConnectionState.FAILED
+                self._error = exceptions.ConnectionFailedError(
+                    "Connection closed before MQTT CONNACK outcome"
+                )
+                self._condition.notify_all()
+                return False
+            elif self._state is ConnectionState.CONNACK_ACCEPTED:
+                self._state = ConnectionState.FAILED
+                self._error = cause or exceptions.ConnectionDroppedError(
+                    "Network connection closed during connect"
+                )
+                self._condition.notify_all()
+                return False
+            elif self._state is ConnectionState.CONNECTED:
+                self._state = ConnectionState.DISCONNECTED
+                return True
+            elif self._state is ConnectionState.DISCONNECTING:
+                self._state = ConnectionState.DISCONNECTED
+                return False
+            else:
+                return False
+
+    def finish_failed_connect(self):
+        """Reset terminal state after a failed connection has been cleaned up."""
+        with self._condition:
+            self._state = ConnectionState.DISCONNECTED
+            self._error = None
+
+    def begin_disconnect(self):
+        """Record that an intentional disconnect has begun."""
+        with self._condition:
+            if self._state is ConnectionState.CONNECTED:
+                self._state = ConnectionState.DISCONNECTING
+
+    def finish_disconnect(self):
+        """Record completion when explicit disconnect returns without a Paho callback."""
+        with self._condition:
+            if self._state is ConnectionState.DISCONNECTING:
+                self._state = ConnectionState.DISCONNECTED
 
 
 class MQTTTransport(object):
     """
-    A wrapper class that provides an implementation-agnostic MQTT message broker interface.
+    A wrapper class that provides an implementation-agnostic MQTT Server interface.
+    This transport uses MQTT 3.1.1.
 
-    :ivar on_mqtt_connected_handler: Event handler callback, called upon establishing a connection.
-    :type on_mqtt_connected_handler: Function
-    :ivar on_mqtt_disconnected_handler: Event handler callback, called upon a disconnection.
-    :type on_mqtt_disconnected_handler: Function
+    Calls to connect(), disconnect(), and shutdown() are serialized internally. Event handlers can
+    run concurrently with the calling thread and must not invoke connection lifecycle methods
+    synchronously. Multiple publish, subscribe, and unsubscribe operations can remain outstanding
+    and complete out of order; their callback tracking is synchronized internally.
+
+    :ivar on_mqtt_connection_dropped_handler: Event handler callback, called when an established
+        connection closes unexpectedly.
+    :type on_mqtt_connection_dropped_handler: Function
     :ivar on_mqtt_message_received_handler: Event handler callback, called upon receiving a message.
     :type on_mqtt_message_received_handler: Function
-    :ivar on_mqtt_connection_failure_handler: Event handler callback, called upon a connection failure.
-    :type on_mqtt_connection_failure_handler: Function
     """
 
     def __init__(
@@ -101,11 +270,11 @@ class MQTTTransport(object):
     ):
         """
         Constructor to instantiate an MQTT protocol wrapper.
-        :param str client_id: The id of the client connecting to the broker.
-        :param str hostname: Hostname or IP address of the remote broker.
-        :param str username: Username for login to the remote broker.
+        :param str client_id: The Client Identifier used to connect to the MQTT Server.
+        :param str hostname: Hostname or IP address of the remote MQTT Server.
+        :param str username: User Name for authentication with the MQTT Server.
         :param str server_verification_cert: Certificate which can be used to validate a server-side TLS connection (optional).
-        :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
+        :param x509_cert: Certificate which can be used to authenticate with the MQTT Server in lieu of a password (optional).
         :param bool websockets: Indicates whether or not to enable a websockets connection in the Transport.
         :param str cipher: Cipher string in OpenSSL cipher list format
         :param proxy_options: Options for sending traffic through proxy servers.
@@ -120,11 +289,11 @@ class MQTTTransport(object):
         self._cipher = cipher
         self._proxy_options = proxy_options
         self._keep_alive = keep_alive
+        self._connection_lock = threading.Lock()
+        self._connection_lifecycle = ConnectionLifecycle()
 
-        self.on_mqtt_connected_handler = None
-        self.on_mqtt_disconnected_handler = None
+        self.on_mqtt_connection_dropped_handler = None
         self.on_mqtt_message_received_handler = None
-        self.on_mqtt_connection_failure_handler = None
 
         self._op_manager = OperationManager()
 
@@ -134,30 +303,32 @@ class MQTTTransport(object):
         """
         Create the MQTT client object and assign all necessary event handler callbacks.
         """
-        logger.debug("creating mqtt client")
+        logger.debug("creating Paho client")
 
         # Instantiate the client
         if self._websockets:
-            logger.info("Creating client for connecting using MQTT over websockets")
+            logger.info("Creating Paho client for MQTT over websockets")
             mqtt_client = mqtt.Client(
-                callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
                 client_id=self._client_id,
                 clean_session=False,
                 protocol=mqtt.MQTTv311,
                 transport="websockets",
+                reconnect_on_failure=False,
             )
             mqtt_client.ws_set_options(path="/$iothub/websocket")
         else:
-            logger.info("Creating client for connecting using MQTT over TCP")
+            logger.info("Creating Paho client for MQTT over TCP")
             mqtt_client = mqtt.Client(
-                callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
                 client_id=self._client_id,
                 clean_session=False,
                 protocol=mqtt.MQTTv311,
+                reconnect_on_failure=False,
             )
 
         if self._proxy_options:
-            logger.info("Setting custom proxy options on mqtt client")
+            logger.info("Configuring Paho client proxy options")
             mqtt_client.proxy_set(
                 proxy_type=self._proxy_options.proxy_type_socks,
                 proxy_addr=self._proxy_options.proxy_address,
@@ -175,98 +346,135 @@ class MQTTTransport(object):
         # Set event handlers.  Use weak references back into this object to prevent leaks
         self_weakref = weakref.ref(self)
 
-        def get_transport_from_weakref_or_stop_loop(client, callback_name):
+        def get_transport_from_weakref_or_cleanup_client(client, callback_name):
+            """Acquire a strong transport reference for the duration of a Paho callback.
+
+            The transport can be collected before a callback running on Paho's thread resolves
+            its weak reference. If it is already gone, disconnect the orphaned client and stop
+            its thread; otherwise, the returned reference keeps it alive through callback handling.
+            """
             this = self_weakref()
             if this is None:
                 logger.info(
-                    "{} called after MQTTTransport was garbage collected; stopping Paho network loop".format(
+                    "Paho callback {} invoked after MQTTTransport was garbage collected; disconnecting Paho Client and stopping network loop".format(
                         callback_name
                     )
                 )
-                client.loop_stop()
+                client.on_disconnect = None
+                try:
+                    client.disconnect()
+                finally:
+                    # From a Paho callback, this requests the current network thread to exit
+                    # without attempting to join itself.
+                    client.loop_stop()
             return this
 
-        def on_connect(client, userdata, flags, rc):
-            logger.info("connected with result code: {}".format(rc))
-            this = get_transport_from_weakref_or_stop_loop(client, "on_connect")
+        def on_connect(client, userdata, flags, reason_code, properties):
+            # Paho synthesizes this ReasonCode from the MQTT 3.1.1 Connect Return Code.
+            logger.info("MQTT CONNACK received; Paho synthesized ReasonCode={}".format(reason_code))
+            this = get_transport_from_weakref_or_cleanup_client(client, "on_connect")
             if this is None:
                 return
 
-            if rc:  # i.e. if there is an error
-                if this.on_mqtt_connection_failure_handler:
-                    try:
-                        this.on_mqtt_connection_failure_handler(
-                            _create_error_from_connack_rc_code(rc)
-                        )
-                    except Exception:
-                        logger.warning(
-                            "Unexpected error calling on_mqtt_connection_failure_handler"
-                        )
-                        logger.warning(traceback.format_exc())
-                else:
-                    logger.warning(
-                        "connection failed, but no on_mqtt_connection_failure_handler handler callback provided"
-                    )
-            elif this.on_mqtt_connected_handler:
-                try:
-                    this.on_mqtt_connected_handler()
-                except Exception:
-                    logger.warning("Unexpected error calling on_mqtt_connected_handler")
-                    logger.warning(traceback.format_exc())
-            else:
-                logger.debug("No event handler callback set for on_mqtt_connected_handler")
+            connection_lifecycle = this._connection_lifecycle
+            if connection_lifecycle is None:
+                logger.warning("MQTT CONNACK received without an active connection attempt")
+                return
 
-        def on_disconnect(client, userdata, rc):
-            logger.info("disconnected with result code: {}".format(rc))
-            this = get_transport_from_weakref_or_stop_loop(client, "on_disconnect")
+            if reason_code.is_failure:
+                connection_lifecycle.record_connack_rejected(
+                    _create_error_from_paho_connack_reason(reason_code)
+                )
+            else:
+                connection_lifecycle.record_connack_accepted()
+
+        def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
+            # Paho synthesizes this ReasonCode from its own disconnection error code.
+            logger.info(
+                "Paho reported network connection closure; synthesized ReasonCode={}".format(
+                    reason_code
+                )
+            )
+            this = get_transport_from_weakref_or_cleanup_client(client, "on_disconnect")
             if this is None:
                 return
 
             cause = None
-            if rc:  # i.e. if there is an error
+            if reason_code.is_failure:
                 logger.debug("".join(traceback.format_stack()))
-                cause = _create_error_from_rc_code(rc)
-                this._force_transport_disconnect_and_cleanup()
+                cause = _create_error_from_paho_disconnect_reason(reason_code)
 
-            if this.on_mqtt_disconnected_handler:
-                try:
-                    this.on_mqtt_disconnected_handler(cause)
-                except Exception:
-                    logger.warning("Unexpected error calling on_mqtt_disconnected_handler")
-                    logger.warning(traceback.format_exc())
+            connection_lifecycle = this._connection_lifecycle
+            if connection_lifecycle is None:
+                return
+            connection_dropped = connection_lifecycle.record_disconnection(cause)
+            if not connection_dropped:
+                return
+            if cause is None:
+                cause = exceptions.ConnectionDroppedError("Network connection closed unexpectedly")
+
+            try:
+                if this.on_mqtt_connection_dropped_handler:
+                    this.on_mqtt_connection_dropped_handler(cause)
+                else:
+                    logger.warning("No on_mqtt_connection_dropped_handler is configured")
+            except Exception:
+                logger.warning("Unexpected error calling on_mqtt_connection_dropped_handler")
+                logger.warning(traceback.format_exc())
+
+        def on_subscribe(client, userdata, mid, reason_codes, properties):
+            logger.info(
+                "MQTT SUBACK received for Packet Identifier {}; Paho synthesized ReasonCodes={}".format(
+                    mid, reason_codes
+                )
+            )
+            this = get_transport_from_weakref_or_cleanup_client(client, "on_subscribe")
+            if this is None:
+                return
+            # Paho synthesizes each ReasonCode from an MQTT 3.1.1 SUBACK Return Code.
+            # This transport sends one Topic Filter per SUBSCRIBE by design, but handles Paho's
+            # general callback shape containing one ReasonCode for each bundled subscription.
+            failed_reason_codes = [
+                reason_code for reason_code in reason_codes if reason_code.is_failure
+            ]
+            if failed_reason_codes:
+                error = exceptions.ProtocolClientError(
+                    "Subscription rejected by MQTT Server: {}".format(
+                        ", ".join(str(reason_code) for reason_code in failed_reason_codes)
+                    )
+                )
+                this._op_manager.complete_operation(mid, error=error)
             else:
-                logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
+                this._op_manager.complete_operation(mid)
 
-        def on_subscribe(client, userdata, mid, granted_qos):
-            logger.info("suback received for {}".format(mid))
-            this = get_transport_from_weakref_or_stop_loop(client, "on_subscribe")
+        def on_unsubscribe(client, userdata, mid, reason_codes, properties):
+            logger.info("MQTT UNSUBACK received for Packet Identifier {}".format(mid))
+            this = get_transport_from_weakref_or_cleanup_client(client, "on_unsubscribe")
             if this is None:
                 return
-            # subscribe failures are returned from the subscribe() call.  This is just
-            # a notification that a SUBACK was received, so there is no failure case here
+            # MQTT 3.1.1 UNSUBACK contains only the Packet Identifier, so Paho supplies
+            # an empty reason_codes list.
             this._op_manager.complete_operation(mid)
 
-        def on_unsubscribe(client, userdata, mid):
-            logger.info("UNSUBACK received for {}".format(mid))
-            this = get_transport_from_weakref_or_stop_loop(client, "on_unsubscribe")
+        def on_publish(client, userdata, mid, reason_code, properties):
+            logger.info(
+                "Paho reported publish completion for MID {}; synthesized ReasonCode={}".format(
+                    mid, reason_code
+                )
+            )
+            this = get_transport_from_weakref_or_cleanup_client(client, "on_publish")
             if this is None:
                 return
-            # unsubscribe failures are returned from the unsubscribe() call.  This is just
-            # a notification that a SUBACK was received, so there is no failure case here
-            this._op_manager.complete_operation(mid)
-
-        def on_publish(client, userdata, mid):
-            logger.info("payload published for {}".format(mid))
-            this = get_transport_from_weakref_or_stop_loop(client, "on_publish")
-            if this is None:
-                return
-            # publish failures are returned from the publish() call.  This is just
-            # a notification that a PUBACK was received, so there is no failure case here
+            # MQTT 3.1.1 has no publish-completion reason code or properties, so Paho
+            # synthesizes successful values. QoS 0 has no acknowledgment, QoS 1 completes
+            # with PUBACK, and QoS 2 with PUBCOMP.
             this._op_manager.complete_operation(mid)
 
         def on_message(client, userdata, mqtt_message):
-            logger.info("message received on {}".format(mqtt_message.topic))
-            this = get_transport_from_weakref_or_stop_loop(client, "on_message")
+            logger.info(
+                "MQTT Application Message received on Topic Name {}".format(mqtt_message.topic)
+            )
+            this = get_transport_from_weakref_or_cleanup_client(client, "on_message")
             if this is None:
                 return
 
@@ -278,7 +486,7 @@ class MQTTTransport(object):
                     logger.warning(traceback.format_exc())
             else:
                 logger.debug(
-                    "No event handler callback set for on_mqtt_message_received_handler - DROPPING MESSAGE"
+                    "No on_mqtt_message_received_handler is configured; dropping Application Message"
                 )
 
         mqtt_client.on_connect = on_connect
@@ -288,64 +496,98 @@ class MQTTTransport(object):
         mqtt_client.on_publish = on_publish
         mqtt_client.on_message = on_message
 
-        # Set paho automatic-reconnect delay to 2 hours.  Ideally we would turn
-        # paho auto-reconnect off entirely, but this is the best we can do.  Without
-        # this, we run the risk of our auto-reconnect code and the paho auto-reconnect
-        # code conflicting with each other.
-        # The choice of 2 hours is completely arbitrary
-        mqtt_client.reconnect_delay_set(120 * 60)
-
-        logger.debug("Created MQTT protocol client, assigned callbacks")
+        logger.debug("Created Paho client and assigned MQTT callbacks")
         return mqtt_client
 
-    def _force_transport_disconnect_and_cleanup(self):
+    def _disconnect_and_stop_network_loop(self):
+        """Disconnect the Paho client, then stop and join its network loop."""
+
+        logger.info("Disconnecting Paho client and stopping network loop")
+
+        try:
+            self._mqtt_client.disconnect()
+        finally:
+            # Always stop and join the network thread, even if disconnect() fails.
+            self._mqtt_client.loop_stop()
+
+        logger.debug("Finished disconnecting Paho client and stopping network loop")
+
+    def _cleanup_failed_connect(self):
+        """Clean up a failed connection setup without reporting a second lifecycle result.
+
+        connect() reports these failures synchronously by raising an exception. Suppress Paho's
+        disconnect callback during teardown so the same attempt is not also reported as a
+        disconnection, then restore it for future connection attempts.
         """
-        After disconnecting because of an error, Paho was designed to keep the loop running and
-        to try reconnecting after the reconnect interval. We don't want Paho to reconnect because
-        we want to control the timing of the reconnect, so we force the loop to stop.
+        on_disconnect = self._mqtt_client.on_disconnect
+        self._mqtt_client.on_disconnect = None
+        try:
+            self._disconnect_and_stop_network_loop()
+        finally:
+            self._mqtt_client.on_disconnect = on_disconnect
+            self._connection_lifecycle.finish_failed_connect()
 
-        We are relying on intimate knowledge of Paho behavior here.  If this becomes a problem,
-        it may be necessary to write our own Paho thread and stop using thread_start()/thread_stop().
-        This is certainly supported by Paho, but the thread that Paho provides works well enough
-        (so far) and making our own would be more complex than is currently justified.
+    def _cleanup_failed_connect_best_effort(self):
+        """Try to clean up after connect() fails, but do not raise cleanup errors.
+
+        The caller is already handling the error that caused connect() to fail. Preserve that
+        error by logging any later cleanup failure instead of raising it. The partial thread-start
+        recovery calls _cleanup_failed_connect() directly because it needs to detect cleanup
+        failure and replace the unusable Paho client.
         """
+        try:
+            self._cleanup_failed_connect()
+        except Exception:
+            logger.warning(
+                "Paho cleanup failed after connection failure; preserving original connection error"
+            )
+            logger.warning(traceback.format_exc())
 
-        logger.info("Forcing paho disconnect to prevent it from automatically reconnecting")
+    def _cleanup_after_network_loop_start_failure(self):
+        """Clean up after Paho raises while starting its network thread.
 
-        # Note: We are calling this inside our on_disconnect() handler, so we might be inside the
-        # Paho thread at this point. This is perfectly valid.  Comments in Paho's client.py
-        # loop_forever() function re-comment calling disconnect() from a callback to exit the
-        # Paho thread/loop.
+        Paho can retain an unstarted thread if Thread.start() raises, which also causes
+        loop_stop() to raise rather than clean up. If normal cleanup encounters that state,
+        discard the unusable Paho client without mutating its private thread state.
+        """
+        failed_client = self._mqtt_client
+        try:
+            self._cleanup_failed_connect()
+        except Exception:
+            logger.warning(
+                "Paho cleanup failed after network loop startup failure; replacing client"
+            )
+            logger.warning(traceback.format_exc())
 
-        self._mqtt_client.disconnect()
+            failed_client.on_disconnect = None
+            failed_socket = failed_client.socket()
+            if failed_socket is not None:
+                try:
+                    failed_socket.close()
+                except Exception:
+                    logger.warning("Unexpected error closing failed Paho client socket")
+                    logger.warning(traceback.format_exc())
 
-        # Calling disconnect() isn't enough.  We also need to call loop_stop to make sure
-        # Paho is as clean as possible.  Our call to disconnect() above is enough to stop the
-        # loop and exit the tread, but the call to loop_stop() is necessary to complete the cleanup.
+            try:
+                self._mqtt_client = self._create_mqtt_client()
+            except Exception:
+                logger.warning("Unexpected error replacing failed Paho client")
+                logger.warning(traceback.format_exc())
 
-        self._mqtt_client.loop_stop()
-
-        # Finally, because of a bug in Paho, we need to null out the _thread pointer.  This
-        # is necessary because the code that sets _thread to None only gets called if you
-        # call loop_stop from an external thread (and we're still inside the Paho thread here).
-        if threading.current_thread() == self._mqtt_client._thread:
-            logger.debug("in paho thread.  nulling _thread")
-            self._mqtt_client._thread = None
-
-        logger.debug("Done forcing paho disconnect")
+            self._op_manager.complete_all_tracked_operations_as_cancelled()
 
     def _create_ssl_context(self):
         """
         This method creates the SSLContext object used by Paho to authenticate the connection.
         """
-        logger.debug("creating a SSL context")
+        logger.debug("creating SSL context")
         ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
 
         if self._server_verification_cert:
-            logger.debug("configuring SSL context with custom server verification cert")
+            logger.debug("configuring SSL context with custom server verification certificate")
             ssl_context.load_verify_locations(cadata=self._server_verification_cert)
         else:
-            logger.debug("configuring SSL context with default certs")
+            logger.debug("configuring SSL context with default certificates")
             ssl_context.load_default_certs()
 
         if self._cipher:
@@ -357,7 +599,7 @@ class MQTTTransport(object):
                 raise e
 
         if self._x509_cert is not None:
-            logger.debug("configuring SSL context with client-side certificate and key")
+            logger.debug("configuring SSL context with client certificate and key")
             ssl_context.load_cert_chain(
                 self._x509_cert.certificate_file,
                 self._x509_cert.key_file,
@@ -369,18 +611,22 @@ class MQTTTransport(object):
 
         return ssl_context
 
+    @serialize_connection_lifecycle
     def shutdown(self):
         """Shut down the transport. This is (currently) irreversible."""
         # Remove the disconnect handler from Paho. We don't want to trigger any events in response
         # to the shutdown and confuse the higher level layers of code. Just end it.
         self._mqtt_client.on_disconnect = None
-        # Now disconnect and do some additional cleanup.
-        self._force_transport_disconnect_and_cleanup()
-        self._op_manager.cancel_all_operations()
+        try:
+            self._disconnect_and_stop_network_loop()
+        finally:
+            self._connection_lifecycle = None
+            self._op_manager.complete_all_tracked_operations_as_cancelled()
 
-    def connect(self, password=None):
+    @serialize_connection_lifecycle
+    def connect(self, password=None, timeout=CONNECTION_TIMEOUT):
         """
-        Connect to the MQTT broker, using hostname and username set at instantiation.
+        Connect to the MQTT Server, using hostname and username set at instantiation.
 
         This method should be called as an entry point before sending any telemetry.
 
@@ -389,9 +635,11 @@ class MQTTTransport(object):
         If MQTT connection has been proxied, connection will take a bit longer to allow negotiation
         with the proxy server. Any errors in the proxy connection process will trigger exceptions
 
-        :param str password: The password for connecting with the MQTT broker (Optional).
+        :param str password: The password for connecting with the MQTT Server (Optional).
+        :param float timeout: Maximum time to wait for MQTT CONNACK, in seconds.
 
         :raises: ConnectionFailedError if connection could not be established.
+        :raises: ConnectionTimeoutError if MQTT CONNACK was not received before timeout.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: UnauthorizedError if there is an error authenticating.
         :raises: NoConnectionError in certain failure scenarios where a connection could not be established
@@ -399,23 +647,31 @@ class MQTTTransport(object):
         :raises: TlsExchangeAuthError if there a failure with TLS certificate exchange
         :raises: ProtocolProxyError if there is a proxy-specific error
         """
-        logger.debug("connecting to mqtt broker")
+        logger.debug("connecting to MQTT Server")
+
+        # An unexpected disconnect callback can run just before Paho's network thread exits.
+        # loop_stop() blocks until that prior thread exits; before the first connect, its
+        # no-thread result is harmless.
+        self._mqtt_client.loop_stop()
+
+        connection_lifecycle = self._connection_lifecycle
+        connection_lifecycle.begin_connect()
 
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
         try:
             if self._websockets:
-                logger.info("Connect using port 443 (websockets)")
-                rc = self._mqtt_client.connect(
+                logger.info("Connecting to MQTT Server over websockets on port 443")
+                paho_error_code = self._mqtt_client.connect(
                     host=self._hostname, port=443, keepalive=self._keep_alive
                 )
             else:
-                logger.info("Connect using port 8883 (TCP)")
-                rc = self._mqtt_client.connect(
+                logger.info("Connecting to MQTT Server over TCP on port 8883")
+                paho_error_code = self._mqtt_client.connect(
                     host=self._hostname, port=8883, keepalive=self._keep_alive
                 )
         except socket.error as e:
-            self._force_transport_disconnect_and_cleanup()
+            self._cleanup_failed_connect_best_effort()
 
             # Only this type will raise a special error
             # To stop it from retrying.
@@ -427,8 +683,8 @@ class MQTTTransport(object):
                 raise exceptions.TlsExchangeAuthError() from e
             elif isinstance(e, socks.ProxyError):
                 if isinstance(e, socks.SOCKS5AuthError):
-                    # TODO This is the only I felt like specializing
                     raise exceptions.UnauthorizedError() from e
+                # NOTE: add other specialized error handling here as necessary
                 else:
                     raise exceptions.ProtocolProxyError() from e
             else:
@@ -437,274 +693,474 @@ class MQTTTransport(object):
                 raise exceptions.ConnectionFailedError() from e
 
         except Exception as e:
-            self._force_transport_disconnect_and_cleanup()
-
+            self._cleanup_failed_connect_best_effort()
             raise exceptions.ProtocolClientError("Unexpected Paho failure during connect") from e
 
-        logger.debug("_mqtt_client.connect returned rc={}".format(rc))
-        if rc:
-            raise _create_error_from_rc_code(rc)
-        self._mqtt_client.loop_start()
+        logger.debug("Paho client.connect() returned MQTTErrorCode={}".format(paho_error_code))
+        if paho_error_code:
+            self._cleanup_failed_connect_best_effort()
+            raise _create_error_from_paho_error_code(paho_error_code)
 
+        # Start the network loop to process incoming and outgoing MQTT messages
+        try:
+            paho_error_code = self._mqtt_client.loop_start()
+        except Exception as e:
+            self._cleanup_after_network_loop_start_failure()
+            raise exceptions.ProtocolClientError(
+                "Unexpected Paho failure starting network loop"
+            ) from e
+        logger.debug("Paho client.loop_start() returned MQTTErrorCode={}".format(paho_error_code))
+        if paho_error_code:
+            self._cleanup_failed_connect_best_effort()
+            raise _create_error_from_paho_error_code(paho_error_code)
+
+        logger.debug("Waiting for MQTT CONNACK")
+        try:
+            connection_lifecycle.wait_for_connection(timeout=timeout)
+        except Exception:
+            self._cleanup_failed_connect_best_effort()
+            raise
+
+    @serialize_connection_lifecycle
     def disconnect(self, clear_inflight=False):
         """
-        Disconnect from the MQTT broker.
+        Disconnect from the MQTT Server and wait for the network loop to stop.
+
+        If clear_inflight is True, complete all tracked operations as cancelled. Otherwise,
+        preserve resumable QoS 1 and QoS 2 publishes and complete non-resumable operations as
+        cancelled.
 
         :raises: ProtocolClientError if there is some client error.
         :raises: ConnectionDroppedError in unexpected cases.
         :raises: UnauthorizedError in unexpected cases.
         :raises: ConnectionFailedError in unexpected cases.
         """
-        logger.info("disconnecting MQTT client")
+        logger.info("disconnecting from MQTT Server")
+        if self._connection_lifecycle:
+            self._connection_lifecycle.begin_disconnect()
         try:
-            rc = self._mqtt_client.disconnect()
+            paho_error_code = self._mqtt_client.disconnect()
         except Exception as e:
             raise exceptions.ProtocolClientError("Unexpected Paho failure during disconnect") from e
         finally:
+            # Always stop and join the network thread, even if disconnect() fails.
             self._mqtt_client.loop_stop()
 
-            if threading.current_thread() == self._mqtt_client._thread:
-                logger.debug("in paho thread.  nulling _thread")
-                self._mqtt_client._thread = None
-
-        logger.debug("_mqtt_client.disconnect returned rc={}".format(rc))
-        if rc:
-            # Special case: MQTT_ERR_NO_CONN (rc=4) during disconnect means the socket
+        logger.debug("Paho client.disconnect() returned MQTTErrorCode={}".format(paho_error_code))
+        if paho_error_code:
+            # Special case: MQTT_ERR_NO_CONN during disconnect means the socket
             # is already closed. In Paho 2.x, this can happen even after a successful
-            # disconnect because the on_disconnect callback fires (with rc=0) before
+            # disconnect because the on_disconnect callback fires successfully before
             # disconnect() returns, and Paho's internal cleanup closes the socket.
             # Since we wanted to disconnect and we're disconnected, treat this as success.
-            if rc == mqtt.MQTT_ERR_NO_CONN:
+            if paho_error_code == mqtt.MQTT_ERR_NO_CONN:
                 logger.debug(
-                    "disconnect returned MQTT_ERR_NO_CONN - socket already closed, treating as success"
+                    "Paho client.disconnect() returned MQTT_ERR_NO_CONN; network connection is already closed"
                 )
                 # Still clear inflight operations since we're effectively disconnected
                 if clear_inflight:
-                    self._op_manager.cancel_all_operations()
+                    self._op_manager.complete_all_tracked_operations_as_cancelled()
+                else:
+                    self._op_manager.complete_non_resumable_operations_as_cancelled()
+                if self._connection_lifecycle:
+                    self._connection_lifecycle.finish_disconnect()
             else:
                 # This could result in ConnectionDroppedError or ProtocolClientError
-                err = _create_error_from_rc_code(rc)
+                err = _create_error_from_paho_error_code(paho_error_code)
                 raise err
         else:
             # Clear pending ops if instructed, but only if the disconnect was successful.
             # Technically the disconnect could still fail upon response, however that would then
-            # cause a force disconnect via the on_disconnect handler, thus it is safe to clear
+            # stop the network loop via the on_disconnect handler, thus it is safe to clear
             # ops here and now.
             if clear_inflight:
-                self._op_manager.cancel_all_operations()
+                self._op_manager.complete_all_tracked_operations_as_cancelled()
+            else:
+                self._op_manager.complete_non_resumable_operations_as_cancelled()
+            if self._connection_lifecycle:
+                self._connection_lifecycle.finish_disconnect()
 
+    @coordinate_operation
     def subscribe(self, topic, qos=1, callback=None):
         """
-        This method subscribes the client to one topic from the MQTT broker.
+        Subscribe the Client to one Topic Filter on the MQTT Server.
 
-        :param str topic: a single string specifying the subscription topic to subscribe to
-        :param int qos: the desired quality of service level for the subscription. Defaults to 1.
-        :param callback: A callback to be triggered upon completion (Optional).
+        :param str topic: A single Topic Filter to subscribe to.
+        :param int qos: The maximum QoS requested for the Subscription. Defaults to 1.
+        :param callback: A callback to be invoked upon completion (Optional).
 
         :raises: ValueError if qos is not 0, 1 or 2.
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
-        :raises: NoConnectionError if the client isn't actually connected.
+        :raises: NoConnectionError if the client is not connected.
         """
-        logger.info("subscribing to {} with qos {}".format(topic, qos))
+        logger.info(
+            "sending MQTT SUBSCRIBE for Topic Filter {} with requested maximum QoS {}".format(
+                topic, qos
+            )
+        )
         try:
-            (rc, mid) = self._mqtt_client.subscribe(topic, qos=qos)
+            paho_error_code, mid = self._mqtt_client.subscribe(topic, qos=qos)
         except ValueError:
             raise
         except Exception as e:
             raise exceptions.ProtocolClientError("Unexpected Paho failure during subscribe") from e
-        logger.debug("_mqtt_client.subscribe returned rc={}".format(rc))
-        if rc:
+        logger.debug("Paho client.subscribe() returned MQTTErrorCode={}".format(paho_error_code))
+        if paho_error_code:
             # This could result in ConnectionDroppedError or ProtocolClientError
-            raise _create_error_from_rc_code(rc)
-        self._op_manager.establish_operation(mid, callback)
+            raise _create_error_from_paho_error_code(paho_error_code)
+        self._op_manager.register_operation(
+            mid=mid, callback=callback, operation_type=OperationType.SUBSCRIBE
+        )
 
+    @coordinate_operation
     def unsubscribe(self, topic, callback=None):
         """
-        Unsubscribe the client from one topic on the MQTT broker.
+        Unsubscribe the Client from one Topic Filter on the MQTT Server.
 
-        :param str topic: a single string which is the subscription topic to unsubscribe from.
-        :param callback: A callback to be triggered upon completion (Optional).
+        :param str topic: A single Topic Filter to unsubscribe from.
+        :param callback: A callback to be invoked upon completion (Optional).
 
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
         :raises: NoConnectionError if the client isn't actually connected.
         """
-        logger.info("unsubscribing from {}".format(topic))
+        logger.info("sending MQTT UNSUBSCRIBE for Topic Filter {}".format(topic))
         try:
-            (rc, mid) = self._mqtt_client.unsubscribe(topic)
+            paho_error_code, mid = self._mqtt_client.unsubscribe(topic)
         except ValueError:
             raise
         except Exception as e:
             raise exceptions.ProtocolClientError(
                 "Unexpected Paho failure during unsubscribe"
             ) from e
-        logger.debug("_mqtt_client.unsubscribe returned rc={}".format(rc))
-        if rc:
+        logger.debug("Paho client.unsubscribe() returned MQTTErrorCode={}".format(paho_error_code))
+        if paho_error_code:
             # This could result in ConnectionDroppedError or ProtocolClientError
-            raise _create_error_from_rc_code(rc)
-        self._op_manager.establish_operation(mid, callback)
+            raise _create_error_from_paho_error_code(paho_error_code)
+        self._op_manager.register_operation(
+            mid=mid, callback=callback, operation_type=OperationType.UNSUBSCRIBE
+        )
 
+    @coordinate_operation
     def publish(self, topic, payload, qos=1, callback=None):
         """
-        Send a message via the MQTT broker.
+        Publish an Application Message to the MQTT Server.
 
-        :param str topic: topic: The topic that the message should be published on.
-        :param payload: The actual message to send.
+        :param str topic: The Topic Name on which to publish the Application Message.
+        :param payload: The Application Message payload.
         :type payload: str, bytes, int, float or None
-        :param int qos: the desired quality of service level for the subscription. Defaults to 1.
-        :param callback: A callback to be triggered upon completion (Optional).
+        :param int qos: The QoS level for delivery of the Application Message. Defaults to 1.
+        :param callback: A callback to be invoked upon completion (Optional).
 
         :raises: ValueError if qos is not 0, 1 or 2
         :raises: ValueError if topic is None or has zero string length
-        :raises: ValueError if topic contains a wildcard ("+")
+        :raises: ValueError if topic contains a wildcard character ("+" or "#")
         :raises: ValueError if the length of the payload is greater than 268435455 bytes
         :raises: TypeError if payload is not a valid type
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: ProtocolClientError if there is some other client error.
-        :raises: NoConnectionError if the client isn't actually connected.
+        :raises: NoConnectionError if a QoS 0 message is published while the client is not connected.
         """
-        logger.info("publishing on {}".format(topic))
+        logger.info("sending MQTT PUBLISH on Topic Name {} with QoS {}".format(topic, qos))
         try:
-            (rc, mid) = self._mqtt_client.publish(topic=topic, payload=payload, qos=qos)
+            # NOTE: Paho MQTTMessageInfo allows you to wait upon the completion with
+            # `wait_for_publish()`, but that is only supported for PUBLISH.
+            # We don't take advantage of it in favor of a general solution (i.e. OperationManager)
+            # which can track SUBSCRIBE and UNSUBSCRIBE operations as well.
+            # Furthermore, `wait_for_publish()` is buggy when sending a message while disconnected,
+            # and does not accurately report the success or failure of the publish operation.
+            message_info = self._mqtt_client.publish(topic=topic, payload=payload, qos=qos)
         except ValueError:
             raise
         except TypeError:
             raise
         except Exception as e:
             raise exceptions.ProtocolClientError("Unexpected Paho failure during publish") from e
-        logger.debug("_mqtt_client.publish returned rc={}".format(rc))
-        if rc:
+        paho_error_code = message_info.rc
+        mid = message_info.mid
+        logger.debug(
+            "Paho client.publish() returned MQTTMessageInfo with MQTTErrorCode={}".format(
+                paho_error_code
+            )
+        )
+        publish_retained_for_next_connection = paho_error_code == mqtt.MQTT_ERR_NO_CONN and qos > 0
+        if paho_error_code and not publish_retained_for_next_connection:
             # This could result in ConnectionDroppedError or ProtocolClientError
-            raise _create_error_from_rc_code(rc)
-        self._op_manager.establish_operation(mid, callback)
+            raise _create_error_from_paho_error_code(paho_error_code)
+        if publish_retained_for_next_connection:
+            logger.debug(
+                "Paho retained QoS {} PUBLISH with MID {} for the next connection".format(qos, mid)
+            )
+        self._op_manager.register_operation(
+            mid=mid,
+            callback=callback,
+            operation_type={
+                0: OperationType.PUBLISH_QOS_0,
+                1: OperationType.PUBLISH_QOS_1,
+                2: OperationType.PUBLISH_QOS_2,
+            }[qos],
+        )
+
+
+class OperationType(Enum):
+    PUBLISH_QOS_0 = "PUBLISH_QOS_0"
+    PUBLISH_QOS_1 = "PUBLISH_QOS_1"
+    PUBLISH_QOS_2 = "PUBLISH_QOS_2"
+    SUBSCRIBE = "SUBSCRIBE"
+    UNSUBSCRIBE = "UNSUBSCRIBE"
+
+
+class PendingOperation(object):
+    def __init__(self, operation_type, callback):
+        self.operation_type = operation_type
+        self.callback = callback
 
 
 class OperationManager(object):
-    """Tracks pending operations and their associated callbacks until completion."""
+    """Tracks operation callbacks, unmatched completions, and cancellations by Paho MID."""
 
     def __init__(self):
-        # Maps mid->callback for operations where a request has been sent
-        # but the response has not yet been received
-        self._pending_operation_callbacks = {}
+        # Maps Paho MID to operations awaiting a response.
+        self._pending_operations = {}
 
-        # Maps mid->mid for responses received that are NOT established in the _pending_operation_callbacks dict.
+        # Maps Paho MIDs with no currently registered operation to optional completion errors.
         # Necessary because sometimes an operation will complete with a response before the
         # Paho call returns.
-        # TODO: make this map mid to something more useful (result code?)
         self._unknown_operation_completions = {}
 
+        # Tracks cancelled MIDs whose Paho operations may still complete.
+        self._cancelled_operation_mids = set()
+
         self._lock = threading.Lock()
+        self._cancelled_mid_completion_deferral_count = 0
+        self._deferred_cancellation_callbacks = threading.local()
 
-    def establish_operation(self, mid, callback=None):
-        """Establish a pending operation identified by MID, and store its completion callback.
+    @contextlib.contextmanager
+    def operation_context(self):
+        """Provide a safe context for initiating and tracking one Paho operation.
 
-        If the operation has already been completed, the callback will be triggered.
+        Use around a transport method that makes one Paho PUBLISH, SUBSCRIBE, or UNSUBSCRIBE call
+        and registers its completion tracking before returning. This context handles callbacks
+        that arrive before Paho returns the operation's MID, including ambiguity caused by reuse
+        of a cancelled MID. Callers do not need to coordinate those timing details themselves.
         """
-        trigger_callback = False
+        with self._lock:
+            self._cancelled_mid_completion_deferral_count += 1
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._cancelled_mid_completion_deferral_count -= 1
+                if self._cancelled_mid_completion_deferral_count == 0:
+                    unclaimed_cancelled_mids = (
+                        self._cancelled_operation_mids & self._unknown_operation_completions.keys()
+                    )
+                    for mid in unclaimed_cancelled_mids:
+                        logger.debug("Discarding completion for cancelled Paho MID {}".format(mid))
+                        self._cancelled_operation_mids.remove(mid)
+                        del self._unknown_operation_completions[mid]
+
+    @contextlib.contextmanager
+    def connection_context(self):
+        """Provide a safe context for changing the MQTT connection lifecycle.
+
+        Use around a serialized connect, disconnect, or shutdown call. Operation tracking changes
+        take effect immediately, but callbacks caused by cancellation are held until context exit
+        so they cannot re-enter a partially completed connection lifecycle transition.
+        """
+        pending_operations = []
+        self._deferred_cancellation_callbacks.pending_operations = pending_operations
+        try:
+            yield
+        finally:
+            del self._deferred_cancellation_callbacks.pending_operations
+            self._invoke_cancellation_callbacks(pending_operations)
+
+    def register_operation(self, mid, callback, operation_type):
+        """Register a pending operation under its Paho MID.
+
+        If a completion has already been recorded for the MID, the callback will be invoked.
+        Otherwise, the callback will be invoked when the completion is received.
+        """
+        invoke_callback = False
+        completion_error = None
 
         with self._lock:
-            # Check to see if a response was already received for this MID before this method was
-            # able to be called due to threading shenanigans
+            # If Paho reuses a cancelled MID without completing its previous operation, its next
+            # completion belongs to the newly registered operation.
+            self._cancelled_operation_mids.discard(mid)
+
+            # Paho can invoke the response callback before its API call returns the MID,
+            # thus, the operation might have already completed.
             if mid in self._unknown_operation_completions:
 
-                # Clear the recorded unknown response now that it has been resolved
-                del self._unknown_operation_completions[mid]
+                # Claim the unknown completion now that its operation has been established.
+                completion_error = self._unknown_operation_completions.pop(mid)
 
-                # Since the operation has already completed, indicate callback should trigger
-                trigger_callback = True
+                # Since a completion was already recorded, indicate callback should be invoked.
+                invoke_callback = True
 
             else:
-                # Store the operation as pending, along with callback
-                self._pending_operation_callbacks[mid] = callback
-                logger.debug("Waiting for response on MID: {}".format(mid))
+                self._pending_operations[mid] = PendingOperation(
+                    operation_type=operation_type, callback=callback
+                )
+                logger.debug("Waiting for response on Paho MID {}".format(mid))
 
-        # Now that the lock has been released, if the callback should be triggered,
-        # go ahead and trigger it now.
-        if trigger_callback:
+        # Invoke the callback only after releasing the lock.
+        if invoke_callback:
             logger.debug(
-                "Response for MID: {} was received early - triggering callback".format(mid)
+                "Completion for previously unknown Paho MID {} matched registered operation; invoking callback".format(
+                    mid
+                )
             )
             if callback:
                 try:
-                    callback()
+                    # Not all operation callbacks accept the optional error argument.
+                    if completion_error is not None:
+                        callback(error=completion_error)
+                    else:
+                        callback()
                 except Exception:
-                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug("Unexpected error calling callback for Paho MID {}".format(mid))
                     logger.debug(traceback.format_exc())
             else:
-                # Not entirely unexpected because of QOS=1
-                logger.debug("No callback for MID: {}".format(mid))
+                # Completion callbacks are optional.
+                logger.debug("No callback for Paho MID {}".format(mid))
 
-    def complete_operation(self, mid):
-        """Complete an operation identified by MID and trigger the associated completion callback.
+    def complete_operation(self, mid, error=None):
+        """Complete an operation by Paho MID and invoke its callback (if any was set).
 
-        If the operation MID is unknown, the completion status will be stored until
-        the operation is established.
+        If the MID is unknown, retain its completion in case its operation is registered later.
         """
         callback = None
-        trigger_callback = False
+        invoke_callback = False
 
         with self._lock:
-            # If the mid is associated with an established pending operation, trigger the associated callback
-            if mid in self._pending_operation_callbacks:
+            if mid in self._cancelled_operation_mids:
+                if self._cancelled_mid_completion_deferral_count:
+                    logger.debug(
+                        "Completion for cancelled Paho MID {} arrived during operation registration; retaining".format(
+                            mid
+                        )
+                    )
+                    self._unknown_operation_completions[mid] = error
+                else:
+                    logger.debug("Discarding completion for cancelled Paho MID {}".format(mid))
+                    self._cancelled_operation_mids.remove(mid)
 
-                # Retrieve the callback, and clear the pending operation now that it has been completed
-                callback = self._pending_operation_callbacks[mid]
-                del self._pending_operation_callbacks[mid]
+            # If the Paho MID has a pending operation, invoke its callback.
+            elif mid in self._pending_operations:
 
-                # Since the operation is complete, indicate the callback should be triggered
-                trigger_callback = True
+                # Retrieve the callback, and clear the pending operation now that it has completed.
+                callback = self._pending_operations.pop(mid).callback
 
+                # Since the operation is complete, indicate the callback should be invoked.
+                invoke_callback = True
+            # Otherwise, store the mid as an unknown response
             else:
-                # Otherwise, store the mid as an unknown response
-                logger.debug("Response received for unknown MID: {}".format(mid))
-                self._unknown_operation_completions[
-                    mid
-                ] = mid  # TODO: set something more useful here
+                logger.debug("Completion received for unknown Paho MID {}; retaining".format(mid))
+                self._unknown_operation_completions[mid] = error
 
-        # Now that the lock has been released, if the callback should be triggered,
-        # go ahead and trigger it now.
-        if trigger_callback:
+        # Invoke the callback only after releasing the lock.
+        if invoke_callback:
             logger.debug(
-                "Response received for recognized MID: {} - triggering callback".format(mid)
+                "Response received for registered Paho MID {}; invoking callback".format(mid)
             )
             if callback:
                 try:
-                    callback()
+                    # Not all operation callbacks accept the optional error argument.
+                    if error is not None:
+                        callback(error=error)
+                    else:
+                        callback()
                 except Exception:
-                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug("Unexpected error calling callback for Paho MID {}".format(mid))
                     logger.debug(traceback.format_exc())
             else:
-                # fully expected.  QOS=1 means we might get 2 PUBACKs
-                logger.debug("No callback set for MID: {}".format(mid))
+                # Completion callbacks are optional.
+                logger.debug("No callback set for Paho MID {}".format(mid))
 
-    def cancel_all_operations(self):
-        """Complete all pending operations with cancellation, removing MID tracking"""
-        logger.debug("Cancelling all pending operations")
+    def complete_non_resumable_operations_as_cancelled(self):
+        """Complete operations Paho cannot resume as cancelled.
+
+        Paho retains MQTT 3.1.1 QoS 1 and QoS 2 PUBLISH operations for a later connection.
+        SUBSCRIBE, UNSUBSCRIBE, and QoS 0 PUBLISH operations are not retained by Paho, so remove
+        their tracking, tombstone their MIDs, and invoke their callbacks with ``cancelled=True``.
+        """
+        logger.debug("Completing non-resumable tracked operations as cancelled")
         with self._lock:
-            # Clear pending operations
-            pending_ops = list(self._pending_operation_callbacks.items())
-            for pending_op in pending_ops:
-                mid = pending_op[0]
-                del self._pending_operation_callbacks[mid]
+            pending_ops = [
+                (mid, pending_operation)
+                for mid, pending_operation in self._pending_operations.items()
+                if pending_operation.operation_type
+                not in (OperationType.PUBLISH_QOS_1, OperationType.PUBLISH_QOS_2)
+            ]
+            for mid, _ in pending_ops:
+                del self._pending_operations[mid]
+            self._cancelled_operation_mids.update(mid for mid, _ in pending_ops)
 
-            # Clear unknown responses
-            unknown_mids = [mid for mid in self._unknown_operation_completions]
-            for mid in unknown_mids:
-                del self._unknown_operation_completions[mid]
+        self._defer_or_invoke_cancellation_callbacks(pending_ops)
 
-        # Trigger cancel in pending operation callbacks
-        for pending_op in pending_ops:
-            mid = pending_op[0]
-            callback = pending_op[1]
+    def complete_all_tracked_operations_as_cancelled(self):
+        """Complete all tracked SDK operations as cancelled and clear unknown completions.
+
+        This manager owns only local completion tracking: pending callbacks are invoked with
+        ``cancelled=True``. Their MIDs remain as tombstones so later Paho completions can be
+        discarded. Paho owns MQTT protocol state for accepted operations, including QoS 1 and
+        QoS 2 packets retained for redelivery, so those operations may still complete or take
+        effect.
+        """
+        logger.debug("Completing all tracked operations as cancelled")
+        with self._lock:
+            # Preserve callbacks for invocation after releasing the lock.
+            pending_ops = list(self._pending_operations.items())
+            self._cancelled_operation_mids.update(self._pending_operations)
+            self._pending_operations.clear()
+            self._unknown_operation_completions.clear()
+
+        self._defer_or_invoke_cancellation_callbacks(pending_ops)
+
+    def _defer_or_invoke_cancellation_callbacks(self, pending_operations):
+        deferred_operations = getattr(
+            self._deferred_cancellation_callbacks, "pending_operations", None
+        )
+        if deferred_operations is not None:
+            deferred_operations.extend(pending_operations)
+        else:
+            self._invoke_cancellation_callbacks(pending_operations)
+
+    def _invoke_cancellation_callbacks(self, pending_operations):
+        """Invoke callbacks for operations whose tracking was cancelled."""
+        for mid, pending_operation in pending_operations:
+            callback = pending_operation.callback
             if callback:
-                logger.debug("Cancelling {} - Triggering callback".format(mid))
+                logger.debug(
+                    "Completing tracked operation for Paho MID {} as cancelled; invoking callback".format(
+                        mid
+                    )
+                )
                 try:
                     callback(cancelled=True)
                 except Exception:
-                    logger.debug("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.debug("Unexpected error calling callback for Paho MID {}".format(mid))
                     logger.debug(traceback.format_exc())
             else:
-                logger.debug("Cancelling {} - No callback set for MID".format(mid))
+                logger.debug(
+                    "Completing tracked operation for Paho MID {} as cancelled; no callback set".format(
+                        mid
+                    )
+                )
+
+
+# TODO: Clarify hard-disconnect semantics because cancelling an SDK publish operation does not
+# prevent Paho from delivering a retained QoS 1 or QoS 2 message after a later connection.
+# Re-evaluate the inclusion of "hard" disconnect.
+
+# NOTE: Connection lifecycle calls are deliberately serialized here and by ConnectionStateStage.
+# CONNECTION_TIMEOUT bounds the wait for CONNACK, allowing queued lifecycle operations such as
+# shutdown to proceed after a failed connection attempt. It does not impose an absolute shutdown
+# deadline: Paho socket setup and loop_stop() are blocking and have no safe cancellation API.
+# Running shutdown concurrently with another lifecycle call would race Paho's lifecycle state.
