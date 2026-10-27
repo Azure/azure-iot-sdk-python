@@ -32,7 +32,7 @@ jobs:
           python-version: 3.x
       - name: Set up uv
         # v10.0.1
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
         with:
           enable-cache: true
           cache-suffix: lint-upgrade
@@ -66,7 +66,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Set up uv
         # v10.0.1
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
         with:
           enable-cache: true
           cache-suffix: test-${{ matrix.python-version }}-upgrade
@@ -85,7 +85,7 @@ jobs:
       - name: Upload test results and coverage
         if: ${{ always() }}
         # v7.0.1
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: test-results-python-${{ matrix.python-version }}
           path: |
