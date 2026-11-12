@@ -35,10 +35,7 @@ stages:
 
           time az iot hub create -g $AZURE_RESOURCE_GROUP -n $AZURE_IOTHUB_NAME --dla false --mintls 1.2 --partition-count 4 --sku S1
 
-          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --query "connectionString" --output tsv)
-          # Newly created hubs report the device endpoint (<hub>.device.azure-devices.net), which does not
-          # serve registry (service) calls (HTTP 400). Use the classic host for service operations.
-          export IOTHUB_CONNECTION_STRING=${IOTHUB_CONNECTION_STRING/.device.azure-devices.net/.azure-devices.net}
+          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --hostname-type classic --query "connectionString" --output tsv)
           export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
 
           # Limit Azure API concurrency while creating independent groups faster.

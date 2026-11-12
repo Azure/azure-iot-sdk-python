@@ -227,14 +227,10 @@ stages:
               exit 1
           fi
 
-          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --query "connectionString" --output tsv)
-          # Newly created hubs report the device endpoint (<hub>.device.azure-devices.net), which does not
-          # serve registry (service) calls (HTTP 400). Use the classic host for service operations and for
-          # linking the hub to DPS, so the assigned hub reported by DPS matches the test's linked hub.
-          export IOTHUB_CONNECTION_STRING=${IOTHUB_CONNECTION_STRING/.device.azure-devices.net/.azure-devices.net}
+          export IOTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --pn iothubowner --hostname-type classic --query "connectionString" --output tsv)
           export EVENTHUB_CONNECTION_STRING=$(az iot hub connection-string show -g $AZURE_RESOURCE_GROUP --hub-name $AZURE_IOTHUB_NAME --eh --query "connectionString" --output tsv)
 
-          time az iot dps linked-hub create -g $AZURE_RESOURCE_GROUP --dps-name $AZURE_DPS_NAME --connection-string "$IOTHUB_CONNECTION_STRING"
+          time az iot dps linked-hub create -g $AZURE_RESOURCE_GROUP --dps-name $AZURE_DPS_NAME --connection-string "$IOTHUB_CONNECTION_STRING" --hostname-type classic
 
           export DPS_CONNECTION_STRING=$(az iot dps connection-string show -g $AZURE_RESOURCE_GROUP --dps-name $AZURE_DPS_NAME --policy-name provisioningserviceowner --query "connectionString" --output tsv)
           export DPS_ID_SCOPE=$(az iot dps show --name $AZURE_DPS_NAME -g $AZURE_RESOURCE_GROUP --query properties.idScope --output tsv)
