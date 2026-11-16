@@ -191,8 +191,10 @@ stages:
       - script: |
           cd $(Build.SourcesDirectory)/tests/e2e/iothub_e2e
           echo "Using consumer group: ${IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP}"
-          # "not x" means "include all tests that don't have the tag named 'x'", which is everything.
-          uv run --no-sync pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" -m "not x"
+          # The nightly runs every test, including the stress tests that pytest.ini deselects by default
+          # (addopts -m "not stress"); a command-line -m replaces that default. Use only registered
+          # markers: pytest 9.2+ rejects unknown marker names in -m with --strict-markers.
+          uv run --no-sync pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" -m "stress or not stress"
         displayName: 'E2E Device Client MQTT Connection String'
         env:
           IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB_CONNECTION_STRING)
