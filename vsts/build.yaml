@@ -61,6 +61,32 @@ jobs:
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
 
+# CredScan is required of every team by the SDL static analysis requirement.
+# Post Analysis breaks the build on unsuppressed findings (the requirement
+# accepts a build break in place of TSA bug filing). Test fixtures with fake
+# secrets are listed in credscan_suppression.json.
+- job: 'CredScan'
+  displayName: 'CredScan'
+  pool:
+    vmImage: 'windows-2022'
+
+  steps:
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-credscan.CredScan@3
+    displayName: 'Run CredScan'
+    inputs:
+      toolMajorVersion: 'V2'
+      suppressionsFile: 'credscan_suppression.json'
+      debugMode: false
+
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
+    displayName: 'Publish Security Analysis Logs'
+
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
+    displayName: 'Post Analysis'
+    inputs:
+      GdnBreakAllTools: false
+      GdnBreakGdnToolCredScan: true
+
 - job: 'Publish'
   pool:
     vmImage: 'ubuntu-24.04'
