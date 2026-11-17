@@ -19,6 +19,10 @@ variables:
   # job below opts back in.
   # See https://aka.ms/codeql3000 and https://aka.ms/sdlfaqcodeql.
   Codeql.Enabled: false
+  # Resolve packages from the Central Feed Services mirror of PyPI (the approved
+  # source, with quarantine of newly published versions) instead of pypi.org.
+  PIP_INDEX_URL: https://packagefeedproxy.microsoft.io/pypi/simple/
+  UV_DEFAULT_INDEX: https://packagefeedproxy.microsoft.io/pypi/simple/
 
 #Multi-configuration and multi-agent job options are not exported to YAML. Configure these options using documentation guidance: https://docs.microsoft.com/vsts/pipelines/process/phases
 jobs:
