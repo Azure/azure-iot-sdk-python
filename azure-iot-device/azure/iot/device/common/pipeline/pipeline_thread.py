@@ -16,11 +16,13 @@ logger = logging.getLogger(__name__)
 This module contains decorators that are used to marshal code into pipeline and
 callback threads and to assert that code is being called in the correct thread.
 
+The `invoke_on_pipeline_thread`, `invoke_on_pipeline_thread_nowait`, and
+`invoke_on_pipeline_thread_deferred` decorators cause decorated functions to run on
+the pipeline thread.
+
 The intention of these decorators is to ensure the following:
 
-1. All pipeline functions execute in a single thread, known as the "pipeline
-  thread".  The `invoke_on_pipeline_thread` and `invoke_on_pipeline_thread_nowait`
-  decorators cause the decorated function to run on the pipeline thread.
+1. All pipeline functions execute in a single thread, known as the "pipeline thread".
 
 2. If the pipeline thread is busy running a different function, the invoke
   decorators will wait until that function is complete before invoking another
@@ -84,11 +86,13 @@ def _get_named_executor(thread_name):
     return _executors[thread_name]
 
 
-def _invoke_on_executor_thread(func, thread_name, block=True):
+def _invoke_on_executor_thread(func, thread_name, block=True, always_queue=False):
     """
     Return wrapper to run the function on a given thread.  If block==False,
     the call returns immediately without waiting for the decorated function to complete.
     If block==True, the call waits for the decorated function to complete before returning.
+    If always_queue==True, the function is submitted even when called from the target thread.
+    The block argument still determines whether the caller waits for the submitted function.
     """
 
     # Mocks and other callable objects don't have a __name__ attribute.
@@ -100,7 +104,7 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if threading.current_thread().name is not thread_name:
+        if always_queue or threading.current_thread().name is not thread_name:
             logger.debug("Starting {} in {} thread".format(function_name, thread_name))
 
             def thread_proc():
@@ -153,6 +157,16 @@ def invoke_on_pipeline_thread_nowait(func):
     return _invoke_on_executor_thread(func=func, thread_name="pipeline", block=False)
 
 
+def invoke_on_pipeline_thread_deferred(func):
+    """
+    Queue the decorated function for later execution on the pipeline thread, even if it is already
+    on the pipeline thread. Do not wait for it to complete.
+    """
+    return _invoke_on_executor_thread(
+        func=func, thread_name="pipeline", block=False, always_queue=True
+    )
+
+
 def invoke_on_callback_thread_nowait(func):
     """
     Run the decorated function on the callback thread, but don't wait for it to complete
@@ -178,9 +192,7 @@ def _assert_executor_thread(func, thread_name):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
 
-        assert (
-            threading.current_thread().name == thread_name
-        ), """
+        assert threading.current_thread().name == thread_name, """
             Function {function_name} is not running inside {thread_name} thread.
             It should be. You should use invoke_on_{thread_name}_thread(_nowait) to enter the
             {thread_name} thread before calling this function.  If you're hitting this from

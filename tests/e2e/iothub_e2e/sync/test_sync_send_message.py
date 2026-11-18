@@ -193,9 +193,14 @@ class TestSendMessageRetryDisabled(object):
 
     @pytest.mark.it("Fails if connection disconnects before sending")
     @pytest.mark.uses_iptables
-    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     def test_sync_fails_if_disconnect_before_sending_with_retry_disabled(
-        self, client, random_message, dropper, run_in_daemon_thread
+        self,
+        client,
+        random_message,
+        dropper,
+        run_in_daemon_thread,
+        service_helper,
+        leak_tracker,
     ):
 
         assert client.connected
@@ -208,11 +213,18 @@ class TestSendMessageRetryDisabled(object):
         with pytest.raises(OperationCancelled):
             send_task.result(timeout=const.E2E_TIMEOUT)
 
+        # -----------------------------------------------------------------------------------------
+        # The SDK operation is cancelled, but Paho still owns the accepted QoS publish. Reconnect
+        # and let the MQTT exchange finish so the normal leak check sees no active session state.
+        dropper.restore_all()
+        client.connect()
+        event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert json.dumps(event.message_body) == random_message.data
+
     @pytest.mark.it("Fails if connection drops before sending")
     @pytest.mark.uses_iptables
-    # TODO: Re-enable leak tracking after the MQTT cancellation refactor.
     def test_sync_fails_if_drop_before_sending_with_retry_disabled(
-        self, client, random_message, dropper
+        self, client, random_message, dropper, service_helper, leak_tracker
     ):
 
         assert client.connected
@@ -222,3 +234,11 @@ class TestSendMessageRetryDisabled(object):
             client.send_message(random_message)
 
         assert not client.connected
+
+        # -----------------------------------------------------------------------------------------
+        # The SDK operation is cancelled, but Paho still owns the accepted QoS publish. Reconnect
+        # and let the MQTT exchange finish so the normal leak check sees no active session state.
+        dropper.restore_all()
+        client.connect()
+        event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert json.dumps(event.message_body) == random_message.data
