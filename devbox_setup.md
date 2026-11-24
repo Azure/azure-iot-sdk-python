@@ -12,10 +12,12 @@ pip install azure-iot-device
 ## IoT Device SDK developer
 Development uses [uv](https://docs.astral.sh/uv/) to install Python versions, create the project virtual environment, and reproduce dependencies from `uv.lock`.
 
+The contributor environment requires Python 3.11 or later for the development toolchain. The shipped SDK and the separate `test` and `e2e` dependency groups continue to support Python 3.10.
+
 Install uv, then run these commands from the repository root:
 
 ```console
-uv sync
+uv sync --python 3.11
 uv run pre-commit install
 ```
 
@@ -32,7 +34,13 @@ uv run black path/to/file.py
 uv build
 ```
 
-To test with another supported Python version, install it with `uv python install 3.10` and recreate the environment with `uv sync --python 3.10`. CI runs the complete Python 3.10 through 3.14 matrix.
+To test on Python 3.10 without replacing the contributor environment or installing the Python 3.11+ development toolchain, run:
+
+```console
+uv run --isolated --python 3.10 --no-dev --group test --locked pytest tests
+```
+
+Add `--group e2e` when an E2E job needs the service-client dependencies. CI continues to run the complete Python 3.10 through 3.14 matrix.
 
 ## Environment Variables (Optional)
 
