@@ -26,6 +26,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
+    "certifi>=2026.10.18",
     "deprecation>=2.1.0,<3.0.0",
     "janus>=2.0.0,<3.0.0",
     "paho-mqtt>=2.0.0,<3.0.0",
@@ -33,6 +34,7 @@ dependencies = [
     "requests>=2.32.3,<3.0.0",
     "requests-unixsocket>=0.4.1",
     "typing-extensions>=4.0.0,<5.0.0",
+    "urllib3>=2.8.0,<3.0.0",
 ]
 
 [project.urls]
@@ -48,7 +50,7 @@ test = [
     "pytest-mock",
     "pytest-testdox>=1.1.1",
     "pytest-timeout",
-    "urllib3<3.0.0", # Needed for mocking the requests stack
+    "urllib3>=2.8.0,<3.0.0", # Needed for mocking the requests stack
 ]
 e2e = [
     "azure-eventhub", # Only needed for iothub e2e
@@ -60,7 +62,7 @@ e2e = [
     "six", # Needed due to a missing dependency in azure-iot-hub
 ]
 lint = [
-    "black>=25.1.0",
+    "black>=26.10.1",
     "ruff>=0.12.0",
 ]
 dev = [
@@ -79,6 +81,17 @@ namespaces = true
 
 [tool.setuptools.package-data]
 "azure.iot.device" = ["py.typed"]
+
+[tool.uv]
+# Security floors for transitive development and E2E dependencies.
+constraint-dependencies = [
+    "filelock>=4.2.1",
+    "oauthlib>=4.0.1",
+    "virtualenv>=21.14.9",
+]
+
+[tool.uv.dependency-groups]
+dev = { requires-python = ">=3.11" }
 
 [tool.uv.sources]
 dev-utils = { path = "dev_utils", editable = true }
