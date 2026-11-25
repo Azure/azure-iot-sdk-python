@@ -87,7 +87,7 @@ namespaces = true
 constraint-dependencies = [
     "filelock>=4.2.1",
     "oauthlib>=4.0.1",
-    "virtualenv>=21.14.12",
+    "virtualenv>=21.14.13",
 ]
 
 [tool.uv.dependency-groups]
